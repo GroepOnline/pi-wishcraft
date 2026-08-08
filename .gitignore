@@ -1,4 +1,3 @@
-```markdown
 # Compiled and build artifacts
 *.pyc
 __pycache__/
@@ -100,4 +99,3 @@ hs_err_pid*
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```
