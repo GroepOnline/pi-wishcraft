@@ -1,4 +1,1 @@
-package-lock.json
-progress.md
-node_modules/
-.pi-subagents/
+Nothing should be ignored based on the provided file changes, as they only include TypeScript source files (.ts) which are not build artifacts, dependencies, or temporary files.
