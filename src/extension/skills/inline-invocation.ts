@@ -14,12 +14,13 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import { stripFrontmatter } from "../../core/frontmatter";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { stripFrontmatter } from "../../core/frontmatter.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { RuntimeState } from "./types.ts";
+import type { RuntimeState } from "../types.ts";
 
-const SKILLS_DIR = join(process.cwd(), "src", "extension", "skills");
+const SKILLS_DIR = dirname(fileURLToPath(import.meta.url));
 
 let availableSkills = new Map<string, string>();
 
