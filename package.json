@@ -8,6 +8,8 @@
     "*.md",
     "*.json",
     "src/**/*.ts",
+    "src/**/*.md",
+    "src/**/*.txt",
     "bash-mode/**/*.ts",
     "queue/**/*.ts"
   ],
