@@ -57,7 +57,7 @@ export function readSettingsFile(
     const parsed = JSON.parse(readFileSync(settingsPath, "utf-8"));
     if (!isRecord(parsed)) {
       console.debug(
-        `[powerline-footer] Ignoring non-object settings at ${settingsPath}`,
+        `[wishcraft] Ignoring non-object settings at ${settingsPath}`,
       );
       return {};
     }
@@ -67,7 +67,7 @@ export function readSettingsFile(
     // Settings are user-edited input. Log and keep the extension running with defaults
     // instead of crashing the UI during startup.
     console.debug(
-      `[powerline-footer] Failed to read settings from ${settingsPath}:`,
+      `[wishcraft] Failed to read settings from ${settingsPath}:`,
       error,
     );
     return {};
@@ -85,7 +85,7 @@ export function readWritableSettingsFile(
     const parsed = JSON.parse(readFileSync(settingsPath, "utf-8"));
     if (!isRecord(parsed)) {
       console.debug(
-        `[powerline-footer] Refusing to write settings to non-object file at ${settingsPath}`,
+        `[wishcraft] Refusing to write settings to non-object file at ${settingsPath}`,
       );
       return null;
     }
@@ -95,7 +95,7 @@ export function readWritableSettingsFile(
     // Do not overwrite malformed user settings with partial data. Surface the failure
     // through the command handler so the user can fix the file intentionally.
     console.debug(
-      `[powerline-footer] Failed to parse settings at ${settingsPath}:`,
+      `[wishcraft] Failed to parse settings at ${settingsPath}:`,
       error,
     );
     return null;
@@ -112,7 +112,7 @@ export function readCompactionPolicyEnabled(
     return parsed.enabled;
   } catch (error) {
     console.debug(
-      `[powerline-footer] Failed to read compaction policy from ${configPath}:`,
+      `[wishcraft] Failed to read compaction policy from ${configPath}:`,
       error,
     );
     return false;
@@ -169,7 +169,7 @@ export function writePowerlineSetting(
     return true;
   } catch (error) {
     console.debug(
-      `[powerline-footer] Failed to persist powerline setting to ${settingsPath}:`,
+      `[wishcraft] Failed to persist powerline setting to ${settingsPath}:`,
       error,
     );
     return false;

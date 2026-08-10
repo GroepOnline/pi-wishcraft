@@ -13,7 +13,7 @@ This extension translates that philosophy to the [pi](https://github.com/badlogi
 4. **Stash & Pivot (Alt+S)**: Park a prompt draft, ask a quick question, pop it back automatically.
 5. **Sticky Shell (`!cmd`)**: A persistent bash runtime under your fingertips.
 
-Inspired by [Powerlevel10k](https://github.com/romkatv/powerlevel10k) and [oh-my-pi](https://github.com/can1357/oh-my-pi).
+Inspired by [Powerlevel10k](https://github.com/romkatv/powerlevel10k) and [oh-my-pi](https://github.com/can1357/oh-my-pi). Forked from [`nicobailon/pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer), maintained by [GroepOnline](https://github.com/GroepOnline).
 
 <img width="1261" height="817" alt="Example powerline UI" src="https://github.com/user-attachments/assets/4cc43320-3fb8-4503-b857-69dffa7028f2" />
 

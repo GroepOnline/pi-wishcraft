@@ -51,7 +51,7 @@ export function readPersistedStashHistory(): string[] {
     const parsed = JSON.parse(readFileSync(stashHistoryPath, "utf-8"));
     if (!isRecord(parsed)) {
       console.debug(
-        `[powerline-footer] Ignoring invalid stash history at ${stashHistoryPath}`,
+        `[wishcraft] Ignoring invalid stash history at ${stashHistoryPath}`,
       );
       return [];
     }
@@ -59,7 +59,7 @@ export function readPersistedStashHistory(): string[] {
     return normalizeStashHistoryEntries(parsed.history);
   } catch (error) {
     console.debug(
-      `[powerline-footer] Failed to read stash history from ${stashHistoryPath}:`,
+      `[wishcraft] Failed to read stash history from ${stashHistoryPath}:`,
       error,
     );
     return [];
@@ -78,7 +78,7 @@ export function persistStashHistory(history: string[]): void {
     writeFileSync(stashHistoryPath, JSON.stringify(payload, null, 2) + "\n");
   } catch (error) {
     console.debug(
-      `[powerline-footer] Failed to persist stash history to ${stashHistoryPath}:`,
+      `[wishcraft] Failed to persist stash history to ${stashHistoryPath}:`,
       error,
     );
   }

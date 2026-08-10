@@ -284,13 +284,13 @@ export function resolveShortcutConfig(
     const replacement = findShortcutReplacement(key, used);
     if (!replacement) {
       console.debug(
-        `[powerline-footer] Shortcut conflict for ${key}: "${configured}" is already in use`,
+        `[wishcraft] Shortcut conflict for ${key}: "${configured}" is already in use`,
       );
       continue;
     }
 
     console.debug(
-      `[powerline-footer] Shortcut conflict for ${key}: "${configured}" replaced with "${replacement}"`,
+      `[wishcraft] Shortcut conflict for ${key}: "${configured}" replaced with "${replacement}"`,
     );
 
     resolved[key] = replacement;
@@ -335,7 +335,7 @@ export function parseBashModeSettings(
 
   if (configuredToggleShortcut && toggleShortcut !== configuredToggleShortcut) {
     console.debug(
-      `[powerline-footer] Bash mode shortcut conflict: "${configuredToggleShortcut}" replaced with "${toggleShortcut ?? "disabled"}"`,
+      `[wishcraft] Bash mode shortcut conflict: "${configuredToggleShortcut}" replaced with "${toggleShortcut ?? "disabled"}"`,
     );
   }
   const transcriptMaxLines =

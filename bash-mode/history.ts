@@ -109,7 +109,7 @@ export function readProjectHistory(cwd: string): PersistedHistoryEntry[] {
     // Project history is a best-effort cache. If it is unreadable or malformed,
     // bash mode should keep working instead of failing command entry entirely.
     console.debug(
-      `[powerline-footer] Failed to read bash project history from ${filePath}:`,
+      `[wishcraft] Failed to read bash project history from ${filePath}:`,
       error,
     );
     return [];
@@ -151,7 +151,7 @@ export function appendProjectHistory(
   } catch (error) {
     // History persistence should never block a successful shell command from completing.
     console.debug(
-      `[powerline-footer] Failed to persist bash project history to ${filePath}:`,
+      `[wishcraft] Failed to persist bash project history to ${filePath}:`,
       error,
     );
   }
@@ -234,7 +234,7 @@ export function readGlobalShellHistory(shellPath: string): string[] {
       globalHistoryCache.set(cacheKey, { ...stat, entries: [] });
     }
     console.debug(
-      `[powerline-footer] Failed to read global shell history for ${shellName}:`,
+      `[wishcraft] Failed to read global shell history for ${shellName}:`,
       error,
     );
     return [];

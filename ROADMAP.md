@@ -1,13 +1,18 @@
 # Roadmap — what to improve & how to integrate better
 
-Status after 0.17.2. Package renamed to `@groeponline/pi-wishcraft` from v0.18.0. Concrete, prioritized. Not commitments — pick what Joep wants.
+Status after 0.17.3. Package is `@groeponline/pi-wishcraft` (renamed from `@groeponline/pi-powerline-footer` in 0.17.x; `src/` restructured by domain; `madge --circular` runs in CI). Concrete, prioritized. Not commitments — pick what Joep wants.
 
 ## Next release (0.18.0 — pi-wishcraft)
 
-- Package renamed from `@groeponline/pi-powerline-footer` to `@groeponline/pi-wishcraft`
-- src/ restructure committed (all root-level monofiles moved to `src/<domain>/`)
-- Flaky `process.env.USER` test fixed
-- `npx madge --circular src index.ts bash-mode queue` added as CI step
+- `npm deprecate @groeponline/pi-powerline-footer "Renamed to @groeponline/pi-wishcraft"` — the old package name still resolves on npm at 0.17.2 and is not deprecated yet. Needs the `@groeponline` scope owner's npm login (no publish auth on the laptop).
+- Generalize `segmentLabels` to every segment (today only tps/open_ports honor it; apply in `renderSegment`).
+- Per-segment `format`/`template` override (`segmentOptions.tps.template: "{value} tok/s"`).
+- Visibility toggle per segment from the `alt+p` menu (writes `powerline.disabledSegments` live).
+- `segmentOptions.tps.windowMs` — expose the 1s window length for fast models (Groq).
+
+## Already shipped (0.17.x)
+
+- Package renamed to `@groeponline/pi-wishcraft`; `src/` restructure committed; `madge --circular` is a CI step in `test.yml`; inline skill/command invocation (`/` skills, `$` commands) landed in 0.17.3.
 
 ## Correctness (done, keep honest)
 
@@ -41,9 +46,7 @@ Status after 0.17.2. Package renamed to `@groeponline/pi-wishcraft` from v0.18.0
 
 1. **Dependabot vulns** — GitHub flagged 7 (3 high, 4 moderate) on default branch. Triage; most are devDep transitive. Add `npm audit` to CI as non-blocking info, or pin.
 2. **Test the menu.** The overlay/menu functions aren't unit-tested (hard to test `ctx.ui.custom` headless). Add a thin `SelectList`-based pure function for "build segment items" and test that, leaving the overlay shell untested.
-3. **Typecheck in pre-push.** Add a `prepublishOnly` that runs `tsc` so a bad type never ships even if CI is skipped.
-4. `npm deprecate @groeponline/pi-powerline-footer "Renamed to @groeponline/pi-wishcraft"` after first successful publish under new name
-5. `prepublishOnly` script with `tsc` to prevent bad types from shipping
+3. **Typecheck in pre-push.** `prepublishOnly` already runs `tsc` so a bad type never ships even if CI is skipped.
 
 ## Not doing (YAGNI)
 

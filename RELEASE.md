@@ -1,12 +1,15 @@
 # Releasing `@groeponline/pi-wishcraft`
 
-This is the GroepOnline fork of `pi-powerline-footer`. It ships to npm as the
-scoped package `@groeponline/pi-wishcraft` and installs locally from the
-repo path. This doc records the end-to-end release flow and how to verify it.
+`@groeponline/pi-wishcraft` is GroepOnline's powerline status bar and
+interaction layer for the pi coding agent (forked from
+`nicobailon/pi-powerline-footer`, now independently maintained). It ships to
+npm as the scoped package `@groeponline/pi-wishcraft` and installs locally
+from the repo path. This doc records the end-to-end release flow and how to
+verify it.
 
 ## Identity
 
-- **GitHub repo:** `GroepOnline/pi-wishcraft` (fork of `nicobailon/pi-powerline-footer`)
+- **GitHub repo:** `GroepOnline/pi-wishcraft` (forked from `nicobailon/pi-powerline-footer`, independently maintained)
 - **npm package:** `@groeponline/pi-wishcraft` (scoped, `--access public`)
 - **Default branch:** `main`
 - **Local checkout:** `/home/joep/pi-wishcraft`
@@ -35,7 +38,7 @@ npm run release minor    # = node scripts/release.mjs minor
 5. `git tag -a v<version> -m "Release <version>"`
 
 It does **not** push — it prints the push command. Push with the GroepOnline SSH
-identity (the laptop default `ssh`/OnlineChef key is denied for this org):
+identity (the laptop default SSH key is denied for this org):
 
 ```bash
 GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh' \
@@ -97,8 +100,8 @@ A release is "done" when all four hold: local green, tag on origin, CI
   publish succeeded. The CI log line `+ @groeponline/pi-wishcraft@<v>`
   and HTTP `200` from `https://registry.npmjs.org/@groeponline%2fpi-wishcraft`
   are the real success signals; retry `npm view` if you see an early 404.
-- **Wrong SSH key = `Permission denied (publickey)` / `denied to OnlineChef`.**
-  Always push with `GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh'`.
+- **Wrong SSH key = `Permission denied (publickey)`.**
+  Always push with `GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh'` (chefadmin-netizen / `~/.ssh/sheesh`).
 - **TPS used to show absurd values** (e.g. `tps:12775`) because `sessionStartTime`
   resets on extension reload while output is cumulative. Fixed in 0.15.0 with a
   rolling token-rate. If TPS ever looks wrong again, check that `tpsSegment` still

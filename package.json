@@ -21,11 +21,15 @@
     "status-bar",
     "extension"
   ],
-  "author": "Nico Bailon",
+  "author": "GroepOnline",
   "license": "MIT",
+  "homepage": "https://github.com/GroepOnline/pi-wishcraft#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GroepOnline/pi-wishcraft.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GroepOnline/pi-wishcraft/issues"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

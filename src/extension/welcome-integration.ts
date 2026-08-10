@@ -147,7 +147,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
         },
       )
       .catch((error: unknown) => {
-        console.debug("[powerline-footer] Welcome overlay failed:", error);
+        console.debug("[wishcraft] Welcome overlay failed:", error);
       });
   }, 100);
 }

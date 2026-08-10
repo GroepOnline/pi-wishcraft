@@ -139,7 +139,7 @@ export function warnInvalidSegmentSettings(ctx: any): void {
       .map((id) => JSON.stringify(id))
       .join(", ");
     const message = `Ignoring unknown powerline disabled segment${config.invalidDisabledSegments.length === 1 ? "" : "s"}: ${invalid}`;
-    console.warn(`[powerline-footer] ${message}`);
+    console.warn(`[wishcraft] ${message}`);
     if (ctx.hasUI) ctx.ui.notify(message, "warning");
   }
 
@@ -148,13 +148,13 @@ export function warnInvalidSegmentSettings(ctx: any): void {
       .map((id) => JSON.stringify(id))
       .join(", ");
     const message = `Ignoring unknown powerline layout segment${config.invalidLayoutSegments.length === 1 ? "" : "s"}: ${invalid}`;
-    console.warn(`[powerline-footer] ${message}`);
+    console.warn(`[wishcraft] ${message}`);
     if (ctx.hasUI) ctx.ui.notify(message, "warning");
   }
 
   if (config.invalidPlacement !== null) {
     const message = `Ignoring invalid powerline placement: ${JSON.stringify(config.invalidPlacement)}`;
-    console.warn(`[powerline-footer] ${message}`);
+    console.warn(`[wishcraft] ${message}`);
     if (ctx.hasUI) ctx.ui.notify(message, "warning");
   }
 }
