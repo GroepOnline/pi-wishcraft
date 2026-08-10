@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [0.17.3] - 2026-08-10
+
+### Added
+- **Inline skill/command invocation** — Trigger skills with `/` and commands with `$` directly from the powerline/wishcraft input, with trigger expansion. Skill discovery scans agent-global and project-local skill/prompt dirs (from `feat/inline-skill-invocation`, #5).
 
 ### Fixed
 - **Fullscreen footer height** — Return one blank footer line so the Powerline footer matches Pi fullscreen dock sizing at startup (ported from upstream `nicobailon/pi-powerline-footer` #151).

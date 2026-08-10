@@ -1,6 +1,6 @@
 {
   "name": "@groeponline/pi-wishcraft",
-  "version": "0.17.2",
+  "version": "0.17.3",
   "description": "Wishcraft status bar & interaction layer for the pi coding agent — powerline segments, vibes, queue, bash mode, and full customization.",
   "type": "module",
   "files": [
@@ -53,4 +53,3 @@
     ]
   }
 }
-
