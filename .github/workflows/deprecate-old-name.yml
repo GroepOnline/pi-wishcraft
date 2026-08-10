@@ -1,0 +1,25 @@
+name: Deprecate old package name
+
+# Deprecate @groeponline/pi-powerline-footer (renamed to
+# @groeponline/pi-wishcraft). workflow_dispatch — run after the org NPM_TOKEN's
+# npm scope includes @groeponline/pi-powerline-footer (Read and write).
+on:
+  workflow_dispatch:
+
+jobs:
+  deprecate:
+    name: npm deprecate @groeponline/pi-powerline-footer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+      - name: Deprecate the old name
+        run: |
+          npm deprecate "@groeponline/pi-powerline-footer" "Renamed to @groeponline/pi-wishcraft. Install npm:@groeponline/pi-wishcraft instead."
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
