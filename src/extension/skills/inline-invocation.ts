@@ -13,32 +13,52 @@
  * ------------------------------------------------------------------------
  */
 
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stripFrontmatter } from "../../core/frontmatter.ts";
+import { getAgentPath } from "../../paths/agent-dirs.ts";
+import { logDiscoveryError } from "../../welcome/discover.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { RuntimeState } from "../types.ts";
 
-const SKILLS_DIR = dirname(fileURLToPath(import.meta.url));
+const EXTENSION_DIR = dirname(fileURLToPath(import.meta.url));
 
-let availableSkills = new Map<string, string>();
+let availableSkills: Map<string, string> | undefined;
 
 function discoverSkills(): void {
-availableSkills.clear();
-if (!existsSync(SKILLS_DIR)) return;
+if (availableSkills) return;
+const discovered = new Map<string, string>();
+const dirs = [
+  getAgentPath("skills"),
+  join(process.cwd(), ".pi", "skills"),
+  join(process.cwd(), "skills"),
+  getAgentPath("prompts"),
+  join(process.cwd(), ".pi", "prompts"),
+  join(process.cwd(), "prompts"),
+  EXTENSION_DIR,
+];
 
+for (const dir of dirs) {
 try {
-const files = readdirSync(SKILLS_DIR);
-for (const file of files) {
-if (file.endsWith(".md") || file.endsWith(".txt")) {
-const name = file.replace(/\.(md|txt)$/, "");
-availableSkills.set(name, join(SKILLS_DIR, file));
+if (!existsSync(dir)) continue;
+for (const entry of readdirSync(dir)) {
+const entryPath = join(dir, entry);
+try {
+if (statSync(entryPath).isDirectory() && existsSync(join(entryPath, "SKILL.md"))) {
+  discovered.set(entry, join(entryPath, "SKILL.md"));
+} else if (entry.endsWith(".md") || entry.endsWith(".txt")) {
+  discovered.set(entry.replace(/\.(md|txt)$/, ""), entryPath);
+}
+} catch (error) {
+logDiscoveryError(`Failed to inspect inline skill entry ${entryPath}`, error);
 }
 }
-} catch (err) {
-// Silent fail if skills dir doesn't exist yet
+} catch (error) {
+logDiscoveryError(`Failed to scan inline skills dir ${dir}`, error);
 }
+}
+availableSkills = discovered;
 }
 
 /**
@@ -79,7 +99,7 @@ if (isExcluded(match.index, excluded)) continue;
 const name = match[2];
 
 // Alleen bekende skills expanden
-if (!availableSkills.has(name)) continue;
+if (!availableSkills!.has(name)) continue;
 
 matches.push({
 start: match.index,
@@ -110,12 +130,13 @@ let cursor = 0;
 for (const m of deduped) {
 result += text.slice(cursor, m.start);
 
-const filePath = availableSkills.get(m.name)!;
+const filePath = availableSkills!.get(m.name)!;
 try {
 const rawContent = readFileSync(filePath, "utf-8");
-const cleanContent = stripFrontmatter(rawContent).trim();
+const cleanContent = stripFrontmatter(rawContent);
 result += `\n\n${cleanContent}\n\n`;
-} catch (err) {
+} catch (error) {
+logDiscoveryError(`Failed to read inline skill ${filePath}`, error);
 // Bij fout, laat originele trigger staan
 result += m.full;
 }

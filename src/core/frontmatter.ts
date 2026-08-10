@@ -35,6 +35,6 @@ export function stripFrontmatter(content: string): string {
 		return content;
 	}
 	
-	// Return everything after the frontmatter
-	return lines.slice(endIndex + 1).join("\n").trim();
+	// Return everything after the frontmatter without changing user-authored whitespace
+	return lines.slice(endIndex + 1).join("\n");
 }
