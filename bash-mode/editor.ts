@@ -382,8 +382,8 @@ export class BashModeEditor extends CustomEditor {
       // step through.
       this.clearGhostSuggestion();
     } else if (value.startsWith(next)) {
-      // Keep the ghost live so the next Tab continues from the new position.
-      this.tui.requestRender();
+      // Re-resolve against the updated buffer rather than reusing a stale ghost.
+      this.scheduleGhostUpdate();
     } else {
       this.clearGhostSuggestion();
     }
