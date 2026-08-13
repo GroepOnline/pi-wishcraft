@@ -96,6 +96,12 @@ export interface StatusLineSegmentOptions {
     /** Replace the branch icon with the origin remote's host logo
      * (GitHub/GitLab/Bitbucket, or a generic git logo). Default false. */
     hostIcon?: boolean;
+    /** Show the upstream ahead/behind commit counts (↑/↓). Default true. */
+    showAheadBehind?: boolean;
+    /** Show the latest commit on HEAD (short hash + subject). Default true. */
+    showCommit?: boolean;
+    /** Max length of the commit subject before truncation. Default 24. */
+    maxCommitSubjectLength?: number;
   };
   time?: { format?: "12h" | "24h"; showSeconds?: boolean };
   cost?: {
@@ -156,6 +162,12 @@ export interface GitStatus {
   staged: number;
   unstaged: number;
   untracked: number;
+  /** Commits ahead of the configured upstream branch. */
+  ahead: number;
+  /** Commits behind the configured upstream branch. */
+  behind: number;
+  /** Latest commit on HEAD: short hash plus subject line. */
+  commit: { short: string; subject: string } | null;
 }
 
 // Usage statistics

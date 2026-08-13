@@ -528,6 +528,71 @@ test("deterministic path completion handles bash argument position", async () =>
   assert.equal(suggestion?.source, "path");
 });
 
+test("path completion splices only the basename inside a nested directory", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "powerline-path-nested-"));
+  const histfile = join(cwd, ".zsh_history");
+  process.env.HISTFILE = histfile;
+  writeFileSync(histfile, "");
+  mkdirSync(join(cwd, "a", "b"), { recursive: true });
+  writeFileSync(join(cwd, "a", "b", "file.txt"), "");
+
+  const engine = new BashCompletionEngine();
+  const suggestion = await engine.getGhostSuggestion(
+    "cd a/b/f",
+    cwd,
+    "/bin/zsh",
+    new AbortController().signal,
+  );
+
+  // Only the basename is completed; the already-typed `a/b/` prefix is never
+  // re-emitted (which would otherwise duplicate it in the buffer).
+  assert.equal(suggestion?.value, "cd a/b/file.txt");
+  assert.equal(suggestion?.source, "path");
+});
+
+test("path completion expands the home directory for tilde paths", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "powerline-path-home-"));
+  const histfile = join(cwd, ".zsh_history");
+  process.env.HISTFILE = histfile;
+  writeFileSync(histfile, "");
+  mkdirSync(join(cwd, "subdir"), { recursive: true });
+
+  const previousHome = process.env.HOME;
+  process.env.HOME = cwd;
+  try {
+    const engine = new BashCompletionEngine();
+    const suggestion = await engine.getGhostSuggestion(
+      "cd ~/su",
+      cwd,
+      "/bin/zsh",
+      new AbortController().signal,
+    );
+
+    assert.equal(suggestion?.value, "cd ~/subdir/");
+    assert.equal(suggestion?.source, "path");
+  } finally {
+    process.env.HOME = previousHome;
+  }
+});
+
+test("path completion resolves dot-dot directory shorthand", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "powerline-path-dotdot-"));
+  const histfile = join(cwd, ".zsh_history");
+  process.env.HISTFILE = histfile;
+  writeFileSync(histfile, "");
+
+  const engine = new BashCompletionEngine();
+  const suggestion = await engine.getGhostSuggestion(
+    "cd ..",
+    cwd,
+    "/bin/zsh",
+    new AbortController().signal,
+  );
+
+  assert.equal(suggestion?.value, "cd ../");
+  assert.equal(suggestion?.source, "path");
+});
+
 test("managed shell session preserves cwd changes across commands", async (t) => {
   const shellPath = resolveManagedShellPath();
   if (!shellPath) {
@@ -626,7 +691,7 @@ test("managed shell session recovers cleanly after interrupt", async (t) => {
   }
 });
 
-test("bash editor Tab accepts the current ghost suggestion without opening autocomplete", async () => {
+test("bash editor Tab advances the ghost suggestion without opening autocomplete", async () => {
   const links = ensureEditorModuleLinks();
 
   try {
@@ -651,7 +716,7 @@ test("bash editor Tab accepts the current ghost suggestion without opening autoc
         isShowingAutocomplete() {
           return false;
         },
-        acceptGhostSuggestion() {
+        completeGhostSuggestionOneToken() {
           accepted = true;
           return true;
         },
@@ -660,6 +725,104 @@ test("bash editor Tab accepts the current ghost suggestion without opening autoc
     );
 
     assert.equal(accepted, true);
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("bash editor Tab completes the ghost suggestion one token at a time", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+
+    // Step 1: `npm` + ghost `npm run build` should advance one token to
+    // `npm run` and keep the ghost live for further stepping.
+    const captured: string[] = [];
+    let ghostCleared = false;
+    const step1 = {
+      ghost: { value: "npm run build", source: "project-history" },
+      getExpandedText() {
+        return "npm";
+      },
+      getCursor() {
+        return { line: 0, col: 3 };
+      },
+      setText(text: string) {
+        captured.push(text);
+      },
+      clearGhostSuggestion() {
+        ghostCleared = true;
+      },
+      tui: { requestRender() {} },
+    };
+    const stepped1 = getMethod(
+      BashModeEditor.prototype,
+      "completeGhostSuggestionOneToken",
+    ).call(step1);
+    assert.equal(stepped1, true);
+    assert.deepEqual(captured, ["npm run"]);
+    assert.equal(ghostCleared, false);
+
+    // Step 2: `npm run` + same ghost now inserts the final token and clears it.
+    captured.length = 0;
+    const step2 = {
+      ghost: { value: "npm run build", source: "project-history" },
+      getExpandedText() {
+        return "npm run";
+      },
+      getCursor() {
+        return { line: 0, col: 7 };
+      },
+      setText(text: string) {
+        captured.push(text);
+      },
+      clearGhostSuggestion() {
+        ghostCleared = true;
+      },
+      tui: { requestRender() {} },
+    };
+    const stepped2 = getMethod(
+      BashModeEditor.prototype,
+      "completeGhostSuggestionOneToken",
+    ).call(step2);
+    assert.equal(stepped2, true);
+    assert.deepEqual(captured, ["npm run build"]);
+    assert.equal(ghostCleared, true);
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("bash editor Tab completes a bare path token in one step", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+
+    const captured: string[] = [];
+    const step = {
+      ghost: { value: "cd src/welcome/", source: "path" },
+      getExpandedText() {
+        return "cd src/w";
+      },
+      getCursor() {
+        return { line: 0, col: 8 };
+      },
+      setText(text: string) {
+        captured.push(text);
+      },
+      clearGhostSuggestion() {},
+      tui: { requestRender() {} },
+    };
+    const done = getMethod(
+      BashModeEditor.prototype,
+      "completeGhostSuggestionOneToken",
+    ).call(step);
+    assert.equal(done, true);
+    // The remaining path segment is a single whitespace-delimited token, so it
+    // is completed in one step (the ghost is fully inserted).
+    assert.deepEqual(captured, ["cd src/welcome/"]);
   } finally {
     links.cleanup();
   }

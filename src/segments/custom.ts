@@ -24,7 +24,13 @@ function runCommandCached(
   if (cached && cacheMs !== undefined && now - cached.at < cacheMs)
     return cached.value;
   try {
-    const out = execSync(command, { encoding: "utf8" }).trim();
+    // Bound user command segments: a hung/long-running command must not wedge
+    // the extension's event loop, and large output is truncated.
+    const out = execSync(command, {
+      encoding: "utf8",
+      timeout: 5000,
+      maxBuffer: 1024 * 1024,
+    }).trim();
     if (cacheMs !== undefined)
       commandCache.set(command, { at: now, value: out });
     return out;

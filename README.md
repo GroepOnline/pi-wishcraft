@@ -125,13 +125,13 @@ You can also set it in the agent settings file (`~/.pi/agent/settings.json` by d
 
 | Preset | Description |
 |--------|-------------|
-| `default` | Model, thinking, path (basename), git, context, tokens, cost |
-| `minimal` | Just path (basename), git, context |
-| `compact` | Model, git, cost, context |
-| `full` | Everything including hostname, time, abbreviated path |
-| `nerd` | Maximum detail for Nerd Font users |
-| `ascii` | Safe for any terminal |
-| `chef` | Fork default: muted colors, slash separators, TPS + open-ports segments |
+| `default` | Balanced daily driver: model, thinking, path (basename), git (branch + dirty + latest commit + ↑/↓ ahead-behind + host icon), session, queue, subagent cost, tokens in/out, cache-hit%, cost, context |
+| `minimal` | Just path (basename), git branch and context% (branch-only polling, no indicators/commit) |
+| `compact` | Model, git (short commit + ahead/behind), queue, cost, context%, session id |
+| `full` | Everything: hostname, model, path (abbreviated), full git incl commit + ↑/↓, totals, context total, elapsed + clock |
+| `nerd` | Maximum detail for Nerd Font users: qualified model, full tokens + cache, commit, totals, seconds clock |
+| `ascii` | Safe for any terminal: branch + short commit + ↑/↓, tokens, cost, context% (no Nerd glyphs) |
+| `chef` | Fork default: muted colors, slash separators, live TPS in/out + open-ports + subagent-cost segments |
 
 **Environment:** `POWERLINE_NERD_FONTS=1` to force Nerd Fonts, `=0` for ASCII.
 
@@ -238,7 +238,7 @@ Define your own preset in settings; it merges over built-ins and is selectable v
 
 `preset: "chef"` is the GroepOnline fork's default look: muted colors (no rainbow), slash separators, and two extra right-side segments:
 
-- `tps`: live tokens/sec, rolling 1-second window (EMA-free, no spikes); a rocket/bolt icon lights up while generating (override with env `POWERLINE_TPS`)
+- `tps`: live tokens/sec over a rolling 1-second window (EMA-free, no spikes), now reporting **output and input** rates separately (`⇡out ⇣in`) so you can see generation speed and incoming prompt tokens at a glance. A rocket/bolt icon lights up while streaming (override with env `POWERLINE_TPS`).
 - `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6). Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral).
 
 Interactivity (Pi core renders the footer as static text, so live click is not possible; actions live in commands and a navigable overlay):
@@ -378,7 +378,7 @@ While bash mode is active:
 
 - Enter runs the current shell command
 - Right Arrow accepts ghost text into the editor without running it
-- Tab accepts the current ghost suggestion when one exists; otherwise it does nothing
+- Tab completes the ghost suggestion one token/segment at a time (repeat Tab to step through each further token); once the full suggestion is inserted it clears, otherwise Tab does nothing
 - Up and Down browse matching shell history
 - `escape` exits bash mode and returns to normal prompt mode
 - `ctrl+c` interrupts the active shell job before falling back to normal pi behavior
@@ -583,9 +583,27 @@ Set `git.hostIcon` to replace the branch icon with the origin remote's host logo
 
 The origin remote is detected (SSH or HTTPS) and mapped to an icon: GitHub (`nf-fa-github`), GitLab (`nf-fa-gitlab`), Bitbucket (`nf-fa-bitbucket`), or a generic git logo (`nf-fa-git`) for any other remote (self-hosted, Gitea, Codeberg, …). Repositories without an origin remote keep the plain branch icon (`nf-fa-code_fork`), as do ASCII (non–Nerd Font) setups. The remote is read once and cached, so this adds no per-render cost. Default is `false` (branch icon unchanged).
 
+## Git status extras (commits, ahead/behind)
+
+The git segment can also show the last commit on `HEAD` (short hash + subject) and the upstream ahead/behind counts — handy for a quick "github shit / where am I relative to main" signal:
+
+- `git.showCommit` (`true` by default) — appends `#<hash> <subject>` for the latest commit.
+- `git.maxCommitSubjectLength` (`24`) — truncates the commit subject shown.
+- `git.showAheadBehind` (`true` by default) — appends `↑<n> ↓<n>` for commits ahead/behind the configured upstream (hidden when there is no upstream).
+
+```json
+{
+  "powerline": {
+    "git": { "showCommit": true, "showAheadBehind": true, "maxCommitSubjectLength": 24 }
+  }
+}
+```
+
+The `minimal` and `compact` presets keep these off to stay lean; set `showCommit: true`/`showAheadBehind: true` to enable them.
+
 ## Segments
 
-`model` · `thinking` · `shell_mode` · `path` · `git` · `subagents` · `token_in` · `token_out` · `token_total` · `cost` · `context_pct` · `context_total` · `time_spent` · `time` · `session` · `hostname` · `cache_read` · `cache_write` · `extension_statuses`
+`model` · `shell_mode` · `path` · `git` · `subagents` · `queue` · `token_in` · `token_out` · `token_total` · `cost` · `context_pct` · `context_total` · `time_spent` · `time` · `session` · `hostname` · `cache_read` · `cache_write` · `thinking` · `tps` · `open_ports` · `extension_statuses`
 
 ## Separators
 
@@ -613,6 +631,9 @@ Colors are configurable via pi's theme system. Each preset defines its own color
 | `contextError` | `error` | Context usage >90% |
 | `cost` | `text` | Cost display |
 | `tokens` | `muted` | Token counts |
+| `queue` | `accent` | Queue / ideas / blocked counts |
+| `separator` | `dim` | Segment separators and ahead/behind counts |
+| `border` | `borderMuted` | Panel/border chrome |
 
 ### Custom Theme Override
 

@@ -5,6 +5,9 @@ interface CachedGitStatus {
   staged: number;
   unstaged: number;
   untracked: number;
+  ahead: number;
+  behind: number;
+  commit: { short: string; subject: string } | null;
   timestamp: number;
 }
 
@@ -204,16 +207,61 @@ export function getGitRemoteHost(): GitHost | null {
 }
 
 /**
- * Fetch git status asynchronously
+ * Fetch git status asynchronously (dirty counts, upstream ahead/behind, and the
+ * latest commit on HEAD). Runs alongside the branch fetch; all results are
+ * cached behind a short TTL so the synchronous render path stays fast.
  */
 async function fetchGitStatus(): Promise<{
   staged: number;
   unstaged: number;
   untracked: number;
+  ahead: number;
+  behind: number;
+  commit: { short: string; subject: string } | null;
 } | null> {
-  const output = await runGit(["status", "--porcelain"], 500);
-  if (output === null) return null;
-  return parseGitStatusOutput(output);
+  const [statusOut, commitOut, aheadOut] = await Promise.all([
+    runGit(["status", "--porcelain"], 500),
+    runGit(["log", "-1", "--format=%h%x09%s"], 500),
+    runGit(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"], 500),
+  ]);
+  if (statusOut === null) return null;
+
+  const counts = parseGitStatusOutput(statusOut);
+  const aheadBehind = parseAheadBehind(aheadOut);
+  return {
+    ...counts,
+    ahead: aheadBehind?.ahead ?? 0,
+    behind: aheadBehind?.behind ?? 0,
+    commit: parseCommitLine(commitOut),
+  };
+}
+
+/** Parse `git log -1 --format=%h%x09%s` output into a short hash + subject. */
+function parseCommitLine(
+  output: string | null,
+): { short: string; subject: string } | null {
+  if (!output) return null;
+  const sep = output.indexOf("\t");
+  const short =
+    (sep === -1 ? output.slice(0, 7) : output.slice(0, sep)).trim() || "?";
+  const subject = sep === -1 ? "" : output.slice(sep + 1);
+  return { short, subject };
+}
+
+/**
+ * Parse `git rev-list --left-right --count HEAD...@{upstream}` output.
+ * Format is "<left> <right>" where left counts commits reachable from HEAD but
+ * not upstream (ahead) and right counts upstream-only commits (behind).
+ */
+function parseAheadBehind(
+  output: string | null,
+): { ahead: number; behind: number } | null {
+  if (!output) return null;
+  const [left, right] = output.split(/\s+/);
+  const ahead = Number(left);
+  const behind = Number(right);
+  if (!Number.isFinite(ahead) || !Number.isFinite(behind)) return null;
+  return { ahead, behind };
 }
 
 /**
@@ -263,7 +311,7 @@ export function getGitStatus(
     pollingMode === "off" ? providerBranch : getCurrentBranch(providerBranch);
 
   if (pollingMode !== "full") {
-    return { branch, staged: 0, unstaged: 0, untracked: 0 };
+    return { branch, staged: 0, unstaged: 0, untracked: 0, ahead: 0, behind: 0, commit: null };
   }
 
   // Return cached if fresh
@@ -273,6 +321,9 @@ export function getGitStatus(
       staged: cachedStatus.staged,
       unstaged: cachedStatus.unstaged,
       untracked: cachedStatus.untracked,
+      ahead: cachedStatus.ahead,
+      behind: cachedStatus.behind,
+      commit: cachedStatus.commit,
     };
   }
 
@@ -287,9 +338,12 @@ export function getGitStatus(
               staged: result.staged,
               unstaged: result.unstaged,
               untracked: result.untracked,
+              ahead: result.ahead,
+              behind: result.behind,
+              commit: result.commit,
               timestamp: Date.now(),
             }
-          : { staged: 0, unstaged: 0, untracked: 0, timestamp: Date.now() };
+          : { staged: 0, unstaged: 0, untracked: 0, ahead: 0, behind: 0, commit: null, timestamp: Date.now() };
         notifyGitUpdate();
       }
       pendingFetch = null;
@@ -303,10 +357,13 @@ export function getGitStatus(
       staged: cachedStatus.staged,
       unstaged: cachedStatus.unstaged,
       untracked: cachedStatus.untracked,
+      ahead: cachedStatus.ahead,
+      behind: cachedStatus.behind,
+      commit: cachedStatus.commit,
     };
   }
 
-  return { branch, staged: 0, unstaged: 0, untracked: 0 };
+  return { branch, staged: 0, unstaged: 0, untracked: 0, ahead: 0, behind: 0, commit: null };
 }
 
 /**

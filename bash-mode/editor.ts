@@ -175,7 +175,7 @@ export class BashModeEditor extends CustomEditor {
         (bashMode || oneOffBashCommand) &&
         this.keybindingsRef.matches(data, "tui.input.tab")
       ) {
-        this.acceptGhostSuggestion();
+        this.completeGhostSuggestionOneToken();
         return;
       }
 
@@ -346,6 +346,47 @@ export class BashModeEditor extends CustomEditor {
       return false;
     this.setText(this.ghost.value);
     this.clearGhostSuggestion();
+    return true;
+  }
+
+  /**
+   * Advance the buffer by exactly one token/segment toward the active ghost
+   * suggestion (the next whitespace-delimited chunk). Repeated Tabs step
+   * through the rest of the suggestion one token at a time instead of
+   * inserting the whole line at once. The ghost stays live after a partial
+   * step so the next Tab continues from where it left off, and it is only
+   * cleared once the full suggestion has been inserted.
+   */
+  private completeGhostSuggestionOneToken(): boolean {
+    if (!this.ghost) return false;
+    const text = this.getExpandedText();
+    if (text.includes("\n")) return false;
+
+    const cursor = this.getCursor();
+    if (cursor.line !== 0 || cursor.col !== text.length) return false;
+
+    const value = this.ghost.value;
+    if (!value.startsWith(text) || value === text) return false;
+
+    // Next chunk = leading whitespace (when the current token is complete)
+    // plus the next whitespace-delimited token from the projected ghost value.
+    const rest = value.slice(text.length);
+    const nextChunk = rest.match(/^\s*\S*/)?.[0];
+    if (!nextChunk) return false;
+
+    const next = text + nextChunk;
+    this.setText(next);
+
+    if (value === next) {
+      // The full ghost suggestion is now in the buffer; nothing is left to
+      // step through.
+      this.clearGhostSuggestion();
+    } else if (value.startsWith(next)) {
+      // Keep the ghost live so the next Tab continues from the new position.
+      this.tui.requestRender();
+    } else {
+      this.clearGhostSuggestion();
+    }
     return true;
   }
 

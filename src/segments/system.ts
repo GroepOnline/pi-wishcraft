@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import type { StatusLineSegment } from "../config/types.ts";
 import { normalizeCompactExtensionStatus } from "../config/powerline-config.ts";
 import { getIcons, SEP_DOT } from "../theme/icons.ts";
+import { formatUsdCost } from "../usage/rates.ts";
 import { color, withIcon } from "./shared.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -45,11 +46,18 @@ export const thinkingSegment: StatusLineSegment = {
 
 export const subagentsSegment: StatusLineSegment = {
   id: "subagents",
-  render() {
-    // Note: pi-mono doesn't have subagent tracking built-in
-    // This would require extension state management
-    // For now, return not visible
-    return { content: "", visible: false };
+  render(ctx) {
+    const subagentCost = ctx.usageStats?.subagentCost ?? 0;
+    if (!subagentCost) return { content: "", visible: false };
+
+    const label = ctx.segmentLabels?.get("subagents");
+    const cost =
+      formatUsdCost(subagentCost, ctx.options.cost?.currency) ?? "sub";
+    const text = label ? `${label} ${cost}` : `sub ${cost}`;
+    return {
+      content: withIcon(getIcons().agents, color(ctx, "cost", text)),
+      visible: true,
+    };
   },
 };
 
@@ -111,7 +119,7 @@ export function countListeningPorts(includeUdp = false): number {
   // repeated multicast binds). UDP is noisy (mDNS/DHCP/ephemeral) so it's opt-in.
   const run = (cmd: string): string | null => {
     try {
-      return execSync(cmd, { encoding: "utf8" });
+      return execSync(cmd, { encoding: "utf8", timeout: 2000 });
     } catch {
       return null;
     }
@@ -165,10 +173,15 @@ function readProcListeningPorts(includeUdp: boolean): number {
   return ports.size;
 }
 
-// Rolling 1-second sliding window of (timestamp, cumulative output) samples.
-// Renders fire every ~33ms during streaming, so a per-render delta spikes (tiny dt);
-// a fixed ~1s lookback gives a stable, honest tokens/sec over the last second.
-const tpsSamples: { at: number; output: number }[] = [];
+// Rolling 1-second sliding window of (timestamp, cumulative tokens) samples.
+// Renders fire every ~33ms during streaming, so a per-render delta spikes (tiny
+// dt); a fixed ~1s lookback gives a stable, honest tokens/sec over the last
+// second. We track output and input separately so the segment can report both.
+const tpsSamples: { at: number; output: number; input: number }[] = [];
+
+function rateText(rate: number): string {
+  return rate >= 100 ? Math.round(rate).toString() : rate.toFixed(1);
+}
 
 export const tpsSegment: StatusLineSegment = {
   id: "tps",
@@ -180,16 +193,16 @@ export const tpsSegment: StatusLineSegment = {
         visible: true,
       };
     }
-    const out = ctx.usageStats?.output ?? 0;
+    const { output, input } = ctx.usageStats ?? { output: 0, input: 0 };
     const now = Date.now();
-    tpsSamples.push({ at: now, output: out });
+    tpsSamples.push({ at: now, output, input });
     // keep the last 5s of samples; drop everything older (idle gaps get forgotten)
     while (tpsSamples.length > 0 && now - tpsSamples[0].at > 5000)
       tpsSamples.shift();
     if (tpsSamples.length > 240) tpsSamples.splice(0, tpsSamples.length - 240);
 
     // pick the sample closest to 1s old (window [0.5s, 2s]) for a stable rate
-    let ref: { at: number; output: number } | null = null;
+    let ref: { at: number; output: number; input: number } | null = null;
     let bestDelta = Infinity;
     for (const s of tpsSamples) {
       const age = now - s.at;
@@ -200,33 +213,48 @@ export const tpsSegment: StatusLineSegment = {
         ref = s;
       }
     }
-    let tps = 0;
+    let outRate = 0;
+    let inRate = 0;
     if (ref) {
       const dt = (now - ref.at) / 1000;
-      const dOut = out - ref.output;
-      if (dt > 0 && dOut >= 0) tps = dOut / dt;
+      const dOut = output - ref.output;
+      const dIn = input - ref.input;
+      if (dt > 0 && dOut >= 0) outRate = dOut / dt;
+      if (dt > 0 && dIn >= 0) inRate = dIn / dt;
     }
-    const valueText = tps >= 100 ? Math.round(tps).toString() : tps.toFixed(1);
+    const icons = getIcons();
+    const parts: string[] = [];
+    if (outRate > 0) parts.push(`${icons.output}${rateText(outRate)}`);
+    if (inRate > 0) parts.push(`${icons.input}${rateText(inRate)}`);
+    const valueText = parts.length > 0 ? parts.join(" ") : "0";
     const label = ctx.segmentLabels?.get("tps");
     const text = label ? `${label} ${valueText}` : valueText;
+    const active = outRate > 0 || inRate > 0;
     // levendig: light up in the tokens color while generating, dim while idle
     return {
-      content: withIcon(
-        getIcons().tps,
-        color(ctx, tps > 0 ? "tokens" : "queue", text),
-      ),
+      content: withIcon(icons.tps, color(ctx, active ? "tokens" : "queue", text)),
       visible: true,
     };
   },
 };
 
+// open_ports runs blocking `ss`/`netstat`; cache the count so it doesn't respawn
+// a process on every repaint (the footer repaints ~every 33ms while streaming).
+const openPortsCache = new Map<boolean, { at: number; count: number }>();
+const OPEN_PORTS_TTL_MS = 2000;
+
 export const openPortsSegment: StatusLineSegment = {
   id: "open_ports",
   render(ctx) {
     const includeUdp = ctx.options?.openPorts?.includeUdp === true;
-    const count = countListeningPorts(includeUdp);
+    const now = Date.now();
+    let entry = openPortsCache.get(includeUdp);
+    if (!entry || now - entry.at >= OPEN_PORTS_TTL_MS) {
+      entry = { at: now, count: countListeningPorts(includeUdp) };
+      openPortsCache.set(includeUdp, entry);
+    }
     const label = ctx.segmentLabels?.get("open_ports");
-    const text = label ? `${label} ${count}` : String(count);
+    const text = label ? `${label} ${entry.count}` : String(entry.count);
     return {
       content: withIcon(getIcons().ports, color(ctx, "queue", text)),
       visible: true,

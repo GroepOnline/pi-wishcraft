@@ -31,6 +31,13 @@ const CHEF_COLORS: ColorScheme = {
 };
 
 export const PRESETS: Record<StatusLinePreset, PresetDef> = {
+  // v2 preset lineup — an explicit information ladder:
+  //   minimal (branch only) → compact (+ short commit) → default (full git,
+  //   tokens, cost, extension-statuses row) → full (host, clock, totals) →
+  //   nerd (maximum, qualified model, seconds) → ascii (no Nerd Font fallback) →
+  //   chef (GroepOnline ops: live TPS in/out, open ports, subagent cost).
+  // Git extras (latest commit, upstream ahead/behind, host icon) are on by
+  // default wherever meaningful and listed explicitly per preset.
   default: {
     leftSegments: [
       "model",
@@ -38,12 +45,18 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
       "shell_mode",
       "path",
       "git",
+      "session",
       "queue",
-      "context_pct",
+      "subagents",
+    ],
+    rightSegments: [
+      "token_in",
+      "token_out",
       "cache_read",
       "cost",
+      "context_pct",
+      "time_spent",
     ],
-    rightSegments: [],
     secondarySegments: ["extension_statuses"],
     separator: "powerline-thin",
     colors: DEFAULT_COLORS,
@@ -55,7 +68,16 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
         showStaged: true,
         showUnstaged: true,
         showUntracked: true,
+        polling: "full",
+        hostIcon: true,
+        showAheadBehind: true,
+        showCommit: true,
+        maxCommitSubjectLength: 24,
       },
+      context: { format: "full" },
+      cache_read: { format: "both" },
+      cost: { subscriptionDisplay: "both" },
+      time: { format: "24h", showSeconds: false },
     },
   },
 
@@ -71,23 +93,35 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
         showStaged: false,
         showUnstaged: false,
         showUntracked: false,
+        polling: "branch",
+        hostIcon: false,
+        showAheadBehind: false,
+        showCommit: false,
       },
+      context: { format: "percent" },
     },
   },
 
   compact: {
     leftSegments: ["model", "shell_mode", "git"],
-    rightSegments: ["queue", "cost", "context_pct"],
+    rightSegments: ["queue", "cost", "context_pct", "session"],
     separator: "powerline-thin",
     colors: DEFAULT_COLORS,
     segmentOptions: {
-      model: { showThinkingLevel: false },
+      model: { showThinkingLevel: true },
       git: {
         showBranch: true,
-        showStaged: true,
-        showUnstaged: true,
+        showStaged: false,
+        showUnstaged: false,
         showUntracked: false,
+        polling: "branch",
+        hostIcon: true,
+        showAheadBehind: true,
+        showCommit: true,
+        maxCommitSubjectLength: 12,
       },
+      context: { format: "percent" },
+      cost: { subscriptionDisplay: "both" },
     },
   },
 
@@ -99,15 +133,17 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
       "shell_mode",
       "path",
       "git",
+      "session",
       "queue",
       "subagents",
     ],
     rightSegments: [
-      "token_in",
-      "token_out",
+      "token_total",
       "cache_read",
+      "cache_write",
       "cost",
       "context_pct",
+      "context_total",
       "time_spent",
       "time",
       "extension_statuses",
@@ -122,8 +158,16 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
         showStaged: true,
         showUnstaged: true,
         showUntracked: true,
+        polling: "full",
+        hostIcon: true,
+        showAheadBehind: true,
+        showCommit: true,
+        maxCommitSubjectLength: 28,
       },
-      time: { format: "24h", showSeconds: false },
+      context: { format: "full" },
+      cache_read: { format: "both" },
+      cost: { subscriptionDisplay: "both" },
+      time: { format: "24h", showSeconds: true },
     },
   },
 
@@ -135,13 +179,14 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
       "shell_mode",
       "path",
       "git",
-      "queue",
       "session",
+      "queue",
       "subagents",
     ],
     rightSegments: [
       "token_in",
       "token_out",
+      "token_total",
       "cache_read",
       "cache_write",
       "cost",
@@ -154,21 +199,29 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "powerline",
     colors: NERD_COLORS,
     segmentOptions: {
-      model: { showThinkingLevel: false },
+      model: { showThinkingLevel: false, display: "qualified" },
       path: { mode: "abbreviated", maxLength: 60 },
       git: {
         showBranch: true,
         showStaged: true,
         showUnstaged: true,
         showUntracked: true,
+        polling: "full",
+        hostIcon: true,
+        showAheadBehind: true,
+        showCommit: true,
+        maxCommitSubjectLength: 32,
       },
+      context: { format: "full" },
+      cache_read: { format: "both" },
+      cost: { subscriptionDisplay: "both" },
       time: { format: "24h", showSeconds: true },
     },
   },
 
   ascii: {
-    leftSegments: ["model", "shell_mode", "path", "git"],
-    rightSegments: ["queue", "token_total", "cost", "context_pct"],
+    leftSegments: ["model", "shell_mode", "path", "git", "queue"],
+    rightSegments: ["token_total", "cost", "context_pct"],
     separator: "ascii",
     colors: MINIMAL_COLORS,
     segmentOptions: {
@@ -179,7 +232,14 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
         showStaged: true,
         showUnstaged: true,
         showUntracked: true,
+        polling: "full",
+        hostIcon: false,
+        showAheadBehind: true,
+        showCommit: true,
+        maxCommitSubjectLength: 20,
       },
+      context: { format: "percent" },
+      cost: { subscriptionDisplay: "both" },
     },
   },
 
@@ -193,7 +253,7 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
       "git",
       "queue",
     ],
-    rightSegments: ["tps", "open_ports", "cost", "context_pct", "time"],
+    rightSegments: ["tps", "open_ports", "subagents", "cost", "context_pct", "time"],
     separator: "slash",
     colors: CHEF_COLORS,
     segmentOptions: {
@@ -204,8 +264,16 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
         showStaged: true,
         showUnstaged: true,
         showUntracked: true,
+        polling: "full",
+        hostIcon: true,
+        showAheadBehind: true,
+        showCommit: true,
+        maxCommitSubjectLength: 24,
       },
+      context: { format: "percent" },
+      cost: { subscriptionDisplay: "both" },
       time: { format: "24h", showSeconds: false },
+      openPorts: { includeUdp: false },
     },
   },
 };
@@ -235,11 +303,22 @@ export function registerCustomPresets(
   }
 }
 
+// Warn once per unknown preset name instead of silently falling back to default.
+const warnedUnknownPresets = new Set<string>();
+
 /** Resolve a preset by name, checking user-defined presets first. */
 export function resolvePreset(name: string): PresetDef {
-  return (
-    customPresets.get(name) ??
-    PRESETS[name as StatusLinePreset] ??
-    PRESETS.default
-  );
+  if (customPresets.has(name) || name in PRESETS) {
+    return (
+      customPresets.get(name) ??
+      (PRESETS[name as StatusLinePreset] ?? PRESETS.default)
+    );
+  }
+  if (!warnedUnknownPresets.has(name)) {
+    warnedUnknownPresets.add(name);
+    console.warn(
+      `[wishcraft] Unknown powerline preset "${name}" — falling back to "default".`,
+    );
+  }
+  return PRESETS.default;
 }
