@@ -17,7 +17,7 @@ import {
 } from "../src/welcome/index.ts";
 
 const indexSource = readFileSync(
-  new URL("../src/extension/welcome-integration.ts", import.meta.url),
+  new URL("../src/extension/welcome/welcome-integration.ts", import.meta.url),
   "utf8",
 );
 

@@ -2,27 +2,30 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type KeyId, type SelectItem } from "@earendil-works/pi-tui";
 import { execSync } from "node:child_process";
 
-import type { StatusLinePreset } from "../config/types.ts";
-import { PRESETS } from "../config/presets.ts";
-import { registerCdCommand } from "../shell/cd-command.ts";
+import type { StatusLinePreset } from "../../config/types.ts";
+import { PRESETS } from "../../config/presets.ts";
+import { registerCdCommand } from "../../shell/cd-command.ts";
 import { registerVibeCommand } from "./vibe-command.ts";
 import { registerQueueCommands } from "./queue-commands.ts";
 import {
   writePowerlineOptionSetting,
   writePowerlinePresetSetting,
-} from "./settings-io.ts";
+} from "../settings/settings-io.ts";
 import {
   showOpenPortsList,
   showPowerlineMainMenu,
   showSelectOverlay,
-} from "./menu-views.ts";
-import { openStashHistory } from "./shortcuts-router.ts";
+} from "../ui/menu-views.ts";
+import { openStashHistory } from "../shortcuts/shortcuts-router.ts";
 import { ensureShellSession, setBashModeActive } from "./bash-mode-actions.ts";
-import { setupCustomEditor } from "./custom-editor.ts";
-import { getPromptHistoryState } from "./prompt-history.ts";
-import { requestStatusRender, resetLayoutCache } from "./segment-context.ts";
-import { config, normalizePreset } from "./state.ts";
-import type { RuntimeState } from "./types.ts";
+import { setupCustomEditor } from "../ui/custom-editor.ts";
+import { getPromptHistoryState } from "../history/prompt-history.ts";
+import {
+  requestStatusRender,
+  resetLayoutCache,
+} from "../core/segment-context.ts";
+import { config, normalizePreset } from "../core/state.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerCdCommand(pi, () => rt.currentCtx?.cwd ?? process.cwd());

@@ -3,24 +3,21 @@ import type {
   Theme,
 } from "@earendil-works/pi-coding-agent";
 
-import type { SegmentContext, ColorScheme } from "../config/types.ts";
-import { getPreset } from "../config/presets.ts";
+import type { SegmentContext, ColorScheme } from "../../config/types.ts";
+import { getPreset } from "../../config/presets.ts";
 import {
   collectHiddenExtensionStatusKeys,
   mergeSegmentOptions,
-} from "../config/powerline-config.ts";
-import { getDefaultColors } from "../theme/theme.ts";
-import { getGitStatus } from "../git/status.ts";
-import { getQueueContext } from "./queue-context.ts";
-import { getUsageTokenTotal } from "../usage/ledger.ts";
+} from "../../config/powerline-config.ts";
+import { getDefaultColors } from "../../theme/theme.ts";
+import { getGitStatus } from "../../git/status.ts";
+import { getQueueContext } from "../queue/queue-context.ts";
+import { getUsageTokenTotal } from "../../usage/ledger.ts";
 import {
   CUSTOM_COMPACTION_STATUS_KEY,
   EDITOR_STATUS_DEFER_MS,
 } from "./constants.ts";
-import {
-  config,
-  customCompactionEnabled,
-} from "./state.ts";
+import { config, customCompactionEnabled } from "./state.ts";
 import type { RuntimeState } from "./types.ts";
 
 /**

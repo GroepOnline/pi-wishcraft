@@ -1,11 +1,11 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { BashTranscriptStore } from "../../bash-mode/transcript.ts";
-import { BashCompletionEngine } from "../../bash-mode/completion.ts";
-import { parsePowerlineConfig } from "../config/powerline-config.ts";
-import { registerCustomSegments } from "../segments/index.ts";
-import { registerCustomPresets } from "../config/presets.ts";
-import { invalidateGitStatus } from "../git/status.ts";
+import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
+import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
+import { parsePowerlineConfig } from "../../config/powerline-config.ts";
+import { registerCustomSegments } from "../../segments/index.ts";
+import { registerCustomPresets } from "../../config/presets.ts";
+import { invalidateGitStatus } from "../../git/status.ts";
 import { invalidateGitForCommand } from "./git-invalidation.ts";
 import {
   initVibeManager,
@@ -13,51 +13,51 @@ import {
   onVibeAgentStart,
   onVibeBeforeAgentStart,
   onVibeToolCall,
-} from "../working-vibes/index.ts";
+} from "../../working-vibes/index.ts";
 import {
   getUsageTokenTotal,
   hasSessionAssistantUsage,
   isSessionAssistantMessage,
-} from "../usage/ledger.ts";
+} from "../../usage/ledger.ts";
 import {
   detectCustomCompactionEnabled,
   readSettings,
-} from "./settings-io.ts";
+} from "../settings/settings-io.ts";
 import {
   resolveShortcutConfig,
   parseBashModeSettings,
-} from "./shortcuts-config.ts";
-import { warnInvalidSegmentSettings } from "./layout.ts";
-import { readPersistedStashHistory } from "./stash-history.ts";
+} from "../shortcuts/shortcuts-config.ts";
+import { warnInvalidSegmentSettings } from "../ui/layout.ts";
+import { readPersistedStashHistory } from "../history/stash-history.ts";
 import {
   requestImmediateStatusRender,
   requestStatusRender,
   resetLayoutCache,
-} from "./segment-context.ts";
-import { getQueueContext } from "./queue-context.ts";
+} from "../core/segment-context.ts";
+import { getQueueContext } from "../queue/queue-context.ts";
 import {
   requestQueueRender,
   schedulePostCompactionDelivery,
   finishFailedCompaction,
-} from "./queue-integration.ts";
-import { setupCustomEditor } from "./custom-editor.ts";
+} from "../queue/queue-integration.ts";
+import { setupCustomEditor } from "../ui/custom-editor.ts";
 import {
   setupWelcomeHeader,
   setupWelcomeOverlay,
-} from "./welcome-integration.ts";
+} from "../welcome/welcome-integration.ts";
 import {
   config,
   PRESET_NAMES,
   setConfig,
   setCustomCompactionEnabled,
-} from "./state.ts";
-import { CONTEXT_STATUS_RENDER_MS } from "./constants.ts";
-import type { RuntimeState } from "./types.ts";
+} from "../core/state.ts";
+import { CONTEXT_STATUS_RENDER_MS } from "../core/constants.ts";
+import type { RuntimeState } from "../core/types.ts";
 import { isStaleExtensionContextError } from "./stale-context.ts";
 import {
   dismissWelcome,
   scheduleDismissWelcome,
-} from "./welcome-control.ts";
+} from "../welcome/welcome-control.ts";
 
 // Helper to extract recent agent response text (skipping thinking blocks)
 function getRecentAgentContext(ctx: any): string | undefined {
@@ -85,7 +85,10 @@ function getRecentAgentContext(ctx: any): string | undefined {
   return undefined;
 }
 
-export function shouldShowStartupWelcome(reason: unknown, welcomeEnabled: boolean): boolean {
+export function shouldShowStartupWelcome(
+  reason: unknown,
+  welcomeEnabled: boolean,
+): boolean {
   return reason === "startup" && welcomeEnabled;
 }
 

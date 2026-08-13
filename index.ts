@@ -1,6 +1,6 @@
-export { default } from "./src/extension/activate.ts";
+export { default } from "./src/extension/session/activate.ts";
 export {
   parseBashModeSettings,
   resolveShortcutConfig,
-} from "./src/extension/shortcuts-config.ts";
-export type { PowerlineShortcuts } from "./src/extension/types.ts";
+} from "./src/extension/shortcuts/shortcuts-config.ts";
+export type { PowerlineShortcuts } from "./src/extension/core/types.ts";

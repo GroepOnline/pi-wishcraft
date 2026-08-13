@@ -3,10 +3,10 @@ import { dirname } from "node:path";
 
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
-import { getAgentPath } from "../paths/agent-dirs.ts";
-import { isRecord } from "./settings-io.ts";
+import { getAgentPath } from "../../paths/agent-dirs.ts";
+import { isRecord } from "../settings/settings-io.ts";
 import { hasNonWhitespaceText } from "./prompt-history.ts";
-import { STASH_HISTORY_LIMIT } from "./constants.ts";
+import { STASH_HISTORY_LIMIT } from "../core/constants.ts";
 
 export function getStashHistoryPath(): string {
   return getAgentPath("powerline-footer", "stash-history.json");

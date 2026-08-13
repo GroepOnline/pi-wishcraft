@@ -1,4 +1,4 @@
-import type { RuntimeState } from "./types.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 export function dismissWelcome(rt: RuntimeState, ctx: any) {
   rt.welcomeDismissScheduler.cancel();

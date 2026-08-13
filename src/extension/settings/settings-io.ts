@@ -1,13 +1,13 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 
-import type { StatusLinePreset } from "../config/types.ts";
-import type { PowerlineConfig } from "../config/powerline-config.ts";
+import type { StatusLinePreset } from "../../config/types.ts";
+import type { PowerlineConfig } from "../../config/powerline-config.ts";
 import {
   nextPowerlineSettingWithOptions,
   nextPowerlineSettingWithPreset,
-} from "../config/powerline-config.ts";
-import { getAgentPath } from "../paths/agent-dirs.ts";
+} from "../../config/powerline-config.ts";
+import { getAgentPath } from "../../paths/agent-dirs.ts";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

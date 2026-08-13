@@ -1,4 +1,4 @@
-import { currentQueueContext } from "../../queue/store.ts";
+import { currentQueueContext } from "../../../queue/store.ts";
 
 export function getQueueSessionId(ctx: any): string | undefined {
   const sessionId = ctx.sessionManager?.getSessionId?.();

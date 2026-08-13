@@ -1,23 +1,23 @@
-import type { PowerlineConfig } from "../config/powerline-config.ts";
-import type { StatusLinePreset } from "../config/types.ts";
-import { PRESETS } from "../config/presets.ts";
-import { BashTranscriptStore } from "../../bash-mode/transcript.ts";
-import { BashCompletionEngine } from "../../bash-mode/completion.ts";
-import { ManagedShellSession } from "../../bash-mode/shell-session.ts";
-import { PowerlineQueueStore } from "../../queue/store.ts";
+import type { PowerlineConfig } from "../../config/powerline-config.ts";
+import type { StatusLinePreset } from "../../config/types.ts";
+import { PRESETS } from "../../config/presets.ts";
+import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
+import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
+import { ManagedShellSession } from "../../../bash-mode/shell-session.ts";
+import { PowerlineQueueStore } from "../../../queue/store.ts";
 import {
   SessionBranchCache,
   SessionTokenStatsCache,
-} from "../usage/ledger.ts";
-import { CoreContextUsageCache } from "../usage/context.ts";
-import { createWelcomeDismissScheduler } from "../welcome/auto-dismiss.ts";
-import { createRenderScheduler } from "../render/timer.ts";
+} from "../../usage/ledger.ts";
+import { CoreContextUsageCache } from "../../usage/context.ts";
+import { createWelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
+import { createRenderScheduler } from "../../render/timer.ts";
 import {
   resolveShortcutConfig,
   parseBashModeSettings,
-} from "./shortcuts-config.ts";
-import { readPersistedStashHistory } from "./stash-history.ts";
-import { dismissWelcome } from "./welcome-control.ts";
+} from "../shortcuts/shortcuts-config.ts";
+import { readPersistedStashHistory } from "../history/stash-history.ts";
+import { dismissWelcome } from "../welcome/welcome-control.ts";
 import {
   EDITOR_STATUS_DEFER_MS,
   STATUS_RENDER_DEBOUNCE_MS,

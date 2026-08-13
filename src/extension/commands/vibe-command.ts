@@ -11,7 +11,7 @@ import {
   setVibeMode,
   setVibeModel,
   setVibeTheme,
-} from "../working-vibes/index.ts";
+} from "../../working-vibes/index.ts";
 
 export async function runVibeCommand(args: string, ctx: any): Promise<void> {
   const parts = args?.trim().split(/\s+/) || [];
@@ -25,8 +25,7 @@ export async function runVibeCommand(args: string, ctx: any): Promise<void> {
     let status = `Vibe: ${theme || "off"} | Mode: ${mode} | Model: ${model}`;
     if (theme && mode === "file") {
       const count = getVibeFileCount(theme);
-      status +=
-        count > 0 ? ` | File: ${count} vibes` : " | File: not found";
+      status += count > 0 ? ` | File: ${count} vibes` : " | File: not found";
     }
     ctx.ui.notify(status, "info");
     return;

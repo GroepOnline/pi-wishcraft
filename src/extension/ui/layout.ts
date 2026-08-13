@@ -4,13 +4,13 @@ import type {
   SegmentContext,
   StatusLineSegmentId,
   StatusLineSeparatorStyle,
-} from "../config/types.ts";
-import { getPreset } from "../config/presets.ts";
-import { mergeSegmentsWithCustomItems } from "../config/powerline-config.ts";
-import { getSeparator } from "../theme/separators.ts";
-import { renderSegment } from "../segments/index.ts";
-import { ansi, getFgAnsiCode } from "../theme/colors.ts";
-import { config } from "./state.ts";
+} from "../../config/types.ts";
+import { getPreset } from "../../config/presets.ts";
+import { mergeSegmentsWithCustomItems } from "../../config/powerline-config.ts";
+import { getSeparator } from "../../theme/separators.ts";
+import { renderSegment } from "../../segments/index.ts";
+import { ansi, getFgAnsiCode } from "../../theme/colors.ts";
+import { config } from "../core/state.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Status Line Builder

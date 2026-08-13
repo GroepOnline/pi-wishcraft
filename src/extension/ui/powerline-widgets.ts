@@ -1,6 +1,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-import { resetLayoutCache, requestStatusRender } from "./segment-context.ts";
+import {
+  resetLayoutCache,
+  requestStatusRender,
+} from "../core/segment-context.ts";
 import {
   renderBashTranscriptLines,
   renderLastPromptLines,
@@ -9,8 +12,8 @@ import {
   renderPowerlineSecondaryLines,
   renderPowerlineStatusLines,
 } from "./status-line-renderers.ts";
-import { config } from "./state.ts";
-import type { RuntimeState } from "./types.ts";
+import { config } from "../core/state.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 export function installPowerlineWidgets(rt: RuntimeState, ctx: any) {
   ctx.ui.setWidget(

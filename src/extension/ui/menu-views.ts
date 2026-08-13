@@ -6,17 +6,17 @@ import {
 } from "@earendil-works/pi-tui";
 import { execSync } from "node:child_process";
 
-import type { StatusLinePreset } from "../config/types.ts";
-import { getPreset, PRESETS } from "../config/presets.ts";
-import { mergeSegmentsWithCustomItems } from "../config/powerline-config.ts";
-import { writePowerlinePresetSetting } from "./settings-io.ts";
+import type { StatusLinePreset } from "../../config/types.ts";
+import { getPreset, PRESETS } from "../../config/presets.ts";
+import { mergeSegmentsWithCustomItems } from "../../config/powerline-config.ts";
+import { writePowerlinePresetSetting } from "../settings/settings-io.ts";
 import { renderSegmentWithWidth } from "./layout.ts";
 import {
   buildSegmentContext,
   requestImmediateStatusRender,
-} from "./segment-context.ts";
-import { config, setConfig } from "./state.ts";
-import type { RuntimeState } from "./types.ts";
+} from "../core/segment-context.ts";
+import { config, setConfig } from "../core/state.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 export function overlaySelectListTheme(theme: Theme) {
   return {

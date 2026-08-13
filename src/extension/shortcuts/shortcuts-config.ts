@@ -1,22 +1,22 @@
 import { TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 
-import type { BashModeSettings } from "../../bash-mode/types.ts";
+import type { BashModeSettings } from "../../../bash-mode/types.ts";
 import {
   isSupportedSuperShortcut,
   shortcutConflictKey,
   shortcutUsesSuper,
-} from "../shortcuts/matching.ts";
-import { isRecord } from "./settings-io.ts";
+} from "../../shortcuts/matching.ts";
+import { isRecord } from "../settings/settings-io.ts";
 import {
   DEFAULT_BASH_MODE_SETTINGS,
   DEFAULT_SHORTCUTS,
   SHORTCUT_KEYS,
-} from "./constants.ts";
+} from "../core/constants.ts";
 import type {
   PowerlineShortcutKey,
   PowerlineShortcuts,
   ShortcutBinding,
-} from "./types.ts";
+} from "../core/types.ts";
 
 const APP_RESERVED_SHORTCUTS = [
   "escape",

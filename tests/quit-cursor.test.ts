@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { shouldShowStartupWelcome } from "../src/extension/session-lifecycle.ts";
-import { isStaleExtensionContextError } from "../src/extension/stale-context.ts";
+import { shouldShowStartupWelcome } from "../src/extension/session/session-lifecycle.ts";
+import { isStaleExtensionContextError } from "../src/extension/session/stale-context.ts";
 
 test("startup welcome only shows on startup when enabled", () => {
   assert.equal(shouldShowStartupWelcome("startup", true), true);
