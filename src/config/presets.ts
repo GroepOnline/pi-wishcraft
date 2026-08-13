@@ -114,7 +114,7 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
         showStaged: false,
         showUnstaged: false,
         showUntracked: false,
-        polling: "branch",
+        polling: "full",
         hostIcon: true,
         showAheadBehind: true,
         showCommit: true,
