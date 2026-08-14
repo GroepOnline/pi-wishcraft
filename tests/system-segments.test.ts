@@ -131,5 +131,21 @@ test("tps segment honors the POWERLINE_TPS override", () => {
 test("resolvePreset warns once and falls back to default for unknown names", () => {
   assert.equal(resolvePreset("default"), PRESETS.default);
   assert.equal(resolvePreset("compact"), PRESETS.compact);
-  assert.equal(resolvePreset("definitely-not-a-preset"), PRESETS.default);
+
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(String(args[0]));
+  };
+  try {
+    // Unknown names resolve to default with exactly one warning each.
+    assert.equal(resolvePreset("definitely-not-a-preset"), PRESETS.default);
+    assert.equal(resolvePreset("definitely-not-a-preset"), PRESETS.default);
+    // Inherited Object names (e.g. `toString`) must NOT be treated as presets.
+    assert.equal(resolvePreset("toString"), PRESETS.default);
+    assert.equal(resolvePreset("toString"), PRESETS.default);
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.equal(warnings.length, 2);
 });

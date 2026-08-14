@@ -308,7 +308,10 @@ const warnedUnknownPresets = new Set<string>();
 
 /** Resolve a preset by name, checking user-defined presets first. */
 export function resolvePreset(name: string): PresetDef {
-  if (customPresets.has(name) || name in PRESETS) {
+  if (
+    customPresets.has(name) ||
+    Object.prototype.hasOwnProperty.call(PRESETS, name)
+  ) {
     return (
       customPresets.get(name) ??
       (PRESETS[name as StatusLinePreset] ?? PRESETS.default)

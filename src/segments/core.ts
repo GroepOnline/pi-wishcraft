@@ -142,7 +142,14 @@ export const gitSegment: StatusLineSegment = {
         ? { staged, unstaged, untracked }
         : null;
 
-    if (!branch && !gitStatus) return { content: "", visible: false };
+    if (
+      !branch &&
+      !gitStatus &&
+      !(opts.showAheadBehind !== false && (ahead > 0 || behind > 0)) &&
+      !(opts.showCommit !== false && commit)
+    ) {
+      return { content: "", visible: false };
+    }
 
     const isDirty =
       gitStatus &&

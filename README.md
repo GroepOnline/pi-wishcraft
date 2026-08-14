@@ -585,7 +585,7 @@ The origin remote is detected (SSH or HTTPS) and mapped to an icon: GitHub (`nf-
 
 ## Git status extras (commits, ahead/behind)
 
-The git segment can also show the last commit on `HEAD` (short hash + subject) and the upstream ahead/behind counts — handy for a quick "github shit / where am I relative to main" signal:
+The git segment can also show the last commit on `HEAD` (short hash + subject) and the upstream ahead/behind counts — handy for a quick "where am I relative to main" GitHub signal:
 
 - `git.showCommit` (`true` by default) — appends `#<hash> <subject>` for the latest commit.
 - `git.maxCommitSubjectLength` (`24`) — truncates the commit subject shown.
