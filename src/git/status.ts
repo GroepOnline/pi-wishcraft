@@ -237,6 +237,14 @@ async function fetchGitStatus(): Promise<{
 }
 
 /** Parse `git log -1 --format=%h%x09%s` output into a short hash + subject. */
+function sanitizeCommitText(value: string): string {
+  // Strip ANSI escapes and other control characters so commit metadata pulled
+  // from `git log` can't inject terminal escape sequences into the footer.
+  return value
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+}
+
 function parseCommitLine(
   output: string | null,
 ): { short: string; subject: string } | null {
@@ -245,7 +253,10 @@ function parseCommitLine(
   const short =
     (sep === -1 ? output.slice(0, 7) : output.slice(0, sep)).trim() || "?";
   const subject = sep === -1 ? "" : output.slice(sep + 1);
-  return { short, subject };
+  return {
+    short: sanitizeCommitText(short),
+    subject: sanitizeCommitText(subject).trim(),
+  };
 }
 
 /**
