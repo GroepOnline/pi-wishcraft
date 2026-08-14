@@ -67,6 +67,12 @@ function discoverSkills(): void {
   availableSkills = discovered;
 }
 
+/** Publieke toegang tot de ontdekte skills (naam → bestandspad). */
+export function getAvailableSkills(): Map<string, string> {
+  discoverSkills();
+  return availableSkills!;
+}
+
 /**
  * Vind alle code block ranges om false positives te voorkomen
  */

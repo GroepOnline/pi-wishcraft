@@ -7,6 +7,7 @@ import { PRESETS } from "../../config/presets.ts";
 import { registerCdCommand } from "../../shell/cd-command.ts";
 import { registerVibeCommand } from "./vibe-command.ts";
 import { registerQueueCommands } from "./queue-commands.ts";
+import { registerSkillManagerCommand } from "../skills/skill-manager.ts";
 import {
   writePowerlineOptionSetting,
   writePowerlinePresetSetting,
@@ -31,6 +32,7 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerCdCommand(pi, () => rt.currentCtx?.cwd ?? process.cwd());
   registerVibeCommand(pi);
   registerQueueCommands(pi, rt);
+  registerSkillManagerCommand(pi, rt);
 
   // Command to toggle/configure
   pi.registerCommand("powerline", {
