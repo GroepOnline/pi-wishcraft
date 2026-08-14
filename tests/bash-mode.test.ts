@@ -737,9 +737,10 @@ test("bash editor Tab completes the ghost suggestion one token at a time", async
     const { BashModeEditor } = await import("../bash-mode/editor.ts");
 
     // Step 1: `npm` + ghost `npm run build` should advance one token to
-    // `npm run` and keep the ghost live for further stepping.
+    // `npm run`, keep the ghost, and re-schedule it for the next step.
     const captured: string[] = [];
     let ghostCleared = false;
+    let ghostRescheduled = 0;
     const step1 = {
       ghost: { value: "npm run build", source: "project-history" },
       getExpandedText() {
@@ -754,7 +755,9 @@ test("bash editor Tab completes the ghost suggestion one token at a time", async
       clearGhostSuggestion() {
         ghostCleared = true;
       },
-      tui: { requestRender() {} },
+      scheduleGhostUpdate() {
+        ghostRescheduled += 1;
+      },
     };
     const stepped1 = getMethod(
       BashModeEditor.prototype,
@@ -763,9 +766,12 @@ test("bash editor Tab completes the ghost suggestion one token at a time", async
     assert.equal(stepped1, true);
     assert.deepEqual(captured, ["npm run"]);
     assert.equal(ghostCleared, false);
+    assert.equal(ghostRescheduled, 1);
 
-    // Step 2: `npm run` + same ghost now inserts the final token and clears it.
+    // Step 2: `npm run` + same ghost now inserts the final token and clears it
+    // (no re-schedule once the full suggestion is in the buffer).
     captured.length = 0;
+    ghostRescheduled = 0;
     const step2 = {
       ghost: { value: "npm run build", source: "project-history" },
       getExpandedText() {
@@ -780,7 +786,9 @@ test("bash editor Tab completes the ghost suggestion one token at a time", async
       clearGhostSuggestion() {
         ghostCleared = true;
       },
-      tui: { requestRender() {} },
+      scheduleGhostUpdate() {
+        ghostRescheduled += 1;
+      },
     };
     const stepped2 = getMethod(
       BashModeEditor.prototype,
@@ -789,6 +797,7 @@ test("bash editor Tab completes the ghost suggestion one token at a time", async
     assert.equal(stepped2, true);
     assert.deepEqual(captured, ["npm run build"]);
     assert.equal(ghostCleared, true);
+    assert.equal(ghostRescheduled, 0);
   } finally {
     links.cleanup();
   }
