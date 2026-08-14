@@ -259,16 +259,16 @@ test("reset forces recomputation", () => {
 
 test("segment-context wires the token stats cache into buildSegmentContext", () => {
   const stateSource = readFileSync(
-    new URL("../src/extension/state.ts", import.meta.url),
+    new URL("../src/extension/core/state.ts", import.meta.url),
     "utf-8",
   );
   const contextSource = readFileSync(
-    new URL("../src/extension/segment-context.ts", import.meta.url),
+    new URL("../src/extension/core/segment-context.ts", import.meta.url),
     "utf-8",
   );
   assert.match(
     stateSource,
-    /import \{\s*SessionBranchCache,\s*SessionTokenStatsCache,\s*\} from "\.\.\/usage\/ledger\.ts";/,
+    /import \{\s*SessionBranchCache,\s*SessionTokenStatsCache,\s*\} from "(?:\.\.\/)+usage\/ledger\.ts";/,
   );
   assert.match(contextSource, /sessionBranchCache\.get\(ctx\.sessionManager\)/);
   assert.match(contextSource, /tokenStatsCache\.get\(sessionEvents\)/);

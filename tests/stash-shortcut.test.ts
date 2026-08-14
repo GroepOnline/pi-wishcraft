@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 import { matchesStashShortcutInput } from "../src/shortcuts/matching.ts";
 
 const editorSource = readFileSync(
-  new URL("../src/extension/custom-editor.ts", import.meta.url),
+  new URL("../src/extension/ui/custom-editor.ts", import.meta.url),
   "utf-8",
 );
 const routerSource = readFileSync(
-  new URL("../src/extension/shortcuts-router.ts", import.meta.url),
+  new URL("../src/extension/shortcuts/shortcuts-router.ts", import.meta.url),
   "utf-8",
 );
 

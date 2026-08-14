@@ -1,18 +1,18 @@
 import type { ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
 
-import type { BashModeSettings } from "../../bash-mode/types.ts";
-import type { BashTranscriptStore } from "../../bash-mode/transcript.ts";
-import type { BashCompletionEngine } from "../../bash-mode/completion.ts";
-import type { ManagedShellSession } from "../../bash-mode/shell-session.ts";
-import type { PowerlineQueueStore } from "../../queue/store.ts";
+import type { BashModeSettings } from "../../../bash-mode/types.ts";
+import type { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
+import type { BashCompletionEngine } from "../../../bash-mode/completion.ts";
+import type { ManagedShellSession } from "../../../bash-mode/shell-session.ts";
+import type { PowerlineQueueStore } from "../../../queue/store.ts";
 import type {
   SessionAssistantUsage,
   SessionBranchCache,
   SessionTokenStatsCache,
-} from "../usage/ledger.ts";
-import type { CoreContextUsageCache } from "../usage/context.ts";
-import type { WelcomeDismissScheduler } from "../welcome/auto-dismiss.ts";
-import type { RenderScheduler } from "../render/timer.ts";
+} from "../../usage/ledger.ts";
+import type { CoreContextUsageCache } from "../../usage/context.ts";
+import type { WelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
+import type { RenderScheduler } from "../../render/timer.ts";
 
 export type ShortcutBinding = string | null;
 

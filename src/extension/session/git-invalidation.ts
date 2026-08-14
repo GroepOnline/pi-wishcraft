@@ -1,6 +1,6 @@
-import { invalidateGitBranch, invalidateGitStatus } from "../git/status.ts";
-import { requestStatusRender } from "./segment-context.ts";
-import type { RuntimeState } from "./types.ts";
+import { invalidateGitBranch, invalidateGitStatus } from "../../git/status.ts";
+import { requestStatusRender } from "../core/segment-context.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 // Check if a bash command might change git branch
 export function mightChangeGitBranch(cmd: string): boolean {

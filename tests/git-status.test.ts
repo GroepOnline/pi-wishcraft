@@ -20,6 +20,9 @@ test("git status supports disabling extension git polling", () => {
     staged: 0,
     unstaged: 0,
     untracked: 0,
+    ahead: 0,
+    behind: 0,
+    commit: null,
   });
 });
 

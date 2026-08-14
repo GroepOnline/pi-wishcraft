@@ -16,15 +16,19 @@ user customization.
   `parseBashModeSettings`, `PowerlineShortcuts`). Keep it a barrel; no
   implementation lives here.
 - `src/` — the proxy-free extension runtime, organized by domain:
-  - `src/extension/` — activation, command handlers, session lifecycle,
-    custom editor wiring, shortcut routing, settings IO, queue and menu views.
-    Leaf modules (`types.ts`, `constants.ts`, `queue-context.ts`,
-    `welcome-control.ts`, `settings-io.ts`, `prompt-history.ts`,
-    `stash-history.ts`, `shortcuts-config.ts`) keep the dependency graph
-    acyclic: shared types and constants live in leaves, queue/welcome
-    callbacks are wired through leaves or `RuntimeState`, and `state.ts` is
-    the hub that only has inbound edges. Verify with `npx madge --circular
-    src index.ts bash-mode queue`.
+  - `src/extension/` — the extension runtime, organized into domain subfolders:
+    `core/` (constants, types, `state.ts` hub, segment-context), `commands/`
+    (slash commands, queue commands, bash-mode actions, vibe command),
+    `session/` (activation, session lifecycle, git invalidation, stale-context),
+    `ui/` (custom editor, layout, menu views, powerline widgets, status-line
+    renderers), `history/` (prompt + stash history), `queue/` (queue context +
+    integration), `settings/` (settings IO), `shortcuts/` (shortcut config +
+    router), `welcome/` (welcome control + integration), `skills/` (inline
+    invocation). Leaf modules keep the dependency graph acyclic: shared types
+    and constants live in `core/`, queue/welcome callbacks are wired through
+    leaves or `RuntimeState`, and `core/state.ts` is the hub that only has
+    inbound edges. Verify with `npx madge --circular src index.ts bash-mode
+    queue`.
   - `src/config/` — powerline config parsing, presets, types, segment ids/options.
   - `src/segments/` — segment registry and the segment renderers.
   - `src/theme/` — colors, icons, separators, theme loading.
@@ -48,7 +52,7 @@ user customization.
   boundaries (e.g. command handlers out of `commands.ts`, git invalidation
   out of `session-lifecycle.ts`). Prefer many cohesive small modules.
 - **No circular imports.** Domain modules must not import back into
-  `src/extension/state.ts` for callbacks; move the callback into a leaf module
+  `src/extension/core/state.ts` for callbacks; move the callback into a leaf module
   (e.g. `welcome-control.ts`) or wire it through `RuntimeState`.
 - **Bun/Node-native TS:** `import` paths carry `.ts` extensions
   (`allowImportingTsExtensions`), `node:`-prefixed builtins, `node --test`

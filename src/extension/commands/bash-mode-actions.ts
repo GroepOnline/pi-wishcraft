@@ -3,10 +3,10 @@ import {
   matchHistoryEntries,
   readGlobalShellHistory,
   readProjectHistory,
-} from "../../bash-mode/history.ts";
-import { ManagedShellSession } from "../../bash-mode/shell-session.ts";
-import { requestStatusRender } from "./segment-context.ts";
-import type { RuntimeState } from "./types.ts";
+} from "../../../bash-mode/history.ts";
+import { ManagedShellSession } from "../../../bash-mode/shell-session.ts";
+import { requestStatusRender } from "../core/segment-context.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 export const getShellPath = () => process.env.SHELL || "/bin/sh";
 

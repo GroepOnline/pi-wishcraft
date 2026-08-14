@@ -1,8 +1,5 @@
-import type { BashModeSettings } from "../../bash-mode/types.ts";
-import type {
-  PowerlineShortcutKey,
-  PowerlineShortcuts,
-} from "./types.ts";
+import type { BashModeSettings } from "../../../bash-mode/types.ts";
+import type { PowerlineShortcutKey, PowerlineShortcuts } from "./types.ts";
 
 export const CUSTOM_COMPACTION_STATUS_KEY = "compact-policy";
 

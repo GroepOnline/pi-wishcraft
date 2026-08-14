@@ -1,24 +1,24 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
-import type { SegmentContext } from "../config/types.ts";
-import { getPreset } from "../config/presets.ts";
+import type { SegmentContext } from "../../config/types.ts";
+import { getPreset } from "../../config/presets.ts";
 import {
   collectHiddenExtensionStatusKeys,
   getNotificationExtensionStatuses,
-} from "../config/powerline-config.ts";
-import { ansi, getFgAnsiCode } from "../theme/colors.ts";
+} from "../../config/powerline-config.ts";
+import { ansi, getFgAnsiCode } from "../../theme/colors.ts";
 
 import { computeResponsiveLayout } from "./layout.ts";
-import { getQueueContext } from "./queue-context.ts";
-import { buildSegmentContext } from "./segment-context.ts";
+import { getQueueContext } from "../queue/queue-context.ts";
+import { buildSegmentContext } from "../core/segment-context.ts";
 import {
   EDITOR_STATUS_DEFER_MS,
   LAYOUT_CACHE_TTL_MS,
   STREAMING_LAYOUT_CACHE_TTL_MS,
-} from "./constants.ts";
-import { config } from "./state.ts";
-import type { RuntimeState } from "./types.ts";
+} from "../core/constants.ts";
+import { config } from "../core/state.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 /**
  * Get cached responsive layout or compute fresh one.
@@ -56,7 +56,10 @@ export function getResponsiveLayout(
   try {
     segmentCtx = buildSegmentContext(rt, rt.currentCtx, theme);
   } catch (error) {
-    const isStale = error instanceof Error && (error.message.includes("This extension instance is stale") || error.message.includes("This extension ctx is stale"));
+    const isStale =
+      error instanceof Error &&
+      (error.message.includes("This extension instance is stale") ||
+        error.message.includes("This extension ctx is stale"));
     if (!isStale) throw error;
     rt.currentCtx = null;
     rt.lastLayoutWidth = width;

@@ -5,28 +5,28 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
 
-import { BashModeEditor } from "../../bash-mode/editor.ts";
+import { BashModeEditor } from "../../../bash-mode/editor.ts";
 import {
   BashAutocompleteProvider,
   ModeAwareAutocompleteProvider,
   OneOffBashAutocompleteProvider,
-} from "../../bash-mode/completion-providers.ts";
-import { getOneOffBashCommandContext } from "../../bash-mode/completion.ts";
+} from "../../../bash-mode/completion-providers.ts";
+import { getOneOffBashCommandContext } from "../../../bash-mode/completion.ts";
 import {
   parseCompactQueuedPrompt,
   parseSigilIdeaCapture,
-} from "../../queue/store.ts";
+} from "../../../queue/store.ts";
 import {
   getEditorAutocompleteProvider,
   passAutocompleteProviderThroughPreviousEditor,
-} from "../editor/autocomplete-chain.ts";
-import { subscribeGitUpdates } from "../git/status.ts";
-import { ansi, getFgAnsiCode } from "../theme/colors.ts";
+} from "../../editor/autocomplete-chain.ts";
+import { subscribeGitUpdates } from "../../git/status.ts";
+import { ansi, getFgAnsiCode } from "../../theme/colors.ts";
 import {
   restorePromptHistory,
   snapshotPromptHistory,
   trackPromptHistory,
-} from "./prompt-history.ts";
+} from "../history/prompt-history.ts";
 import {
   captureIdeaFromParsedInput,
   capturePostCompactPrompt,
@@ -34,24 +34,24 @@ import {
   captureSigilGlyph,
   requestQueueRender,
   finishFailedCompaction,
-} from "./queue-integration.ts";
+} from "../queue/queue-integration.ts";
 import {
   installFooterStatusRepaintHook,
   requestStatusRender,
-} from "./segment-context.ts";
+} from "../core/segment-context.ts";
 import { installPowerlineWidgets } from "./powerline-widgets.ts";
 import {
   getPowerlineShortcutAction,
   isStashShortcutInput,
   runPowerlineShortcut,
   stashOrRestoreEditorText,
-} from "./shortcuts-router.ts";
+} from "../shortcuts/shortcuts-router.ts";
 import {
   dismissWelcome,
   scheduleDismissWelcome,
-} from "./welcome-control.ts";
-import { config } from "./state.ts";
-import type { RuntimeState } from "./types.ts";
+} from "../welcome/welcome-control.ts";
+import { config } from "../core/state.ts";
+import type { RuntimeState } from "../core/types.ts";
 import {
   ensureShellSession,
   getShellCwd,
@@ -59,8 +59,7 @@ import {
   getShellPath,
   runShellCommand,
   setBashModeActive,
-} from "./bash-mode-actions.ts";
-
+} from "../commands/bash-mode-actions.ts";
 
 export function setupCustomEditor(
   pi: ExtensionAPI,

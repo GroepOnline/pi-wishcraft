@@ -5,11 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+# Cancel superseded runs so the single PR runner isn't clogged by stale queued jobs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: test
     # GitHub-hosted runners banned until Actions spending restored (fleet only).
     runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

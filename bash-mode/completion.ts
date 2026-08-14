@@ -179,8 +179,30 @@ function escapeShellPath(value: string): string {
   return value.replace(/([\\\s"'`$&|;<>()[\]{}?!*])/g, "\\$1");
 }
 
-function getPathSuggestions(token: string, cwd: string): ExtendedCompletionItem[] {
+function getPathSuggestions(
+  ctx: TokenContext,
+  cwd: string,
+): ExtendedCompletionItem[] {
+  const token = ctx.token;
   if (!token) return [];
+  const tokenStart = ctx.tokenStart;
+  const tokenEnd = ctx.tokenEnd;
+
+  // `~`, `.`, and `..` are directory shorthand, not filenames to match.
+  if (token === "~" || token === "." || token === "..") {
+    return [
+      {
+        value: `${token}/`,
+        label: `${token}/`,
+        replacement: `${token}/`,
+        startCol: tokenStart,
+        endCol: tokenEnd,
+        source: "path",
+        score: 50,
+      } satisfies ExtendedCompletionItem,
+    ];
+  }
+
   const { dir, prefix, displayPrefix } = pathBase(token, cwd);
 
   try {
@@ -188,16 +210,26 @@ function getPathSuggestions(token: string, cwd: string): ExtendedCompletionItem[
       .filter((entry) => prefix.length === 0 || entry.name.startsWith(prefix))
       .slice(0, 100);
 
+    // Complete only the basename part of the token and skip re-emitting the
+    // directory prefix the user already typed. For a fully-typed dir (trailing
+    // "/") replace the whole token so the new entry is appended correctly.
+    const isFullDir = token.endsWith("/");
+    const startCol = isFullDir
+      ? tokenStart
+      : displayPrefix.length === 0
+        ? tokenStart
+        : tokenStart + displayPrefix.length;
+
     return entries.map((entry) => {
       const suffix = entry.isDirectory() ? "/" : "";
       const label = `${displayPrefix}${entry.name}${suffix}`;
-      const replacement = `${displayPrefix}${escapeShellPath(entry.name)}${suffix}`;
+      const replacement = `${isFullDir ? displayPrefix : ""}${escapeShellPath(entry.name)}${suffix}`;
       return {
         value: replacement,
         label,
         replacement,
-        startCol: 0,
-        endCol: 0,
+        startCol,
+        endCol: tokenEnd,
         source: "path",
         score: 40 + (entry.isDirectory() ? 4 : 0),
       } satisfies ExtendedCompletionItem;
@@ -237,7 +269,8 @@ function getGitSuggestions(ctx: TokenContext, cwd: string): ExtendedCompletionIt
         startCol: 0,
         endCol: 0,
         source: "git",
-        score: 52,
+        // Exact subcommand matches outrank mere prefixes (e.g. `git sta` → status).
+        score: command === ctx.token ? 62 : 52,
       }));
   }
 
@@ -400,7 +433,7 @@ export class BashCompletionEngine {
   private getDeterministicInlineSuggestions(ctx: TokenContext, cwd: string): ExtendedCompletionItem[] {
     const items: ExtendedCompletionItem[] = [];
     items.push(...withRange(getGitSuggestions(ctx, cwd), ctx.tokenStart, ctx.tokenEnd));
-    items.push(...withRange(getPathSuggestions(ctx.token, cwd), ctx.tokenStart, ctx.tokenEnd));
+    items.push(...getPathSuggestions(ctx, cwd));
 
     return uniqueByReplacement(items);
   }

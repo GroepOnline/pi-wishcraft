@@ -3,11 +3,11 @@ import {
   WelcomeHeader,
   discoverLoadedCounts,
   getRecentSessions,
-} from "../welcome/index.ts";
-import { estimateInitialContextTokens } from "../usage/context.ts";
-import { isRecord } from "./settings-io.ts";
-import type { RuntimeState } from "./types.ts";
-import { getQueueContext } from "./queue-context.ts";
+} from "../../welcome/index.ts";
+import { estimateInitialContextTokens } from "../../usage/context.ts";
+import { isRecord } from "../settings/settings-io.ts";
+import type { RuntimeState } from "../core/types.ts";
+import { getQueueContext } from "../queue/queue-context.ts";
 
 export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   const modelName = ctx.model?.name || ctx.model?.id || "No model";
@@ -17,7 +17,8 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   const initialContextTokens = estimateInitialContextTokens(ctx);
   const queueSummary = rt.queueStore.summarize(getQueueContext(ctx), false);
   const queueCount = queueSummary.queueCount + queueSummary.ideaCount;
-  const hasStash = rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
+  const hasStash =
+    rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
 
   const header = new WelcomeHeader(
     modelName,
@@ -80,7 +81,8 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
     const initialContextTokens = estimateInitialContextTokens(ctx);
     const queueSummary = rt.queueStore.summarize(getQueueContext(ctx), false);
     const queueCount = queueSummary.queueCount + queueSummary.ideaCount;
-    const hasStash = rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
+    const hasStash =
+      rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
 
     ctx.ui
       .custom(

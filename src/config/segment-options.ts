@@ -55,6 +55,17 @@ export function normalizeSegmentOptions(
       ...(typeof raw.git.hostIcon === "boolean"
         ? { hostIcon: raw.git.hostIcon }
         : {}),
+      ...(typeof raw.git.showAheadBehind === "boolean"
+        ? { showAheadBehind: raw.git.showAheadBehind }
+        : {}),
+      ...(typeof raw.git.showCommit === "boolean"
+        ? { showCommit: raw.git.showCommit }
+        : {}),
+      ...(typeof raw.git.maxCommitSubjectLength === "number" &&
+      Number.isFinite(raw.git.maxCommitSubjectLength) &&
+      raw.git.maxCommitSubjectLength > 0
+        ? { maxCommitSubjectLength: Math.floor(raw.git.maxCommitSubjectLength) }
+        : {}),
     };
   }
 

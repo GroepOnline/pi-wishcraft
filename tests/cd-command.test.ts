@@ -22,7 +22,7 @@ const cdCommandSource = readFileSync(
   "utf-8",
 );
 const indexSource = readFileSync(
-  new URL("../src/extension/commands.ts", import.meta.url),
+  new URL("../src/extension/commands/commands.ts", import.meta.url),
   "utf-8",
 );
 

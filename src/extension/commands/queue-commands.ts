@@ -9,10 +9,10 @@ import {
   resolveCommandTarget,
   sendIdeaIssueHandoffById,
   sendOrRetryQueueItem,
-} from "./queue-integration.ts";
-import { getCurrentEditorText } from "./shortcuts-router.ts";
-import { getQueueContext } from "./queue-context.ts";
-import type { RuntimeState } from "./types.ts";
+} from "../queue/queue-integration.ts";
+import { getCurrentEditorText } from "../shortcuts/shortcuts-router.ts";
+import { getQueueContext } from "../queue/queue-context.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 export function registerQueueCommands(
   pi: ExtensionAPI,

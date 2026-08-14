@@ -6,19 +6,19 @@ import {
   formatQueueDeliveryText,
   parseTargetPrefix,
   targetForIdea,
-} from "../../queue/store.ts";
+} from "../../../queue/store.ts";
 import type {
   PowerlineQueueItem,
   QueueIntent,
   QueueTarget,
-} from "../../queue/types.ts";
-import { requestImmediateStatusRender } from "./segment-context.ts";
-import { buildStashPreview } from "./stash-history.ts";
-import { showSelectOverlay } from "./menu-views.ts";
+} from "../../../queue/types.ts";
+import { requestImmediateStatusRender } from "../core/segment-context.ts";
+import { buildStashPreview } from "../history/stash-history.ts";
+import { showSelectOverlay } from "../ui/menu-views.ts";
 import { getQueueContext } from "./queue-context.ts";
-import { isStaleExtensionContextError } from "./stale-context.ts";
-import { config } from "./state.ts";
-import type { RuntimeState } from "./types.ts";
+import { isStaleExtensionContextError } from "../session/stale-context.ts";
+import { config } from "../core/state.ts";
+import type { RuntimeState } from "../core/types.ts";
 
 export function requestQueueRender(rt: RuntimeState): void {
   requestImmediateStatusRender(rt, { deferDuringTyping: false });
@@ -205,7 +205,10 @@ export function schedulePostCompactionDelivery(
   rt.queueDeliveryTimer = setTimeout(() => {
     rt.queueDeliveryTimer = null;
     if (scheduledGeneration !== rt.sessionGeneration) return;
-    const item = rt.queueStore.queuedDeliveryItems(queueContext, "post-compact")[0];
+    const item = rt.queueStore.queuedDeliveryItems(
+      queueContext,
+      "post-compact",
+    )[0];
     if (!item) return;
     try {
       deliverQueueItem(pi, rt, ctx, item);

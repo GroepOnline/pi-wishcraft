@@ -5,30 +5,27 @@ import { isKeyRelease, type SelectItem } from "@earendil-works/pi-tui";
 import {
   matchesConfiguredShortcut,
   matchesStashShortcutInput,
-} from "../shortcuts/matching.ts";
-import { hasNonWhitespaceText } from "./prompt-history.ts";
+} from "../../shortcuts/matching.ts";
+import { hasNonWhitespaceText } from "../history/prompt-history.ts";
 import {
   buildStashPreview,
   pushStashHistory,
   persistStashHistory,
-} from "./stash-history.ts";
-import { readRecentProjectPrompts } from "./prompt-history.ts";
-import { showSelectOverlay } from "./menu-views.ts";
+} from "../history/stash-history.ts";
+import { readRecentProjectPrompts } from "../history/prompt-history.ts";
+import { showSelectOverlay } from "../ui/menu-views.ts";
 import {
   captureCurrentProjectIdea,
   captureIdeaFromText,
   openQueuePicker,
-} from "./queue-integration.ts";
-import { setBashModeActive } from "./bash-mode-actions.ts";
-import { config } from "./state.ts";
+} from "../queue/queue-integration.ts";
+import { setBashModeActive } from "../commands/bash-mode-actions.ts";
+import { config } from "../core/state.ts";
 import {
   PROJECT_PROMPT_HISTORY_LIMIT,
   STASH_PREVIEW_WIDTH,
-} from "./constants.ts";
-import type {
-  PowerlineShortcutAction,
-  RuntimeState,
-} from "./types.ts";
+} from "../core/constants.ts";
+import type { PowerlineShortcutAction, RuntimeState } from "../core/types.ts";
 
 export function getCurrentEditorText(ctx: any, editor: any): string {
   const editorText = editor?.getExpandedText?.();

@@ -135,13 +135,21 @@ export const gitSegment: StatusLineSegment = {
   render(ctx) {
     const icons = getIcons();
     const opts = ctx.options.git ?? {};
-    const { branch, staged, unstaged, untracked } = ctx.git;
+    const { branch, staged, unstaged, untracked, ahead, behind, commit } =
+      ctx.git;
     const gitStatus =
       staged > 0 || unstaged > 0 || untracked > 0
         ? { staged, unstaged, untracked }
         : null;
 
-    if (!branch && !gitStatus) return { content: "", visible: false };
+    if (
+      !branch &&
+      !gitStatus &&
+      !(opts.showAheadBehind !== false && (ahead > 0 || behind > 0)) &&
+      !(opts.showCommit !== false && commit)
+    ) {
+      return { content: "", visible: false };
+    }
 
     const isDirty =
       gitStatus &&
@@ -188,6 +196,27 @@ export const gitSegment: StatusLineSegment = {
           content += content ? ` ${indicatorText}` : indicatorText;
         }
       }
+    }
+
+    // Upstream ahead/behind commit counts (only meaningful with an upstream).
+    if (opts.showAheadBehind !== false && (ahead > 0 || behind > 0)) {
+      const aheadBehind = color(ctx, "separator", `↑${ahead} ↓${behind}`);
+      content += content ? ` ${aheadBehind}` : aheadBehind;
+    }
+
+    // Latest commit on HEAD: short hash + truncated subject.
+    if (opts.showCommit !== false && commit) {
+      const maxLen = opts.maxCommitSubjectLength ?? 24;
+      const subject =
+        commit.subject.length > maxLen
+          ? `${commit.subject.slice(0, Math.max(1, maxLen - 1))}…`
+          : commit.subject;
+      const commitText = color(
+        ctx,
+        "context",
+        `#${commit.short}${subject ? ` ${subject}` : ""}`,
+      );
+      content += content ? ` ${commitText}` : commitText;
     }
 
     if (!content) return { content: "", visible: false };

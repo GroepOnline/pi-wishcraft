@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { NERD_ICONS } from "../src/theme/icons.ts";
-import { shouldShowStartupWelcome } from "../src/extension/session-lifecycle.ts";
-import { isStaleExtensionContextError } from "../src/extension/stale-context.ts";
+import { shouldShowStartupWelcome } from "../src/extension/session/session-lifecycle.ts";
+import { isStaleExtensionContextError } from "../src/extension/session/stale-context.ts";
 import {
   __resetCurrencyRatesForTest,
   __setCurrencyRatesForTest,
@@ -12,7 +12,7 @@ import { renderSegment } from "../src/segments/index.ts";
 import type { SegmentContext } from "../src/config/types.ts";
 
 const source = readFileSync(
-  new URL("../src/extension/session-lifecycle.ts", import.meta.url),
+  new URL("../src/extension/session/session-lifecycle.ts", import.meta.url),
   "utf-8",
 );
 const originalNerdFonts = process.env.POWERLINE_NERD_FONTS;
