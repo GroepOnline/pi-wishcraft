@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-16
+
+Wishcraft v2 (#7).
+
+### Added
+- **Tab token completion** — bash-mode tab completion for stored tokens/shortcuts.
+- **Preset rework** — own-property preset handling plus reworked presets.
+- **Git commit/ahead-behind extras** — commit count and ahead/behind in the git segment; ANSI/control chars in git commit metadata sanitized.
+- **TPS in/out** — separate tokens-in/tokens-out throughput.
+- **Interactive skill-manager TUI** (`/skills`) — browse, inspect, and manage discovered skills.
+- **Full git polling for compact extras** — reliable commit/ahead-behind data.
+
+### Changed
+- **Extension refactor** — `src/extension` split into domain subfolders (core, commands, session, ui, history, queue, settings, shortcuts, welcome).
+
+### Fixed
+- **Ghost suggestions revalidated after partial completion** — and scheduleGhostUpdate stubbed in tab token-step tests.
+
 ## [0.17.3] - 2026-08-10
 
 ### Added
