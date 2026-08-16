@@ -1,8 +1,8 @@
 # Roadmap — what to improve & how to integrate better
 
-Status after 0.17.3. Package is `@groeponline/pi-wishcraft` (renamed from `@groeponline/pi-powerline-footer` in 0.17.x; `src/` restructured by domain; `madge --circular` runs in CI). Concrete, prioritized. Not commitments — pick what Joep wants.
+Status after 0.18.0. Package is `@groeponline/pi-wishcraft` (renamed from `@groeponline/pi-powerline-footer` in 0.17.x; `src/` restructured by domain; `madge --circular` runs in CI). Concrete, prioritized. Not commitments — pick what Joep wants.
 
-## Next release (0.18.0 — pi-wishcraft)
+## Next release (0.19.0)
 
 - `npm deprecate @groeponline/pi-powerline-footer "Renamed to @groeponline/pi-wishcraft"` — the old package name still resolves on npm at 0.17.2 and is not deprecated yet. Needs the `@groeponline` scope owner's npm login (no publish auth on the laptop).
 - Generalize `segmentLabels` to every segment (today only tps/open_ports honor it; apply in `renderSegment`).
@@ -10,9 +10,10 @@ Status after 0.17.3. Package is `@groeponline/pi-wishcraft` (renamed from `@groe
 - Visibility toggle per segment from the `alt+p` menu (writes `powerline.disabledSegments` live).
 - `segmentOptions.tps.windowMs` — expose the 1s window length for fast models (Groq).
 
-## Already shipped (0.17.x)
+## Already shipped
 
-- Package renamed to `@groeponline/pi-wishcraft`; `src/` restructure committed; `madge --circular` is a CI step in `test.yml`; inline skill/command invocation (`/` skills, `$` commands) landed in 0.17.3.
+- 0.18.0 (wishcraft v2, #7): tab token completion, preset rework, git commit/ahead-behind extras, TPS in/out, `/skills` TUI, `src/extension` split into domain subfolders.
+- 0.17.x: package renamed to `@groeponline/pi-wishcraft`; `src/` restructure committed; `madge --circular` is a CI step in `test.yml`; inline skill/command invocation (`/` skills, `$` commands) landed in 0.17.3.
 
 ## Correctness (done, keep honest)
 
