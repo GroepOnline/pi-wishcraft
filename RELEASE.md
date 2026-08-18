@@ -57,7 +57,9 @@ GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh'
 3. `npm ci --ignore-scripts` (installs devDependencies incl. `typescript`)
 4. `npm run typecheck` (tsc)
 5. `npm test` (node test runner)
-6. `npm publish --access public` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`
+6. `npm run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
+7. `npm publish --access public` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`
+8. Echoes the Pi catalog URLs (npm, pi.dev detail page, `?name=wishcraft`, `?name=groeponline`) for post-publish confirmation
 
 `NPM_TOKEN` is a GitHub Actions secret on the repo (publish rights to the
 `@groeponline` scope). It is **not** readable after being set; verify it works by
