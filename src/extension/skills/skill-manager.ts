@@ -133,7 +133,8 @@ export async function showSkillManager(ctx: any): Promise<void> {
 
       const doDelete = (entry: SkillEntry) => {
         try {
-          if (entry.filePath.endsWith("SKILL.md") && entry.baseDir) {
+          if (entry.isDirectorySkill && entry.filePath.endsWith("SKILL.md") &&
+              (entry.category === "global" || entry.category === "project")) {
             rmSync(entry.baseDir, { recursive: true, force: true });
           } else {
             rmSync(entry.filePath, { force: true });
@@ -359,7 +360,17 @@ export async function showSkillManager(ctx: any): Promise<void> {
             } else if (escape || data === "\x03") {
               close();
               return;
-            } else if (isPrintable(data) || matchesKey(data, "backspace") || data === "\x15") {
+            } else if (data === "s") {
+                sort = sort === "name" ? "usage" : "name";
+                selected = 0;
+              } else if (data === "e") {
+                const entry = selectedEntry();
+                if (entry) { appendToEditor(ctx, editorCommand(entry.filePath), "Edit-commando in de editor — enter draait 'm"); close(); return; }
+              } else if (data === "n") {
+                appendToEditor(ctx, `!mkdir -p ${join(getAgentPath("skills"), "<naam>")} && ${editorCommand(join(getAgentPath("skills"), "<naam>", "SKILL.md")).slice(1)}`, "Nieuwe skill: vervang <naam>, enter draait 'm"); close(); return;
+              } else if (data === "d") {
+                if (selectedEntry()) confirmDelete = true;
+              } else if (isPrintable(data) || matchesKey(data, "backspace") || data === "\x15") {
               if (data === "\x15") query = "";
               else if (matchesKey(data, "backspace")) query = query.slice(0, -1);
               else query += data;

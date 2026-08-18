@@ -28,6 +28,8 @@ export interface SkillEntry {
   description: string;
   filePath: string;
   baseDir: string;
+  /** Alleen true voor core skills die een eigen skill-directory bezitten. */
+  isDirectorySkill?: boolean;
   category: SkillCategory;
   disableModelInvocation: boolean;
   sizeBytes: number;
@@ -72,7 +74,8 @@ function scanLooseExtraFiles(
         name,
         description: "",
         filePath,
-        baseDir: dir,
+        baseDir: dirname(filePath),
+          isDirectorySkill: false,
         category,
         disableModelInvocation: false,
         sizeBytes: Buffer.byteLength(content, "utf8"),
@@ -92,6 +95,7 @@ const CACHE_TTL_MS = 30_000;
 let cachedAt = 0;
 let cachedEntries: SkillEntry[] | null = null;
 let cachedPathMap: Map<string, string> | null = null;
+let cachedCwd: string | null = null;
 
 const usageCache = new Map<string, SkillUsage>();
 let usageLoaded = false;
@@ -101,6 +105,7 @@ export function invalidateSkillCache(): void {
   cachedAt = 0;
   cachedEntries = null;
   cachedPathMap = null;
+  cachedCwd = null;
 }
 
 /** Legacy prompts/loose-md dirs die inline-invocation altijd al scanden. */
@@ -150,7 +155,7 @@ function parseFrontmatterKeys(content: string): string[] {
 /** Bouw de volledige skill-catalogus (gecached, TTL 30s). */
 export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
   const now = Date.now();
-  if (cachedEntries && now - cachedAt < CACHE_TTL_MS) return cachedEntries;
+  if (cachedEntries && cachedCwd === cwd && now - cachedAt < CACHE_TTL_MS) return cachedEntries;
 
   const extras = extraSkillPaths(cwd);
   const result = loadSkills({
@@ -191,6 +196,7 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
       description: s.description,
       filePath: s.filePath,
       baseDir: s.baseDir || dirname(s.filePath),
+        isDirectorySkill: Boolean(s.baseDir),
       category: categorize(s.filePath, cwd, extras),
       disableModelInvocation: s.disableModelInvocation,
       sizeBytes,
@@ -204,6 +210,7 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
   // loose entries achteraan; bij naam-collisie wint core
   const looseNames = new Set(loose.map((e) => e.name));
   cachedAt = now;
+    cachedCwd = cwd;
   cachedEntries = [...entries.filter((e) => !looseNames.has(e.name)), ...loose]
     .sort((a, b) => a.name.localeCompare(b.name));
   cachedPathMap = new Map(cachedEntries.map((e) => [e.name, e.filePath] as const));
