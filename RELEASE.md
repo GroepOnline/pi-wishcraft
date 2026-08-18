@@ -12,8 +12,10 @@ verify it.
 - **GitHub repo:** `GroepOnline/pi-wishcraft` (forked from `nicobailon/pi-powerline-footer`, independently maintained)
 - **npm package:** `@groeponline/pi-wishcraft` (scoped, `--access public`)
 - **Default branch:** `main`
-- **Local checkout:** `/home/joep/pi-wishcraft`
-- **Pi settings (`~/.pi/agent/settings.json`):** packages entry `/home/joep/pi-wishcraft` (local path, not the npm name) and `"powerline": "chef"`. Local edits are picked up on `/reload` — no reinstall needed.
+- **Local checkout:** `/home/joep/Documents/Github/GroepOnline/pi-wishcraft`
+- **Pi settings (`~/.pi/agent/settings.json`):** packages entry is the repo
+  path (local checkout, not the npm name) and `"powerline": "chef"`. Local
+  edits are picked up on `/reload` — no reinstall needed.
 
 ## The release flow
 
@@ -115,6 +117,20 @@ A release is "done" when all four hold: local green, tag on origin, CI
 
 ## Versioning
 
-- **patch** (`0.15.0 → 0.15.1`): bug fixes, doc only.
-- **minor** (`0.15.x → 0.16.0`): new segments/presets, features, additive changes.
+Feature PRs **do not bump** `package.json`. They stay on the last published npm
+version (today: `0.18.0`) and append under `## [Unreleased]` in `CHANGELOG.md`.
+
+After a merge train on `main` (catalog PR, 0.19 code, docs):
+
+1. Working tree clean, `npm run typecheck && npm test` green.
+2. **One** bump: `npm run release minor` (or `patch` / `major`).
+3. That script writes `package.json` + CHANGELOG, commits, and creates an
+   annotated tag. It does **not** push.
+4. Push commit + tag with GroepOnline SSH (below). Tag CI publishes to npm.
+
+Never bump in the same PR as the feature work. Never tag from a stacked
+feature branch. `0.19.0` exists only after that release command on `main`.
+
+- **patch** (`0.18.0 → 0.18.1`): bug fixes, doc only; escape hatch if 0.19 slips.
+- **minor** (`0.18.x → 0.19.0`): new segments/presets, features, additive changes.
 - **major**: breaking changes to settings shape or exported API.
