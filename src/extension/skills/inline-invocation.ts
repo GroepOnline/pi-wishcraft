@@ -14,30 +14,64 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { stripFrontmatter } from "../../core/frontmatter.ts";
 import { getAgentPath } from "../../paths/agent-dirs.ts";
 import { logDiscoveryError } from "../../welcome/discover.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { RuntimeState } from "../core/types.ts";
 
-const EXTENSION_DIR = dirname(fileURLToPath(import.meta.url));
+const STATIC_RESERVED_SLASH_COMMANDS = [
+  "powerline",
+  "skills",
+  "vibe",
+  "bash-mode",
+  "bash-reset",
+  "stash-history",
+  "tps",
+  "open-ports",
+  "idea",
+  "ideas",
+  "queue",
+  "compact",
+  "model",
+  "editor",
+  "clear",
+  "cd",
+  "resume",
+  "copy",
+  "undo",
+  "redo",
+  "new",
+  "session",
+  "settings",
+  "help",
+  "export",
+  "share",
+  "tree",
+  "fork",
+  "branch",
+  "thinking",
+  "fast",
+  "verbose",
+] as const;
 
 let availableSkills: Map<string, string> | undefined;
+let reservedSlashCommands = new Set<string>(STATIC_RESERVED_SLASH_COMMANDS);
 
-function discoverSkills(): void {
-  if (availableSkills) return;
+/** Reset the skill discovery cache (session start/shutdown and tests). */
+export function resetAvailableSkills(): void {
+  availableSkills = undefined;
+}
+
+/** Inject a skill map for tests without scanning disk. */
+export function setAvailableSkillsForTests(map: Map<string, string>): void {
+  availableSkills = map;
+}
+
+/** Scan the given directories and return name → file path. */
+export function discoverSkillsFromDirs(dirs: string[]): Map<string, string> {
   const discovered = new Map<string, string>();
-  const dirs = [
-    getAgentPath("skills"),
-    join(process.cwd(), ".pi", "skills"),
-    join(process.cwd(), "skills"),
-    getAgentPath("prompts"),
-    join(process.cwd(), ".pi", "prompts"),
-    join(process.cwd(), "prompts"),
-    EXTENSION_DIR,
-  ];
 
   for (const dir of dirs) {
     try {
@@ -64,7 +98,21 @@ function discoverSkills(): void {
       logDiscoveryError(`Failed to scan inline skills dir ${dir}`, error);
     }
   }
-  availableSkills = discovered;
+
+  return discovered;
+}
+
+function discoverSkills(): void {
+  if (availableSkills) return;
+  const dirs = [
+    getAgentPath("skills"),
+    join(process.cwd(), ".pi", "skills"),
+    join(process.cwd(), "skills"),
+    getAgentPath("prompts"),
+    join(process.cwd(), ".pi", "prompts"),
+    join(process.cwd(), "prompts"),
+  ];
+  availableSkills = discoverSkillsFromDirs(dirs);
 }
 
 /** Publieke toegang tot de ontdekte skills (naam → bestandspad). */
@@ -76,13 +124,24 @@ export function getAvailableSkills(): Map<string, string> {
 /**
  * Vind alle code block ranges om false positives te voorkomen
  */
-function findExcludedRanges(text: string): Array<[number, number]> {
+export function findExcludedRanges(text: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = [];
-  const fenceRe = /```[\s\S]*?```/g;
+
+  let pos = 0;
+  while (pos < text.length) {
+    const fenceStart = text.indexOf("```", pos);
+    if (fenceStart === -1) break;
+    const fenceEnd = text.indexOf("```", fenceStart + 3);
+    if (fenceEnd === -1) {
+      ranges.push([fenceStart, text.length]);
+      break;
+    }
+    ranges.push([fenceStart, fenceEnd + 3]);
+    pos = fenceEnd + 3;
+  }
+
   const inlineRe = /`[^`\n]*`/g;
   let m: RegExpExecArray | null;
-  while ((m = fenceRe.exec(text)))
-    ranges.push([m.index, m.index + m[0].length]);
   while ((m = inlineRe.exec(text)))
     ranges.push([m.index, m.index + m[0].length]);
   return ranges;
@@ -98,8 +157,8 @@ function isExcluded(index: number, ranges: Array<[number, number]>): boolean {
 export function expandInlineTriggers(text: string): string {
   discoverSkills();
 
-  // Pattern voor zowel /command als $skill
-  const TRIGGER_REGEX = /(\/|\$)([a-zA-Z0-9_-]+)/g;
+  // Left boundary: start-of-string or whitespace — avoids paths/URLs like example.com/test
+  const TRIGGER_REGEX = /(?:^|[\s])((\/|\$)([a-zA-Z0-9_-]+))/g;
   const excluded = findExcludedRanges(text);
 
   const matches: Array<{
@@ -112,26 +171,28 @@ export function expandInlineTriggers(text: string): string {
 
   TRIGGER_REGEX.lastIndex = 0;
   while ((match = TRIGGER_REGEX.exec(text)) !== null) {
-    // Skip als binnen code block
-    if (isExcluded(match.index, excluded)) continue;
+    const fullTrigger = match[1];
+    const triggerChar = match[2];
+    const name = match[3];
+    const start = match.index + match[0].length - fullTrigger.length;
+    const end = start + fullTrigger.length;
 
-    const name = match[2];
+    if (isExcluded(start, excluded)) continue;
 
-    // Alleen bekende skills expanden
+    if (triggerChar === "/" && reservedSlashCommands.has(name)) continue;
+
     if (!availableSkills!.has(name)) continue;
 
     matches.push({
-      start: match.index,
-      end: match.index + match[0].length,
-      full: match[0],
+      start,
+      end,
+      full: fullTrigger,
       name,
     });
   }
 
-  // Geen matches -> originele tekst teruggeven
   if (matches.length === 0) return text;
 
-  // Sorteer op positie en verwijder overlappingen
   matches.sort((a, b) => a.start - b.start);
   const deduped: typeof matches = [];
   let lastEnd = -1;
@@ -142,7 +203,6 @@ export function expandInlineTriggers(text: string): string {
     }
   }
 
-  // Bouw nieuwe tekst op met expansies
   let result = "";
   let cursor = 0;
 
@@ -156,7 +216,6 @@ export function expandInlineTriggers(text: string): string {
       result += `\n\n${cleanContent}\n\n`;
     } catch (error) {
       logDiscoveryError(`Failed to read inline skill ${filePath}`, error);
-      // Bij fout, laat originele trigger staan
       result += m.full;
     }
 
@@ -174,8 +233,15 @@ export function setupInlineInvocation(
   pi: ExtensionAPI,
   rt: RuntimeState,
 ): void {
+  reservedSlashCommands = new Set(STATIC_RESERVED_SLASH_COMMANDS);
+  const commands = pi.getCommands?.();
+  if (commands) {
+    for (const cmd of commands) {
+      reservedSlashCommands.add(cmd.name);
+    }
+  }
+
   pi.on("input", async (event: any) => {
-    // Alleen interactive input verwerken
     if (event.source !== "interactive") {
       return { action: "continue" };
     }
@@ -183,7 +249,6 @@ export function setupInlineInvocation(
     const originalText = event.text;
     const expandedText = expandInlineTriggers(originalText);
 
-    // Alleen transformeren als er iets veranderd is
     if (expandedText !== originalText) {
       return {
         action: "transform",

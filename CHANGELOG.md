@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- Inline skill triggers no longer match inside URLs or paths, skip reserved slash commands, and ignore unclosed code fences.
+- Skill discovery cache resets on session start/shutdown; shipped test skill debris removed from the package.
+- `/skills` list filter accepts typed characters, backspace, and ctrl+u clear.
+- Bash mode shell session always removes its temp dir on dispose and parses cwd sentinels when the path contains colons.
+
 ## [0.18.0] - 2026-08-16
 
 Wishcraft v2 (#7).

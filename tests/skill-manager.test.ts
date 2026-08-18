@@ -7,6 +7,7 @@ import { parseSkillFrontmatter } from "../src/core/frontmatter.ts";
 import {
   listSkills,
   readSkillBody,
+  applySkillFilterKey,
 } from "../src/extension/skills/skill-manager.ts";
 
 test("parseSkillFrontmatter extracts name and description", () => {
@@ -48,4 +49,34 @@ test("listSkills returns SkillInfo entries", () => {
     assert.equal(typeof skill.name, "string");
     assert.ok(skill.path.length > 0);
   }
+});
+
+test("applySkillFilterKey appends printable characters", () => {
+  const result = applySkillFilterKey("git", "s");
+  assert.equal(result.filter, "gits");
+  assert.equal(result.consumed, true);
+});
+
+test("applySkillFilterKey pops on backspace", () => {
+  const result = applySkillFilterKey("git", "\x7f");
+  assert.equal(result.filter, "gi");
+  assert.equal(result.consumed, true);
+});
+
+test("applySkillFilterKey clears on ctrl+u", () => {
+  const result = applySkillFilterKey("git", "\x15");
+  assert.equal(result.filter, "");
+  assert.equal(result.consumed, true);
+});
+
+test("applySkillFilterKey ignores backspace on empty filter", () => {
+  const result = applySkillFilterKey("", "\x7f");
+  assert.equal(result.filter, "");
+  assert.equal(result.consumed, false);
+});
+
+test("applySkillFilterKey ignores navigation keys", () => {
+  const result = applySkillFilterKey("git", "\x1b[A");
+  assert.equal(result.filter, "git");
+  assert.equal(result.consumed, false);
 });

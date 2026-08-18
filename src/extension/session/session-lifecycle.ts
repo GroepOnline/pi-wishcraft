@@ -58,6 +58,7 @@ import {
   dismissWelcome,
   scheduleDismissWelcome,
 } from "../welcome/welcome-control.ts";
+import { resetAvailableSkills } from "../skills/inline-invocation.ts";
 
 // Helper to extract recent agent response text (skipping thinking blocks)
 function getRecentAgentContext(ctx: any): string | undefined {
@@ -98,6 +99,7 @@ export function registerSessionLifecycle(
 ): void {
   // Track session start
   pi.on("session_start", async (event, ctx) => {
+    resetAvailableSkills();
     rt.shellSession?.dispose();
     rt.shellSession = null;
     rt.sessionGeneration++;
@@ -158,6 +160,7 @@ export function registerSessionLifecycle(
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
+    resetAvailableSkills();
     rt.sessionGeneration++;
     rt.dismissWelcomeOverlay?.();
     rt.dismissWelcomeOverlay = null;

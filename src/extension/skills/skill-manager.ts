@@ -58,6 +58,24 @@ export function readSkillBody(path: string): string {
   }
 }
 
+/** Apply a keypress to the skill list filter string. */
+export function applySkillFilterKey(
+  filter: string,
+  data: string,
+): { filter: string; consumed: boolean } {
+  if (data === "\x15") {
+    return { filter: "", consumed: true };
+  }
+  if (data === "\x7f" || data === "\b") {
+    if (filter.length === 0) return { filter, consumed: false };
+    return { filter: filter.slice(0, -1), consumed: true };
+  }
+  if (data.length === 1 && data.charCodeAt(0) >= 32) {
+    return { filter: filter + data, consumed: true };
+  }
+  return { filter, consumed: false };
+}
+
 function insertSkillBody(ctx: any, body: string): void {
   const current = ctx.ui.getEditorText?.() ?? "";
   const separator = current && !current.endsWith("\n") ? "\n\n" : "";
@@ -90,6 +108,7 @@ export async function showSkillManager(ctx: any): Promise<void> {
       let activeSkill: SkillInfo | null = null;
       let body: string[] = [];
       let scroll = 0;
+      let filter = "";
       const BODY_ROWS = 16;
 
       const items: SelectItem[] = skills.map((s) => ({
@@ -208,7 +227,13 @@ export async function showSkillManager(ctx: any): Promise<void> {
               return;
             }
           } else {
-            selectList.handleInput(data);
+            const result = applySkillFilterKey(filter, data);
+            if (result.consumed) {
+              filter = result.filter;
+              selectList.setFilter(filter);
+            } else {
+              selectList.handleInput(data);
+            }
           }
           tui.requestRender();
         },

@@ -29,7 +29,7 @@ import {
 } from "../bash-mode/completion.ts";
 import { getIcons } from "../src/theme/icons.ts";
 import { resolveColor } from "../src/theme/theme.ts";
-import { ManagedShellSession } from "../bash-mode/shell-session.ts";
+import { ManagedShellSession, parseCommandSentinel } from "../bash-mode/shell-session.ts";
 
 function getMethod(target: object, name: string): Function {
   const method = Reflect.get(target, name);
@@ -79,6 +79,49 @@ function ensureEditorModuleLinks(): { cleanup: () => void } {
     },
   };
 }
+
+test("parseCommandSentinel handles cwd with colons", () => {
+  const cwd = "/Users/foo:bar/project";
+  const start = parseCommandSentinel(
+    `__PI_CMD_START__:cmd-1:${cwd}`,
+    "start",
+  );
+  assert.deepEqual(start, { kind: "start", id: "cmd-1", cwd });
+
+  const done = parseCommandSentinel(
+    `__PI_CMD_DONE__:cmd-1:0:${cwd}`,
+    "done",
+  );
+  assert.deepEqual(done, {
+    kind: "done",
+    id: "cmd-1",
+    exitCode: 0,
+    cwd,
+  });
+
+  const ready = parseCommandSentinel(`__PI_READY__:${cwd}`, "ready");
+  assert.deepEqual(ready, { kind: "ready", cwd });
+});
+
+test("managed shell session removes temp dir on dispose without a live process", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "powerline-shell-dispose-"));
+  const store = new BashTranscriptStore({
+    transcriptMaxLines: 10,
+    transcriptMaxBytes: 1024,
+  });
+  const session = new ManagedShellSession(
+    "/bin/sh",
+    cwd,
+    store,
+    () => {},
+    () => {},
+  );
+  const tempDir = Reflect.get(session, "tempDir") as string;
+  assert.ok(existsSync(tempDir));
+  session.dispose();
+  assert.equal(existsSync(tempDir), false);
+  rmSync(cwd, { recursive: true, force: true });
+});
 
 test("project history is stored newest-first and global zsh history parses histfile format", () => {
   const cwd = mkdtempSync(join(tmpdir(), "powerline-history-"));

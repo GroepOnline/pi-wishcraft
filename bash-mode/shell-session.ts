@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
@@ -8,6 +8,54 @@ import type { ShellSessionState } from "./types.ts";
 const READY_SENTINEL = "__PI_READY__";
 const COMMAND_START_SENTINEL = "__PI_CMD_START__";
 const COMMAND_DONE_SENTINEL = "__PI_CMD_DONE__";
+
+export type CommandSentinelKind = "ready" | "start" | "done";
+
+export type ParsedCommandSentinel =
+  | { kind: "ready"; cwd: string }
+  | { kind: "start"; id: string; cwd: string }
+  | { kind: "done"; id: string; exitCode: number; cwd: string };
+
+/** Parse a shell sentinel line; cwd may contain colons. */
+export function parseCommandSentinel(
+  line: string,
+  kind: CommandSentinelKind,
+): ParsedCommandSentinel | null {
+  const prefix =
+    kind === "ready"
+      ? READY_SENTINEL
+      : kind === "start"
+        ? COMMAND_START_SENTINEL
+        : COMMAND_DONE_SENTINEL;
+
+  if (!line.startsWith(`${prefix}:`)) return null;
+
+  const remainder = line.slice(prefix.length + 1);
+
+  if (kind === "ready") {
+    return { kind: "ready", cwd: remainder };
+  }
+
+  const firstColon = remainder.indexOf(":");
+  if (firstColon === -1) return null;
+  const id = remainder.slice(0, firstColon);
+
+  if (kind === "start") {
+    return { kind: "start", id, cwd: remainder.slice(firstColon + 1) };
+  }
+
+  const afterId = remainder.slice(firstColon + 1);
+  const secondColon = afterId.indexOf(":");
+  if (secondColon === -1) return null;
+  const exitCodeText = afterId.slice(0, secondColon);
+  const exitCode = Number.parseInt(exitCodeText, 10);
+  return {
+    kind: "done",
+    id,
+    exitCode: Number.isFinite(exitCode) ? exitCode : 1,
+    cwd: afterId.slice(secondColon + 1),
+  };
+}
 
 function stripAnsi(value: string): string {
   return value
@@ -214,14 +262,20 @@ export class ManagedShellSession {
     this.readyPromise = null;
     this.readyResolve = null;
     this.readyReject = null;
-    if (!this.process) return;
-    try {
-      process.kill(-this.process.pid!, "SIGKILL");
-    } catch {
-      // The shell may not own a process group anymore.
-      this.process.kill("SIGKILL");
+    if (this.process) {
+      try {
+        process.kill(-this.process.pid!, "SIGKILL");
+      } catch {
+        // The shell may not own a process group anymore.
+        this.process.kill("SIGKILL");
+      }
+      this.process = null;
     }
-    this.process = null;
+    try {
+      rmSync(this.tempDir, { recursive: true, force: true });
+    } catch {
+      // Best-effort cleanup.
+    }
   }
 
   private sendRaw(text: string): void {
@@ -240,9 +294,10 @@ export class ManagedShellSession {
     for (const rawLine of parts) {
       const line = rawLine.trimEnd();
       if (!this.state.ready) {
-        if (line.startsWith(`${READY_SENTINEL}:`)) {
+        const ready = parseCommandSentinel(line, "ready");
+        if (ready) {
           this.state.ready = true;
-          this.state.cwd = line.slice(READY_SENTINEL.length + 1) || this.state.cwd;
+          this.state.cwd = ready.cwd || this.state.cwd;
           this.readyResolve?.();
           this.readyResolve = null;
           this.readyReject = null;
@@ -251,24 +306,25 @@ export class ManagedShellSession {
         continue;
       }
 
-      if (line.startsWith(`${COMMAND_START_SENTINEL}:`)) {
-        const [, id, cwd] = line.split(":");
-        if (cwd) this.state.cwd = cwd;
-        this.currentCommandId = id ?? this.currentCommandId;
+      const start = parseCommandSentinel(line, "start");
+      if (start?.kind === "start") {
+        if (start.cwd) this.state.cwd = start.cwd;
+        this.currentCommandId = start.id ?? this.currentCommandId;
         this.onStateChange();
         continue;
       }
 
-      if (line.startsWith(`${COMMAND_DONE_SENTINEL}:`)) {
-        const [, id, exitCodeText, cwd] = line.split(":");
-        const exitCode = Number.parseInt(exitCodeText ?? "1", 10);
+      const done = parseCommandSentinel(line, "done");
+      if (done?.kind === "done") {
         this.state.running = false;
-        this.state.lastExitCode = Number.isFinite(exitCode) ? exitCode : 1;
-        if (cwd) this.state.cwd = cwd;
-        if (id) {
-          this.transcript.finishCommand(id, this.state.lastExitCode);
+        this.state.lastExitCode = done.exitCode;
+        if (done.cwd) this.state.cwd = done.cwd;
+        if (done.id) {
+          this.transcript.finishCommand(done.id, this.state.lastExitCode);
           const snapshot = this.transcript.getSnapshot();
-          const command = snapshot.commands.find((entry) => entry.id === id);
+          const command = snapshot.commands.find(
+            (entry) => entry.id === done.id,
+          );
           if (command && this.state.lastExitCode === 0) {
             this.onCommandSuccess(command.command, this.state.cwd);
           }
