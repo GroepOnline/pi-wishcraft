@@ -182,6 +182,16 @@ export function writePowerlineSetting(
   return writeSettingKey(cwd, "powerline", update);
 }
 
+export function writePowerlineDisabledSegmentSetting(
+  disabledSegments: string[],
+  cwd: string = process.cwd(),
+): boolean {
+  return writePowerlineSetting(cwd, (existing) => {
+    const base = isRecord(existing) ? existing : {};
+    return { ...base, disabledSegments };
+  });
+}
+
 export function writePowerlinePresetSetting(
   preset: StatusLinePreset,
   cwd: string = process.cwd(),

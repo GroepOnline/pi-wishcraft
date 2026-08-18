@@ -158,13 +158,14 @@ test("segmentLabels override tps/open_ports text", () => {
   const noLabel = renderSegment("open_ports" as any, base);
   const stripped = noLabel.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
   assert.ok(/\d+$/.test(stripped), `expected a bare count, got ${stripped}`);
-  // with label -> icon + "ports <count>"
+  // with label -> "ports" prefix vóór het hele segment (centrale toepassing)
   const labeled = renderSegment("open_ports" as any, {
     ...base,
     segmentLabels: new Map([["open_ports", "ports"]]),
   });
   const s2 = labeled.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
-  assert.match(s2, /ports \d+$/);
+  assert.ok(s2.startsWith("ports"), `expected label prefix, got ${s2}`);
+  assert.ok(/\d+$/.test(s2), `expected trailing count, got ${s2}`);
 });
 
 test("parsePowerlineConfig parses segmentLabels", () => {
@@ -176,4 +177,28 @@ test("parsePowerlineConfig parses segmentLabels", () => {
     ["default", "chef"] as unknown as readonly string[],
   );
   assert.deepEqual(cfg.segmentLabels, { tps: "speed", open_ports: "ports" });
+});
+
+test("segmentOptions template overrides label and wraps plain value", () => {
+  const theme: any = { fg: (_c: string, t: string) => t };
+  const base: any = {
+    theme,
+    colors: {},
+    usageStats: { input: 10, output: 20, cacheRead: 0, cacheWrite: 0, cost: 0, subagentCost: 0 },
+    contextWindow: 0,
+    customCompactionEnabled: false,
+    autoCompactEnabled: false,
+    usingSubscription: false,
+    options: {
+      open_ports: { template: "» {value} poort" },
+    },
+    segmentLabels: new Map([["open_ports", "ports"]]),
+    extensionStatuses: new Map(),
+  };
+  const rendered = renderSegment("open_ports" as any, base as any);
+  const stripped = rendered.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
+  // template wint op het label; {value} = kale segmenttekst (icoon + count)
+  assert.ok(stripped.startsWith("» "), `expected template prefix, got ${stripped}`);
+  assert.ok(/poort$/.test(stripped), `expected template suffix, got ${stripped}`);
+  assert.ok(!stripped.startsWith("ports"), `label must not apply when template set: ${stripped}`);
 });

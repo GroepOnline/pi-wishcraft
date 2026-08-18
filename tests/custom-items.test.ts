@@ -268,6 +268,8 @@ test("mergeSegmentOptions lets user config override preset segment defaults", ()
       cost: { subscriptionDisplay: "reported-cost" },
       context: {},
       cache_read: {},
+      openPorts: {},
+      tps: {},
     },
   );
 });

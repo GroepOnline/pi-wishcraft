@@ -50,12 +50,11 @@ export const subagentsSegment: StatusLineSegment = {
     const subagentCost = ctx.usageStats?.subagentCost ?? 0;
     if (!subagentCost) return { content: "", visible: false };
 
-    const label = ctx.segmentLabels?.get("subagents");
+    // label wordt centraal toegepast (renderSegment)
     const cost =
       formatUsdCost(subagentCost, ctx.options.cost?.currency) ?? "sub";
-    const text = label ? `${label} ${cost}` : `sub ${cost}`;
     return {
-      content: withIcon(getIcons().agents, color(ctx, "cost", text)),
+      content: withIcon(getIcons().agents, color(ctx, "cost", `sub ${cost}`)),
       visible: true,
     };
   },
@@ -262,10 +261,9 @@ export const openPortsSegment: StatusLineSegment = {
       entry = { at: now, count: countListeningPorts(includeUdp) };
       openPortsCache.set(includeUdp, entry);
     }
-    const label = ctx.segmentLabels?.get("open_ports");
-    const text = label ? `${label} ${entry.count}` : String(entry.count);
+    // label wordt centraal toegepast (renderSegment)
     return {
-      content: withIcon(getIcons().ports, color(ctx, "queue", text)),
+      content: withIcon(getIcons().ports, color(ctx, "queue", String(entry.count))),
       visible: true,
     };
   },

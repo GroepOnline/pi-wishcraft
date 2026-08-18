@@ -9,7 +9,10 @@ import { execSync } from "node:child_process";
 import type { StatusLinePreset } from "../../config/types.ts";
 import { getPreset, PRESETS } from "../../config/presets.ts";
 import { mergeSegmentsWithCustomItems } from "../../config/powerline-config.ts";
-import { writePowerlinePresetSetting } from "../settings/settings-io.ts";
+import {
+  writePowerlineDisabledSegmentSetting,
+  writePowerlinePresetSetting,
+} from "../settings/settings-io.ts";
 import { renderSegmentWithWidth } from "./layout.ts";
 import {
   buildSegmentContext,
@@ -129,6 +132,22 @@ export async function showOpenPortsList(ctx: any): Promise<void> {
   }
 }
 
+/** Alle segment-ids van de huidige preset + custom items (voor menu's). */
+function mergedIds(): string[] {
+  const presetDef = getPreset(config.preset);
+  const merged = mergeSegmentsWithCustomItems(presetDef, config.customItems, {
+    layout: config.layout,
+    disabledSegments: [],
+  });
+  return [
+    ...new Set([
+      ...merged.leftSegments,
+      ...merged.rightSegments,
+      ...merged.secondarySegments,
+    ]),
+  ] as string[];
+}
+
 /** Configure sub-menu: preset, TPS value/label, ports UDP, segment labels. */
 export async function configurePowerline(
   rt: RuntimeState,
@@ -140,6 +159,7 @@ export async function configurePowerline(
     "Clear TPS override (use live)",
     "Toggle UDP in open-ports",
     "Set segment label…",
+    "Toggle segment visibility…",
     "Show current config",
   ]);
   if (!choice) return;
@@ -201,6 +221,30 @@ export async function configurePowerline(
     else delete labels[id];
     setConfig({ ...config, segmentLabels: labels });
     ctx.ui.notify(`Label ${id}: ${label.trim() || "(cleared)"}`, "info");
+    requestImmediateStatusRender(rt, { deferDuringTyping: false });
+    return;
+  }
+  if (choice === "Toggle segment visibility…") {
+    const ids = [
+      ...mergedIds(),
+    ];
+    const names = ids.map(
+      (id) =>
+        `${config.disabledSegments.includes(id as any) ? "[ ]" : "[x]"} ${id}`,
+    );
+    const picked = await ctx.ui.select("Segment aan/uit (enter wisselt)", names);
+    if (!picked) return;
+    const id = picked.replace(/^\[.\] /, "");
+    const disabled = new Set(config.disabledSegments);
+    if (disabled.has(id)) disabled.delete(id);
+    else disabled.add(id);
+    const list = [...disabled];
+    setConfig({ ...config, disabledSegments: list });
+    writePowerlineDisabledSegmentSetting(list, ctx.cwd ?? process.cwd());
+    ctx.ui.notify(
+      `${id}: ${disabled.has(id) ? "verborgen" : "zichtbaar"} (opgeslagen)`,
+      "info",
+    );
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     return;
   }

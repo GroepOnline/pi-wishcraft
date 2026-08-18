@@ -75,13 +75,44 @@ export function renderSegment(
   if (isCustomSegmentId(id)) {
     const customId = id.slice("custom:".length);
     const computed = customComputedSegments.get(customId);
-    if (computed) return computed.render(ctx);
-    return renderCustomSegment(id, ctx);
+    if (computed) return applyLabelAndTemplate(id, computed.render(ctx), ctx);
+    return applyLabelAndTemplate(id, renderCustomSegment(id, ctx), ctx);
   }
 
   const segment = SEGMENTS[id];
   if (!segment) {
     return { content: "", visible: false };
   }
-  return segment.render(ctx);
+  return applyLabelAndTemplate(id, segment.render(ctx), ctx);
+}
+
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
+/** Centrale label + template-afhandeling voor álle segments.
+ * Template (segmentOptions.<seg>.template) wint op het label; `{value}`
+ * wordt vervangen door de kale (ANSI-vrije) segmenttekst. */
+function applyLabelAndTemplate(
+  id: string,
+  rendered: RenderedSegment,
+  ctx: SegmentContext,
+): RenderedSegment {
+  if (!rendered.visible || !rendered.content) return rendered;
+  const template = (
+    (ctx.options as Record<string, { template?: string } | undefined>)?.[id]
+      ?.template
+  )?.trim();
+  if (template) {
+    const plain = rendered.content.replace(ANSI_RE, "");
+    return {
+      ...rendered,
+      content: template.includes("{value}")
+        ? template.replace("{value}", plain)
+        : template,
+    };
+  }
+  const label = ctx.segmentLabels?.get(id);
+  if (label) {
+    return { ...rendered, content: `${label} ${rendered.content}` };
+  }
+  return rendered;
 }
