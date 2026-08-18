@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Catalog contract for pi.dev/packages. Fail closed before publish.
+// Catalog contract for pi.dev/packages. Fail closed on required rules before
+// publish; the description lower bound is advisory (warn only).
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
