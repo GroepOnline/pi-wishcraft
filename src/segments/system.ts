@@ -173,11 +173,12 @@ function readProcListeningPorts(includeUdp: boolean): number {
   return ports.size;
 }
 
-// Rolling 1-second sliding window of (timestamp, cumulative tokens) samples.
-// Renders fire every ~33ms during streaming, so a per-render delta spikes (tiny
-// dt); a fixed ~1s lookback gives a stable, honest tokens/sec over the last
-// second. We track output and input separately so the segment can report both.
-const tpsSamples: { at: number; output: number; input: number }[] = [];
+const TPS_RING_MS = 5000;
+const TPS_MAX_SAMPLES = 240;
+
+// Rolling sliding-window samples. Exported for deterministic tests of the ring
+// math (inject a controlled reference sample, then assert the rate/mode output).
+export const tpsSamples: { at: number; output: number; input: number }[] = [];
 
 function rateText(rate: number): string {
   return rate >= 100 ? Math.round(rate).toString() : rate.toFixed(1);
@@ -193,21 +194,28 @@ export const tpsSegment: StatusLineSegment = {
         visible: true,
       };
     }
+    const tpsOptions = ctx.options.tps;
+    const windowMs = tpsOptions?.windowMs ?? 1000;
+    const mode = tpsOptions?.mode ?? "both";
+    const hideIdle = tpsOptions?.hideIdle ?? false;
     const { output, input } = ctx.usageStats ?? { output: 0, input: 0 };
     const now = Date.now();
     tpsSamples.push({ at: now, output, input });
     // keep the last 5s of samples; drop everything older (idle gaps get forgotten)
-    while (tpsSamples.length > 0 && now - tpsSamples[0].at > 5000)
+    while (tpsSamples.length > 0 && now - tpsSamples[0].at > TPS_RING_MS)
       tpsSamples.shift();
-    if (tpsSamples.length > 240) tpsSamples.splice(0, tpsSamples.length - 240);
+    if (tpsSamples.length > TPS_MAX_SAMPLES)
+      tpsSamples.splice(0, tpsSamples.length - TPS_MAX_SAMPLES);
 
-    // pick the sample closest to 1s old (window [0.5s, 2s]) for a stable rate
+    // pick the sample closest to [windowMs] ago (window [0.5*windowMs, 2*windowMs])
+    // for a stable rate; scales with the configured lookback while keeping the ring.
     let ref: { at: number; output: number; input: number } | null = null;
     let bestDelta = Infinity;
+    const minAge = Math.floor(windowMs / 2);
     for (const s of tpsSamples) {
       const age = now - s.at;
-      if (age < 500) continue;
-      const d = Math.abs(age - 1000);
+      if (age < minAge) continue;
+      const d = Math.abs(age - windowMs);
       if (d < bestDelta) {
         bestDelta = d;
         ref = s;
@@ -222,17 +230,18 @@ export const tpsSegment: StatusLineSegment = {
       if (dt > 0 && dOut >= 0) outRate = dOut / dt;
       if (dt > 0 && dIn >= 0) inRate = dIn / dt;
     }
+    const showOut = mode === "both" || mode === "out";
+    const showIn = mode === "both" || mode === "in";
     const icons = getIcons();
     const parts: string[] = [];
-    if (outRate > 0) parts.push(`${icons.output}${rateText(outRate)}`);
-    if (inRate > 0) parts.push(`${icons.input}${rateText(inRate)}`);
+    if (showOut && outRate > 0) parts.push(`${icons.output}${rateText(outRate)}`);
+    if (showIn && inRate > 0) parts.push(`${icons.input}${rateText(inRate)}`);
+    const active = (showOut && outRate > 0) || (showIn && inRate > 0);
     const valueText = parts.length > 0 ? parts.join(" ") : "0";
-    const label = ctx.segmentLabels?.get("tps");
-    const text = label ? `${label} ${valueText}` : valueText;
-    const active = outRate > 0 || inRate > 0;
+    if (!active && hideIdle) return { content: "", visible: false };
     // levendig: light up in the tokens color while generating, dim while idle
     return {
-      content: withIcon(icons.tps, color(ctx, active ? "tokens" : "queue", text)),
+      content: withIcon(icons.tps, color(ctx, active ? "tokens" : "queue", valueText)),
       visible: true,
     };
   },

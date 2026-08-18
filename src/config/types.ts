@@ -113,6 +113,16 @@ export interface StatusLineSegmentOptions {
   openPorts?: {
     /** Include UDP listeners (mDNS/DHCP/ephemeral) in the count. Default false. */ includeUdp?: boolean;
   };
+  tps?: {
+    /** Rolling window length (ms) for the tokens/sec lookback. Default 1000. */
+    windowMs?: number;
+    /** Which rates to show. Default "both". */
+    mode?: "both" | "out" | "in";
+    /** Hide the segment entirely when idle (both rates 0). Default false (show dim "0"). */
+    hideIdle?: boolean;
+    /** Render template applied centrally; {value} is the plain segment content. Overrides segmentLabels. */
+    template?: string;
+  };
 }
 
 export type CustomItemPosition = "left" | "right" | "secondary";

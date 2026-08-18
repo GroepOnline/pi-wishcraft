@@ -118,6 +118,38 @@ export function normalizeSegmentOptions(
     };
   }
 
+  if (isRecord(raw.tps)) {
+    options.tps = {
+      ...(typeof raw.tps.windowMs === "number" &&
+      Number.isFinite(raw.tps.windowMs) &&
+      raw.tps.windowMs > 0
+        ? { windowMs: raw.tps.windowMs }
+        : {}),
+      ...(raw.tps.mode === "both" ||
+      raw.tps.mode === "out" ||
+      raw.tps.mode === "in"
+        ? { mode: raw.tps.mode }
+        : {}),
+      ...(typeof raw.tps.hideIdle === "boolean"
+        ? { hideIdle: raw.tps.hideIdle }
+        : {}),
+    };
+  }
+
+  // GR: Generic per-segment template override (segmentOptions.<seg>.template) that
+  // applies to any segment id (incl. custom items). Kept alongside the typed fields
+  // above; read centrally at render time via the options record.
+  const optionsAsRecord = options as unknown as Record<
+    string,
+    { template?: string }
+  >;
+  for (const [seg, segRaw] of Object.entries(raw)) {
+    if (!isRecord(segRaw)) continue;
+    if (typeof segRaw.template !== "string" || !segRaw.template.trim()) continue;
+    const holder = isRecord(optionsAsRecord[seg]) ? optionsAsRecord[seg] : {};
+    optionsAsRecord[seg] = { ...holder, template: segRaw.template.trim() };
+  }
+
   return options;
 }
 
@@ -135,5 +167,7 @@ export function mergeSegmentOptions(
     cost: { ...defaults.cost, ...overrides.cost },
     context: { ...defaults.context, ...overrides.context },
     cache_read: { ...defaults.cache_read, ...overrides.cache_read },
+    openPorts: { ...defaults.openPorts, ...overrides.openPorts },
+    tps: { ...defaults.tps, ...overrides.tps },
   };
 }
