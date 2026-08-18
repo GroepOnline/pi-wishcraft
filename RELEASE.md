@@ -12,8 +12,8 @@ verify it.
 - **GitHub repo:** `GroepOnline/pi-wishcraft` (forked from `nicobailon/pi-powerline-footer`, independently maintained)
 - **npm package:** `@groeponline/pi-wishcraft` (scoped, `--access public`)
 - **Default branch:** `main`
-- **Local checkout:** `/home/joep/pi-wishcraft`
-- **Pi settings (`~/.pi/agent/settings.json`):** packages entry `/home/joep/pi-wishcraft` (local path, not the npm name) and `"powerline": "chef"`. Local edits are picked up on `/reload` — no reinstall needed.
+- **Local checkout:** `~/Documents/Github/GroepOnline/pi-wishcraft`
+- **Pi settings (`~/.pi/agent/settings.json`):** packages entry `npm:@groeponline/pi-wishcraft` and `"powerline": "chef"`. For active development, temporarily swap the entry to the local checkout path so edits are picked up on `/reload` — no reinstall needed; switch back to the npm name for the installed release.
 
 ## The release flow
 
