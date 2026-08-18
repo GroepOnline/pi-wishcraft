@@ -149,6 +149,18 @@ check: label op `git` + `cost` zichtbaar, TPS hidden bij 0 wanneer
 2. Push GroepOnline SSH (`chefadmin-netizen`):
    `GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh' git push origin HEAD --tags`.
 3. Verify: tag op origin, publish-job groen, `npm view @groeponline/pi-wishcraft version` = 0.19.0.
+   Catalogus (hard): `npm run verify:package` groen in de release-job;
+   `npm view @groeponline/pi-wishcraft keywords` bevat `pi-package`,
+   `pi-extension`, `wishcraft`; `pi.image` is de banner-URL.
+   Daarna:
+   - https://pi.dev/packages/@groeponline/pi-wishcraft toont 0.19.0
+   - https://pi.dev/packages?name=wishcraft toont de card
+   - https://pi.dev/packages?name=groeponline toont wishcraft naast
+     fff en orchestrator
+   Detailpagina bestaat al voor 0.18.0; de zoekindex niet. Nieuwe
+   publish + discovery-keywords is de refresh. Catalogus-lag tot
+   een paar uur is oké; ontbreken na 24u = 0.19.1 met dezelfde
+   metadata, geen stille "later wel".
 4. README: skills-sectie zegt dat filter werkt; geen `ook`/`test`
    debris. ROADMAP sync (deze file).
 5. `npm deprecate @groeponline/pi-powerline-footer` blijft een
@@ -364,7 +376,10 @@ die package nog leeft.
 - [ ] `npm pack --dry-run` bevat geen `ook.md` / `test.md`.
 - [ ] PR B gemerged: labels, template, TPS-opties, visibility.
       Verify-trio groen.
+- [ ] Gallery-contract gemerged (`chore/pi-dev-gallery`): keywords,
+      `publishConfig.access`, `pi.image`, `npm run verify:package`.
 - [ ] PR C: `npm run release minor` → 0.19.0 (of 0.18.1 als alleen
-      A klaar is). Tag + publish + `npm view` klopt.
+      A klaar is). Tag + publish + `npm view` klopt + pi.dev card
+      naast fff/orchestrator.
 - [ ] README skills-sectie waar; deze ROADMAP in sync.
 - [ ] CHE-40 Canceled in Linear. CHE-41/42 comment + hernoemen.
