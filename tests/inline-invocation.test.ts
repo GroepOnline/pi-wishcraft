@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -210,6 +210,86 @@ test("does not expand inside an unclosed code fence", () => {
       true,
     );
   });
+});
+
+test("does not expand a $ trigger that continues as a file path", () => {
+  withFixtures(() => {
+    const withExt = "open $review.md please";
+    const nested = "open $review/notes";
+    assert.equal(expandInlineTriggers(withExt), withExt);
+    assert.equal(expandInlineTriggers(nested), nested);
+  });
+});
+
+test("does not expand a trigger directly preceded by punctuation", () => {
+  withFixtures(() => {
+    const input = "(/review)";
+    assert.equal(expandInlineTriggers(input), input);
+  });
+});
+
+test("expands a trigger followed by sentence punctuation", () => {
+  withFixtures(() => {
+    const comma = expandInlineTriggers("Please run /review, thanks");
+    assert.match(comma, /Review skill body\./);
+    assert.equal(comma.includes("/review,"), false);
+
+    const colon = expandInlineTriggers("Steps: /review: done");
+    assert.match(colon, /Review skill body\./);
+  });
+});
+
+test("expands a trigger that begins a new line", () => {
+  withFixtures(() => {
+    const result = expandInlineTriggers("intro line\n/review\ntrailing line");
+    assert.match(result, /intro line/);
+    assert.match(result, /Review skill body\./);
+    assert.match(result, /trailing line/);
+  });
+});
+
+test("findExcludedRanges covers multiple separate fenced blocks and inline code", () => {
+  const input = "```\nblock one\n```\ntext `inline` more ```\nblock two\n```";
+  const ranges = findExcludedRanges(input);
+  const firstFence = input.indexOf("```");
+  const inlineStart = input.indexOf("`inline`");
+  const secondFence = input.indexOf("```", inlineStart);
+
+  assert.ok(ranges.some(([start]) => start === firstFence));
+  assert.ok(ranges.some(([start]) => start === inlineStart));
+  assert.ok(ranges.some(([start]) => start === secondFence));
+});
+
+test("discoverSkillsFromDirs finds directory-based skills with a SKILL.md file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "inline-skills-dirbased-"));
+  try {
+    const skillDir = join(dir, "packaged-skill");
+    mkdirSync(skillDir);
+    writeFileSync(
+      join(skillDir, "SKILL.md"),
+      "---\nname: packaged-skill\n---\nPackaged skill body.\n",
+    );
+    const discovered = discoverSkillsFromDirs([dir]);
+    assert.equal(discovered.get("packaged-skill"), join(skillDir, "SKILL.md"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("discoverSkillsFromDirs ignores missing directories and later dirs win on name collisions", () => {
+  const dirA = mkdtempSync(join(tmpdir(), "inline-skills-a-"));
+  const dirB = mkdtempSync(join(tmpdir(), "inline-skills-b-"));
+  const missingDir = join(dirA, "does-not-exist");
+  try {
+    writeFileSync(join(dirA, "shared.md"), "---\nname: shared\n---\nFrom A.\n");
+    writeFileSync(join(dirB, "shared.md"), "---\nname: shared\n---\nFrom B.\n");
+
+    const discovered = discoverSkillsFromDirs([missingDir, dirA, dirB]);
+    assert.equal(discovered.get("shared"), join(dirB, "shared.md"));
+  } finally {
+    rmSync(dirA, { recursive: true, force: true });
+    rmSync(dirB, { recursive: true, force: true });
+  }
 });
 
 test("resetAvailableSkills picks up newly written skills on next discover", () => {

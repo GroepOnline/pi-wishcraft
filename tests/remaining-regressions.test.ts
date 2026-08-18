@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { NERD_ICONS } from "../src/theme/icons.ts";
 import { shouldShowStartupWelcome } from "../src/extension/session/session-lifecycle.ts";
 import { isStaleExtensionContextError } from "../src/extension/session/stale-context.ts";
@@ -258,4 +258,43 @@ test("stale ctx guard handles old and new Pi messages on agent_end", () => {
     source,
     /if \(!isStaleExtensionContextError\(error\)\) throw error;\r?\n\s+rt\.currentCtx = null;\r?\n\s+return;/,
   );
+});
+
+test("session lifecycle resets the inline skill discovery cache on start and shutdown", () => {
+  assert.match(
+    source,
+    /import \{ resetAvailableSkills \} from "\.\.\/skills\/inline-invocation\.ts";/,
+  );
+  assert.match(
+    source,
+    /pi\.on\("session_start", async \(event, ctx\) => \{\r?\n\s+resetAvailableSkills\(\);/,
+  );
+  assert.match(
+    source,
+    /pi\.on\("session_shutdown", async \(_event, ctx\) => \{\r?\n\s+resetAvailableSkills\(\);/,
+  );
+});
+
+test("package.json no longer ships skill markdown/text debris from src", () => {
+  const pkg = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
+  );
+  assert.ok(Array.isArray(pkg.files));
+  assert.equal(pkg.files.includes("src/**/*.md"), false);
+  assert.equal(pkg.files.includes("src/**/*.txt"), false);
+  assert.ok(pkg.files.includes("src/**/*.ts"));
+});
+
+test("shipped test skill debris has been removed from the skills directory", () => {
+  const skillsDir = new URL("../src/extension/skills/", import.meta.url);
+  assert.equal(existsSync(new URL("ook.md", skillsDir)), false);
+  assert.equal(existsSync(new URL("test.md", skillsDir)), false);
+});
+
+test("CI workflow restricts the default GITHUB_TOKEN to read-only permissions", () => {
+  const workflow = readFileSync(
+    new URL("../.github/workflows/test.yml", import.meta.url),
+    "utf-8",
+  );
+  assert.match(workflow, /^permissions:\r?\n\s+contents: read\r?$/m);
 });

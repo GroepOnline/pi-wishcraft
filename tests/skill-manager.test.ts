@@ -86,3 +86,49 @@ test("applySkillFilterKey pops on terminal Delete", () => {
   assert.equal(result.filter, "gi");
   assert.equal(result.consumed, true);
 });
+
+test("applySkillFilterKey pops on the \\b backspace variant", () => {
+  const result = applySkillFilterKey("git", "\b");
+  assert.equal(result.filter, "gi");
+  assert.equal(result.consumed, true);
+});
+
+test("applySkillFilterKey clears on ctrl+u even when filter is already empty", () => {
+  const result = applySkillFilterKey("", "\x15");
+  assert.equal(result.filter, "");
+  assert.equal(result.consumed, true);
+});
+
+test("applySkillFilterKey appends a space character", () => {
+  const result = applySkillFilterKey("git", " ");
+  assert.equal(result.filter, "git ");
+  assert.equal(result.consumed, true);
+});
+
+test("applySkillFilterKey ignores raw control characters below the printable range", () => {
+  const result = applySkillFilterKey("git", "\x03");
+  assert.equal(result.filter, "git");
+  assert.equal(result.consumed, false);
+});
+
+test("applySkillFilterKey ignores multi-character paste chunks", () => {
+  const result = applySkillFilterKey("git", "ab");
+  assert.equal(result.filter, "git");
+  assert.equal(result.consumed, false);
+});
+
+test("applySkillFilterKey accumulates sequential keypresses", () => {
+  let filter = "";
+  for (const key of ["h", "u", "b"]) {
+    const result = applySkillFilterKey(filter, key);
+    assert.equal(result.consumed, true);
+    filter = result.filter;
+  }
+  assert.equal(filter, "hub");
+
+  const afterBackspace = applySkillFilterKey(filter, "\x7f");
+  assert.equal(afterBackspace.filter, "hu");
+
+  const afterClear = applySkillFilterKey(afterBackspace.filter, "\x15");
+  assert.equal(afterClear.filter, "");
+});

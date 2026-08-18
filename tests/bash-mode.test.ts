@@ -113,6 +113,33 @@ test("parseCommandSentinel rejects empty fields and malformed exit codes", () =>
   assert.equal(parseCommandSentinel("__PI_CMD_DONE__:cmd-1:0:", "done"), null);
 });
 
+test("parseCommandSentinel returns null when the line does not match the requested kind", () => {
+  assert.equal(
+    parseCommandSentinel("__PI_CMD_DONE__:cmd-1:0:/tmp", "start"),
+    null,
+  );
+  assert.equal(
+    parseCommandSentinel("__PI_CMD_START__:cmd-1:/tmp", "done"),
+    null,
+  );
+  assert.equal(parseCommandSentinel("__PI_READY__:/tmp", "start"), null);
+  assert.equal(parseCommandSentinel("some unrelated log line", "ready"), null);
+});
+
+test("parseCommandSentinel allows an empty cwd for the ready sentinel", () => {
+  assert.deepEqual(parseCommandSentinel("__PI_READY__:", "ready"), {
+    kind: "ready",
+    cwd: "",
+  });
+});
+
+test("parseCommandSentinel accepts exit code zero and multi-digit exit codes", () => {
+  assert.deepEqual(
+    parseCommandSentinel("__PI_CMD_DONE__:cmd-9:130:/tmp/ok", "done"),
+    { kind: "done", id: "cmd-9", exitCode: 130, cwd: "/tmp/ok" },
+  );
+});
+
 test("managed shell session removes temp dir on dispose without a live process", async () => {
   const cwd = mkdtempSync(join(tmpdir(), "powerline-shell-dispose-"));
   const store = new BashTranscriptStore({
@@ -138,6 +165,24 @@ test("managed shell session removes temp dir on dispose without a live process",
     () => session.runCommand("true"),
     /Shell session has been disposed/,
   );
+  rmSync(cwd, { recursive: true, force: true });
+});
+
+test("managed shell session dispose is idempotent", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "powerline-shell-dispose-twice-"));
+  const store = new BashTranscriptStore({
+    transcriptMaxLines: 10,
+    transcriptMaxBytes: 1024,
+  });
+  const session = new ManagedShellSession(
+    "/bin/sh",
+    cwd,
+    store,
+    () => {},
+    () => {},
+  );
+  session.dispose();
+  assert.doesNotThrow(() => session.dispose());
   rmSync(cwd, { recursive: true, force: true });
 });
 
@@ -747,6 +792,54 @@ test("managed shell session recovers cleanly after interrupt", async (t) => {
     assert.equal(lastCommand?.command, "printf 'after\\n'");
     assert.equal(lastCommand?.exitCode, 0);
     assert.ok(lastCommand?.output.includes("after"));
+  } finally {
+    session.dispose();
+  }
+});
+
+test("managed shell session tracks a cwd containing colons via live shell sentinels", async (t) => {
+  const shellPath = resolveManagedShellPath();
+  if (!shellPath) {
+    t.skip("requires zsh or bash");
+    return;
+  }
+
+  const cwd = mkdtempSync(join(tmpdir(), "powerline-shell-colon-"));
+  const coloredDir = join(cwd, "weird:dir:name");
+  mkdirSync(coloredDir, { recursive: true });
+  const store = new BashTranscriptStore({
+    transcriptMaxLines: 100,
+    transcriptMaxBytes: 64 * 1024,
+  });
+  const session = new ManagedShellSession(
+    shellPath,
+    cwd,
+    store,
+    () => {},
+    () => {},
+  );
+
+  const waitForCommand = async () => {
+    const start = Date.now();
+    while (session.state.running && Date.now() - start < 5000) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    assert.equal(session.state.running, false);
+  };
+
+  try {
+    await session.ensureReady();
+    await session.runCommand(`cd "${coloredDir}"`);
+    await waitForCommand();
+    assert.equal(session.state.cwd, coloredDir);
+
+    await session.runCommand("pwd");
+    await waitForCommand();
+
+    const snapshot = store.getSnapshot();
+    const lastCommand = snapshot.commands[snapshot.commands.length - 1];
+    assert.ok(lastCommand?.output.includes(coloredDir));
+    assert.equal(lastCommand?.exitCode, 0);
   } finally {
     session.dispose();
   }
