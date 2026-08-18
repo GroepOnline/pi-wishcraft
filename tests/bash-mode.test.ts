@@ -113,7 +113,7 @@ test("parseCommandSentinel rejects empty fields and malformed exit codes", () =>
   assert.equal(parseCommandSentinel("__PI_CMD_DONE__:cmd-1:0:", "done"), null);
 });
 
-test("managed shell session removes temp dir on dispose without a live process", () => {
+test("managed shell session removes temp dir on dispose without a live process", async () => {
   const cwd = mkdtempSync(join(tmpdir(), "powerline-shell-dispose-"));
   const store = new BashTranscriptStore({
     transcriptMaxLines: 10,
@@ -130,6 +130,14 @@ test("managed shell session removes temp dir on dispose without a live process",
   assert.ok(existsSync(tempDir));
   session.dispose();
   assert.equal(existsSync(tempDir), false);
+  await assert.rejects(
+    () => session.ensureReady(),
+    /Shell session has been disposed/,
+  );
+  await assert.rejects(
+    () => session.runCommand("true"),
+    /Shell session has been disposed/,
+  );
   rmSync(cwd, { recursive: true, force: true });
 });
 

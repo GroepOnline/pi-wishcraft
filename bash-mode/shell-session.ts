@@ -39,21 +39,25 @@ export function parseCommandSentinel(
   const firstColon = remainder.indexOf(":");
   if (firstColon === -1) return null;
   const id = remainder.slice(0, firstColon);
+  if (!id) return null;
 
   if (kind === "start") {
-    return { kind: "start", id, cwd: remainder.slice(firstColon + 1) };
+    const cwd = remainder.slice(firstColon + 1);
+    if (!cwd) return null;
+    return { kind: "start", id, cwd };
   }
 
   const afterId = remainder.slice(firstColon + 1);
   const secondColon = afterId.indexOf(":");
   if (secondColon === -1) return null;
   const exitCodeText = afterId.slice(0, secondColon);
-  const exitCode = Number.parseInt(exitCodeText, 10);
+  const cwd = afterId.slice(secondColon + 1);
+  if (!/^\d+$/.test(exitCodeText) || !cwd) return null;
   return {
     kind: "done",
     id,
-    exitCode: Number.isFinite(exitCode) ? exitCode : 1,
-    cwd: afterId.slice(secondColon + 1),
+    exitCode: Number.parseInt(exitCodeText, 10),
+    cwd,
   };
 }
 

@@ -64,6 +64,11 @@ export function resetAvailableSkills(): void {
   availableSkills = undefined;
 }
 
+/** Replace extra reserved slash names for tests (static set is always kept). */
+export function setReservedSlashCommandsForTests(names: string[]): void {
+  reservedSlashCommands = new Set([...STATIC_RESERVED_SLASH_COMMANDS, ...names]);
+}
+
 /** Inject a skill map for tests without scanning disk. */
 export function setAvailableSkillsForTests(map: Map<string, string>): void {
   availableSkills = map;
