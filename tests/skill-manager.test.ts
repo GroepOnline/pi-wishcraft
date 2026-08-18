@@ -80,3 +80,9 @@ test("applySkillFilterKey ignores navigation keys", () => {
   assert.equal(result.filter, "git");
   assert.equal(result.consumed, false);
 });
+
+test("applySkillFilterKey pops on terminal Delete", () => {
+  const result = applySkillFilterKey("git", "\x1b[3~");
+  assert.equal(result.filter, "gi");
+  assert.equal(result.consumed, true);
+});

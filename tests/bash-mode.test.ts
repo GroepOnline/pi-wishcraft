@@ -103,6 +103,16 @@ test("parseCommandSentinel handles cwd with colons", () => {
   assert.deepEqual(ready, { kind: "ready", cwd });
 });
 
+test("parseCommandSentinel rejects empty fields and malformed exit codes", () => {
+  assert.equal(parseCommandSentinel("__PI_CMD_START__::/tmp/ok", "start"), null);
+  assert.equal(parseCommandSentinel("__PI_CMD_START__:cmd-1:", "start"), null);
+  assert.equal(
+    parseCommandSentinel("__PI_CMD_DONE__:cmd-1:0garbage:/tmp/ok", "done"),
+    null,
+  );
+  assert.equal(parseCommandSentinel("__PI_CMD_DONE__:cmd-1:0:", "done"), null);
+});
+
 test("managed shell session removes temp dir on dispose without a live process", () => {
   const cwd = mkdtempSync(join(tmpdir(), "powerline-shell-dispose-"));
   const store = new BashTranscriptStore({

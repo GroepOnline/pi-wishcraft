@@ -64,6 +64,11 @@ export function resetAvailableSkills(): void {
   availableSkills = undefined;
 }
 
+/** Test helper: add reserved slash names on top of the static fallback set. */
+export function setReservedSlashCommandsForTests(names: string[]): void {
+  reservedSlashCommands = new Set([...STATIC_RESERVED_SLASH_COMMANDS, ...names]);
+}
+
 /** Inject a skill map for tests without scanning disk. */
 export function setAvailableSkillsForTests(map: Map<string, string>): void {
   availableSkills = map;
@@ -178,6 +183,16 @@ export function expandInlineTriggers(text: string): string {
     const end = start + fullTrigger.length;
 
     if (isExcluded(start, excluded)) continue;
+
+    const nextChar = text[end] ?? "";
+    if (
+      triggerChar === "/" &&
+      (nextChar === "/" ||
+        nextChar === "\\" ||
+        (nextChar === "." && /[a-zA-Z0-9]/.test(text[end + 1] ?? "")))
+    ) {
+      continue;
+    }
 
     if (triggerChar === "/" && reservedSlashCommands.has(name)) continue;
 

@@ -66,7 +66,7 @@ export function applySkillFilterKey(
   if (data === "\x15") {
     return { filter: "", consumed: true };
   }
-  if (data === "\x7f" || data === "\b") {
+  if (data === "\x7f" || data === "\b" || data === "\x1b[3~") {
     if (filter.length === 0) return { filter, consumed: false };
     return { filter: filter.slice(0, -1), consumed: true };
   }
