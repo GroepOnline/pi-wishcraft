@@ -41,7 +41,7 @@ function refreshSettings(cwd: string): void {
   repairsEnabled =
     !wishcraft ||
     typeof wishcraft !== "object" ||
-    (wishcraft as Record<string, unknown>).repairsEnabled !== false;
+    (wishcraft as Record<string, unknown>).repairsEnabled === true;
 }
 
 function hasAnyHook(hooks: WishcraftHooksSettings): boolean {
