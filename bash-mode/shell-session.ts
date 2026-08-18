@@ -39,25 +39,21 @@ export function parseCommandSentinel(
   const firstColon = remainder.indexOf(":");
   if (firstColon === -1) return null;
   const id = remainder.slice(0, firstColon);
-  if (!id) return null;
 
   if (kind === "start") {
-    const cwd = remainder.slice(firstColon + 1);
-    if (!cwd) return null;
-    return { kind: "start", id, cwd };
+    return { kind: "start", id, cwd: remainder.slice(firstColon + 1) };
   }
 
   const afterId = remainder.slice(firstColon + 1);
   const secondColon = afterId.indexOf(":");
   if (secondColon === -1) return null;
   const exitCodeText = afterId.slice(0, secondColon);
-  const cwd = afterId.slice(secondColon + 1);
-  if (!/^\d+$/.test(exitCodeText) || !cwd) return null;
+  const exitCode = Number.parseInt(exitCodeText, 10);
   return {
     kind: "done",
     id,
-    exitCode: Number.parseInt(exitCodeText, 10),
-    cwd,
+    exitCode: Number.isFinite(exitCode) ? exitCode : 1,
+    cwd: afterId.slice(secondColon + 1),
   };
 }
 
@@ -176,6 +172,9 @@ export class ManagedShellSession {
   }
 
   async ensureReady(): Promise<void> {
+    if (this.disposed) {
+      throw new Error("Shell session has been disposed");
+    }
     if (this.state.ready) return;
     if (this.readyPromise) return this.readyPromise;
 
@@ -231,7 +230,13 @@ export class ManagedShellSession {
   }
 
   async runCommand(command: string): Promise<void> {
+    if (this.disposed) {
+      throw new Error("Shell session has been disposed");
+    }
     await this.ensureReady();
+    if (this.disposed) {
+      throw new Error("Shell session has been disposed");
+    }
     if (!this.process) {
       throw new Error("Shell process not available");
     }
