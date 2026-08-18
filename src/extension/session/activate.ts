@@ -7,6 +7,7 @@ import { readSettings } from "../settings/settings-io.ts";
 import { registerSessionLifecycle } from "./session-lifecycle.ts";
 import { registerCommands } from "../commands/commands.ts";
 import { setupInlineInvocation } from "../skills/inline-invocation.ts";
+import { setupHooks } from "../hooks/index.ts";
 import {
   config,
   createRuntimeState,
@@ -25,4 +26,5 @@ export default function powerlineFooter(pi: ExtensionAPI) {
   registerSessionLifecycle(pi, rt);
   registerCommands(pi, rt);
   setupInlineInvocation(pi, rt);
+  setupHooks(pi, rt, process.cwd());
 }

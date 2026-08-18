@@ -139,9 +139,10 @@ export function readSettings(
   );
 }
 
-export function writePowerlineSetting(
+export function writeSettingKey(
   cwd: string,
-  update: (existingPowerlineSetting: unknown) => unknown,
+  key: string,
+  update: (existing: unknown) => unknown,
 ): boolean {
   const globalSettingsPath = getSettingsPath();
   const projectSettingsPath = getProjectSettingsPath(cwd);
@@ -154,14 +155,12 @@ export function writePowerlineSetting(
 
   const writeToProject = Object.prototype.hasOwnProperty.call(
     projectSettings,
-    "powerline",
+    key,
   );
-  const settingsPath = writeToProject
-    ? projectSettingsPath
-    : globalSettingsPath;
+  const settingsPath = writeToProject ? projectSettingsPath : globalSettingsPath;
   const settings = writeToProject ? projectSettings : globalSettings;
 
-  settings.powerline = update(settings.powerline);
+  settings[key] = update(settings[key]);
 
   try {
     mkdirSync(dirname(settingsPath), { recursive: true });
@@ -169,11 +168,18 @@ export function writePowerlineSetting(
     return true;
   } catch (error) {
     console.debug(
-      `[wishcraft] Failed to persist powerline setting to ${settingsPath}:`,
+      `[wishcraft] Failed to persist setting '${key}' to ${settingsPath}:`,
       error,
     );
     return false;
   }
+}
+
+export function writePowerlineSetting(
+  cwd: string,
+  update: (existingPowerlineSetting: unknown) => unknown,
+): boolean {
+  return writeSettingKey(cwd, "powerline", update);
 }
 
 export function writePowerlinePresetSetting(

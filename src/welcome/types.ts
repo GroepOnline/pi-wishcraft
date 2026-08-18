@@ -18,6 +18,8 @@ export interface WelcomeData {
   initialContextTokens: number | null;
   queueCount?: number;
   hasStash?: boolean;
+  /** true = statische ballon (header-mode), false = geanimeerde vlam. */
+  quietStartup?: boolean;
 }
 
 export interface WelcomeWidget {

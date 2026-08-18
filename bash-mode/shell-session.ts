@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
@@ -214,6 +214,11 @@ export class ManagedShellSession {
     this.readyPromise = null;
     this.readyResolve = null;
     this.readyReject = null;
+    try {
+      rmSync(this.tempDir, { recursive: true, force: true });
+    } catch {
+      // tempdir opruimen is best-effort
+    }
     if (!this.process) return;
     try {
       process.kill(-this.process.pid!, "SIGKILL");
@@ -252,7 +257,10 @@ export class ManagedShellSession {
       }
 
       if (line.startsWith(`${COMMAND_START_SENTINEL}:`)) {
-        const [, id, cwd] = line.split(":");
+        // cwd kan zelf ':' bevatten: alles na het tweede veld is cwd
+        const parts = line.split(":");
+        const id = parts[1];
+        const cwd = parts.slice(2).join(":");
         if (cwd) this.state.cwd = cwd;
         this.currentCommandId = id ?? this.currentCommandId;
         this.onStateChange();
@@ -260,7 +268,10 @@ export class ManagedShellSession {
       }
 
       if (line.startsWith(`${COMMAND_DONE_SENTINEL}:`)) {
-        const [, id, exitCodeText, cwd] = line.split(":");
+        const parts = line.split(":");
+        const id = parts[1];
+        const exitCodeText = parts[2];
+        const cwd = parts.slice(3).join(":");
         const exitCode = Number.parseInt(exitCodeText ?? "1", 10);
         this.state.running = false;
         this.state.lastExitCode = Number.isFinite(exitCode) ? exitCode : 1;

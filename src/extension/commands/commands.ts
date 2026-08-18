@@ -8,6 +8,8 @@ import { registerCdCommand } from "../../shell/cd-command.ts";
 import { registerVibeCommand } from "./vibe-command.ts";
 import { registerQueueCommands } from "./queue-commands.ts";
 import { registerSkillManagerCommand } from "../skills/skill-manager.ts";
+import { registerWishcraftConfigCommand } from "../settings/wishcraft-config.ts";
+import { getRepairCounts } from "../hooks/index.ts";
 import {
   writePowerlineOptionSetting,
   writePowerlinePresetSetting,
@@ -33,6 +35,7 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerVibeCommand(pi);
   registerQueueCommands(pi, rt);
   registerSkillManagerCommand(pi, rt);
+  registerWishcraftConfigCommand(pi, rt);
 
   // Command to toggle/configure
   pi.registerCommand("powerline", {
@@ -213,6 +216,21 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       process.env.POWERLINE_TPS = value;
       ctx.ui.notify(`TPS set to: ${value}`, "info");
       rt.tuiRef?.requestRender();
+    },
+  });
+
+  pi.registerCommand("repairs", {
+    description: "Show tool-input repair stats (wishcraft harness layer)",
+    handler: async (_args, ctx) => {
+      const counts = getRepairCounts();
+      if (counts.size === 0) {
+        ctx.ui.notify("No tool-input repairs applied yet", "info");
+        return;
+      }
+      const summary = [...counts.entries()]
+        .map(([key, n]) => `${key}: ${n}×`)
+        .join("  ·  ");
+      ctx.ui.notify(`Repairs — ${summary}`, "info");
     },
   });
 

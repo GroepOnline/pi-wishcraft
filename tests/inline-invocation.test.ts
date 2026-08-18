@@ -1,6 +1,28 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expandInlineTriggers } from "../src/extension/skills/inline-invocation.ts";
+import { invalidateSkillCache } from "../src/extension/skills/skill-registry.ts";
+
+// Fixtures: tijdelijke agent-dir met twee skills, via dezelfde env-override
+// die pi zelf gebruikt (PI_CODING_AGENT_DIR).
+before(() => {
+  const agentDir = mkdtempSync(join(tmpdir(), "wishcraft-skills-"));
+  const skillsDir = join(agentDir, "skills");
+  mkdirSync(skillsDir, { recursive: true });
+  writeFileSync(
+    join(skillsDir, "test.md"),
+    "---\nname: test\ndescription: Test skill voor inline expansie\n---\nDit is een test skill content\n",
+  );
+  writeFileSync(
+    join(skillsDir, "ook.md"),
+    "---\nname: ook\ndescription: Ook een test skill\n---\nDit is de content van de ook skill\n",
+  );
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  invalidateSkillCache();
+});
 
 describe("inline-invocation", () => {
 	it("should not expand unknown triggers", () => {
@@ -25,6 +47,18 @@ describe("inline-invocation", () => {
 		assert.strictEqual(expandInlineTriggers(""), "");
 	});
 
+	it("should not expand path-like slashes", () => {
+		const input = "Zie src/foo/bar.ts en pad/naar/file";
+		assert.strictEqual(expandInlineTriggers(input), input);
+	});
+
+	it("should not expand $100 or currency-like triggers", () => {
+		const input = "Dat kost $100 en $ook is wel een skill";
+		const result = expandInlineTriggers(input);
+		assert.ok(result.includes("$100"));
+		assert.ok(result.includes("Dit is de content van de ook skill"));
+	});
+
 	it("should expand single /command trigger", () => {
 		const input = "Doe /test";
 		const result = expandInlineTriggers(input);
@@ -44,8 +78,6 @@ describe("inline-invocation", () => {
 		const result = expandInlineTriggers(input);
 		assert.ok(result.includes("Dit is een test skill content"));
 		assert.ok(result.includes("Dit is de content van de ook skill"));
-		assert.ok(!result.includes("/test"));
-		assert.ok(!result.includes("$ook"));
 	});
 
 	it("should expand triggers in middle of prompt", () => {

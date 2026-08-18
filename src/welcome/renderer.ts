@@ -2,29 +2,12 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { ansi, fgOnly, getFgAnsiCode } from "../theme/colors.ts";
 import { centerText, fitToWidth, getBoxLayout } from "./layout.ts";
 import type { WelcomeData, WelcomeWidget, WidgetRenderContext } from "./types.ts";
+import { renderLantern } from "./lantern.ts";
 
 import { QueueWidget } from "./widgets/queue-widget.ts";
 import { SessionsWidget } from "./widgets/sessions-widget.ts";
 import { ShortcutsWidget } from "./widgets/shortcuts-widget.ts";
 import { SystemWidget } from "./widgets/system-widget.ts";
-
-const PI_LOGO = [
-  "     . *      ",
-  "   * ╭───╮ .  ",
-  "  .  │   │  * ",
-  "     │   │    ",
-  "   * ╰─┬─╯ .  ",
-  "  .    ┴      ",
-];
-
-const GRADIENT_COLORS = [
-  "\x1b[38;5;199m",
-  "\x1b[38;5;171m",
-  "\x1b[38;5;135m",
-  "\x1b[38;5;99m",
-  "\x1b[38;5;75m",
-  "\x1b[38;5;51m",
-];
 
 function bold(text: string): string {
   return `\x1b[1m${text}\x1b[22m`;
@@ -34,31 +17,15 @@ export function dim(text: string): string {
   return getFgAnsiCode("sep") + text + ansi.reset;
 }
 
-function gradientLine(line: string): string {
-  const reset = ansi.reset;
-  let result = "";
-  let colorIdx = 0;
-  const step = Math.max(1, Math.floor(line.length / GRADIENT_COLORS.length));
-
-  for (let i = 0; i < line.length; i++) {
-    if (i > 0 && i % step === 0 && colorIdx < GRADIENT_COLORS.length - 1)
-      colorIdx++;
-    const char = line[i];
-    if (char !== " ") {
-      result += GRADIENT_COLORS[colorIdx] + char + reset;
-    } else {
-      result += char;
-    }
-  }
-  return result;
-}
-
 function buildLeftColumn(ctx: WidgetRenderContext): string[] {
-  const logoColored = PI_LOGO.map((line) => gradientLine(line));
+  const lantern = renderLantern(
+    { now: Date.now(), still: ctx.data.quietStartup },
+    ctx.width,
+  );
 
   return [
     "",
-    ...logoColored.map((l) => centerText(l, ctx.width)),
+    ...lantern.map((l) => centerText(l, ctx.width)),
     "",
     centerText(fgOnly("model", ctx.data.modelName), ctx.width),
     centerText(dim(ctx.data.providerName), ctx.width),

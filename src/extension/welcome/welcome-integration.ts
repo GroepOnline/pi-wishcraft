@@ -105,11 +105,13 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
           let countdown = 30;
           let dismissed = false;
           let interval: ReturnType<typeof setInterval> | null = null;
+          let glow: ReturnType<typeof setInterval> | null = null;
 
           const dismiss = () => {
             if (dismissed) return;
             dismissed = true;
             if (interval) clearInterval(interval);
+            if (glow) clearInterval(glow);
             rt.dismissWelcomeOverlay = null;
             done();
           };
@@ -121,6 +123,12 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             tui.requestRender();
             if (countdown <= 0) dismiss();
           }, 1000);
+
+          // wensballon: zachte vlam-flikker, alleen tijdens de overlay
+          glow = setInterval(() => {
+            if (dismissed) return;
+            tui.requestRender();
+          }, 140);
 
           rt.dismissWelcomeOverlay = dismiss;
 
@@ -137,6 +145,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             dispose: () => {
               dismissed = true;
               if (interval) clearInterval(interval);
+              if (glow) clearInterval(glow);
             },
           };
         },

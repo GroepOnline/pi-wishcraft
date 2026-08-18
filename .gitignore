@@ -98,4 +98,4 @@ hs_err_pid*
 *.tar.gz
 *.tar.bz2
 *.tar.xz
-*.tar.zst
+*.tar.zstbun.lock

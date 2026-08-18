@@ -1,56 +1,375 @@
-# Roadmap — what to improve & how to integrate better
+# Roadmap — pi-wishcraft
 
-Status after 0.18.0. Package is `@groeponline/pi-wishcraft` (renamed from `@groeponline/pi-powerline-footer` in 0.17.x; `src/` restructured by domain; `madge --circular` runs in CI). Concrete, prioritized. Not commitments — pick what Joep wants.
+Herschreven 2026-08-18. Vervangt de 0.18.0-editie. Tweede pass dezelfde dag:
+onderscheid aangescherpt, 0.19.0 teruggebracht tot wat we écht kunnen
+shippen, harness en skills-UI doorgeschoven naar 0.20.
 
-## Next release (0.19.0)
+Pi core is de engine. Wishcraft is de cockpit. Elke feature dient één van
+drie doelen: **grip** (skills, tokens, config), **prestatie** (repairs,
+hooks, read-hints), of **leven** (overlays, vibes, detail views).
 
-- `npm deprecate @groeponline/pi-powerline-footer "Renamed to @groeponline/pi-wishcraft"` — the old package name still resolves on npm at 0.17.2 and is not deprecated yet. Needs the `@groeponline` scope owner's npm login (no publish auth on the laptop).
-- Generalize `segmentLabels` to every segment (today only tps/open_ports honor it; apply in `renderSegment`).
-- Per-segment `format`/`template` override (`segmentOptions.tps.template: "{value} tok/s"`).
-- Visibility toggle per segment from the `alt+p` menu (writes `powerline.disabledSegments` live).
-- `segmentOptions.tps.windowMs` — expose the 1s window length for fast models (Groq).
+Elke release is één campagne met een done-criterium. P1 = deze release,
+P2 = volgende, P3 = richting 1.0. Wat in 0.19 staat, shipt. Wat later
+staat, start niet eerder.
 
-## Already shipped
+---
 
-- 0.18.0 (wishcraft v2, #7): tab token completion, preset rework, git commit/ahead-behind extras, TPS in/out, `/skills` TUI, `src/extension` split into domain subfolders.
-- 0.17.x: package renamed to `@groeponline/pi-wishcraft`; `src/` restructure committed; `madge --circular` is a CI step in `test.yml`; inline skill/command invocation (`/` skills, `$` commands) landed in 0.17.3.
+## Waarom wij bestaan
 
-## Correctness (done, keep honest)
+De pi-extensiewereld heeft statusbalken. Ze heeft geen cockpit.
 
-- TPS = 1s sliding window over a 5s sample ring. **Verify it stays this way** if anyone touches `tpsSegment`. Do not regress to session-average or per-render EMA (both spike: `tps:12775`, `tps:1118`).
-- Open-ports = unique TCP by default; `openPorts.includeUdp` opts in. Column parsing is column-agnostic (ss + netstat).
-- Context segment hides on `contextWindow <= 0` (no more `NaN`/`??`).
+**Upstream `nicobailon/pi-powerline-footer`** is een goede balk: git,
+context, stash, compaction-queue, vibes, welcome, bash-mode. Wij zijn
+daaruit gegroeid. Wat zij niet hebben, en wat onze publieke identiteit
+is:
 
-## Configurability improvements (next, low effort)
+| Wij | Zij / de rest |
+|---|---|
+| Skills als OS: `/skills`, inline `/$`, usage, later doctor | Geen skill-manager |
+| Idee → actie: `#`, `/idea`, `/ideas`, `/ideas issue` | Alleen compaction-hold queue |
+| Eerlijke TPS: 1s-venster over 5s-ring, in/out gescheiden | Session-average of helemaal niks |
+| Tab-token completion + git ahead/behind | Niet of later |
+| Harness-laag (0.20): hooks + tool-input repairs op stock pi | Nergens in het extensie-ecosysteem |
 
-1. **Labels for every segment, not just tps/open_ports.** Today `segmentLabels` is applied inside the two custom segments. Generalize: apply in `renderSegment` so `model`, `git`, `cost`, `context_pct`, `time`, … all honor a label. Small diff, big consistency win.
-2. **Per-segment `format`/`template` override.** Let users set e.g. `segmentOptions.tps.template: "{value} tok/s"` or `time.format: "HH:mm"`. Template > label for full control.
-3. **Visibility toggle per segment from the menu.** `Configure…` already changes preset/TPS/UDP/labels; add "disable segment" / "enable segment" that writes `powerline.disabledSegments` live (no edit-the-JSON round-trip).
-4. **Preset editor in the menu.** Build a custom preset interactively (pick left/right segments) and save it to settings — today custom presets are JSON-only.
-5. **`segmentOptions.tps.windowMs`** — expose the 1s window length so fast models (Groq) can widen it for a smoother read.
+**oh-my-pi** is een hele agent-fork (~80k regels Rust-core, eigen tools,
+LSP, DAP). Dat is een ander product. Wij forken Mario's pi niet. Alles
+wat we willen van oh-my-pi vertalen we naar een extensie of we laten het
+liggen. De weddenschap: de beste cockpit op stock pi wint van een
+tweede engine.
 
-## Interaction improvements (the "levendig + klikbaar" thread)
+**Command Code** is een commerciële harness (hooks, tool-call repairs,
+read-tool engineering). Hun inzicht klopt: open modellen falen op het
+contract, niet op "slimheid". Wij kopiëren hun product niet. We gieten
+dezelfde principes in wat Pi al native biedt:
 
-1. **Sub-menus via stacked overlays.** `ctx.ui.custom()` closes on `done()`; a sub-menu opens a new `custom()`. Today the menu uses `ctx.ui.select` (flat). Upgrade the navigator + configure to overlay `SelectList` for arrow nav + descriptions, matching the segment-navigator chrome.
-2. **Per-segment "more info" on a second key.** In the navigator, `enter` activates, `→`/`tab` opens a detail view for that segment (full ports list, git diff summary, cost breakdown, context window math). This is the "soort gelijk menu maar anders waar je bijv alle open ports kan zien" Joep asked for.
-3. **Live refresh while the overlay is open.** Overlays re-render on `tui.requestRender()`; wire a light timer so the ports list / TPS detail tick while open.
-4. **Mouse support** — not available; Pi core owns the footer. Keep documenting that overlay nav is the equivalent.
+- `pi.on("tool_call")` — `event.input` is mutable; `block` + `reason` +
+  `terminate` bestaan (`pi-coding-agent` 0.84.x
+  `dist/core/extensions/types.d.ts`).
+- `pi.on("tool_result")` — resultaat muteren.
+- `pi.on("session_start" | "input" | "turn_end")`.
 
-## Integration with ChefGroep surfaces
+Geen core-patch. Geen tweede agent. Iedereen die `pi` draait kan de
+cockpit + harness installeren.
 
-1. **ChefBar / command center.** Expose powerline state (preset, TPS, ports, cost) via `ctx.ui.setStatus("powerline-tps", …)` so ChefBar/other extensions can read it. Already partly there (extension statuses); formalize a stable key set (`powerline.tps`, `powerline.ports`, `powerline.preset`).
-2. **joep-ops / Vault dashboard.** The same `ss`/token data could feed a fleet dashboard. Factor `countListeningPorts` + a token-rate sampler into a tiny shared module both can import (keep it in this repo, export it).
-3. **PostHog.** Capture preset/menu usage events (`powerline.preset_changed`, `powerline.menu_opened`) per the org instrumentation rule — only if Joep opts in; the bar itself stays telemetry-free.
-4. **Fleet (sofie/bc-scan-2).** `open_ports` is laptop-local. A fleet variant could SSH-probe a named host's ports; gate behind a `segmentOptions.openPorts.host` setting.
+**ChefGroep** (ChefBar-statuskeys, fleet-ports) is een privé-bonus, niet
+de publieke pitch. De npm-pagina moet leesbaar zijn voor iemand die pi
+gisteren installeerde.
 
-## Release/quality
+Kort: **wij zijn de cockpit + harness voor stock pi.** Niet de balk.
+Niet de fork. Niet de SaaS-agent.
 
-1. **Dependabot vulns** — GitHub flagged 7 (3 high, 4 moderate) on default branch. Triage; most are devDep transitive. Add `npm audit` to CI as non-blocking info, or pin.
-2. **Test the menu.** The overlay/menu functions aren't unit-tested (hard to test `ctx.ui.custom` headless). Add a thin `SelectList`-based pure function for "build segment items" and test that, leaving the overlay shell untested.
-3. **Typecheck in pre-push.** `prepublishOnly` already runs `tsc` so a bad type never ships even if CI is skipped.
+---
 
-## Not doing (YAGNI)
+## Wat wij niet worden
 
-- No mouse/click on the live footer (Pi core limitation; overlay nav is the path).
-- No custom "embed/component" registration for footer segments — segments are data (text), and `customItems` + `command/env/static` segments already cover user-defined content. `setWidget`/`registerEntryRenderer` are for chat, not the footer.
-- No third control surface — keep interactivity in this extension's overlays + commands.
+- Geen agent-fork. Geen oh-my-pi-lite.
+- Geen derde control surface naast ChefBar / Kater. Overlays blijven in
+  deze extensie.
+- Geen muis op de live footer. Pi core bezit die; overlay-navigatie is
+  het pad.
+- Geen eigen bulk-read tool. Core's verantwoordelijkheid; wij leveren
+  repairs + hints eromheen.
+- Geen PostHog in de balk. Events alleen op expliciete Joep-opt-in.
+- Geen custom embed/component-registratie voor footer-segments.
+  Segments zijn data; `customItems` + `command/env/static` dekken
+  gebruikerscontent.
+- Geen skills-markt als identiteit vóór 1.0. Eerst discovery die klopt
+  en een manager die zoekt.
+- Geen fleet-SSH `open_ports` totdat iemand het concreet vraagt.
+- Geen versie-reset naar 1.0.0. We blijven op 0.19 → 0.20 → 1.0 wanneer
+  de cockpit stabiel is.
+
+---
+
+## Mijlpalen
+
+- **0.19.0 — "Correctheid"** (deze campagne). Bugs en hygiëne eerst.
+  Kleine config-afmakers. Geen hooks, geen repairs, geen manager-v2-UI,
+  geen overlay-submenus. Done = npm 0.19.0 live, `/skills` filtert,
+  `$test` expandeert geen debris, `npm test` + `npm run typecheck` +
+  `madge --circular` groen op de tag. Als de config-PR uitloopt:
+  tag **0.18.1** met alleen PR A (bugs). Correctheid wacht niet op
+  labels.
+- **0.20.0 — "Harness"**. Hooks + tool-input repairs + skills-manager
+  v2-UI + token-overlays. Done = drie README-hookvoorbeelden werken,
+  repair-teller zichtbaar, `/skills` zoekt op naam+beschrijving+pad.
+- **1.0 — "Cockpit"**. Skills-doctor/install, declaratieve policy,
+  preset-editor, idee-review, stabiele ChefGroep-statuskeys,
+  documentatie die waar is. Done = README dekt alles wat we shipten,
+  geen kapotte footer-belofte.
+
+---
+
+## 0.19.0 — Correctheid
+
+Eén campagne, drie stacked PRs. Volgorde vast. Elke PR: `npm run
+typecheck && npm test && npx madge --circular src index.ts bash-mode
+queue` groen vóór review. Overlay-submenus (CHE-42) zitten in 0.20.
+
+### PR A — runtime-bugs — ✅ geland in `feat/wishcraft-0.19` (samen met skills v2, hooks, lantern-welcome, `/wishcraft` config-TUI; supersedeert #10)
+
+Alle zes punten uit het oorspronkelijke plan zitten in de ene 0.19-branch:
+debris weg, filter werkend (v2: substring i.p.v. prefix), cache-invalide op
+`session_start` + TTL, woordgrens op inline-triggers, unclosed-fence EOF,
+bash-session tempdir + sentinel-colon, `permissions: contents: read`.
+`npm pack --dry-run` bevat geen debris (113 files, geen `ook.md`/`test.md`).
+
+### PR B — config-afmakers
+
+Bestanden: `src/config/`, `src/segments/`, `src/extension/ui/`.
+
+1. `segmentLabels` toepassen in `renderSegment` voor **alle** segments
+   (nu alleen tps/open_ports/subagents).
+2. `segmentOptions.<seg>.template` wint van label
+   (`"{value} tok/s"`).
+3. `segmentOptions.tps.windowMs` (default 1000), `.mode`
+   (`both | out | in | total`), `.hideIdle` (default true).
+4. Visibility-toggle in het `alt+p`-menu schrijft live
+   `powerline.disabledSegments`.
+
+Done: unit tests op label/template/windowMs-resolutie; handmatige
+check: label op `git` + `cost` zichtbaar, TPS hidden bij 0 wanneer
+`hideIdle`.
+
+### PR C — release 0.19.0
+
+1. `npm run release minor` → 0.19.0 (bump + changelog + commit + tag).
+2. Push GroepOnline SSH (`chefadmin-netizen`):
+   `GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh' git push origin HEAD --tags`.
+3. Verify: tag op origin, publish-job groen, `npm view @groeponline/pi-wishcraft version` = 0.19.0.
+   Catalogus (hard): `npm run verify:package` groen in de release-job;
+   `npm view @groeponline/pi-wishcraft keywords` bevat `pi-package`,
+   `pi-extension`, `wishcraft`; `pi.image` is de banner-URL.
+   Daarna:
+   - https://pi.dev/packages/@groeponline/pi-wishcraft toont 0.19.0
+   - https://pi.dev/packages?name=wishcraft toont de card
+   - https://pi.dev/packages?name=groeponline toont wishcraft naast
+     fff en orchestrator
+   Detailpagina bestaat al voor 0.18.0; de zoekindex niet. Nieuwe
+   publish + discovery-keywords is de refresh. Catalogus-lag tot
+   een paar uur is oké; ontbreken na 24u = 0.19.1 met dezelfde
+   metadata, geen stille "later wel".
+4. README: skills-sectie zegt dat filter werkt; geen `ook`/`test`
+   debris. ROADMAP sync (deze file).
+5. `npm deprecate @groeponline/pi-powerline-footer` blijft een
+   scope-owner actie buiten deze PR (`deprecate-old-name.yml`,
+   workflow_dispatch). Blokkeert 0.19 niet.
+
+Hygiëne die al klaar is en niet opnieuw gepland wordt:
+
+- Fork-tags weg (51 upstream-tags, 2026-08-18). Eigen reeks vanaf
+  `v0.10.0`.
+- `banner.png` blijft (README). `wishcraft-concept.png` gaat weg in
+  PR A of een docs-PR, niet in de balk-runtime.
+- CHANGELOG inkorten (GRO-1060) doen we **niet** in 0.19. Erfgoed
+  is history, geen cruft.
+- Versie blijft 0.19, geen reset naar 1.0.0.
+
+GRO-1061 (runner-queue) is ops, geen product-slice.
+
+---
+
+## 0.20.0 — Harness
+
+Vier stacked PRs. Pas starten als 0.19 (of 0.18.1) op npm staat.
+
+Overlay-chrome kit, één keer, daarna hergebruiken: box + ronde hoeken,
+accent-kop, dim metadata, rechts uitgelijnde counts, `→` detail /
+`←` terug / `esc` weg, consistente footer-hints. Eerste consument =
+skills v2; tweede = `/usage`; derde = queue/idea. Pure render-
+functies, geen `ctx.ui`-mock.
+
+### PR E — hooks — ✅ geland in `feat/wishcraft-0.19` (`src/extension/hooks/`, `/repairs` stats-command; README-voorbeelden volgen in de release-PR)
+
+Settings: `wishcraft.hooks` met events
+`preToolUse | postToolUse | sessionStart | turnEnd`. Per hook
+`matcher` (toolName-regex) en `command` (JSON stdin/stdout, timeout
+30s, max 600s). PreToolUse: `allow | deny` + reason die het model
+ziet. Exit 2 = deny, stderr-eerste-regel = reason. PostToolUse /
+SessionStart: `additionalContext`. Kill-switch
+`wishcraft.hooksEnabled: false`. PreToolUse sequentieel (eerste deny
+stopt); PostToolUse/turnEnd parallel.
+
+Done: `parseHookOutput` unit-testen. README met drie werkende
+voorbeelden: bash-guard (`rm -rf /` blokkeren), write-audit
+(append-only log), SessionStart git-status injectie.
+
+### PR F — tool-input repairs — ✅ geland in `feat/wishcraft-0.19` (schema-loze subset: null-for-optional + auto-link unwrap; schema-afhankelijke repairs wachten op validator-issues in pi core)
+
+`tool_call`-handler repareert bekende malformaties vóór executie
+(mutable input). Volgorde vast: json-parse vóór bare-wrap.
+
+1. `null` voor optioneel weglaten.
+2. JSON-string-array → array.
+3. `{}`-placeholder → array.
+4. bare-string → array-wrap.
+5. markdown-auto-link pads (`[x.md](http://x.md)` → `x.md`).
+6. pad-alias `filePath` / `absolutePath` / `target_file` → `path`.
+
+Repair-teller per `(tool, repair)` als extension status.
+`wishcraft.repairsEnabled` default true. Scope: custom tools +
+extensie-tools. Pi core-tools laten we met rust — core valideert
+zijn eigen schema's.
+
+Done: pure `repairToolInput(tool, input)` + table-driven tests voor
+de zes gevallen + de parse-vóór-wrap invariant.
+
+### PR G — overlay-submenus (CHE-42)
+
+Het `alt+p`-menu krijgt gestapelde `SelectList`-overlays (pijltjes +
+descriptions) in plaats van platte `ctx.ui.select`. Max drie
+top-level ingangen. Pure functie `buildPowerlineMenuItems`
+unit-testen. Sluit CHE-42. CHE-40 (`/powerline <tab>` subcommands)
+blijft open — 0.18 shipped alleen bash token-step, niet deze
+hiërarchie. Landt in 0.19 PR B of een kleine follow-up. CHE-41
+wordt de per-segment detail view in 1.0, geen tweede `alt+i`-pad.
+
+### PR H — skills manager v2 UI + token-overlays
+
+Vervangt `skill-manager.ts` (242 regels). Data-laag bouwt op Pi
+core `loadSkills` / `loadSkillsFromDir` / `Skill` /
+`SkillFrontmatter` (publiek geëxporteerd in
+`@earendil-works/pi-coding-agent`).
+
+UI, niet onderhandelbaar:
+
+- Zoeken die werkt: substring op naam + beschrijving + pad,
+  case-insensitive; `ctrl+u` wist; lege match = rij
+  `geen skills voor '<q>'`.
+- Categorieën met kopregels (bundled / global / project / prompts);
+  `tab` wisselt filter; `s` sorteert naam ↔ gebruik.
+- `→` detail (frontmatter-tabel, usage, pad, body + scroll);
+  `enter` insert; `e` opent `$EDITOR` (default nvim) via extern
+  spawn zoals pi's `!`; `n` nieuwe skill in
+  `~/.pi/agent/skills/<naam>/SKILL.md`; `d` delete + confirm.
+- Usage-ledger `~/.pi/agent/skill-usage.json` (naam, timestamp,
+  trigger-type). Best-effort, nooit blokkerend op de input hot path.
+- Skill health: core-diagnostics als waarschuwingsicoon; `?` legt
+  het uit.
+
+Zelfde chrome als de segment-navigator. Nederlands, direct.
+
+Tegelijk, klein:
+
+- `/tps` overlay: in/out, piek + gemiddelde over de bestaande ring.
+  Geen nieuwe sampler.
+- `/usage` overlay: vandaag / deze week / deze sessie; per model;
+  cache-hit %; ASCII-sparkline. File
+  `~/.pi/agent/wishcraft-usage.json` (append-only, compaction bij
+  drempel).
+- `wishcraft.tokenBudget.daily` kleurt het segment rood en waarschuwt
+  in welcome bij 80% / 100%. Nooit blokkerend.
+
+Done: filter-tests op substring; usage-ledger tests; `/tps` leest
+dezelfde ring als het segment (geen tweede waarheid).
+
+---
+
+## 1.0 — Cockpit
+
+Pas na 0.20. Geen parallelle 1.0-tak.
+
+1. **`/skills doctor`** — kapot frontmatter, te lange descriptions
+   (prompt-budget), duplicates global/project, ongebruikte skills.
+   Tabel, geen essay.
+2. **`/skills new` templates** — standaard, browser-workflow,
+   CLI-workflow, review-checklist. Install-van-GitHub/npm is
+   post-1.0; 1.0 is doctor + templates, geen markt.
+3. **Policy engine** — hooks zonder spawn: `deny bash matching
+   "sudo rm"`, `context inject when reading .env`. Command-hooks
+   blijven voor alles wat niet in een regel past.
+4. **Preset editor** — links/rechts segmenten kiezen in het menu,
+   opslaan in settings. Vandaag is custom JSON-only.
+5. **Per-segment detail** (CHE-41): `→` in de navigator opent
+   ports-lijst, git-samenvatting, cost-breakdown, context-math.
+   Refresh bij openen, geen 500ms-timer.
+6. **Idee-review** — `/ideas` in dezelfde overlay-taal; status
+   idea / in-progress / done; tags; "verwerk met skill X".
+   Welcome queue-widget: item oppakken → prompt.
+7. **ChefGroep-keys** — stabiel `powerline.tps`, `powerline.ports`,
+   `powerline.preset`, `powerline.skills.count` via
+   `ctx.ui.setStatus`.
+8. **Read-tool hints** — `tool_result` op `read` verrijken met
+   "N regels, M–K getoond, volgende offset" alleen als core dat
+   niet zelf al geeft. Eerst meten, dan aanvullen.
+
+---
+
+## Linear
+
+| Ticket | Actie |
+|---|---|
+| GRO-1060 fork cleanup | Deels gedaan (tags). Rest = PR A debris + concept-png. CHANGELOG niet inkorten. Versie niet resetten. |
+| GRO-1061 CI queue | Ops, niet deze roadmap. |
+| CHE-40 `/powerline` tab | Open. 0.18 shipped bash token-step, niet `/powerline set <tab>`. Fold in PR B of follow-up. |
+| CHE-41 alt+i info | Wordt 1.0 detail-view. Ticket hernoemen of GRO-child. |
+| CHE-42 drill-down | = 0.20 PR G. Hernoemen naar wishcraft / GRO. |
+
+Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
+die package nog leeft.
+
+---
+
+## Kwaliteit (altijd)
+
+- Overlay-logica testbaar via pure functies. Geen headless `ctx.ui`.
+- `prepublishOnly` = `tsc --noEmit`. Een slecht type ship't niet.
+- `madge --circular` blijft CI. Nieuwe map in `src/` → check mee.
+- Dependabot-vulns (devDep-transitief): waiven, track op GRO-603.
+  Niet required in CI. Geen stille bump van TypeScript 7 of
+  `@types/node` 26 in een bug-PR.
+- TPS-core blijft 1s sliding window over 5s-ring. Geen regressie
+  naar session-average of per-render EMA (beide spikten:
+  `tps:12775`).
+
+---
+
+## Residual risks
+
+- `SelectList.setFilter` matcht alleen prefix op `value`. 0.19
+  accepteert dat; 0.20 vervangt het.
+- `npm deprecate` van de oude naam faalt tot de scope-owner het
+  token verruimt. Gebruikers die `pi-powerline-footer` installeren
+  blijven op 0.17.2.
+- Hooks spawnen processen. Default timeout 30s; kill-switch moet
+  in 0.20 vanaf dag één bestaan.
+- Repairs op core-tools raken we niet aan. Als DeepSeek-achtige
+  modellen daar alsnog op stuklopen, is dat een gesprek met pi
+  core, geen stille override.
+- `loadSkills` API-drift: we pinnen `@earendil-works/pi-coding-agent`
+  `>=0.81.0 <0.85.0`. 0.20 neemt de publieke export over; bij
+  breaking change blijven we op eigen scan tot de pin omhoog kan.
+- Usage-ledger corruptie: best-effort write, kapot JSON → leeg
+  object, nooit throw op de input-path.
+- ChefGroep-keys in 1.0 mogen de publieke README niet gijzelen.
+
+---
+
+## Rollback
+
+- PR A–H: revert-commit op `main`. Geen force-push.
+- 0.19-tag te vroeg: laat de tag staan, ship `0.19.1` met de fix.
+  Tags niet herschrijven.
+- Fork-tags (51 stuks) zijn weg. Recovery = upstream remote
+  `nicobailon/pi-powerline-footer` opnieuw fetchen, niet onze
+  `v0.10.0+` overschrijven.
+- DevDep-bumps (pi-* 0.84.2, TS 7) horen in een eigen PR met
+  `npm ci` + de verify-trio. Revert = die PR revert + `npm ci`.
+
+---
+
+## Checklist (1:1 met 0.19)
+
+- [ ] PR A gemerged: filter, debris, cache, triggers, bash-leaks,
+      CodeQL. Verify-trio groen.
+- [ ] `npm pack --dry-run` bevat geen `ook.md` / `test.md`.
+- [ ] PR B gemerged: labels, template, TPS-opties, visibility.
+      Verify-trio groen.
+- [ ] Gallery-contract gemerged (`chore/pi-dev-gallery`): keywords,
+      `publishConfig.access`, `pi.image`, `npm run verify:package`.
+- [ ] PR C: `npm run release minor` → 0.19.0 (of 0.18.1 als alleen
+      A klaar is). Tag + publish + `npm view` klopt + pi.dev card
+      naast fff/orchestrator.
+- [ ] README skills-sectie waar; deze ROADMAP in sync.
+- [ ] CHE-40: `/powerline` subcommand-tab landt of blijft een
+      open GRO-child. CHE-41/42 hernoemen.

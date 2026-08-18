@@ -32,6 +32,7 @@ export class WelcomeHeader implements Component {
       initialContextTokens,
       queueCount,
       hasStash,
+      quietStartup: true,
     };
   }
 

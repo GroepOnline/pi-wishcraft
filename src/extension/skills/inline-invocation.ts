@@ -1,77 +1,26 @@
 /**
  * inline-invocation.ts
  * ------------------------------------------------------------------------
- * Pi.dev extension — pi-wishcraft
+ * Inline trigger expansie zoals Cursor (met /) en Codex (met $).
  *
- * Simpele inline trigger expansie zoals Cursor (met /) en Codex (met $)
+ *   /command -> vervangt door inhoud van command.md skill file
+ *   $skill   -> vervangt door inhoud van skill.md skill file
  *
- * Gebruik:
- *   - /command -> vervangt door inhoud van command.md skill file
- *   - $skill   -> vervangt door inhoud van skill.md skill file
- *
- * Werkt midden in prompts, ondersteunt meerdere triggers per bericht.
+ * Discovery en cache leven in skill-registry.ts (pi core loadSkills + TTL),
+ * zodat nieuwe skills zonder herstart werken en usage bijgehouden wordt.
  * ------------------------------------------------------------------------
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { stripFrontmatter } from "../../core/frontmatter.ts";
-import { getAgentPath } from "../../paths/agent-dirs.ts";
 import { logDiscoveryError } from "../../welcome/discover.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { RuntimeState } from "../core/types.ts";
-
-const EXTENSION_DIR = dirname(fileURLToPath(import.meta.url));
-
-let availableSkills: Map<string, string> | undefined;
-
-function discoverSkills(): void {
-  if (availableSkills) return;
-  const discovered = new Map<string, string>();
-  const dirs = [
-    getAgentPath("skills"),
-    join(process.cwd(), ".pi", "skills"),
-    join(process.cwd(), "skills"),
-    getAgentPath("prompts"),
-    join(process.cwd(), ".pi", "prompts"),
-    join(process.cwd(), "prompts"),
-    EXTENSION_DIR,
-  ];
-
-  for (const dir of dirs) {
-    try {
-      if (!existsSync(dir)) continue;
-      for (const entry of readdirSync(dir)) {
-        const entryPath = join(dir, entry);
-        try {
-          if (
-            statSync(entryPath).isDirectory() &&
-            existsSync(join(entryPath, "SKILL.md"))
-          ) {
-            discovered.set(entry, join(entryPath, "SKILL.md"));
-          } else if (entry.endsWith(".md") || entry.endsWith(".txt")) {
-            discovered.set(entry.replace(/\.(md|txt)$/, ""), entryPath);
-          }
-        } catch (error) {
-          logDiscoveryError(
-            `Failed to inspect inline skill entry ${entryPath}`,
-            error,
-          );
-        }
-      }
-    } catch (error) {
-      logDiscoveryError(`Failed to scan inline skills dir ${dir}`, error);
-    }
-  }
-  availableSkills = discovered;
-}
-
-/** Publieke toegang tot de ontdekte skills (naam → bestandspad). */
-export function getAvailableSkills(): Map<string, string> {
-  discoverSkills();
-  return availableSkills!;
-}
+import {
+  getAvailableSkills,
+  invalidateSkillCache,
+  recordSkillUsage,
+} from "./skill-registry.ts";
 
 /**
  * Vind alle code block ranges om false positives te voorkomen
@@ -85,6 +34,12 @@ function findExcludedRanges(text: string): Array<[number, number]> {
     ranges.push([m.index, m.index + m[0].length]);
   while ((m = inlineRe.exec(text)))
     ranges.push([m.index, m.index + m[0].length]);
+  // open fence die nooit sluit: de rest van de tekst telt als code
+  const openFence = text.split("```").length - 1;
+  if (openFence % 2 === 1) {
+    const last = text.lastIndexOf("```");
+    if (last >= 0) ranges.push([last, text.length]);
+  }
   return ranges;
 }
 
@@ -96,10 +51,10 @@ function isExcluded(index: number, ranges: Array<[number, number]>): boolean {
  * Expandeer alle inline triggers (/command en $skill) in de tekst
  */
 export function expandInlineTriggers(text: string): string {
-  discoverSkills();
+  const availableSkills = getAvailableSkills();
 
   // Pattern voor zowel /command als $skill
-  const TRIGGER_REGEX = /(\/|\$)([a-zA-Z0-9_-]+)/g;
+  const TRIGGER_REGEX = /(^|[\s(])(\/|\$)([a-zA-Z0-9_-]+)/g;
   const excluded = findExcludedRanges(text);
 
   const matches: Array<{
@@ -110,18 +65,17 @@ export function expandInlineTriggers(text: string): string {
   }> = [];
   let match: RegExpExecArray | null;
 
-  TRIGGER_REGEX.lastIndex = 0;
   while ((match = TRIGGER_REGEX.exec(text)) !== null) {
     // Skip als binnen code block
     if (isExcluded(match.index, excluded)) continue;
 
-    const name = match[2];
+    const name = match[3]!;
 
     // Alleen bekende skills expanden
-    if (!availableSkills!.has(name)) continue;
+    if (!availableSkills.has(name)) continue;
 
     matches.push({
-      start: match.index,
+      start: match.index + match[1]!.length,
       end: match.index + match[0].length,
       full: match[0],
       name,
@@ -149,11 +103,12 @@ export function expandInlineTriggers(text: string): string {
   for (const m of deduped) {
     result += text.slice(cursor, m.start);
 
-    const filePath = availableSkills!.get(m.name)!;
+    const filePath = availableSkills.get(m.name)!;
     try {
-      const rawContent = readFileSync(filePath, "utf-8");
+      const rawContent = readFileSync(filePath, "utf8");
       const cleanContent = stripFrontmatter(rawContent);
       result += `\n\n${cleanContent}\n\n`;
+      recordSkillUsage(m.name);
     } catch (error) {
       logDiscoveryError(`Failed to read inline skill ${filePath}`, error);
       // Bij fout, laat originele trigger staan
@@ -192,5 +147,10 @@ export function setupInlineInvocation(
     }
 
     return { action: "continue" };
+  });
+
+  // Cache verversen bij herstart/reload zodat nieuwe skills meteen zichtbaar zijn
+  pi.on("session_start", () => {
+    invalidateSkillCache();
   });
 }
