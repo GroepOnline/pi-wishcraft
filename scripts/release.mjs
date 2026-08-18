@@ -47,3 +47,7 @@ execSync(`git tag -a ${tag} -m "Release ${next}"`, { cwd: root, stdio: "inherit"
 
 console.log(`\nRelease ${next} tagged as ${tag}.`);
 console.log("Push with:\n  git push origin HEAD --tags");
+console.log("After publish, confirm the Pi catalog card:");
+console.log("  https://pi.dev/packages/@groeponline/pi-wishcraft");
+console.log("  https://pi.dev/packages?name=wishcraft");
+console.log("  https://pi.dev/packages?name=groeponline");

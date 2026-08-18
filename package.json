@@ -1,7 +1,7 @@
 {
   "name": "@groeponline/pi-wishcraft",
   "version": "0.18.0",
-  "description": "Wishcraft status bar & interaction layer for the pi coding agent — powerline segments, vibes, queue, bash mode, and full customization.",
+  "description": "Wishcraft cockpit for the pi coding agent — powerline status, vibes, idea inbox, bash mode, and full customization.",
   "type": "module",
   "files": [
     "*.ts",
@@ -15,12 +15,20 @@
   ],
   "keywords": [
     "pi-package",
+    "pi-extension",
+    "pi-coding-agent",
     "pi",
+    "wishcraft",
+    "cockpit",
     "coding-agent",
     "powerline",
     "status-bar",
     "extension"
   ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "author": "GroepOnline",
   "license": "MIT",
   "homepage": "https://github.com/GroepOnline/pi-wishcraft#readme",
@@ -35,7 +43,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/**/*.test.ts",
     "release": "node scripts/release.mjs",
-    "prepublishOnly": "tsc --noEmit",
+    "prepublishOnly": "tsc --noEmit && node scripts/verify-package.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
     "circular": "madge --circular src index.ts bash-mode queue"
   },
   "peerDependencies": {
@@ -54,6 +63,7 @@
   "pi": {
     "extensions": [
       "./index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/banner.png"
   }
 }

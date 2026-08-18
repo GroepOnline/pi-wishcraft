@@ -31,7 +31,15 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
+      - name: Catalog contract
+        run: npm run verify:package
       - name: Publish to npm
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Catalog URLs
+        run: |
+          echo "npm: https://www.npmjs.com/package/@groeponline/pi-wishcraft"
+          echo "pi.dev: https://pi.dev/packages/@groeponline/pi-wishcraft"
+          echo "search: https://pi.dev/packages?name=wishcraft"
+          echo "groeponline: https://pi.dev/packages?name=groeponline"
