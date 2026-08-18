@@ -131,7 +131,7 @@ gevallen hierboven. Geen debris meer in `npm pack --dry-run`.
 Bestanden: `src/config/`, `src/segments/`, `src/extension/ui/`.
 
 1. `segmentLabels` toepassen in `renderSegment` voor **alle** segments
-   (nu alleen tps/open_ports).
+   (nu alleen tps/open_ports/subagents).
 2. `segmentOptions.<seg>.template` wint van label
    (`"{value} tok/s"`).
 3. `segmentOptions.tps.windowMs` (default 1000), `.mode`
@@ -231,9 +231,10 @@ de zes gevallen + de parse-vóór-wrap invariant.
 Het `alt+p`-menu krijgt gestapelde `SelectList`-overlays (pijltjes +
 descriptions) in plaats van platte `ctx.ui.select`. Max drie
 top-level ingangen. Pure functie `buildPowerlineMenuItems`
-unit-testen. Sluit CHE-42. CHE-40 is shipped in 0.18.0 (Linear:
-Canceled / Duplicate). CHE-41 wordt de per-segment detail view in
-1.0, geen tweede `alt+i`-pad.
+unit-testen. Sluit CHE-42. CHE-40 (`/powerline <tab>` subcommands)
+blijft open — 0.18 shipped alleen bash token-step, niet deze
+hiërarchie. Landt in 0.19 PR B of een kleine follow-up. CHE-41
+wordt de per-segment detail view in 1.0, geen tweede `alt+i`-pad.
 
 ### PR H — skills manager v2 UI + token-overlays
 
@@ -312,7 +313,7 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 |---|---|
 | GRO-1060 fork cleanup | Deels gedaan (tags). Rest = PR A debris + concept-png. CHANGELOG niet inkorten. Versie niet resetten. |
 | GRO-1061 CI queue | Ops, niet deze roadmap. |
-| CHE-40 tab-completion | Shipped 0.18.0. Linear: Canceled (Duplicate van wishcraft v2). |
+| CHE-40 `/powerline` tab | Open. 0.18 shipped bash token-step, niet `/powerline set <tab>`. Fold in PR B of follow-up. |
 | CHE-41 alt+i info | Wordt 1.0 detail-view. Ticket hernoemen of GRO-child. |
 | CHE-42 drill-down | = 0.20 PR G. Hernoemen naar wishcraft / GRO. |
 
@@ -382,4 +383,5 @@ die package nog leeft.
       A klaar is). Tag + publish + `npm view` klopt + pi.dev card
       naast fff/orchestrator.
 - [ ] README skills-sectie waar; deze ROADMAP in sync.
-- [ ] CHE-40 Canceled in Linear. CHE-41/42 comment + hernoemen.
+- [ ] CHE-40: `/powerline` subcommand-tab landt of blijft een
+      open GRO-child. CHE-41/42 hernoemen.
