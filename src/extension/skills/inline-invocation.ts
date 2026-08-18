@@ -64,11 +64,6 @@ export function resetAvailableSkills(): void {
   availableSkills = undefined;
 }
 
-/** Test helper: add reserved slash names on top of the static fallback set. */
-export function setReservedSlashCommandsForTests(names: string[]): void {
-  reservedSlashCommands = new Set([...STATIC_RESERVED_SLASH_COMMANDS, ...names]);
-}
-
 /** Inject a skill map for tests without scanning disk. */
 export function setAvailableSkillsForTests(map: Map<string, string>): void {
   availableSkills = map;
@@ -162,8 +157,8 @@ function isExcluded(index: number, ranges: Array<[number, number]>): boolean {
 export function expandInlineTriggers(text: string): string {
   discoverSkills();
 
-  // Left boundary: start-of-string or whitespace — avoids paths/URLs like example.com/test
-  const TRIGGER_REGEX = /(?:^|[\s])((\/|\$)([a-zA-Z0-9_-]+))/g;
+  // Require whitespace on both sides so path/URL components are not triggers.
+  const TRIGGER_REGEX = /(?:^|[\s])((\/|\$)([a-zA-Z0-9_-]+))(?![a-zA-Z0-9_./-])/g;
   const excluded = findExcludedRanges(text);
 
   const matches: Array<{
@@ -183,16 +178,6 @@ export function expandInlineTriggers(text: string): string {
     const end = start + fullTrigger.length;
 
     if (isExcluded(start, excluded)) continue;
-
-    const nextChar = text[end] ?? "";
-    if (
-      triggerChar === "/" &&
-      (nextChar === "/" ||
-        nextChar === "\\" ||
-        (nextChar === "." && /[a-zA-Z0-9]/.test(text[end + 1] ?? "")))
-    ) {
-      continue;
-    }
 
     if (triggerChar === "/" && reservedSlashCommands.has(name)) continue;
 
