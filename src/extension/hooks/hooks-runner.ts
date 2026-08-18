@@ -63,6 +63,8 @@ export function runHookCommand(
     const timer = setTimeout(() => {
       try {
         child.kill("SIGTERM");
+          // Settle immediately; a shell/descendant may never emit close.
+          finish(null);
       } catch {
         // al dood
       }
