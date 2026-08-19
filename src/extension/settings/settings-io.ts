@@ -187,7 +187,12 @@ export function writePowerlineDisabledSegmentSetting(
   cwd: string = process.cwd(),
 ): boolean {
   return writePowerlineSetting(cwd, (existing) => {
-    const base = isRecord(existing) ? existing : {};
+    // Shorthand string (bv. "chef") is een preset-naam: bewaar 'm.
+    const base = isRecord(existing)
+      ? existing
+      : typeof existing === "string"
+        ? { preset: existing }
+        : {};
     return { ...base, disabledSegments };
   });
 }

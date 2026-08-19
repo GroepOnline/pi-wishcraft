@@ -63,10 +63,19 @@ export function writeConfigPath(
 ): boolean {
   const parts = path.split(".");
   const rootKey = parts[0]!;
+  // Weiger prototype-pollution keys (CodeQL).
+  if (parts.some((p) => p === "__proto__" || p === "constructor" || p === "prototype")) {
+    return false;
+  }
   return writeSettingKey(cwd, rootKey, (existing) => {
-    let node: Record<string, unknown> = isRecord(existing) ? existing : {};
+    // Shorthand string onder powerline (bv. "chef") is een preset-naam: bewaar 'm.
+    let node: Record<string, unknown> = isRecord(existing)
+      ? existing
+      : rootKey === "powerline" && typeof existing === "string"
+        ? { preset: existing }
+        : {};
     const root = node;
-    for (let i = 1; i < parts.length - 0; i++) {
+    for (let i = 1; i < parts.length; i++) {
       const key = parts[i]!;
       if (i === parts.length - 1) {
         if (value === null) delete node[key];
@@ -75,10 +84,6 @@ export function writeConfigPath(
         if (!isRecord(node[key])) node[key] = {};
         node = node[key] as Record<string, unknown>;
       }
-    }
-    if (parts.length === 1) {
-      // rootKey zelf overschrijven kan niet via value; writeSettingKey deed dit al
-      return root;
     }
     return root;
   });
@@ -126,7 +131,7 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
     {
       title: "Welkom & vibes",
       items: [
-        { label: "Welcome overlay", path: "powerline.welcome", kind: "select", choices: ["on", "off", "header-only"], hint: "on = overlay, header-only = alleen balk" },
+        { label: "Welcome overlay", path: "powerline.welcome", kind: "toggle", hint: "aan = overlay bij opstart, uit = geen welcome" },
         { label: "Wishcraft-ballon animeren", path: "wishcraft.welcome.animateLantern", kind: "toggle", hint: "flikker-effect op de wensballon" },
       ],
     },

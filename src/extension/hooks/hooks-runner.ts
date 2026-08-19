@@ -53,6 +53,7 @@ export function runHookCommand(
   return new Promise((resolve) => {
     const child = spawn(hook.command, {
       shell: true,
+      detached: true,
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, WISHCRAFT_HOOK_EVENT: payload.hook_event_name },
     });
@@ -60,14 +61,25 @@ export function runHookCommand(
     let stderr = "";
     let settled = false;
 
-    const timer = setTimeout(() => {
+    /** Dood het hele proces-group (shell + descendants), val terug op de shell. */
+    const killTree = (signal: NodeJS.Signals) => {
       try {
-        child.kill("SIGTERM");
-          // Settle immediately; a shell/descendant may never emit close.
-          finish(null);
+        if (child.pid) process.kill(-child.pid, signal);
       } catch {
-        // al dood
+        try {
+          child.kill(signal);
+        } catch {
+          // al dood
+        }
       }
+    };
+
+    const timer = setTimeout(() => {
+      killTree("SIGTERM");
+      // Escaleer naar SIGKILL als de group niet netjes stopt.
+      setTimeout(() => killTree("SIGKILL"), 2000).unref?.();
+      // Settle direct; een shell/descendant emit mogelijk nooit "close".
+      finish(null);
     }, (hook.timeout ?? 30) * 1000);
 
     const finish = (exitCode: number | null) => {
@@ -119,8 +131,8 @@ export function preToolUseVerdict(
     return {
       deny: true,
       reason:
-        out.parsed?.hookSpecificOutput?.permissionDecisionReason ??
-        out.stderrFirstLine ??
+        out.parsed?.hookSpecificOutput?.permissionDecisionReason ||
+        out.stderrFirstLine ||
         "blocked by hook",
     };
   }

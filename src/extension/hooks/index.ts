@@ -12,7 +12,11 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { RuntimeState } from "../core/types.ts";
-import { readSettings } from "../settings/settings-io.ts";
+import {
+  getSettingsPath,
+  readSettings,
+  readSettingsFile,
+} from "../settings/settings-io.ts";
 import {
   commandsFor,
   parseHooksSettings,
@@ -34,14 +38,18 @@ let repairsEnabled = true;
 let pendingSessionContext: string | null = null;
 
 function refreshSettings(cwd: string): void {
-  const wishcraft = readSettings(cwd).wishcraft;
-  const parsed = parseHooksSettings(wishcraft);
+  // Hooks spawnen shell-commando's; project-settings (.pi/settings.json in een
+  // gecloonde repo) zijn untrusted, dus hook-definities lezen we UITSLUITEND uit
+  // de globale settings. De enable-flag + repairs mogen wel uit de merged view.
+  const merged = readSettings(cwd).wishcraft;
+  const globalWishcraft = readSettingsFile(getSettingsPath()).wishcraft;
+  const parsed = parseHooksSettings(globalWishcraft);
   hooksSettings = parsed.hooks;
   hooksEnabled = parsed.enabled && hasAnyHook(parsed.hooks);
   repairsEnabled =
-    !wishcraft ||
-    typeof wishcraft !== "object" ||
-    (wishcraft as Record<string, unknown>).repairsEnabled === true;
+    !merged ||
+    typeof merged !== "object" ||
+    (merged as Record<string, unknown>).repairsEnabled !== false;
 }
 
 function hasAnyHook(hooks: WishcraftHooksSettings): boolean {
