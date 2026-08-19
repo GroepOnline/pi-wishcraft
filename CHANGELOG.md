@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Pi catalog contract: `pi-extension` / `wishcraft` keywords, public `publishConfig`, and a `pi.image` banner so the next npm publish lands on [pi.dev/packages](https://pi.dev/packages?name=groeponline) next to the other GroepOnline packages.
+
 ## [0.18.0] - 2026-08-16
 
 Wishcraft v2 (#7).

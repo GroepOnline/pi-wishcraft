@@ -195,6 +195,10 @@ voorbeelden: bash-guard (`rm -rf /` blokkeren), write-audit
 (append-only log), SessionStart git-status injectie.
 
 ### PR F — tool-input repairs — ✅ geland in `feat/wishcraft-0.19` (schema-loze subset: null-for-optional + auto-link unwrap; schema-afhankelijke repairs wachten op validator-issues in pi core)
+||||||| 9b069d9
+- No mouse/click on the live footer (Pi core limitation; overlay nav is the path).
+- No custom "embed/component" registration for footer segments — segments are data (text), and `customItems` + `command/env/static` segments already cover user-defined content. `setWidget`/`registerEntryRenderer` are for chat, not the footer.
+- No third control surface — keep interactivity in this extension's overlays + commands.
 
 `tool_call`-handler repareert bekende malformaties vóór executie
 (mutable input). Volgorde vast: json-parse vóór bare-wrap.

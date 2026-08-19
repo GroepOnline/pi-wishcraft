@@ -54,6 +54,8 @@ Inspired by [Powerlevel10k](https://github.com/romkatv/powerlevel10k) and [oh-my
 pi install npm:@groeponline/pi-wishcraft
 ```
 
+Listed on the [Pi package catalog](https://pi.dev/packages?name=wishcraft) as `@groeponline/pi-wishcraft` next to the other GroepOnline pi packages.
+
 ### Method 2: One-Liner / Cloud Agent Startup Script (Cursor Cloud, Freebuff, Devcontainers, CI)
 
 For ephemeral VMs, cloud agents, or dev environments without manual intervention:
