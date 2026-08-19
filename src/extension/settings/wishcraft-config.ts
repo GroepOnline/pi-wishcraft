@@ -358,8 +358,12 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
             } while (rows[selected]!.type === "group");
           } else if (matchesKey(data, "pageUp")) {
             selected = Math.max(1, selected - LIST_ROWS);
+            // niet op een groepskop landen: schuif door naar het volgende item
+            while (selected < rows.length - 1 && rows[selected]!.type === "group")
+              selected++;
           } else if (matchesKey(data, "pageDown")) {
             selected = Math.min(rows.length - 1, selected + LIST_ROWS);
+            while (selected > 1 && rows[selected]!.type === "group") selected--;
           } else {
             const cur = currentItem();
             if (!cur) return;

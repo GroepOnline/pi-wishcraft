@@ -107,6 +107,7 @@ test("usage ledger persists across recordSkillUsage calls", async () => {
     const mod = await import("../src/extension/skills/skill-registry.ts");
     mod.recordSkillUsage("my-skill");
     mod.recordSkillUsage("my-skill");
+    mod.flushSkillUsage(); // write is gedebounced; forceer 'm voor de assert
     const file = readFileSync(join(agentDir, "skill-usage.json"), "utf8");
     const parsed = JSON.parse(file);
     assert.equal(parsed["my-skill"].count, 2);

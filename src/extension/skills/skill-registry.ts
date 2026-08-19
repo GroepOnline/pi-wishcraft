@@ -251,11 +251,15 @@ export function getSkillUsage(): Map<string, SkillUsage> {
   return usageCache;
 }
 
-/** Log een skill-gebruik; best-effort sync schrijven. */
-export function recordSkillUsage(name: string): void {
-  loadUsage();
-  const cur = usageCache.get(name) ?? { count: 0, lastUsed: 0 };
-  usageCache.set(name, { count: cur.count + 1, lastUsed: Date.now() });
+let usageFlushTimer: ReturnType<typeof setTimeout> | null = null;
+let exitFlushRegistered = false;
+
+/** Schrijf de ledger nu naar schijf (best-effort, sync). */
+export function flushSkillUsage(): void {
+  if (usageFlushTimer) {
+    clearTimeout(usageFlushTimer);
+    usageFlushTimer = null;
+  }
   try {
     const obj: Record<string, SkillUsage> = {};
     for (const [k, v] of usageCache) obj[k] = v;
@@ -263,6 +267,29 @@ export function recordSkillUsage(name: string): void {
     writeFileSync(usageFile(), JSON.stringify(obj, null, 2), "utf8");
   } catch {
     // best-effort: tracking mag de hot path nooit breken
+  }
+}
+
+/**
+ * Log een skill-gebruik. De in-memory ledger wordt meteen bijgewerkt (zodat
+ * getSkillUsage() klopt), maar de schijf-write wordt gedebounced zodat de
+ * input hot path niet per keystroke een sync writeFileSync doet.
+ */
+export function recordSkillUsage(name: string): void {
+  loadUsage();
+  const cur = usageCache.get(name) ?? { count: 0, lastUsed: 0 };
+  usageCache.set(name, { count: cur.count + 1, lastUsed: Date.now() });
+
+  if (!exitFlushRegistered) {
+    exitFlushRegistered = true;
+    process.once("exit", () => flushSkillUsage());
+  }
+  if (!usageFlushTimer) {
+    usageFlushTimer = setTimeout(() => {
+      usageFlushTimer = null;
+      flushSkillUsage();
+    }, 500);
+    usageFlushTimer.unref?.();
   }
 }
 

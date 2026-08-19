@@ -120,10 +120,12 @@ export function normalizeSegmentOptions(
 
   if (isRecord(raw.tps)) {
     options.tps = {
+      // De lookback gebruikt [0.5·windowMs, 2·windowMs] binnen een 5s-ring, dus
+      // windowMs boven 2500 zou nooit een sample vinden. Afkappen op 2500.
       ...(typeof raw.tps.windowMs === "number" &&
       Number.isFinite(raw.tps.windowMs) &&
       raw.tps.windowMs > 0
-        ? { windowMs: raw.tps.windowMs }
+        ? { windowMs: Math.min(raw.tps.windowMs, 2500) }
         : {}),
       ...(raw.tps.mode === "both" ||
       raw.tps.mode === "out" ||

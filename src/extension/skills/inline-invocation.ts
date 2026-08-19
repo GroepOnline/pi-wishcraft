@@ -27,18 +27,29 @@ import {
  */
 function findExcludedRanges(text: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = [];
-  const fenceRe = /```[\s\S]*?```/g;
+
+  // Pair ``` fences left-to-right: elke openende fence sluit op de eerstvolgende
+  // ```; een openende fence zonder sluiter dekt de rest tot EOF. Zo telt geen
+  // fence dubbel en klopt de parity ook bij een oneven aantal markers.
+  const fenceIndexes: number[] = [];
+  for (let i = text.indexOf("```"); i !== -1; i = text.indexOf("```", i + 3)) {
+    fenceIndexes.push(i);
+  }
+  for (let f = 0; f < fenceIndexes.length; f += 2) {
+    const start = fenceIndexes[f]!;
+    const closer = fenceIndexes[f + 1];
+    const end = closer === undefined ? text.length : closer + 3;
+    ranges.push([start, end]);
+  }
+
+  // Inline `code` alleen buiten de fenced ranges tellen.
   const inlineRe = /`[^`\n]*`/g;
   let m: RegExpExecArray | null;
-  while ((m = fenceRe.exec(text)))
-    ranges.push([m.index, m.index + m[0].length]);
-  while ((m = inlineRe.exec(text)))
-    ranges.push([m.index, m.index + m[0].length]);
-  // open fence die nooit sluit: de rest van de tekst telt als code
-  const openFence = text.split("```").length - 1;
-  if (openFence % 2 === 1) {
-    const last = text.lastIndexOf("```");
-    if (last >= 0) ranges.push([last, text.length]);
+  while ((m = inlineRe.exec(text))) {
+    const start = m.index;
+    if (!ranges.some(([s, e]) => start >= s && start < e)) {
+      ranges.push([start, start + m[0].length]);
+    }
   }
   return ranges;
 }
