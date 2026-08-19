@@ -17,15 +17,26 @@ verify it.
 
 ## The release flow
 
-A release is: bump version → roll CHANGELOG → commit → tag → push. The tag
-triggers CI which tests and publishes to npm.
+**Default:** every merge to `main` is a release. `.github/workflows/release.yml`
+runs `node scripts/release.mjs auto --push` on `main`, then publishes when
+the `v*` tag lands. `auto` reads commit subjects since the last `v*` tag:
+`feat:` → minor, `feat!:` / `BREAKING CHANGE` → major, otherwise patch.
+
+The first merge after `v0.18.0` therefore becomes **0.19.0** (the 0.19
+`feat:` commits are already on `main`). Later docs/fix merges become
+`0.19.1`, `0.19.2`, …
+
+Put `[skip release]` in the merge-commit subject to opt out. The follow-up
+`chore: release X.Y.Z` commit does not tag again.
+
+Manual still works when you want an explicit version before pushing tags:
 
 ```bash
 # 1. Make sure the working tree is clean and tests/typecheck pass (see Verification)
 npm run typecheck        # tsc --noEmit
 npm test                 # node --experimental-strip-types --test tests/**/*.test.ts
 
-# 2. Release (patch | minor | major | explicit 1.2.3)
+# 2. Release (patch | minor | major | auto | explicit 1.2.3)
 npm run release minor    # = node scripts/release.mjs minor
 ```
 
@@ -37,12 +48,12 @@ npm run release minor    # = node scripts/release.mjs minor
 4. `git commit -m "chore: release <version>"`
 5. `git tag -a v<version> -m "Release <version>"`
 
-It does **not** push — it prints the push command. Push with the GroepOnline SSH
-identity (the laptop default SSH key is denied for this org):
+Locally it does **not** push unless you pass `--push` (CI does). Manual push
+uses the GroepOnline SSH identity (the laptop default SSH key is denied):
 
 ```bash
 GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh' \
-  git push origin HEAD --tags
+  git push origin HEAD refs/tags/vX.Y.Z
 ```
 
 - SSH host alias: `github.com-groeponline` (defined in `~/.ssh/config-groeponline` with `IdentityFile ~/.ssh/sheesh`, `IdentitiesOnly yes`).
@@ -61,10 +72,11 @@ GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh'
 7. `npm publish --access public` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`
 8. Echoes the Pi catalog URLs (npm, pi.dev detail page, `?name=wishcraft`, `?name=groeponline`) for post-publish confirmation
 
-`NPM_TOKEN` is a GitHub Actions secret on the repo (publish rights to the
-`@groeponline` scope). It is **not** readable after being set; verify it works by
-checking that the publish step on a real release succeeds and `npm view` resolves
-the new version (see below).
+`NPM_TOKEN` is the GroepOnline **org** Actions secret (publish rights to the
+`@groeponline` scope). This repo has no override; Actions inherits the org
+value. It is **not** readable after being set; verify it works by checking
+that the publish step on a real release succeeds and `npm view` resolves the
+new version (see below). The publish step fails closed if the secret is empty.
 
 The package has no build step — `*.ts` files are shipped directly (`pi.extensions:
 ["./index.ts"]`), and Pi loads them with TypeScript stripping at runtime.
@@ -119,17 +131,11 @@ A release is "done" when all four hold: local green, tag on origin, CI
 
 Feature PRs **do not bump** `package.json`. They stay on the last published npm
 version (today: `0.18.0`) and append under `## [Unreleased]` in `CHANGELOG.md`.
-
-After a merge train on `main` (catalog PR, 0.19 code, docs):
-
-1. Working tree clean, `npm run typecheck && npm test` green.
-2. **One** bump: `npm run release minor` (or `patch` / `major`).
-3. That script writes `package.json` + CHANGELOG, commits, and creates an
-   annotated tag. It does **not** push.
-4. Push commit + tag with GroepOnline SSH (below). Tag CI publishes to npm.
+The bump happens on `main` in the release workflow, not in the feature PR.
 
 Never bump in the same PR as the feature work. Never tag from a stacked
-feature branch. `0.19.0` exists only after that release command on `main`.
+feature branch. `0.19.0` exists only after `main` auto-tags (or a manual
+`npm run release` on `main`).
 
 - **patch** (`0.18.0 → 0.18.1`): bug fixes, doc only; escape hatch if 0.19 slips.
 - **minor** (`0.18.x → 0.19.0`): new segments/presets, features, additive changes.

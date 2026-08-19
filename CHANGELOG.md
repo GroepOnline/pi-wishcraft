@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Every merge to `main` cuts an npm release: CI chooses patch/minor/major from commits since the last `v*` tag, pushes `vX.Y.Z`, and publishes with the GroepOnline org secret `NPM_TOKEN`. `[skip release]` opts out.
+
 ### Changed
 - Pi catalog contract: `pi-extension` / `wishcraft` keywords, public `publishConfig`, and a `pi.image` banner so the next npm publish lands on [pi.dev/packages](https://pi.dev/packages?name=groeponline) next to the other GroepOnline packages.
 

@@ -134,9 +134,10 @@ check: label op `git` + `cost` zichtbaar, TPS hidden bij 0 wanneer
 
 ### PR C — release 0.19.0
 
-1. `npm run release minor` → 0.19.0 (bump + changelog + commit + tag).
-2. Push GroepOnline SSH (`chefadmin-netizen`):
-   `GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh' git push origin HEAD --tags`.
+1. Merge naar `main` triggert `release.yml`: `node scripts/release.mjs auto --push`.
+   Commits sinds `v0.18.0` bevatten `feat:` → **0.19.0**. Handmatig blijft
+   `npm run release minor` + tag-push mogelijk.
+2. Tag-job publiceert met org-secret `NPM_TOKEN` (geen repo-override).
 3. Verify: tag op origin, publish-job groen, `npm view @groeponline/pi-wishcraft version` = 0.19.0.
    Catalogus (hard): `npm run verify:package` groen in de release-job;
    `npm view @groeponline/pi-wishcraft keywords` bevat `pi-package`,
