@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   bump,
   chooseBump,
+  parseLatestVersionTag,
   resolveReleaseVersion,
   shouldSkipRelease,
 } from "../scripts/release.mjs";
@@ -45,6 +46,12 @@ test("resolveReleaseVersion maps auto from subjects onto the current version", (
     kind: "patch",
     next: "0.19.1",
   });
+});
+
+test("parseLatestVersionTag picks the highest vX.Y.Z tag", () => {
+  assert.equal(parseLatestVersionTag([]), null);
+  assert.equal(parseLatestVersionTag(["v0.9.0", "v0.18.0", "v0.10.0"]), "v0.18.0");
+  assert.equal(parseLatestVersionTag(["upstream-v1", "v0.18.0"]), "v0.18.0");
 });
 
 test("release --dry-run auto does not write package.json", () => {

@@ -43,9 +43,18 @@ function git(command) {
 
 function lastReleaseTag() {
   try {
-    return git("git describe --tags --abbrev=0 --match 'v*'");
+    return parseLatestVersionTag(git("git tag -l 'v*'").split("\n"));
   } catch {
     return null;
+  }
+}
+
+function refExists(ref) {
+  try {
+    git(`git rev-parse -q --verify ${ref}`);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -59,6 +68,20 @@ function parseArgs(argv) {
   const flags = new Set(argv.filter((arg) => arg.startsWith("--")));
   const kind = argv.find((arg) => !arg.startsWith("--")) ?? "patch";
   return { flags, kind };
+}
+
+export function parseLatestVersionTag(names) {
+  const versions = names
+    .map((name) => name.trim())
+    .filter((name) => /^v\d+\.\d+\.\d+$/.test(name))
+    .map((tag) => ({
+      tag,
+      parts: tag.slice(1).split(".").map(Number),
+    }));
+  versions.sort(
+    (a, b) => a.parts[0] - b.parts[0] || a.parts[1] - b.parts[1] || a.parts[2] - b.parts[2],
+  );
+  return versions.at(-1)?.tag ?? null;
 }
 
 export function resolveReleaseVersion(current, kindArg, subjects) {
@@ -92,6 +115,11 @@ function main() {
     return;
   }
 
+  if (refExists(`refs/tags/${tag}`)) {
+    console.log(`Tag ${tag} already exists; skip.`);
+    return;
+  }
+
   pkg.version = next;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
@@ -111,9 +139,9 @@ function main() {
 
   console.log(`\nRelease ${next} tagged as ${tag}.`);
   if (flags.has("--push")) {
-    execSync("git push origin HEAD", { cwd: root, stdio: "inherit" });
+    execSync("git push origin HEAD:refs/heads/main", { cwd: root, stdio: "inherit" });
     execSync(`git push origin refs/tags/${tag}`, { cwd: root, stdio: "inherit" });
-    console.log(`Pushed HEAD and ${tag}.`);
+    console.log(`Pushed main and ${tag}.`);
   } else {
     console.log(`Push with:\n  git push origin HEAD refs/tags/${tag}`);
   }
