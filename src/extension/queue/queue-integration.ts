@@ -384,10 +384,13 @@ export function findNextIdea(
   rt: RuntimeState,
   ctx: any,
 ): PowerlineQueueItem | null {
+  const ideas = rt.queueStore
+    .activeItems(getQueueContext(ctx))
+    .filter((candidate) => candidate.intent === "idea");
   return (
-    rt.queueStore
-      .activeItems(getQueueContext(ctx))
-      .find((candidate) => candidate.intent === "idea") ?? null
+    ideas.find((candidate) => candidate.reviewStatus !== "done") ??
+    ideas[0] ??
+    null
   );
 }
 

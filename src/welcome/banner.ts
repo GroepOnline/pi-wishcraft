@@ -24,6 +24,7 @@ export class WelcomeHeader implements Component {
     queueCount?: number,
     hasStash?: boolean,
     whatsNew?: string[],
+    nextIdeaText?: string,
   ) {
     this.data = {
       modelName,
@@ -34,6 +35,7 @@ export class WelcomeHeader implements Component {
       queueCount,
       hasStash,
       whatsNew,
+      nextIdeaText,
     };
   }
 
