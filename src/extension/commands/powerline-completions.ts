@@ -59,6 +59,12 @@ export function getPowerlineArgumentCompletions(
 ): AutocompleteItem[] | null {
   const { tokens, lastComplete } = tokenizeArgs(argumentPrefix);
   const first = tokens[0] ?? "";
+  // The command grammar has only one optional placement value. Do not offer
+  // a replacement once the user has started a third argument.
+  if (tokens.length > 2 || (tokens.length === 2 && lastComplete)) {
+    return null;
+  }
+
   const completingSecond =
     first.toLowerCase() === "placement" &&
     (tokens.length > 1 || (tokens.length === 1 && lastComplete));

@@ -1,16 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { PRESETS } from "../src/config/presets.ts";
+import { registerCommands } from "../src/extension/commands/commands.ts";
 import {
   getPowerlineArgumentCompletions,
   POWERLINE_PLACEMENT_VALUES,
 } from "../src/extension/commands/powerline-completions.ts";
 
-const commandsSource = readFileSync(
-  new URL("../src/extension/commands/commands.ts", import.meta.url),
-  "utf8",
-);
 
 test("empty /powerline prefix completes placement and every built-in preset", () => {
   const items = getPowerlineArgumentCompletions("");
@@ -58,15 +54,34 @@ test("/powerline d completes the default preset", () => {
   );
 });
 
-test("unknown /powerline prefixes return no completions", () => {
+test("unknown and unsupported /powerline arguments return no completions", () => {
   assert.equal(getPowerlineArgumentCompletions("nope"), null);
   assert.equal(getPowerlineArgumentCompletions("placement sideways"), null);
+  assert.equal(getPowerlineArgumentCompletions("placement above extra"), null);
+  assert.equal(getPowerlineArgumentCompletions("placement above "), null);
 });
 
-test("registerCommand(powerline) wires getPowerlineArgumentCompletions", () => {
-  assert.match(commandsSource, /getPowerlineArgumentCompletions/);
-  assert.match(
-    commandsSource,
-    /getArgumentCompletions\(argumentPrefix\) \{\s*return getPowerlineArgumentCompletions\(argumentPrefix\);/s,
+test("registered /powerline command exposes completion through its API", () => {
+  const commands = new Map<string, { getArgumentCompletions?: (prefix: string) => unknown }>();
+  const pi = {
+    registerCommand(name: string, command: { getArgumentCompletions?: (prefix: string) => unknown }) {
+      commands.set(name, command);
+    },
+    registerShortcut() {},
+  } as never;
+  const rt = {
+    resolvedShortcuts: { menu: "m", info: "i" },
+  } as never;
+
+  registerCommands(pi, rt);
+  const powerline = commands.get("powerline");
+  assert.ok(powerline?.getArgumentCompletions);
+  assert.deepEqual(
+    powerline.getArgumentCompletions!("placement "),
+    getPowerlineArgumentCompletions("placement "),
+  );
+  assert.deepEqual(
+    powerline.getArgumentCompletions!("d"),
+    getPowerlineArgumentCompletions("d"),
   );
 });
