@@ -101,7 +101,7 @@ Pi core renders the footer as static text, so live click is not possible; action
 - `/open-ports`: list listening ports and pick one
 - `/powerline doctor`: diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, and queue file health
 - `/powerline export`: export the current preset + effective layout + labels as a JSON snippet (Enter copies it to the clipboard)
-- `alt+p`: **powerline menu**: navigate the live segments (`↑`/`↓` + `enter`, `→`/`tab` opens a per-segment detail panel; values refresh every second while open), configure (preset / TPS / UDP / segment visibility / labels / build custom preset), or open the full ports list
+- `alt+p`: **powerline menu**: navigate the live segments (`↑`/`↓` + `enter`, `→`/`tab` opens a per-segment detail panel captured at open), configure (preset / TPS / UDP / segment visibility / labels / build custom preset), or open the full ports list
 - `alt+i`: **powerline info**: full open-ports list
 
 Both `alt+p` and `alt+i` are rebindable (see Keybinds below); changes apply after `/reload`.

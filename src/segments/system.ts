@@ -303,8 +303,8 @@ const OPEN_PORT_PROCESSES_TTL_MS = 2000;
 /**
  * Best-effort process owners for listening ports via `ss -tulnp` (falls back
  * to `netstat -tulnp`), optionally probed over SSH for a fleet host. Cached
- * like the open_ports count so the detail view's 1s refresh doesn't spawn a
- * process on every repaint.
+ * like the open_ports count so opening the ports detail does not spawn a
+ * process on every keystroke.
  */
 export function listOpenPortProcesses(
   includeUdp = false,

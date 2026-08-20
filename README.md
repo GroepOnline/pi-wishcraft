@@ -4,260 +4,69 @@
 
 # pi-wishcraft
 
-*Originally engineered 2,000 years ago as floating military signals across enemy lines, the Kongming sky lantern provided instant visual telemetry. Over centuries, these lanterns evolved into vessels for wishes: operators release their thoughts into the sky, clearing their minds.*
+Cockpit and harness for the [pi](https://github.com/badlogic/pi-mono) coding agent: a live status bar, overlay menus, skills, an idea inbox, sticky bash, hooks, and tool-input repairs. Stock pi stays the engine. This package is the operator layer.
 
-This extension translates that philosophy to the [pi](https://github.com/badlogic/pi-mono) coding agent:
-1. **Ground Telemetry**: A live status bar at the bottom border tracking git, tokens/sec, context window, and active process ports (Alt+P).
-2. **Cast & Release (`# <idea>`)**: Queue ideas instantly without interrupting the active agent run.
-3. **Autonomous Horizons**: The queue feeds background dreaming SDK routines, mission runners, and autoresearch loops while you work or sleep.
-4. **Stash & Pivot (Alt+S)**: Park a prompt draft, ask a quick question, pop it back automatically.
-5. **Sticky Shell (`!cmd`)**: A persistent bash runtime under your fingertips.
+Kongming lanterns started as battlefield signals and later carried wishes. Wishcraft is that split in a coding session: telemetry on the bar, thoughts you can park without interrupting the run.
 
-Inspired by [Powerlevel10k](https://github.com/romkatv/powerlevel10k) and [oh-my-pi](https://github.com/can1357/oh-my-pi). Forked from [`nicobailon/pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer), maintained by [GroepOnline](https://github.com/GroepOnline).
+Install `@groeponline/pi-wishcraft`. It is listed on the [Pi package catalog](https://pi.dev/packages?name=wishcraft). Grew out of [`nicobailon/pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer). Maintained by [GroepOnline](https://github.com/GroepOnline).
 
-<img width="1261" height="817" alt="Example powerline UI" src="https://github.com/user-attachments/assets/4cc43320-3fb8-4503-b857-69dffa7028f2" />
+Guides live in [`docs/`](docs/index.md). This page is the contract: what ships, how to install it, and what can fail.
 
+## Install
 
-## Features
-
-**Editor stash**: Press `Alt+S` to save your editor content and clear the editor, type a quick prompt, and your stashed text auto-restores when the agent finishes. Toggles between stash, pop, and update-existing-stash. A `stash` indicator appears in the powerline bar while text is stashed.
-
-**Powerline Queue + Inbox**: Capture thoughts without interrupting the current agent. Type `# <idea>` and press Enter to save an idea instead of sending it; `# @global <idea>`, `# @current <idea>`, and `# @alias <idea>` route it. Messages typed during compaction are held by Powerline and delivered after successful compaction instead of disappearing into Pi's native queue. `/idea`, `/ideas`, and `/queue` provide a file-backed inbox for current-session prompts, project ideas, aliases, retries, clears, and manual delivery. Use `/ideas next` to work the oldest active idea in the current session, or `/ideas issue` to hand it to the current agent for safe GitHub issue triage. Active queue, idea, and blocked counts appear in the `queue` segment only when there is something to show.
-
-**Working Vibes**: AI-generated themed loading messages. Set `/vibe star trek` and your "Working..." becomes "Running diagnostics..." or "Engaging warp drive...". Supports any theme: pirate, zen, noir, cowboy, etc.
-
-**Welcome overlay**: Branded splash screen shown as centered overlay on startup. Shows gradient logo, model info, keyboard tips, loaded AGENTS.md/extensions/skills/templates counts, an approximate initial system-prompt token count, and recent sessions. Auto-dismisses after 30 seconds or on any key press. Set `powerline.welcome` to `false` to disable it while keeping the footer enabled.
-
-**Rounded box design**: Status renders directly in the editor's top border, not as a separate footer.
-
-**Native Pi layout**: Pi owns fixed input, feed scrolling, selection, and terminal behavior; this extension supplies powerline widgets and the custom bash/stash/editor integrations.
-
-**Live thinking level indicator**: Shows current thinking level (`think:off`, `think:med`, etc.) with per-level colors. High, xhigh, and max levels use a rainbow effect inspired by Claude Code's ultrathink.
-
-**Smart defaults**: Nerd Font auto-detection for iTerm, WezTerm, Kitty, Ghostty, and Alacritty with ASCII fallbacks. Colors matched to oh-my-pi's dark theme.
-
-**Git integration**: Async status fetching with 1s cache TTL. Automatically invalidates on file writes/edits. Shows branch, staged (+), unstaged (*), and untracked (?) counts.
-
-**Context awareness**: Color-coded warnings above 70% (yellow) and above 90% (red) context usage. During streaming, the context segment refreshes from live assistant usage instead of waiting for the next turn. Auto-compact indicator when enabled. If `pi-custom-compaction` is installed and enabled, the powerline automatically hides native context segments so the footer does not show stale post-summary usage.
-
-**Token intelligence**: Smart formatting (1.2k, 45M), used/max/percentage context display, subscription detection, and configurable subscription cost display.
-
-**Sticky bash mode**: Toggle bash mode with `ctrl+shift+b` or `/bash-mode`. It keeps a managed shell session alive for the current pi session, shows a dedicated `shell_mode` segment, streams command output into an embedded transcript below the editor, and lets `cd` or exported state persist across commands.
-
-**Shell ghost suggestions**: Bash mode is now ghost-first. Successful per-project shell history is the primary source, while deterministic path and git continuations can still extend an existing command. Shell-native completion probes are disabled so `!command` predictions never spawn interactive shell completion subprocesses. At command position, short stems first resolve from the newest successful local command, can use guarded global shell history for high-confidence heads like `git`, and finally fall back to a tiny curated default set when history is absent. Right now that curated set is `g` → `git status` and `c` → `cd ..`. If the bash prompt is empty, bash mode shows the newest successful project-history ghost suggestion when one exists, otherwise it stays empty. The same inline predictions now also kick in for one-off `!command` and `!!command` prompts. Right Arrow or Tab accepts ghost text into the editor, and Enter runs the current shell command.
-
-## Installation
-
-### Method 1: Via Pi Package Manager (Recommended)
+Pi package manager (usual path):
 
 ```bash
 pi install npm:@groeponline/pi-wishcraft
 ```
 
-Listed on the [Pi package catalog](https://pi.dev/packages?name=wishcraft) as `@groeponline/pi-wishcraft` next to the other GroepOnline pi packages.
-
-### Method 2: One-Liner / Cloud Agent Startup Script (Cursor Cloud, Freebuff, Devcontainers, CI)
-
-For ephemeral VMs, cloud agents, or dev environments without manual intervention:
+Ephemeral VMs / CI:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/scripts/install.sh | bash
 ```
 
-Restart or `/reload` pi to activate.
+Then restart pi or `/reload`. Peer range is `@earendil-works/pi-coding-agent` `>=0.81.0 <0.85.0`.
 
-Extended guides (segments, bash mode, commands, configuration) live in [`docs/`](docs/index.md).
+## What you get
 
-## Usage
+| Surface | What it does |
+| --- | --- |
+| Status bar | Git, TPS (1s window over a 5s ring), context, cost, ports, queue. Default placement is the editor top border; `/powerline placement below` moves it. |
+| `alt+p` | Three overlays: Navigate, Configure, Status. In Navigate, `→` / `tab` opens per-segment detail (ports, git, cost, context). `alt+i` is the ports list. |
+| `# <idea>` | File-backed inbox. Does not send the prompt. `/ideas next` feeds the oldest active idea into the session. |
+| `alt+s` | Stash the draft, ask something else, get it back when the run finishes. |
+| `/skills` | Substring search on name, description, and path. Enter inserts. |
+| `!cmd` / bash mode | Managed shell with ghost suggestions from project history. No shell-native completion probes. |
+| Hooks + repairs | Command hooks on pi events. Custom-tool input repairs before execution. Kill-switch: `wishcraft.hooksEnabled`. |
 
-Activates automatically. Toggle with `/powerline`, switch presets with `/powerline <name>`, and move the primary row with `/powerline placement above|below|toggle`. Tab after `/powerline` completes preset names and `placement`; tab again after `placement` completes `above`, `below`, or `toggle`.
+Pi owns the footer chrome, feed scrolling, and input. Wishcraft supplies widgets, overlays, and the bash/stash/editor integrations. The bar is not clickable; actions are commands and overlays.
 
-Use `/cd <path>` to continue the current conversation from another working directory. It supports relative paths, absolute paths, `~`, `~/...`, and directory completions. With no argument, `/cd` prints the current Pi session directory. The command switches into a cwd-updated session file so Pi tools and the footer path segment agree after the change.
+## Daily commands
 
-Powerline Queue + Inbox commands and capture shortcuts:
+Activates on load. `/powerline` toggles it. `/powerline <preset>` switches look. Tab completes presets and `placement above|below|toggle`.
 
-- `# <text>`: capture an idea for the current project without sending it to the agent
-- `# @global <text>`: capture a global idea
-- `# @current <text>`: capture an idea targeted to the current session
-- `/queue alias <name> [path]`: save a project alias, defaulting to the current cwd when `path` is omitted
-- `# @name <text>`: capture an idea for a saved project alias
-- `/compact <text>`: compact now and queue `<text>` as the next prompt after successful compaction
-- `/idea [@target] <text>`: command form of idea capture, useful for scripts and users who disable the sigil
-- `/idea issue [id]`: hand the oldest active idea, or a specific idea, to the current agent for safe GitHub issue triage
-- `/ideas`: open the captured-ideas picker
-- `/ideas next`: send the oldest active idea to the current session
-- `/ideas issue [id]`: ask the current agent to dedupe and file a GitHub issue only when the target repo is clear and owned/controlled
-- `/ideas send <id>`: send an idea to the current session
-- `/queue`: open the queued-prompt picker
-- `/queue send [id]` / `/queue retry [id]`: deliver a queued item now
-- `/queue clear <id|all>`: clear queued prompt items
-- `/queue target <id> @name|global|current`: retarget a queued item
-
-The default capture sigil is `#`. When the editor text starts with `#` followed by a space, the prompt glyph changes to `#`; pressing Enter saves the idea, clears the editor, and leaves the original sigil text in editor history for quick recovery. Configure or disable this under `powerline.queue.captureSigil`:
-
-```json
-{
-  "powerline": {
-    "queue": {
-      "captureSigil": "#"
-    }
-  }
-}
+```text
+/powerline doctor     settings, queue, git, bash, fonts
+/powerline export     current preset + layout as JSON
+/tps                  live in/out overlay (same ring as the segment)
+/tps 40               override POWERLINE_TPS
+/usage                session / today / week from ~/.pi/agent/wishcraft-usage.json
+/repairs              tool-input repair counters
+/skills               skill manager
+/wishcraft            settings TUI
+/open-ports           listening sockets
+/cd <path>            continue this conversation in another directory
+/bash-mode            sticky shell  (also ctrl+shift+b)
+/vibe star trek       themed working messages
 ```
 
-Set `captureSigil` to `false` if you often submit markdown headings and prefer `/idea` instead.
+Queue:
 
-Captured data is stored under the Pi agent directory in `powerline-footer/inbox.jsonl` and `powerline-footer/projects.json`. `inbox.jsonl` is a stable read surface for orchestrators and helper agents; each line is a queue item with `id`, `text`, `createdAt`, `updatedAt`, `source`, `target`, `intent`, `status`, and optional `error`. Writes should still go through Powerline commands or the store so locking and atomic writes are preserved. Ideas sent with `/ideas next` or `/ideas send <id>` include a small provenance header so the receiving agent can treat them as deferred captured context. `/idea issue` and `/ideas issue` do not file issues directly from the extension; they send a guarded handoff prompt that tells the current agent to dedupe open issues first, create a GitHub issue only for a clear owned/controlled repo, and ask before filing when the target is unclear.
+- `# <text>` current project; `# @global`, `# @current`, `# @alias`
+- `/idea`, `/ideas`, `/queue` for capture, send, retry, clear, archive
 
-- `/powerline placement below`: move the primary powerline row below the editor
-- `/powerline placement above`: restore the default placement
-- `/powerline placement toggle`: switch between above and below
-
-You can also set it in the agent settings file (`~/.pi/agent/settings.json` by default, or under `PI_CODING_AGENT_DIR`) or project-local `.pi/settings.json`:
-
-```json
-{
-  "showLastPrompt": true,
-  "powerline": {
-    "preset": "default",
-    "placement": "below",
-    "welcome": true
-  }
-}
-```
-
-
-| Preset | Description |
-|--------|-------------|
-| `default` | Balanced daily driver: model, thinking, path (basename), git (branch + dirty + latest commit + ↑/↓ ahead-behind + host icon), session, queue, subagent cost, tokens in/out, cache-hit%, cost, context |
-| `minimal` | Just path (basename), git branch and context% (branch-only polling, no indicators/commit) |
-| `compact` | Model, git (short commit + ahead/behind), queue, cost, context%, session id |
-| `full` | Everything: hostname, model, path (abbreviated), full git incl commit + ↑/↓, totals, context total, elapsed + clock |
-| `nerd` | Maximum detail for Nerd Font users: qualified model, full tokens + cache, commit, totals, seconds clock |
-| `ascii` | Safe for any terminal: branch + short commit + ↑/↓, tokens, cost, context% (no Nerd glyphs) |
-| `chef` | Fork default: muted colors, slash separators, live TPS in/out + open-ports + subagent-cost segments |
-
-**Environment:** `POWERLINE_NERD_FONTS=1` to force Nerd Fonts, `=0` for ASCII.
-
-Preset selection is saved under `powerline` in the agent settings file and restored on startup.
-Run `/powerline default` to switch back to the default preset.
-
-### Custom items from extension statuses
-
-You can promote any extension status key into its own dedicated powerline item. This gives you a general way to register your own status items without changing this extension.
-
-1. Any extension can publish status text through `ctx.ui.setStatus("my-key", "...value...")`.
-2. Configure `powerline.customItems` to place those keys on the left, right, or secondary row.
-
-```json
-{
-  "powerline": {
-    "preset": "default",
-    "customItems": [
-      {
-        "id": "ci",
-        "statusKey": "ci-status",
-        "position": "right",
-        "prefix": "CI",
-        "color": "warning"
-      },
-      {
-        "id": "review",
-        "position": "secondary",
-        "hideWhenMissing": false,
-        "prefix": "review"
-      }
-    ]
-  }
-}
-```
-
-`customItems` fields:
-
-- `id` (required): unique item id (`a-z`, `A-Z`, `0-9`, `_`, `-`)
-- `statusKey` (optional): extension status key to read, defaults to `id`
-- `position` (optional): `left`, `right`, or `secondary` (default `right`)
-- `prefix` (optional): text shown before the live status value
-- `color` (optional): any Pi theme color (`warning`, `accent`, etc.) or hex (`#RRGGBB`)
-- `hideWhenMissing` (optional): hide item when no status is present (default `true`)
-- `excludeFromExtensionStatuses` (optional): omit this key from the aggregate `extension_statuses` segment (default `true`)
-
-If you still prefer the older string preset config shape, `"powerline": "default"` continues to work. String preset shorthand keeps `welcome` enabled and uses the default shortcut/cost/model display settings.
-
-### Custom segments (computed, no code)
-
-Define your own segments directly in settings: run a command, read an env var, or show static text. No TypeScript needed.
-
-```json
-{
-  "powerline": {
-    "preset": "chef",
-    "segments": {
-      "battery": { "type": "command", "command": "cat /sys/class/power_supply/BAT0/capacity", "prefix": "batt", "cacheMs": 30000 },
-      "who":     { "type": "env", "env": "USER", "prefix": "u", "color": "#888888" },
-      "chef":    { "type": "static", "text": "CHEF", "color": "accent" }
-    }
-  }
-}
-```
-
-Each segment becomes usable in a preset as `custom:<id>` (e.g. `custom:battery`).
-
-Segment fields:
-
-- `type` (required): `command` | `env` | `static`
-- `command` (command type): shell command to run; output is trimmed
-- `cacheMs` (command type, optional): cache output for N ms to avoid re-spawning a shell every paint
-- `env` (env type): environment variable to read
-- `fallback` (env type, optional): text shown when the variable is unset (omit to hide the segment)
-- `text` (static type): fixed text
-- `prefix` (optional): text shown before the value
-- `color` (optional): Pi theme color (`warning`, `accent`, ...) or hex (`#RRGGBB`)
-
-If a command fails or an env var is unset without a fallback, the segment renders nothing.
-
-### Custom presets
-
-Define your own preset in settings; it merges over built-ins and is selectable via `powerline.preset` (or `/powerline <name>`).
-
-```json
-{
-  "powerline": {
-    "preset": "mine",
-    "segments": { "battery": { "type": "command", "command": "cat /sys/class/power_supply/BAT0/capacity", "prefix": "batt" } },
-    "presets": {
-      "mine": {
-        "left": ["hostname", "model", "custom:battery", "git"],
-        "right": ["tps", "open_ports", "cost", "time"],
-        "separator": "slash",
-        "colors": { "model": "text" },
-        "segmentOptions": { "path": { "mode": "basename" } }
-      }
-    }
-  }
-}
-```
-
-### The `chef` preset and interactive commands
-
-`preset: "chef"` is the GroepOnline fork's default look: muted colors (no rainbow), slash separators, and two extra right-side segments:
-
-- `tps`: live tokens/sec over a rolling 1-second window (EMA-free, no spikes), now reporting **output and input** rates separately (`⇡out ⇣in`) so you can see generation speed and incoming prompt tokens at a glance. A rocket/bolt icon lights up while streaming (override with env `POWERLINE_TPS`).
-- `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6). Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral).
-
-Interactivity (Pi core renders the footer as static text, so live click is not possible; actions live in commands and a navigable overlay):
-
-- `/tps [value]`: show or set `POWERLINE_TPS`
-- `/usage`: today / week / session token overlay (same ledger as the cost segment)
-- `/open-ports`: list listening ports and pick one
-- `alt+p`: **powerline menu**: three overlays (Navigate, Configure, Status). Status drills down to ports, TPS, and toggle.
-- `alt+i`: **powerline info**: full open-ports list
-
-Both `alt+p` and `alt+i` are rebindable (see Keybinds below); changes apply after `/reload`.
-
-### Keybinds
-
-The powerline menu and info shortcuts are configurable via `powerlineShortcuts` (same map as the other powerline shortcuts), with automatic conflict resolution. Set a binding to `null` to disable it.
+Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
 
 ```json
 {
@@ -268,218 +77,41 @@ The powerline menu and info shortcuts are configurable via `powerlineShortcuts` 
 }
 ```
 
-Changes apply after `/reload` (the extension re-registers shortcuts on reload).
+## Minimal config
 
-### Segment labels (custom text)
-
-Rename the text shown for any segment via `powerline.segmentLabels` (a map of segment id → label). The label appears between the icon and the value.
+`~/.pi/agent/settings.json` (or `PI_CODING_AGENT_DIR`):
 
 ```json
 {
   "powerline": {
-    "segmentLabels": {
-      "tps": "speed",
-      "open_ports": "ports"
-    }
+    "preset": "chef",
+    "placement": "above",
+    "welcome": true
   }
 }
 ```
 
-### Disabling segments
+`chef` is muted colors, slash separators, live TPS in/out, and TCP port count. Built-in presets: `default`, `minimal`, `compact`, `full`, `nerd`, `ascii`, `chef`. Custom segments, labels, layout, and presets are documented in [docs/configuration.md](docs/configuration.md).
 
-Set `powerline.disabledSegments` to hide built-in or configured custom segments from the active preset:
+Nerd Fonts auto-detect for iTerm, WezTerm, Kitty, Ghostty, and Alacritty; ASCII otherwise. `POWERLINE_NERD_FONTS=0` forces ASCII.
+
+Context turns warning above 70% and error above 90%. TPS is tokens in the last ~1s, not a session average. `/tps` reads that ring; it does not start a second sampler.
+
+Daily token budget (never blocks a turn):
 
 ```json
 {
-  "powerline": {
-    "preset": "default",
-    "disabledSegments": ["cost", "extension_statuses", "custom:ci"]
+  "wishcraft": {
+    "tokenBudget": { "daily": 500000 }
   }
 }
 ```
 
-Built-in names are listed under Segments below. Custom items use `custom:<id>`. Unknown names are ignored with a startup warning.
+At 80% the cost segment warns; at 100% it goes red and welcome notifies. `/usage` shows the ledger.
 
-### Custom layout
+## Hooks
 
-Use `powerline.layout` to override segment order and grouping while keeping the selected preset’s colors and segment options. Set `powerline.separator` when you want a separator style independent of the preset:
-
-```json
-{
-  "powerline": {
-    "preset": "default",
-    "separator": "chevron",
-    "layout": {
-      "left": ["model", "thinking", "path", "git"],
-      "right": ["context_pct", "cost"],
-      "secondary": ["custom:ci"]
-    },
-    "customItems": [
-      { "id": "ci", "statusKey": "ci-status" }
-    ]
-  }
-}
-```
-
-A present `left`, `right`, or `secondary` array replaces that preset group exactly; an empty array clears it. Omitted groups keep the preset entries and automatically append custom items by their configured `position`. Explicitly listing a segment moves it out of omitted preset groups, and explicitly placed custom items are not auto-appended elsewhere. `disabledSegments` is applied after layout. `separator` accepts any style listed below; omit it to keep the preset’s separator.
-
-Responsive behavior is unchanged: these groups control ordering and overflow priority, not permanently pinned terminal rows. `right` means “later primary segments,” not right-edge alignment. On wide terminals secondary entries can fit in the top bar; on narrow terminals primary overflow moves into the secondary line. Some segments are hidden when they have no value, so `thinking` appears only when the active session/model reports a non-`off` thinking level. Unknown entries are ignored with a startup warning. The old fixed `custom` preset has been removed; combine any preset with `layout` instead.
-
-### Demo settings
-
-For a compact current footer setup:
-
-```json
-{
-  "powerline": {
-    "preset": "default",
-    "path": { "mode": "basename" },
-    "model": { "display": "name" },
-    "cost": { "subscriptionDisplay": "subscription", "currency": "USD" }
-  }
-}
-```
-
-Use `"model": { "display": "qualified" }` when two providers expose models with the same display name.
-
-`cost.currency` accepts `USD`, `CNY`, `EUR`, `GBP`, `JPY`, `CAD`, `AUD`, `CHF`, `INR`, or `KRW`. Pi reports costs in USD; non-USD display uses a keyless USD FX rate fetched in the background and cached for 24 hours under the Pi agent directory. If no cached rate is available yet, the cost segment renders `-- CODE` until a later footer refresh can use the fetched rate.
-
-Subscription cost display accepts:
-
-| Mode | Subscription + reported cost | Subscription + no reported cost |
-|------|------------------------------|----------------------------------|
-| `subscription` | `(sub)` | `(sub)` |
-| `reported-cost` | `$0.12` | `(sub)` |
-| `both` | `$0.12 (sub)` | `(sub)` |
-
-Segment display formats (opt-in; defaults match the historical rendering):
-
-| Segment option | Values | Default | Effect |
-|---|---|---|---|
-| `"context": { "format" }` | `"full"` / `"percent"` | `"full"` | `"percent"` shows a bare rounded `83%` (threshold-colored, no icon) instead of `12k/200k (6.2%)` |
-| `"cache_read": { "format" }` | `"tokens"` / `"percent"` / `"both"` | `"tokens"` | `"percent"` shows the cache hit rate `cacheRead / (input + cacheRead)` instead of the raw token count; `"both"` shows raw tokens plus the hit rate, e.g. `cache in: 12k (80%)` |
-
-```json
-{
-  "powerline": {
-    "context": { "format": "percent" },
-    "cache_read": { "format": "both" }
-  }
-}
-```
-
-## Bash mode
-
-Toggle bash mode with either:
-
-- `ctrl+shift+b`
-- `/bash-mode on`
-- `/bash-mode off`
-- `/bash-mode toggle`
-
-Reset the managed shell with `/bash-reset`.
-
-While bash mode is active:
-
-- Enter runs the current shell command
-- Right Arrow accepts ghost text into the editor without running it
-- Tab completes the ghost suggestion one token/segment at a time (repeat Tab to step through each further token); once the full suggestion is inserted it clears, otherwise Tab does nothing
-- Up and Down browse matching shell history
-- `escape` exits bash mode and returns to normal prompt mode
-- `ctrl+c` interrupts the active shell job before falling back to normal pi behavior
-
-The managed shell is persistent for the current pi session. Command output appears in a transcript below the editor, and shell cwd changes are reflected in the footer path and `shell_mode` segment. If the bash prompt is empty, bash mode shows the newest successful project-history ghost suggestion immediately when one exists, including right after mode entry or after the prompt is cleared again. One-off `!command` and `!!command` prompts reuse the same shell prediction pipeline, including ghost text. Mode entry stays quiet: there is no automatic or manual dropdown completion surface, and ghost suggestions do not run shell-native completion probes.
-
-### Bash mode configuration
-
-In `~/.pi/agent/settings.json` (or under `PI_CODING_AGENT_DIR` when that environment variable is set):
-
-```json
-{
-  "bashMode": {
-    "toggleShortcut": "ctrl+shift+b",
-    "transcriptMaxLines": 2000,
-    "transcriptMaxBytes": 524288
-  }
-}
-```
-
-## Editor Stash
-
-Use `Alt+S` / `Option+S` as a quick stash toggle while drafting. It keeps one active stash and clears the editor when stashing. Powerline listens for unambiguous Alt/Meta-S escape encodings by default. If your old terminal setup only emits the printable German sharp-S character for Option+S and you still want that to trigger stash, set `"stashSharpSShortcut": true` under `powerline`.
-
-| Editor | Stash | `Alt+S` result |
-|--------|-------|----------------|
-| Has text | Empty | Stash current text, clear editor |
-| Empty | Has stash | Restore stash into editor |
-| Has text | Has stash | Update stash with current text, clear editor |
-| Empty | Empty | Show "Nothing to stash" |
-
-Auto-restore after an agent run only happens when the editor is still empty. If you typed meanwhile, the stash is preserved.
-
-The `stash` indicator appears in the powerline bar (on presets with `extension_statuses`). Active stash is still session-local and resets on session switch / disable, but stash history is persisted to the agent dir at `powerline-footer/stash-history.json` so it survives restarts. By default the agent dir is `~/.pi/agent`; set `PI_CODING_AGENT_DIR` to move global powerline settings, stash history, sessions, vibes, skills, commands, and extension discovery with Pi.
-
-### Stash history
-
-Open prompt history with either:
-
-- `ctrl+alt+h`
-- `/stash-history`
-
-Prompt history now has two sources:
-
-- stashed prompts: up to 12 recent stashed prompts (newest first)
-- recent project prompts: up to 50 recent user-submitted prompts pulled from pi sessions in the current project folder
-
-Selecting a stashed entry lets you insert it or promote it to an idea. Project prompt history entries insert into the editor. If the editor already has text, you can choose `Replace`, `Append`, or `Cancel`.
-
-### Editor clipboard and navigation shortcuts
-
-- `ctrl+alt+c`: copy full editor content
-- `ctrl+alt+x`: cut full editor content (copy, then clear)
-- `ctrl+alt+q`: open the queued-prompt picker
-- `cmd+shift+up`: move the editor cursor to the start of the first line
-- `cmd+shift+down`: move the editor cursor to the end of the last line
-
-Copy/cut actions do not modify stash state or stash history. Dragging files, folders, images, or screenshots from Finder into the custom editor inserts their path strings. Pi owns chat scrolling, selection, and fixed input behavior natively.
-
-### Shortcut configuration
-
-You can override shortcut keys in the agent settings file:
-
-```json
-{
-  "powerlineShortcuts": {
-    "stashHistory": "ctrl+alt+h",
-    "copyEditor": "ctrl+alt+c",
-    "cutEditor": "ctrl+alt+x",
-    "ideaCapture": null,
-    "queueOpen": "ctrl+alt+q",
-    "editorStart": "cmd+shift+up",
-    "editorEnd": "cmd+shift+down"
-  }
-}
-```
-
-After changing bindings, run `/reload`. Invalid bindings, reserved key conflicts like `Alt+S`, or duplicate conflicts fall back to safe defaults. Set a binding to `null` or `""` to disable that action. `cmd` and `command` are accepted aliases for Pi's `super` modifier for the documented Command navigation keys.
-
-### Editor autocomplete composition
-
-Powerline wraps Pi's autocomplete provider so bash mode can add shell-aware suggestions. When another editor extension was already installed, powerline now passes Pi's provider through that previous editor's `setAutocompleteProvider()` first and then wraps the resulting provider. This preserves prior autocomplete-provider wrappers where possible, but it is not full render/input composition between custom editors.
-
-## Skill manager
-
-Browse and insert your installed skills (`SKILL.md` files and `*.md`/`*.txt` prompts) from an interactive TUI overlay:
-
-- **`/skills`** — open the skill manager. Filter with plain typing, `↑↓` to move, `enter` to open a skill's detail body, `↑↓` in the detail to scroll, `enter`/`tab` to insert the skill content into your prompt, `esc` to go back/close.
-
-The manager reuses the same skill discovery as inline `/command`/`$skill` triggers, so anything you can inline you can also browse and insert manually.
-
-## Hooks (harness)
-
-Wishcraft can run Command Code-style hooks on Pi's native events (`tool_call`, `tool_result`, `session_start`, `turn_end`). Each hook is a command that reads JSON on stdin. Set `wishcraft.hooksEnabled` to `false` to kill-switch every hook without deleting the config. Hook *definitions* are read from the global agent settings file only (project `.pi/settings.json` cannot install new commands).
-
-Put the scripts somewhere executable (example: `~/.pi/agent/hooks/`) and point settings at them:
+Hooks are commands that read JSON on stdin. Definitions come from the **global** agent settings file only. Project `.pi/settings.json` cannot install new hook commands. `wishcraft.hooksEnabled: false` disables every hook without deleting the config.
 
 ```json
 {
@@ -487,32 +119,23 @@ Put the scripts somewhere executable (example: `~/.pi/agent/hooks/`) and point s
     "hooksEnabled": true,
     "hooks": {
       "preToolUse": [
-        {
-          "matcher": "bash",
-          "hooks": [{ "command": "~/.pi/agent/hooks/bash-guard.sh", "timeout": 5 }]
-        }
+        { "matcher": "bash", "hooks": [{ "command": "~/.pi/agent/hooks/bash-guard.sh", "timeout": 5 }] }
       ],
       "postToolUse": [
-        {
-          "matcher": "write",
-          "hooks": [{ "command": "~/.pi/agent/hooks/write-audit.sh", "timeout": 5 }]
-        }
+        { "matcher": "write", "hooks": [{ "command": "~/.pi/agent/hooks/write-audit.sh", "timeout": 5 }] }
       ],
       "sessionStart": [
-        {
-          "hooks": [{ "command": "~/.pi/agent/hooks/session-git-status.sh", "timeout": 10 }]
-        }
+        { "hooks": [{ "command": "~/.pi/agent/hooks/session-git-status.sh", "timeout": 10 }] }
       ]
     }
   }
 }
 ```
 
-**1. bash-guard** — deny `rm -rf /` (and close variants) before bash runs. Exit 2 is deny; the first stderr line or `permissionDecisionReason` is what the model sees.
+**bash-guard** (exit 2 = deny):
 
 ```bash
 #!/usr/bin/env bash
-# ~/.pi/agent/hooks/bash-guard.sh
 payload=$(cat)
 cmd=$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))')
 if printf '%s' "$cmd" | grep -Eq '(^|[[:space:]])rm[[:space:]]+(-[a-zA-Z]*[[:space:]]+)*-r[a-zA-Z]*f|-fr[a-zA-Z]*|[[:space:]]/[[:space:]]*$'; then
@@ -523,23 +146,18 @@ fi
 exit 0
 ```
 
-**2. write-audit** — append-only log of write tool calls (does not block).
+**write-audit** (append-only, never blocks):
 
 ```bash
 #!/usr/bin/env bash
-# ~/.pi/agent/hooks/write-audit.sh
 mkdir -p "$HOME/.pi/agent/logs"
-printf '%s\n' "$(date -Is) $1" >> "$HOME/.pi/agent/logs/write-audit.jsonl"
 cat >> "$HOME/.pi/agent/logs/write-audit.jsonl"
 ```
 
-The hook receives the JSON payload on stdin; the snippet above stores the raw event. Trim or jq-filter as you like.
-
-**3. SessionStart git-status** — inject `git status --short` as extra context at session start.
+**SessionStart git-status** (extra context, never blocks):
 
 ```bash
 #!/usr/bin/env bash
-# ~/.pi/agent/hooks/session-git-status.sh
 status=$(git status --short 2>/dev/null | head -n 40)
 CTX="$status" python3 - <<'PY'
 import json, os
@@ -551,212 +169,25 @@ print(json.dumps({
 PY
 ```
 
-Tool-input repairs (custom/extension tools only) run before hooks: null-for-optional, JSON-string arrays, `{}` → `[]` on array keys, bare-string wrap, path aliases, and markdown auto-link unwrap. `/repairs` shows the counters. Core tools (`bash`, `read`, `edit`, `write`, `grep`, `find`, `ls`) are never rewritten.
+Repairs run on custom/extension tools only, before hooks: drop null optionals, parse JSON-string arrays before wrapping, turn `{}` into `[]` on array keys, wrap bare strings, alias `filePath` / `absolutePath` / `target_file` to `path`, unwrap degenerate markdown auto-links. Core tools (`bash`, `read`, `edit`, `write`, `grep`, `find`, `ls`) are never rewritten. `/repairs` prints the counters.
 
-`wishcraft.tokenBudget.daily` (token count) paints the cost segment warning/red at 80%/100% and notifies on welcome. It never blocks a turn. `/usage` shows session / today / week from `~/.pi/agent/wishcraft-usage.json`. `/tps` with no args opens the live ring overlay (same sampler as the segment).
+## Limits
 
-## Working Vibes
+- No mouse on the live footer. Pi core owns that surface.
+- No second `alt+i` product. Ports stay on `alt+i`; other detail is `→` in the navigator.
+- ChefGroep status keys (`powerline.preset`, `powerline.tps`, `powerline.ports`) exist for other extensions. They are not the public pitch.
+- `npm deprecate` of the old `@groeponline/pi-powerline-footer` name is a scope-owner action. That package stays at 0.17.2 until the token allows it.
+- Tags are not rewritten. 0.19.x through current stay on the timeline.
 
-Transform boring "Working..." messages into themed phrases that match your style:
+## Docs
 
-```text
-/vibe star trek    → "Running diagnostics...", "Engaging warp drive..."
-/vibe pirate       → "Hoisting the sails...", "Charting course..."
-/vibe zen          → "Breathing deeply...", "Finding balance..."
-/vibe noir         → "Following the trail...", "Checking the angles..."
-/vibe              → Shows current theme, mode, and model
-/vibe off          → Disables (back to "Working...")
-/vibe model        → Shows current model
-/vibe model openai/gpt-4o-mini → Use a different model
-/vibe mode         → Shows current mode (generate or file)
-/vibe mode file    → Switch to file-based mode (instant, no API calls)
-/vibe mode generate → Switch to on-demand generation (contextual)
-/vibe generate mafia 200 → Pre-generate 200 vibes and save to file
-```
+- [Commands](docs/commands.md)
+- [Configuration](docs/configuration.md)
+- [Bash mode](docs/bash-mode.md)
+- [Stash and shortcuts](docs/stash-and-shortcuts.md)
+- [Skill manager](docs/skill-manager.md)
+- [Working vibes](docs/working-vibes.md)
+- [Segments and theming](docs/segments.md)
+- [ROADMAP](ROADMAP.md)
 
-### Configuration
-
-In the agent settings file:
-
-```json
-{
-  "workingVibe": "star trek",                              // Theme phrase
-  "workingVibeMode": "generate",                           // "generate" (on-demand) or "file" (pre-generated)
-  "workingVibeModel": "openai-codex/gpt-5.4-mini",         // Optional: model to use (default)
-  "workingVibeFallback": "Working",                        // Optional: fallback message
-  "workingVibeRefreshInterval": 30,                        // Optional: seconds between refreshes (default 30)
-  "workingVibePrompt": "Generate a {theme} loading message for: {task}",  // Optional: custom prompt template
-  "workingVibeMaxLength": 65                         // Optional: max message length (default 65)
-}
-```
-
-### Modes
-
-| Mode | Description | Pros | Cons |
-|------|-------------|------|------|
-| `generate` | On-demand AI generation (default) | Contextual, hints at actual task | Model-dependent cost and latency |
-| `file` | Pull from pre-generated file | Instant, zero cost, works offline | Not contextual |
-
-**File mode setup:**
-```bash
-/vibe generate mafia 200    # Generate 200 vibes, save to the agent dir
-/vibe mode file             # Switch to file mode
-/vibe mafia                 # Now uses the file
-```
-
-**How file mode works:**
-1. Vibes are loaded from `vibes/{theme}.txt` in the agent dir into memory
-2. Uses seeded shuffle (Mulberry32 PRNG): cycles through all vibes before repeating
-3. New seed each session: different order every time you restart pi
-4. Zero latency, zero cost, works offline
-
-**Prompt template variables (generate mode only):**
-- `{theme}`: the current vibe theme (e.g., "star trek", "mafia")
-- `{task}`: context hint (user prompt initially, then agent's response text or tool info on refresh)
-- `{exclude}`: recent vibes to avoid (auto-populated, e.g., "Don't use: vibe1, vibe2...")
-
-**How it works:**
-1. When you send a message, shows "Channeling {theme}..." placeholder
-2. AI generates a themed message in the background (3s timeout)
-3. Message updates to the themed version (e.g., "Engaging warp drive...")
-4. During long tasks, refreshes on tool calls (rate-limited, default 30s)
-5. Cost and latency depend on your configured `workingVibeModel`
-
-## Thinking Level Display
-
-The thinking segment shows live updates when you change thinking level:
-
-| Level | Display | Color |
-|-------|---------|-------|
-| off | `think:off` | gray |
-| minimal | `think:min` | purple-gray |
-| low | `think:low` | blue |
-| medium | `think:med` | teal |
-| high | `think:high` | rainbow |
-| xhigh | `think:xhigh` | rainbow |
-| max | `think:max` | rainbow |
-
-## Path Display
-
-The path segment supports three modes:
-
-| Mode | Example | Description |
-|------|---------|-------------|
-| `basename` | `powerline-footer` | Just the directory name (default) |
-| `abbreviated` | `…/extensions/powerline-footer` | Full path with home abbreviated and length limit |
-| `full` | `~/.pi/agent/extensions/powerline-footer` | Complete path with home abbreviated |
-
-Configure via preset options: `path: { mode: "full" }`
-
-## Git polling
-
-By default the git segment polls both branch and dirty state. If background `git status --porcelain` calls interfere with your workflow, use branch-only polling:
-
-```json
-{
-  "powerline": {
-    "git": { "polling": "branch" }
-  }
-}
-```
-
-Use `"off"` to disable extension-owned git polling entirely and only show the branch reported by Pi when available.
-
-## Git host icon
-
-Set `git.hostIcon` to replace the branch icon with the origin remote's host logo:
-
-```json
-{
-  "powerline": {
-    "git": { "hostIcon": true }
-  }
-}
-```
-
-The origin remote is detected (SSH or HTTPS) and mapped to an icon: GitHub (`nf-fa-github`), GitLab (`nf-fa-gitlab`), Bitbucket (`nf-fa-bitbucket`), or a generic git logo (`nf-fa-git`) for any other remote (self-hosted, Gitea, Codeberg, …). Repositories without an origin remote keep the plain branch icon (`nf-fa-code_fork`), as do ASCII (non–Nerd Font) setups. The remote is read once and cached, so this adds no per-render cost. Default is `false` (branch icon unchanged).
-
-## Git status extras (commits, ahead/behind)
-
-The git segment can also show the last commit on `HEAD` (short hash + subject) and the upstream ahead/behind counts — handy for a quick "where am I relative to main" GitHub signal:
-
-- `git.showCommit` (`true` by default) — appends `#<hash> <subject>` for the latest commit.
-- `git.maxCommitSubjectLength` (`24`) — truncates the commit subject shown.
-- `git.showAheadBehind` (`true` by default) — appends `↑<n> ↓<n>` for commits ahead/behind the configured upstream (hidden when there is no upstream).
-
-```json
-{
-  "powerline": {
-    "git": { "showCommit": true, "showAheadBehind": true, "maxCommitSubjectLength": 24 }
-  }
-}
-```
-
-The `minimal` and `compact` presets keep these off to stay lean; set `showCommit: true`/`showAheadBehind: true` to enable them.
-
-## Segments
-
-`model` · `shell_mode` · `path` · `git` · `subagents` · `queue` · `token_in` · `token_out` · `token_total` · `cost` · `context_pct` · `context_total` · `time_spent` · `time` · `session` · `hostname` · `cache_read` · `cache_write` · `thinking` · `tps` · `open_ports` · `extension_statuses`
-
-## Separators
-
-`powerline` · `powerline-thin` · `slash` · `pipe` · `dot` · `chevron` · `star` · `block` · `none` · `ascii`
-
-## Theming
-
-Colors are configurable via pi's theme system. Each preset defines its own color scheme, and you can override individual colors and icons with a `theme.json` file in the extension directory.
-
-### Default Colors
-
-| Semantic | Theme Color | Description |
-|----------|-------------|-------------|
-| `model` | `#d787af` | Model name |
-| `shellMode` | `accent` | Bash mode segment |
-| `path` | `#00afaf` | Directory path |
-| `gitClean` | `success` | Git branch (clean) |
-| `gitDirty` | `warning` | Git branch (dirty) |
-| `thinking` | `thinkingOff` | Thinking level (`off`) |
-| `thinkingMinimal` | `thinkingMinimal` | Thinking level (`minimal`) |
-| `thinkingLow` | `thinkingLow` | Thinking level (`low`) |
-| `thinkingMedium` | `thinkingMedium` | Thinking level (`medium`) |
-| `context` | `dim` | Context usage |
-| `contextWarn` | `warning` | Context usage >70% |
-| `contextError` | `error` | Context usage >90% |
-| `cost` | `text` | Cost display |
-| `tokens` | `muted` | Token counts |
-| `queue` | `accent` | Queue / ideas / blocked counts |
-| `separator` | `dim` | Segment separators and ahead/behind counts |
-| `border` | `borderMuted` | Panel/border chrome |
-
-### Custom Theme Override
-
-Create `extensions/powerline-footer/theme.json` in the agent dir (`~/.pi/agent` by default, or `PI_CODING_AGENT_DIR` when set):
-
-```json
-{
-  "colors": {
-    "model": "accent",
-    "shellMode": "accent",
-    "path": "#00afaf",
-    "gitClean": "success",
-    "thinking": "thinkingOff",
-    "thinkingMinimal": "thinkingMinimal",
-    "thinkingLow": "thinkingLow",
-    "thinkingMedium": "thinkingMedium"
-  },
-  "icons": {
-    "auto": "↯",
-    "warning": ""
-  }
-}
-```
-
-Colors can be:
-- **Theme color names**: `accent`, `muted`, `dim`, `text`, `success`, `warning`, `error`, `border`, `borderAccent`, `borderMuted`
-- **Hex colors**: `#ff5500`, `#d787af`
-
-Icons can be any string, including `""` when you want to suppress a specific glyph entirely.
-
-For npm package installs, this documented agent-dir file is separate from the package files under `~/.pi/agent/npm/node_modules`. The extension reads the agent-dir override first, then falls back to a `theme.json` colocated with the loaded extension file. Use `/reload` or restart Pi after creating or editing `theme.json`.
-
-See `theme.example.json` for all available options.
+MIT. Issues: [GroepOnline/pi-wishcraft](https://github.com/GroepOnline/pi-wishcraft/issues).

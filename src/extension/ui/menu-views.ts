@@ -45,16 +45,12 @@ import {
   collectSegmentIds,
   configureItemsToSelectItems,
   segmentItemsToSelectItems,
-  selectIndexForValue,
   validatePresetName,
 } from "./menu-items.ts";
 import { overlaySelectListTheme, showSelectOverlay } from "./overlay-chrome.ts";
 import { showTpsOverlay } from "./token-overlays.ts";
 
 export { overlaySelectListTheme, showSelectOverlay } from "./overlay-chrome.ts";
-
-/** How often the open segment navigator re-reads live segment state. */
-const SEGMENT_NAVIGATOR_REFRESH_MS = 1000;
 
 /** Full open-ports list as a scrollable overlay (the Info view). */
 export async function showOpenPortsList(ctx: any): Promise<void> {
@@ -402,11 +398,15 @@ export async function showSegmentNavigator(
       let items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
       let detailId: StatusLineSegmentId | null = null;
       let detailLines: ReturnType<typeof buildSegmentDetailLines> = [];
-      let timer: ReturnType<typeof setInterval> | null = null;
 
       const border = (text: string) => theme.fg("dim", text);
       const wrapRow = (text: string, innerWidth: number) =>
         `${border("│")}${truncateToWidth(text, innerWidth, "…", true)}${border("│")}`;
+
+      const snapshot = () => {
+        segCtx = buildSegmentContext(rt, ctx, theme);
+        items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
+      };
 
       const buildDetail = (id: StatusLineSegmentId) =>
         id === "open_ports"
@@ -422,15 +422,12 @@ export async function showSegmentNavigator(
 
       const openDetail = (id: string) => {
         if (id === "__none__") return;
+        snapshot();
         detailId = id as StatusLineSegmentId;
         detailLines = buildDetail(detailId);
       };
 
       const finish = (result: { id: string; label: string } | null) => {
-        if (timer !== null) {
-          clearInterval(timer);
-          timer = null;
-        }
         done(result);
       };
 
@@ -451,22 +448,6 @@ export async function showSegmentNavigator(
       };
 
       let selectList = makeSelectList();
-
-      // Re-read live segment state (TPS, context %, cost, git, queue, …) while
-      // the overlay stays open, preserving the selected segment across rebuilds.
-      const refresh = () => {
-        const previous = selectList.getSelectedItem()?.value ?? null;
-        segCtx = buildSegmentContext(rt, ctx, theme);
-        items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
-        selectList = makeSelectList();
-        selectList.setSelectedIndex(selectIndexForValue(items, previous));
-        if (detailId !== null) {
-          detailLines = buildDetail(detailId);
-        }
-        tui.requestRender();
-      };
-
-      timer = setInterval(refresh, SEGMENT_NAVIGATOR_REFRESH_MS);
 
       const renderList = (innerWidth: number): string[] => {
         const lines: string[] = [];

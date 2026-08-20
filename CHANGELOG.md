@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+- README is a landing page for the 0.22 cockpit. The Kongming banner stays; the inherited upstream screenshot is gone.
+
+### Fixed
+- Segment-navigator detail (`→` in `alt+p` Navigate) snapshots live state when opened. It no longer runs a 1s timer (CHE-41).
+
 ## [0.22.0] - 2026-08-20
 
 ### Added
