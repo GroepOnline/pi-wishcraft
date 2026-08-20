@@ -1,3 +1,5 @@
+import type { WelcomeArtTheme } from "./welcome-art.ts";
+
 export interface LoadedCounts {
   contextFiles: number;
   extensions: number;
@@ -20,6 +22,10 @@ export interface WelcomeData {
   hasStash?: boolean;
   nextIdeaText?: string;
   whatsNew?: string[];
+  /** Left-column art theme (lantern / balloon / normal). */
+  art?: WelcomeArtTheme;
+  /** Animate the lantern flame. */
+  animateArt?: boolean;
 }
 
 export interface WelcomeWidget {

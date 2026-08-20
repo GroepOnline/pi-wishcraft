@@ -4,12 +4,30 @@ import {
   discoverLoadedCounts,
   discoverWhatsNew,
   getRecentSessions,
+  normalizeWelcomeArt,
+  type WelcomeArtTheme,
 } from "../../welcome/index.ts";
 import { estimateInitialContextTokens } from "../../usage/context.ts";
-import { isRecord } from "../settings/settings-io.ts";
+import { isRecord, readSettings } from "../settings/settings-io.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { pickNextReviewIdea } from "../queue/idea-review.ts";
+
+interface WelcomeArtSettings {
+  art: WelcomeArtTheme;
+  animate: boolean;
+}
+
+/** Read `wishcraft.welcome.{art,animateLantern}` from settings.json. */
+function readWelcomeArtSettings(ctx: any): WelcomeArtSettings {
+  const settings = readSettings(ctx.cwd ?? process.cwd());
+  const wishcraft = isRecord(settings.wishcraft) ? settings.wishcraft : {};
+  const welcome = isRecord(wishcraft.welcome) ? wishcraft.welcome : {};
+  return {
+    art: normalizeWelcomeArt(welcome.art),
+    animate: welcome.animateLantern === true,
+  };
+}
 
 export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   const modelName = ctx.model?.name || ctx.model?.id || "No model";
@@ -37,6 +55,8 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
     whatsNew,
     nextIdeaText,
   );
+  const artSettings = readWelcomeArtSettings(ctx);
+  header.setArt(artSettings.art, artSettings.animate);
   rt.welcomeHeaderActive = true;
 
   ctx.ui.setHeader(() => {
@@ -115,6 +135,8 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             whatsNew,
             nextIdeaText,
           );
+          const artSettings = readWelcomeArtSettings(ctx);
+          welcome.setArt(artSettings.art, artSettings.animate);
 
           let countdown = 30;
           let dismissed = false;

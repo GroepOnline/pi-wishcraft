@@ -2,6 +2,7 @@ import type { Component } from "@earendil-works/pi-tui";
 import { dim, renderWelcomeBox } from "./renderer.ts";
 import type { WelcomeData } from "./types.ts";
 import type { LoadedCounts, RecentSession } from "./types.ts";
+import type { WelcomeArtTheme } from "./welcome-art.ts";
 
 /**
  * Welcome header - same layout as overlay but persistent (no countdown).
@@ -37,6 +38,11 @@ export class WelcomeHeader implements Component {
       whatsNew,
       nextIdeaText,
     };
+  }
+
+  setArt(art: WelcomeArtTheme, animate: boolean): void {
+    this.data.art = art;
+    this.data.animateArt = animate;
   }
 
   invalidate(): void {}
