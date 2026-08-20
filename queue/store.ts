@@ -364,12 +364,14 @@ export class PowerlineQueueStore {
    * `archiveSentItems` and `writeItems` share one `now` snapshot so a sent
    * item counted as remaining cannot be pruned on the same write.
    */
-  archiveSentItems(olderThanMs: number = this.sentRetentionMs): {
+  archiveSentItems(
+    olderThanMs: number = this.sentRetentionMs,
+    now: number = Date.now(),
+  ): {
     archived: number;
     remainingSent: number;
   } {
     return this.withStoreLock(() => {
-      const now = Date.now();
       const items = this.list();
       // writeItems prunes sent items older than sentRetentionMs on every write.
       // If the requested archive window were wider than that, items in the gap

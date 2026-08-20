@@ -361,7 +361,7 @@ test("setSentRetentionMs clamps below one hour", () => withStore((store) => {
 test("archiveSentItems keeps sent items exactly at the retention cutoff", () =>
   withStore((store, dir) => {
     store.setSentRetentionMs(60 * 60 * 1000);
-    const now = Date.now();
+    const now = 1_700_000_000_000;
     const boundaryId = "bound001";
     appendFileSync(
       join(dir, "inbox.jsonl"),
@@ -377,7 +377,7 @@ test("archiveSentItems keeps sent items exactly at the retention cutoff", () =>
       }) + "\n",
     );
 
-    const result = store.archiveSentItems(60 * 60 * 1000);
+    const result = store.archiveSentItems(60 * 60 * 1000, now);
     assert.equal(result.archived, 0);
     assert.equal(result.remainingSent, 1);
     assert.deepEqual(store.list().map((item) => item.id), [boundaryId]);
