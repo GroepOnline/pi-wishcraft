@@ -37,24 +37,24 @@ test("setupHooks registers the harness events and records custom-tool repairs", 
     writeFileSync(
       join(agentDir, "settings.json"),
       JSON.stringify({
-        wishcraft: { hooksEnabled: false, repairsEnabled: true },
-      }),
-    );
-    writeFileSync(
-      join(cwd, ".pi", "settings.json"),
-      JSON.stringify({
         wishcraft: {
           hooksEnabled: true,
           repairsEnabled: true,
           hooks: {
             preToolUse: [
               {
-                matcher: ".*",
+                matcher: "bash",
                 hooks: [{ command: "printf 'spawned\\n' >&2; exit 2" }],
               },
             ],
           },
         },
+      }),
+    );
+    writeFileSync(
+      join(cwd, ".pi", "settings.json"),
+      JSON.stringify({
+        wishcraft: { repairsEnabled: true },
       }),
     );
     process.env.PI_CODING_AGENT_DIR = agentDir;
@@ -92,7 +92,7 @@ test("setupHooks registers the harness events and records custom-tool repairs", 
       { toolName: "bash", input: { command: "true" }, toolCallId: "t2" },
       { cwd },
     );
-    assert.equal(blocked, undefined);
+    assert.deepEqual(blocked, { block: true, reason: "spawned" });
   } finally {
     if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
