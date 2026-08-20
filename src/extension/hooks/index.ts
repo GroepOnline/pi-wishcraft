@@ -74,8 +74,12 @@ function basePayload(
 }
 
 /** Registreer de hooks + repairs op de pi extension API. */
-export function setupHooks(pi: ExtensionAPI, rt: RuntimeState): void {
-  refreshSettings(rt.currentCtx?.cwd ?? process.cwd());
+export function setupHooks(
+  pi: ExtensionAPI,
+  rt: RuntimeState,
+  cwd: string = process.cwd(),
+): void {
+  refreshSettings(rt.currentCtx?.cwd ?? cwd);
 
   pi.on("session_start", async () => {
     refreshSettings(rt.currentCtx?.cwd ?? process.cwd());
