@@ -2,14 +2,16 @@
 
 ## [Unreleased]
 
-## [0.20.0] - 2026-08-20
-
 ### Added
-- `alt+p` menu is three overlay entries (Navigate, Configure, Status) with a Status drill-down for ports, TPS, and toggle.
 - `/powerline doctor` and `/powerline export`.
 - `/queue archive [hours]` with a single clock snapshot so sent items cannot vanish from both inbox and archive.
 - Focused guides under `docs/` (commands, configuration, segments, bash mode, vibes, shortcuts).
 - What's New welcome widget, cost-alert threshold, ChefGroep status export, and optional fleet SSH open-port probes.
+
+## [0.20.0] - 2026-08-20
+
+### Added
+- `alt+p` menu is three overlay entries (Navigate, Configure, Status) with a Status drill-down for ports, TPS, and toggle.
 
 ### Fixed
 - `theme.json` in the working directory overrides icons, and the theme cache busts when that file changes.
