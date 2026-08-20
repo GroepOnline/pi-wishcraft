@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-08-20
+
 ### Added
 - Declarative policy engine (`wishcraft.policy`): in-process deny/inject rules in global settings, evaluated before command hooks. No process spawn. `policyEnabled: false` is the kill-switch.
 
