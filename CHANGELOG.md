@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.23.4] - 2026-08-20
+
 ### Fixed
 - Command hooks, session context inject, and `/repairs` run: `setupHooks` is registered on activation.
 - Hook runner ignores EPIPE when a command exits before reading stdin.
