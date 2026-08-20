@@ -15,4 +15,4 @@ The README stays a short landing page; everything below lives here.
 
 ## Planning
 
-- [Expansion & improvement plan](./PLAN.md) — the working backlog this repo is currently executing against.
+- [ROADMAP.md](../ROADMAP.md) — release campaigns and leftover 0.20 / 1.0 work.
