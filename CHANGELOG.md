@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-08-20
+
 ### Added
 - `alt+p` menu is three overlay entries (Navigate, Configure, Status) with a Status drill-down for ports, TPS, and toggle.
 
