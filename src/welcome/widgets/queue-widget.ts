@@ -9,7 +9,11 @@ export const QueueWidget: WelcomeWidget = {
     const prefix = dim("- ");
     const idea = data.nextIdeaText?.trim();
     if (idea) {
-      const preview = idea.length > 42 ? `${idea.slice(0, 41)}…` : idea;
+      const singleLine = idea.replace(/\s+/g, " ");
+      const budget = Math.max(1, ctx.width - prefix.length - 3 - "/ideas next".length - 2);
+      const preview = singleLine.length > budget
+        ? `${singleLine.slice(0, Math.max(0, budget - 1))}…`
+        : singleLine;
       lines.push(
         ` ${prefix}${color("gitClean", preview)} · ${color("model", "/ideas next")}`,
       );
