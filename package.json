@@ -1,6 +1,6 @@
 {
   "name": "@groeponline/pi-wishcraft",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "Wishcraft cockpit for the pi coding agent — powerline status, vibes, idea inbox, bash mode, and full customization.",
   "type": "module",
   "files": [

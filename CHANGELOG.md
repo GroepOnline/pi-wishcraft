@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.19.0] - 2026-08-20
 
 ### Added
 - Every merge to `main` cuts an npm release: CI chooses patch/minor/major from commits since the last `v*` tag, pushes `vX.Y.Z`, and publishes with the GroepOnline org secret `NPM_TOKEN`. `[skip release]` opts out.
