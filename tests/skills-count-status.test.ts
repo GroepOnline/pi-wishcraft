@@ -9,8 +9,8 @@ import { POWERLINE_STATUS_KEYS } from "../src/extension/core/status-export.ts";
 import { registerSessionLifecycle } from "../src/extension/session/session-lifecycle.ts";
 import {
   invalidateSkillCache,
-  setSkillCacheInvalidationHandler,
 } from "../src/extension/skills/skill-registry.ts";
+import { clearSkillsCountPublisher } from "../src/extension/skills/skill-status.ts";
 
 function fakePi() {
   const handlers = new Map<
@@ -79,7 +79,7 @@ test("session_start publishes skills.count and cache invalidation refreshes it",
     invalidateSkillCache();
     assert.deepEqual(writes, []);
   } finally {
-    setSkillCacheInvalidationHandler(null);
+    clearSkillsCountPublisher();
     invalidateSkillCache();
     if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = originalAgentDir;

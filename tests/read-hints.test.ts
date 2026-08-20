@@ -13,6 +13,7 @@ import {
 } from "../src/extension/session/read-hints.ts";
 import { createRuntimeState } from "../src/extension/core/state.ts";
 import { registerSessionLifecycle } from "../src/extension/session/session-lifecycle.ts";
+import { buildConfigGroups } from "../src/extension/settings/wishcraft-config.ts";
 
 const cases: Array<{
   name: string;
@@ -47,6 +48,14 @@ const cases: Array<{
     details: { truncation: { totalLines: 50 } },
     append: true,
     hint: "50 lines, showing 1–3, next offset 4",
+  },
+  {
+    name: "footer-like source on the last line still gets a hint",
+    input: { offset: 1, limit: 2 },
+    text: "first\nUse offset=15 to continue.",
+    details: { truncation: { totalLines: 40 } },
+    append: true,
+    hint: "40 lines, showing 1–2, next offset 3",
   },
   {
     name: "partial read needs a hint when core stayed quiet",
@@ -87,13 +96,19 @@ test("formatReadHint falls back without total line count", () => {
   );
 });
 
-test("core range summary is detected only on the last non-empty line", () => {
+test("core range summary is detected only as a generated footer", () => {
   assert.equal(
     coreReadResultHasRangeSummary("Use offset=15 to continue.\nactual body"),
     false,
   );
   assert.equal(
     coreReadResultHasRangeSummary("actual body\nUse offset=15 to continue."),
+    false,
+  );
+  assert.equal(
+    coreReadResultHasRangeSummary(
+      "actual body\n[Showing lines 10-14 of 100. Use offset=15 to continue.]",
+    ),
     true,
   );
 });
@@ -209,4 +224,11 @@ test("tool_result handler respects wishcraft.readHints false", async () => {
     else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
     rmSync(agentDir, { recursive: true, force: true });
   }
+});
+
+test("Skills config group exposes the readHints toggle", () => {
+  const skills = buildConfigGroups({}).find((group) => group.title === "Skills");
+  const item = skills?.items.find((entry) => entry.path === "wishcraft.readHints");
+  assert.equal(item?.kind, "toggle");
+  assert.equal(item?.label, "Read hints");
 });

@@ -70,34 +70,12 @@ import {
 import { CONTEXT_STATUS_RENDER_MS } from "../core/constants.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { isStaleExtensionContextError } from "./stale-context.ts";
+import { dismissWelcome, scheduleDismissWelcome } from "../welcome/welcome-control.ts";
 import {
-  dismissWelcome,
-  scheduleDismissWelcome,
-} from "../welcome/welcome-control.ts";
-import {
-  formatSkillsCountStatusValue,
-  publishPowerlineStatuses,
-} from "../core/status-export.ts";
-import {
-  invalidateSkillCache,
-  loadSkillCatalog,
-  setSkillCacheInvalidationHandler,
-} from "../skills/skill-registry.ts";
-import {
-  appendReadHintToEvent,
-  readHintsEnabled,
-} from "./read-hints.ts";
-
-function publishSkillsCount(ctx: {
-  cwd?: string;
-  ui?: { setStatus?: (key: string, value: string | undefined) => void };
-}): void {
-  publishPowerlineStatuses(ctx, {
-    skillsCount: formatSkillsCountStatusValue(
-      loadSkillCatalog(ctx.cwd ?? process.cwd()).length,
-    ),
-  });
-}
+  bindSkillsCountPublisher,
+  clearSkillsCountPublisher,
+} from "../skills/skill-status.ts";
+import { maybeAppendReadHint } from "./read-hints.ts";
 
 /**
  * Fire the configured `powerline.costAlert` warning at most once per session.
@@ -184,6 +162,7 @@ export function registerSessionLifecycle(
 ): void {
   // Track session start
   pi.on("session_start", async (event, ctx) => {
+    clearSkillsCountPublisher();
     rt.shellSession?.dispose();
     rt.shellSession = null;
     rt.sessionGeneration++;
@@ -220,8 +199,7 @@ export function registerSessionLifecycle(
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("stash", undefined);
-      setSkillCacheInvalidationHandler(() => publishSkillsCount(ctx));
-      invalidateSkillCache();
+      bindSkillsCountPublisher(ctx);
       const pendingIdeas = rt.queueStore
         .activeItems(getQueueContext(ctx))
         .filter((item) => item.intent === "idea").length;
@@ -252,7 +230,7 @@ export function registerSessionLifecycle(
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
-    setSkillCacheInvalidationHandler(null);
+    clearSkillsCountPublisher();
     rt.sessionGeneration++;
     rt.dismissWelcomeOverlay?.();
     rt.dismissWelcomeOverlay = null;
@@ -294,10 +272,7 @@ export function registerSessionLifecycle(
       invalidateGitForCommand(rt, String(event.input.command));
     }
     if (event.toolName === "read") {
-      if (!readHintsEnabled(readSettings(ctx?.cwd).wishcraft)) {
-        return;
-      }
-      return appendReadHintToEvent(event);
+      return maybeAppendReadHint(event, ctx?.cwd);
     }
   });
 

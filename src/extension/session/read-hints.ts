@@ -1,3 +1,5 @@
+import { readSettings } from "../settings/settings-io.ts";
+
 export interface ReadToolInput {
   offset?: number;
   limit?: number;
@@ -10,8 +12,20 @@ export interface ReadHintDetails {
   };
 }
 
-const CORE_RANGE_SUMMARY =
-  /\[Showing lines \d+|\bUse offset=\d+|\d+ more lines in file|\d+ lines, showing \d+[–-]\d+/i;
+const CORE_SHOWING_LINES =
+  /^\[Showing lines \d+[–-]\d+(?: of \d+)?\.(?: Use offset=\d+ to continue\.)?\]$/i;
+const CORE_MORE_LINES =
+  /^\[?\d+ more lines in file\. Use offset=\d+ to continue\.?\]?$/i;
+const OWN_READ_HINT = /^\d+ lines, showing \d+[–-]\d+, next offset \d+$/;
+
+function isCoreRangeFooter(line: string): boolean {
+  const footer = line.trim();
+  return (
+    CORE_SHOWING_LINES.test(footer) ||
+    CORE_MORE_LINES.test(footer) ||
+    OWN_READ_HINT.test(footer)
+  );
+}
 
 function coreFooter(text: string): string {
   const lines = text.split("\n");
@@ -36,14 +50,14 @@ export function coreReadResultHasRangeSummary(
   text: string,
   _details?: ReadHintDetails,
 ): boolean {
-  return CORE_RANGE_SUMMARY.test(coreFooter(text));
+  return isCoreRangeFooter(coreFooter(text));
 }
 
 function countContentLines(text: string): number {
   const lines = text.split("\n");
   let end = lines.length;
   while (end > 0 && lines[end - 1] === "") end--;
-  if (end > 0 && CORE_RANGE_SUMMARY.test(lines[end - 1]!.trim())) end--;
+  if (end > 0 && isCoreRangeFooter(lines[end - 1]!)) end--;
   return end;
 }
 
@@ -117,4 +131,17 @@ export function appendReadHintToEvent(event: {
       { type: "text", text: hint },
     ],
   };
+}
+
+/** Apply the opt-out and append a hint without mutating `event.input`. */
+export function maybeAppendReadHint(
+  event: {
+    input?: unknown;
+    content?: unknown;
+    details?: unknown;
+  },
+  cwd?: string,
+): { content: Array<{ type: "text"; text: string }> } | undefined {
+  if (!readHintsEnabled(readSettings(cwd).wishcraft)) return undefined;
+  return appendReadHintToEvent(event);
 }
