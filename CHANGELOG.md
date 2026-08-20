@@ -7,6 +7,8 @@
 ### Fixed
 - Nested settings writes reject `__proto__` / `constructor` / `prototype` keys in the assignment loop.
 - Test workflow pins `GITHUB_TOKEN` to `contents: read`.
+- Command hooks, session context inject, and `/repairs` run: `setupHooks` is registered on activation.
+- Hook runner ignores EPIPE when a command exits before reading stdin.
 
 ## [0.23.2] - 2026-08-20
 
