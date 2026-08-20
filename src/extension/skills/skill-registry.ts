@@ -417,9 +417,11 @@ export function insertSkillBody(
   body: string,
   appendedText = "",
 ): void {
-  const chunk = appendedText.trim() ? `${body.trim()}\n\n${appendedText.trim()}` : body.trim();
+  const chunk = appendedText.trim()
+    ? `${body.trim()}\n\n${appendedText.trim()}`
+    : body.trim();
   const current = ctx.ui.getEditorText?.() ?? "";
-  const separator = current && !current.endsWith("\n") ? "\n\n" : current ? "\n" : "";
+  const separator = current && !current.endsWith("\n") ? "\n\n" : "";
   ctx.ui.setEditorText(`${current}${separator}${chunk}\n`);
   recordSkillUsage(skillName);
 }

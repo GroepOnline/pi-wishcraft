@@ -20,6 +20,14 @@ import {
 } from "../skills/skill-registry.ts";
 import { showSelectOverlay } from "../ui/overlay-chrome.ts";
 import type { RuntimeState } from "../core/types.ts";
+
+export type IdeaSelectOverlay = (
+  ctx: any,
+  title: string,
+  hint: string,
+  items: SelectItem[],
+  maxVisible: number,
+) => Promise<SelectItem | null>;
 import { getQueueContext } from "./queue-context.ts";
 import {
   deliverQueueItem,
@@ -154,11 +162,7 @@ export function pickNextReviewIdea(
   items: readonly PowerlineQueueItem[],
 ): PowerlineQueueItem | null {
   const ideas = items.filter((item) => item.intent === "idea");
-  return (
-    ideas.find((item) => ideaReviewStatusOf(item) !== "done") ??
-    null ??
-    null
-  );
+  return ideas.find((item) => ideaReviewStatusOf(item) !== "done") ?? null;
 }
 
 function activeIdeas(rt: RuntimeState, ctx: any): PowerlineQueueItem[] {
@@ -167,7 +171,7 @@ function activeIdeas(rt: RuntimeState, ctx: any): PowerlineQueueItem[] {
     .filter((item) => item.intent === "idea");
 }
 
-function insertSkillAndIdea(
+export function insertSkillAndIdea(
   ctx: any,
   skillName: string,
   filePath: string,
@@ -184,13 +188,14 @@ function insertSkillAndIdea(
 async function pickSkillForIdea(
   ctx: any,
   item: PowerlineQueueItem,
+  selectOverlay: IdeaSelectOverlay,
 ): Promise<void> {
   const entries = loadSkillCatalog(ctx.cwd ?? process.cwd());
   if (entries.length === 0) {
     ctx.ui.notify("No skills installed", "info");
     return;
   }
-  const selected = await showSelectOverlay(
+  const selected = await selectOverlay(
     ctx,
     `Run ${item.id} with skill`,
     "↑↓ navigate • enter insert • esc cancel",
@@ -211,8 +216,9 @@ async function chooseIdeaReviewAction(
   rt: RuntimeState,
   ctx: any,
   item: PowerlineQueueItem,
+  selectOverlay: IdeaSelectOverlay,
 ): Promise<void> {
-  const selected = await showSelectOverlay(
+  const selected = await selectOverlay(
     ctx,
     `Idea ${item.id}`,
     buildStashPreview(item.text, 72),
@@ -233,12 +239,12 @@ async function chooseIdeaReviewAction(
   }
 
   if (selected.value === "skill") {
-    await pickSkillForIdea(ctx, item);
+    await pickSkillForIdea(ctx, item, selectOverlay);
     return;
   }
 
   if (selected.value === "status") {
-    const next = await showSelectOverlay(
+    const next = await selectOverlay(
       ctx,
       `Status for ${item.id}`,
       "idea / in-progress / done",
@@ -252,12 +258,12 @@ async function chooseIdeaReviewAction(
     ctx.ui.notify(`Idea ${item.id} → ${next.value}`, "info");
     requestQueueRender(rt);
     const fresh = rt.queueStore.get(item.id);
-    if (fresh) await chooseIdeaReviewAction(pi, rt, ctx, fresh);
+    if (fresh) await chooseIdeaReviewAction(pi, rt, ctx, fresh, selectOverlay);
     return;
   }
 
   if (selected.value === "tags") {
-    const next = await showSelectOverlay(
+    const next = await selectOverlay(
       ctx,
       `Tags for ${item.id}`,
       "enter toggles • esc back",
@@ -266,7 +272,7 @@ async function chooseIdeaReviewAction(
     );
     if (!next || next.value === "back") {
       const fresh = rt.queueStore.get(item.id);
-      if (fresh) await chooseIdeaReviewAction(pi, rt, ctx, fresh);
+      if (fresh) await chooseIdeaReviewAction(pi, rt, ctx, fresh, selectOverlay);
       return;
     }
     const tags =
@@ -276,7 +282,7 @@ async function chooseIdeaReviewAction(
     rt.queueStore.update(item.id, { tags });
     requestQueueRender(rt);
     const fresh = rt.queueStore.get(item.id);
-    if (fresh) await chooseIdeaReviewAction(pi, rt, ctx, fresh);
+    if (fresh) await chooseIdeaReviewAction(pi, rt, ctx, fresh, selectOverlay);
     return;
   }
 
@@ -302,6 +308,7 @@ export async function openIdeasReview(
   pi: ExtensionAPI,
   rt: RuntimeState,
   ctx: any,
+  selectOverlay: IdeaSelectOverlay = showSelectOverlay,
 ): Promise<void> {
   const ideas = activeIdeas(rt, ctx);
   if (ideas.length === 0) {
@@ -309,7 +316,7 @@ export async function openIdeasReview(
     return;
   }
 
-  const selected = await showSelectOverlay(
+  const selected = await selectOverlay(
     ctx,
     "Wishcraft ideas",
     "↑↓ navigate • enter review • esc cancel",
@@ -319,5 +326,5 @@ export async function openIdeasReview(
   if (!selected) return;
 
   const item = ideas.find((candidate) => candidate.id === selected.value);
-  if (item) await chooseIdeaReviewAction(pi, rt, ctx, item);
+  if (item) await chooseIdeaReviewAction(pi, rt, ctx, item, selectOverlay);
 }
