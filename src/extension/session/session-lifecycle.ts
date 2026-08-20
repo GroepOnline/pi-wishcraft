@@ -70,7 +70,7 @@ import {
 import { CONTEXT_STATUS_RENDER_MS } from "../core/constants.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { isStaleExtensionContextError } from "./stale-context.ts";
-import { dismissWelcome, scheduleDismissWelcome } from "../welcome/welcome-control.ts";
+import { dismissWelcome } from "../welcome/welcome-control.ts";
 import {
   bindSkillsCountPublisher,
   clearSkillsCountPublisher,

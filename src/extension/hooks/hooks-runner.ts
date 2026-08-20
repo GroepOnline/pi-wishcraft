@@ -116,6 +116,8 @@ export function runHookCommand(
       child.stdin?.end();
     } catch (error) {
       stderr += `wishcraft hook stdin error: ${error instanceof Error ? error.message : String(error)}\n`;
+      killTree("SIGTERM");
+      setTimeout(() => killTree("SIGKILL"), 2000).unref?.();
       finish(null);
     }
   });

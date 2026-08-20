@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   commandsFor,
   hookMatchesTool,
   parseHooksSettings,
 } from "../src/extension/hooks/hooks-config.ts";
-import { preToolUseVerdict, type HookOutput } from "../src/extension/hooks/hooks-runner.ts";
+import { preToolUseVerdict, type HookOutput, runHookCommand } from "../src/extension/hooks/hooks-runner.ts";
 import { repairToolInput } from "../src/extension/hooks/repairs.ts";
 
 function out(partial: Partial<HookOutput>): HookOutput {
@@ -141,4 +144,39 @@ test("repairToolInput skips pi core tools", () => {
   const result = repairToolInput("bash", input);
   assert.deepEqual(result.repairs, []);
   assert.equal(input.x, null);
+});
+
+test("runHookCommand returns parsed output for a successful hook", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "wishcraft-hook-"));
+  const script = join(dir, "hook.sh");
+  writeFileSync(
+    script,
+    "#!/bin/bash\nsleep 0.1\necho '" + JSON.stringify({ continue: true }) + "'\n",
+    { mode: 0o755 },
+  );
+  const result = await runHookCommand(
+    { command: script, timeout: 5 },
+    {
+      session_id: "test",
+      cwd: "/tmp",
+      hook_event_name: "preToolUse",
+      permission_mode: "default",
+    },
+  );
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(result.parsed, { continue: true });
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("runHookCommand times out and settles with exitCode null", async () => {
+  const result = await runHookCommand(
+    { command: "sleep 10", timeout: 1 },
+    {
+      session_id: "test",
+      cwd: "/tmp",
+      hook_event_name: "preToolUse",
+      permission_mode: "default",
+    },
+  );
+  assert.equal(result.exitCode, null);
 });

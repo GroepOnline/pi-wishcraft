@@ -47,7 +47,7 @@ const cases: Array<{
     text: "Use offset=99 to continue.\nsecond\nthird",
     details: { truncation: { totalLines: 50 } },
     append: true,
-    hint: "50 lines, showing 1–3, next offset 4",
+    hint: "[wishcraft] 50 lines, showing 1–3, next offset 4",
   },
   {
     name: "footer-like source on the last line still gets a hint",
@@ -55,7 +55,7 @@ const cases: Array<{
     text: "first\nUse offset=15 to continue.",
     details: { truncation: { totalLines: 40 } },
     append: true,
-    hint: "40 lines, showing 1–2, next offset 3",
+    hint: "[wishcraft] 40 lines, showing 1–2, next offset 3",
   },
   {
     name: "partial read needs a hint when core stayed quiet",
@@ -63,7 +63,7 @@ const cases: Array<{
     text: "line ten\nline eleven\nline twelve\nline thirteen\nline fourteen",
     details: { truncation: { totalLines: 100 } },
     append: true,
-    hint: "100 lines, showing 10–14, next offset 15",
+    hint: "[wishcraft] 100 lines, showing 10–14, next offset 15",
   },
   {
     name: "partial read at eof does not need a hint",
@@ -77,6 +77,14 @@ const cases: Array<{
     input: { offset: 1, limit: 10 },
     text: "only\nthree\nlines",
     append: false,
+  },
+  {
+    name: "file content matching old hint format does not suppress pagination",
+    input: { offset: 1, limit: 3 },
+    text: "10 lines, showing 1-10, next offset 11\nsecond\nthird",
+    details: { truncation: { totalLines: 50 } },
+    append: true,
+    hint: "[wishcraft] 50 lines, showing 1–3, next offset 4",
   },
 ];
 
@@ -92,7 +100,7 @@ for (const c of cases) {
 test("formatReadHint falls back without total line count", () => {
   assert.equal(
     formatReadHint({ offset: 3, limit: 2 }, "c\n d"),
-    "2 lines, showing 3–4, next offset 5",
+    "[wishcraft] 2 lines, showing 3–4, next offset 5",
   );
 });
 
