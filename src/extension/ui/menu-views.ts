@@ -305,46 +305,6 @@ export async function activateSegment(
   ctx.ui.notify(`${id}: ${value}`, "info");
 }
 
-/** Main powerline menu: navigate / configure / info / toggle. */
-export async function showPowerlineMainMenu(
-  rt: RuntimeState,
-  ctx: any,
-): Promise<void> {
-  rt.currentCtx = ctx;
-  const choice = await ctx.ui.select("Powerline", [
-    "Navigate segments",
-    "Configure…",
-    "Open ports (full list)",
-    "TPS detail",
-    "Toggle powerline",
-  ]);
-  if (!choice) return;
-  if (choice === "Navigate segments") {
-    const picked = await showSegmentNavigator(rt, ctx);
-    if (picked) await activateSegment(rt, ctx, picked);
-    return;
-  }
-  if (choice === "Configure…") {
-    await configurePowerline(rt, ctx);
-    return;
-  }
-  if (choice === "Open ports (full list)") {
-    await showOpenPortsList(ctx);
-    return;
-  }
-  if (choice === "TPS detail") {
-    const live = process.env.POWERLINE_TPS
-      ? `(override ${process.env.POWERLINE_TPS})`
-      : "(live 1s window)";
-    ctx.ui.notify(`TPS ${live}`, "info");
-    return;
-  }
-  if (choice === "Toggle powerline") {
-    ctx.ui.notify("Use /powerline to toggle", "info");
-    return;
-  }
-}
-
 /** Navigable overlay that mirrors the live powerline segments; arrow keys move, Enter activates. */
 export async function showSegmentNavigator(
   rt: RuntimeState,

@@ -16,9 +16,9 @@ import {
 } from "../settings/settings-io.ts";
 import {
   showOpenPortsList,
-  showPowerlineMainMenu,
   showSelectOverlay,
 } from "../ui/menu-views.ts";
+import { showPowerlineMainMenu } from "../ui/powerline-menu-view.ts";
 import { openStashHistory } from "../shortcuts/shortcuts-router.ts";
 import { ensureShellSession, setBashModeActive } from "./bash-mode-actions.ts";
 import { setupCustomEditor } from "../ui/custom-editor.ts";

@@ -305,7 +305,7 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 | GRO-1061 CI queue | Ops, niet deze roadmap. |
 | CHE-40 `/powerline` tab | In Progress. `/powerline` tab completes presets and placement above, below, or toggle. |
 | CHE-41 alt+i info | Wordt 1.0 detail-view. Ticket hernoemen of GRO-child. |
-| CHE-42 drill-down | = 0.20 PR G. Hernoemen naar wishcraft / GRO. |
+| CHE-42 drill-down | In Progress. Three top-level overlay entries plus Status drill-down. |
 
 Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
 die package nog leeft.

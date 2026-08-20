@@ -6,6 +6,7 @@
 
 ### Added
 - `/powerline` tab-completes built-in presets and `placement above|below|toggle`.
+- `alt+p` menu is three overlay entries (Navigate, Configure, Status) with a Status drill-down for ports, TPS, and toggle.
 
 ## [0.19.1] - 2026-08-20
 
