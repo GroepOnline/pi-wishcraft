@@ -15,6 +15,7 @@ import { readSettings, writeSettingKey } from "../settings/settings-io.ts";
 import { isRecord } from "../settings/settings-io.ts";
 import { config as stateConfig, setConfig, PRESET_NAMES } from "../core/state.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
+import { WELCOME_ART_THEMES } from "../../welcome/welcome-art.ts";
 
 // ---------------------------------------------------------------------------
 // Config-item declaraties
@@ -156,10 +157,25 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
       ],
     },
     {
+      title: "Model & git details",
+      items: [
+        { label: "Model display", path: "powerline.segmentOptions.model.display", kind: "select", choices: ["name", "qualified"], hint: "short name or provider/name" },
+        { label: "Model thinking level", path: "powerline.segmentOptions.model.showThinkingLevel", kind: "toggle", hint: "show think:low/med/high next to the model" },
+        { label: "Git branch", path: "powerline.segmentOptions.git.showBranch", kind: "toggle" },
+        { label: "Git staged count", path: "powerline.segmentOptions.git.showStaged", kind: "toggle" },
+        { label: "Git unstaged count", path: "powerline.segmentOptions.git.showUnstaged", kind: "toggle" },
+        { label: "Git untracked count", path: "powerline.segmentOptions.git.showUntracked", kind: "toggle" },
+        { label: "Git polling", path: "powerline.segmentOptions.git.polling", kind: "select", choices: ["full", "branch", "off"], hint: "full = counts + ahead/behind, branch = name only, off = disable" },
+        { label: "Git commit subject max", path: "powerline.segmentOptions.git.maxCommitSubjectLength", kind: "number", hint: "0 = default" },
+      ],
+    },
+    {
       title: "Welcome & vibes",
       items: [
         { label: "Welcome overlay", path: "powerline.welcome", kind: "toggle", hint: "on = overlay at startup, off = no welcome" },
-        { label: "Animate wishcraft lantern", path: "wishcraft.welcome.animateLantern", kind: "toggle", hint: "flicker on the lantern" },
+        { label: "Welcome art", path: "wishcraft.welcome.art", kind: "select", choices: [...WELCOME_ART_THEMES], hint: "lantern = Kongming sky lantern, balloon = wish balloon, normal = pi mark" },
+        { label: "Animate wishcraft lantern", path: "wishcraft.welcome.animateLantern", kind: "toggle", hint: "flicker on the lantern flame" },
+        { label: "Persistent header (quiet startup)", path: "quietStartup", kind: "toggle", hint: "on = header that dismisses on first input, off = centered overlay" },
       ],
     },
     {
