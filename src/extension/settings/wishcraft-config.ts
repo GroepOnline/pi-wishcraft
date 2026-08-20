@@ -55,7 +55,44 @@ export function readConfigPath(settings: Record<string, unknown>, path: string):
   return null;
 }
 
-/** Genest schrijven (immutabel op elk niveau) + persist naar settings.json. */
+/** True for path segments that would mutate Object.prototype. */
+export function isUnsafeConfigKey(key: string): boolean {
+  return key === "__proto__" || key === "constructor" || key === "prototype";
+}
+
+/**
+ * Set `parts` (after the root key) on `root`. Returns false and leaves
+ * `root` unchanged when a segment is `__proto__`, `constructor`, or `prototype`.
+ */
+export function assignNestedConfigValue(
+  root: Record<string, unknown>,
+  parts: string[],
+  value: ConfigValue,
+): boolean {
+  for (const part of parts) {
+    if (part === "__proto__" || part === "constructor" || part === "prototype") {
+      return false;
+    }
+  }
+  let node = root;
+  for (let i = 0; i < parts.length; i++) {
+    const key = parts[i]!;
+    // Guard in this loop so CodeQL sees the key check next to the assignment.
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      return false;
+    }
+    if (i === parts.length - 1) {
+      if (value === null) delete node[key];
+      else node[key] = value;
+    } else {
+      if (!isRecord(node[key])) node[key] = {};
+      node = node[key] as Record<string, unknown>;
+    }
+  }
+  return true;
+}
+
+/** Nested write (new object per level) + persist to settings.json. */
 export function writeConfigPath(
   cwd: string,
   path: string,
@@ -63,29 +100,20 @@ export function writeConfigPath(
 ): boolean {
   const parts = path.split(".");
   const rootKey = parts[0]!;
-  // Weiger prototype-pollution keys (CodeQL).
-  if (parts.some((p) => p === "__proto__" || p === "constructor" || p === "prototype")) {
+  if (!rootKey || parts.some(isUnsafeConfigKey)) {
     return false;
   }
   return writeSettingKey(cwd, rootKey, (existing) => {
-    // Shorthand string onder powerline (bv. "chef") is een preset-naam: bewaar 'm.
-    let node: Record<string, unknown> = isRecord(existing)
+    // Shorthand string under powerline (e.g. "chef") is a preset name: keep it.
+    const node: Record<string, unknown> = isRecord(existing)
       ? existing
       : rootKey === "powerline" && typeof existing === "string"
         ? { preset: existing }
         : {};
-    const root = node;
-    for (let i = 1; i < parts.length; i++) {
-      const key = parts[i]!;
-      if (i === parts.length - 1) {
-        if (value === null) delete node[key];
-        else node[key] = value;
-      } else {
-        if (!isRecord(node[key])) node[key] = {};
-        node = node[key] as Record<string, unknown>;
-      }
+    if (!assignNestedConfigValue(node, parts.slice(1), value)) {
+      return existing;
     }
-    return root;
+    return node;
   });
 }
 
