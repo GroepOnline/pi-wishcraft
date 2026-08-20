@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- `powerline.skills.count` ChefGroep status export, published on session start.
+- `powerline.skills.count` status export, published on session start.
 - Read-tool continuation hints on partial core `read` results when the core output omits a range summary.
 
 ### Changed
