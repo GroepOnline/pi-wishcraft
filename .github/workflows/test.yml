@@ -10,9 +10,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   test:
     name: test
@@ -21,15 +18,27 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
       - name: Install devDependencies
         run: npm ci --ignore-scripts
+      - name: Whitespace check
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git diff --check "origin/$GITHUB_BASE_REF...HEAD"
+          else
+            git diff --check "HEAD~1" "HEAD"
+          fi
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests
         run: npm test
       - name: Circular dependency check
         run: npx madge --circular src index.ts bash-mode queue
+      - name: Dependency audit (informational)
+        run: npm audit --audit-level=high
+        continue-on-error: true

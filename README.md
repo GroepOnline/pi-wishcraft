@@ -66,6 +66,8 @@ curl -fsSL https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/scrip
 
 Restart or `/reload` pi to activate.
 
+Extended guides (segments, bash mode, commands, configuration) live in [`docs/`](docs/index.md).
+
 ## Usage
 
 Activates automatically. Toggle with `/powerline`, switch presets with `/powerline <name>`, and move the primary row with `/powerline placement above|below|toggle`. Tab after `/powerline` completes preset names and `placement`; tab again after `placement` completes `above`, `below`, or `toggle`.

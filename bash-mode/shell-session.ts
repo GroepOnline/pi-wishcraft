@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
@@ -87,6 +87,7 @@ print -r -- "${READY_SENTINEL}:$PWD"
 
 export class ManagedShellSession {
   private readonly shellPath: string;
+  private readonly initScript: string | null;
   private readonly transcript: BashTranscriptStore;
   private readonly onStateChange: () => void;
   private readonly onCommandSuccess: (command: string, cwd: string) => void;
@@ -107,8 +108,10 @@ export class ManagedShellSession {
     transcript: BashTranscriptStore,
     onStateChange: () => void,
     onCommandSuccess: (command: string, cwd: string) => void,
+    initScript: string | null = null,
   ) {
     this.shellPath = shellPath;
+    this.initScript = initScript;
     this.transcript = transcript;
     this.onStateChange = onStateChange;
     this.onCommandSuccess = onCommandSuccess;
@@ -174,7 +177,12 @@ export class ManagedShellSession {
       this.onStateChange();
     });
 
-    this.sendRaw(getShellInitScript(this.state.shellName) + "\n");
+    const projectInit = this.initScript
+      ? this.initScript.endsWith("\n")
+        ? this.initScript
+        : `${this.initScript}\n`
+      : "";
+    this.sendRaw(projectInit + getShellInitScript(this.state.shellName) + "\n");
     return this.readyPromise;
   }
 
@@ -214,11 +222,6 @@ export class ManagedShellSession {
     this.readyPromise = null;
     this.readyResolve = null;
     this.readyReject = null;
-    try {
-      rmSync(this.tempDir, { recursive: true, force: true });
-    } catch {
-      // tempdir opruimen is best-effort
-    }
     if (!this.process) return;
     try {
       process.kill(-this.process.pid!, "SIGKILL");
@@ -257,10 +260,7 @@ export class ManagedShellSession {
       }
 
       if (line.startsWith(`${COMMAND_START_SENTINEL}:`)) {
-        // cwd kan zelf ':' bevatten: alles na het tweede veld is cwd
-        const parts = line.split(":");
-        const id = parts[1];
-        const cwd = parts.slice(2).join(":");
+        const [, id, cwd] = line.split(":");
         if (cwd) this.state.cwd = cwd;
         this.currentCommandId = id ?? this.currentCommandId;
         this.onStateChange();
@@ -268,10 +268,7 @@ export class ManagedShellSession {
       }
 
       if (line.startsWith(`${COMMAND_DONE_SENTINEL}:`)) {
-        const parts = line.split(":");
-        const id = parts[1];
-        const exitCodeText = parts[2];
-        const cwd = parts.slice(3).join(":");
+        const [, id, exitCodeText, cwd] = line.split(":");
         const exitCode = Number.parseInt(exitCodeText ?? "1", 10);
         this.state.running = false;
         this.state.lastExitCode = Number.isFinite(exitCode) ? exitCode : 1;

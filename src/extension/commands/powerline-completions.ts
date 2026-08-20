@@ -8,6 +8,14 @@ export const POWERLINE_SUBCOMMANDS: ReadonlyArray<{
   description: string;
 }> = [
   {
+    value: "doctor",
+    description: "Run environment and settings diagnostics",
+  },
+  {
+    value: "export",
+    description: "Export the current status-line configuration",
+  },
+  {
     value: "placement",
     description: "Move the primary row above or below the editor",
   },

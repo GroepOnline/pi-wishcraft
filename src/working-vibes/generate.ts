@@ -1,8 +1,16 @@
 // generate.ts
-// CLI-arg parsing and batch generation for `/vibe generate`.
+// CLI-arg parsing, batch generation for `/vibe generate`, and sample previews
+// for `/vibe test`.
+
+import type {
+  AssistantMessage,
+  Model,
+  ProviderHeaders,
+} from "@earendil-works/pi-ai";
 
 import {
   BATCH_PROMPT,
+  SAMPLES_PROMPT,
   getVibeFilePath,
   saveVibesToFile,
   vibeState,
@@ -12,6 +20,10 @@ import { buildAiContext, completeVibe } from "./provider.ts";
 export type GenerateVibesResult =
   | { success: true; count: number; filePath: string }
   | { success: false; count: 0; filePath: string; error: string };
+
+export type GenerateVibeSamplesResult =
+  | { success: true; theme: string; samples: string[] }
+  | { success: false; theme: string; error: string };
 
 export function parseVibeGenerateArgs(
   args: readonly string[],
@@ -31,6 +43,93 @@ export function parseVibeGenerateArgs(
   };
 }
 
+/**
+ * Turn a model's free-text response into clean, ellipsized vibe lines. Pure so
+ * both batch generation and sample previews share the same cleanup rules.
+ */
+export function parseVibeLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      let vibe = line.replace(/^["'\d.\-)\s]+/, "").trim();
+      vibe = vibe.replace(/["']$/g, "");
+      if (!vibe.endsWith("...")) {
+        vibe = vibe.replace(/\.+$/, "") + "...";
+      }
+      return vibe;
+    })
+    .filter((vibe) => vibe.length > 3 && vibe !== "...");
+}
+
+interface ResolvedVibeModel {
+  provider: string;
+  model: Model<string>;
+  auth: {
+    apiKey?: string;
+    headers?: ProviderHeaders;
+    env?: Record<string, string>;
+  };
+}
+
+/** Resolve the configured vibe model + credentials, or return a user-facing error. */
+async function resolveVibeModelAndAuth(): Promise<
+  | { ok: true; value: ResolvedVibeModel }
+  | { ok: false; error: string }
+> {
+  const extensionCtx = vibeState.extensionCtx;
+  if (!extensionCtx) {
+    return { ok: false, error: "Extension not initialized" };
+  }
+
+  const slashIndex = vibeState.config.modelSpec.indexOf("/");
+  if (slashIndex === -1) {
+    return { ok: false, error: "Invalid model spec" };
+  }
+  const provider = vibeState.config.modelSpec.slice(0, slashIndex);
+  const modelId = vibeState.config.modelSpec.slice(slashIndex + 1);
+
+  const model = extensionCtx.modelRegistry.find(provider, modelId);
+  if (!model) {
+    return {
+      ok: false,
+      error: `Model not found: ${vibeState.config.modelSpec}`,
+    };
+  }
+
+  const auth = await extensionCtx.modelRegistry.getApiKeyAndHeaders(model);
+  if (!auth.ok) {
+    return { ok: false, error: auth.error };
+  }
+
+  return {
+    ok: true,
+    value: {
+      provider,
+      model,
+      auth: {
+        apiKey: auth.apiKey,
+        headers: auth.headers,
+        env: auth.env,
+      },
+    },
+  };
+}
+
+function extractVibeText(
+  response: AssistantMessage,
+): { text: string; error: string | null } {
+  const textContent = response.content.find((c) => c.type === "text");
+  if (textContent?.text) {
+    return { text: textContent.text, error: null };
+  }
+  if (response.stopReason === "error" && response.errorMessage) {
+    return { text: "", error: response.errorMessage };
+  }
+  return { text: "", error: "Empty response from model" };
+}
+
 export async function generateVibesBatch(
   theme: string,
   count: number = 100,
@@ -40,84 +139,31 @@ export async function generateVibesBatch(
     ? Math.min(Math.max(Math.floor(count), 1), 500)
     : 100;
 
-  if (!vibeState.extensionCtx) {
-    return {
-      success: false,
-      count: 0,
-      filePath,
-      error: "Extension not initialized",
-    };
+  const resolved = await resolveVibeModelAndAuth();
+  if (!resolved.ok) {
+    return { success: false, count: 0, filePath, error: resolved.error };
   }
+  const { provider, model, auth } = resolved.value;
 
-  // Parse model spec
-  const slashIndex = vibeState.config.modelSpec.indexOf("/");
-  if (slashIndex === -1) {
-    return { success: false, count: 0, filePath, error: "Invalid model spec" };
-  }
-  const provider = vibeState.config.modelSpec.slice(0, slashIndex);
-  const modelId = vibeState.config.modelSpec.slice(slashIndex + 1);
-
-  // Resolve model
-  const model = vibeState.extensionCtx.modelRegistry.find(provider, modelId);
-  if (!model) {
-    return {
-      success: false,
-      count: 0,
-      filePath,
-      error: `Model not found: ${vibeState.config.modelSpec}`,
-    };
-  }
-
-  // Get auth
-  const auth =
-    await vibeState.extensionCtx.modelRegistry.getApiKeyAndHeaders(model);
-  if (!auth.ok) {
-    return { success: false, count: 0, filePath, error: auth.error };
-  }
-
-  // Build batch prompt
   const prompt = BATCH_PROMPT.replace(/\{theme\}/g, theme).replace(
     /\{count\}/g,
     String(safeCount),
   );
 
-  const aiContext = buildAiContext(prompt);
-
   try {
-    // Use longer timeout for batch generation (30 seconds)
-    const signal = AbortSignal.timeout(30000);
-    const response = await completeVibe(provider, model, aiContext, {
+    const response = await completeVibe(provider, model, buildAiContext(prompt), {
       apiKey: auth.apiKey,
       headers: auth.headers,
       env: auth.env,
-      signal,
+      signal: AbortSignal.timeout(30000),
     });
 
-    const textContent = response.content.find((c) => c.type === "text");
-    if (!textContent?.text) {
-      const error =
-        response.stopReason === "error" && response.errorMessage
-          ? response.errorMessage
-          : "Empty response from model";
+    const { text, error } = extractVibeText(response);
+    if (error) {
       return { success: false, count: 0, filePath, error };
     }
 
-    // Parse response: one vibe per line
-    const vibes = textContent.text
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .map((line) => {
-        // Clean up each line
-        let vibe = line.replace(/^["'\d.\-)\s]+/, "").trim(); // Remove leading quotes, numbers, bullets
-        vibe = vibe.replace(/["']$/g, ""); // Remove trailing quotes
-        if (!vibe.endsWith("...")) {
-          vibe = vibe.replace(/\.+$/, "") + "...";
-        }
-        return vibe;
-      })
-      .filter((vibe) => vibe.length > 3 && vibe !== "..."); // Filter invalid
-
+    const vibes = parseVibeLines(text);
     if (vibes.length === 0) {
       return {
         success: false,
@@ -127,10 +173,8 @@ export async function generateVibesBatch(
       };
     }
 
-    // Save to file
     saveVibesToFile(theme, vibes);
 
-    // Clear cache so next use loads fresh
     if (vibeState.vibeCacheTheme === theme) {
       vibeState.vibeCache = [];
       vibeState.vibeCacheTheme = null;
@@ -140,5 +184,47 @@ export async function generateVibesBatch(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return { success: false, count: 0, filePath, error: message };
+  }
+}
+
+/** Preview a few vibes for `theme` without saving a file or changing the theme. */
+export async function generateVibeSamples(
+  theme: string,
+  count: number = 3,
+): Promise<GenerateVibeSamplesResult> {
+  const safeCount = Math.min(Math.max(Math.floor(count), 1), 5);
+
+  const resolved = await resolveVibeModelAndAuth();
+  if (!resolved.ok) {
+    return { success: false, theme, error: resolved.error };
+  }
+  const { provider, model, auth } = resolved.value;
+
+  const prompt = SAMPLES_PROMPT.replace(/\{theme\}/g, theme).replace(
+    /\{count\}/g,
+    String(safeCount),
+  );
+
+  try {
+    const response = await completeVibe(provider, model, buildAiContext(prompt), {
+      apiKey: auth.apiKey,
+      headers: auth.headers,
+      env: auth.env,
+      signal: AbortSignal.timeout(30000),
+    });
+
+    const { text, error } = extractVibeText(response);
+    if (error) {
+      return { success: false, theme, error };
+    }
+
+    const samples = parseVibeLines(text);
+    if (samples.length === 0) {
+      return { success: false, theme, error: "No valid vibes generated" };
+    }
+    return { success: true, theme, samples };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return { success: false, theme, error: message };
   }
 }

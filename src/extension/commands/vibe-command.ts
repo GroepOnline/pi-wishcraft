@@ -1,7 +1,10 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { copyToClipboard } from "@earendil-works/pi-coding-agent";
+import type { SelectItem } from "@earendil-works/pi-tui";
 
 import {
   generateVibesBatch,
+  generateVibeSamples,
   getVibeFileCount,
   getVibeMode,
   getVibeModel,
@@ -12,6 +15,7 @@ import {
   setVibeModel,
   setVibeTheme,
 } from "../../working-vibes/index.ts";
+import { showSelectOverlay } from "../ui/menu-views.ts";
 
 export async function runVibeCommand(args: string, ctx: any): Promise<void> {
   const parts = args?.trim().split(/\s+/) || [];
@@ -114,6 +118,50 @@ export async function runVibeCommand(args: string, ctx: any): Promise<void> {
     return;
   }
 
+  // /vibe test <theme> - preview 3 sample vibes without committing the theme
+  if (subcommand === "test") {
+    const theme = parts.slice(1).join(" ").trim();
+    if (!theme) {
+      ctx.ui.notify("Usage: /vibe test <theme>", "error");
+      return;
+    }
+    ctx.ui.notify(`Previewing 3 sample vibes for "${theme}"...`, "info");
+
+    const result = await generateVibeSamples(theme, 3);
+    if (!result.success) {
+      ctx.ui.notify(`Failed to preview vibes: ${result.error}`, "error");
+      return;
+    }
+
+    const items: SelectItem[] = result.samples.map((sample, index) => ({
+      label: `${index + 1}. ${sample}`,
+      value: sample,
+    }));
+    const picked = await showSelectOverlay(
+      ctx,
+      `Vibe preview — "${result.theme}"`,
+      "↑↓ scroll · enter copy /vibe command · esc close",
+      items,
+      Math.min(items.length, 6),
+    );
+    if (!picked) return;
+
+    let copied = false;
+    try {
+      await copyToClipboard(`/vibe ${result.theme}`);
+      copied = true;
+    } catch {
+      copied = false;
+    }
+    ctx.ui.notify(
+      copied
+        ? `Copied: /vibe ${result.theme}`
+        : `Run /vibe ${result.theme} to apply this theme`,
+      copied ? "info" : "warning",
+    );
+    return;
+  }
+
   // /vibe off - disable
   if (subcommand === "off") {
     const persisted = setVibeTheme(null);
@@ -151,7 +199,7 @@ export async function runVibeCommand(args: string, ctx: any): Promise<void> {
 export function registerVibeCommand(pi: ExtensionAPI): void {
   pi.registerCommand("vibe", {
     description:
-      "Set working message theme. Usage: /vibe [theme|off|mode|model|generate]",
+      "Set working message theme. Usage: /vibe [theme|off|mode|model|generate|test]",
     handler: async (args, ctx) => {
       runVibeCommand(args, ctx);
     },

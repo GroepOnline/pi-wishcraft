@@ -40,7 +40,7 @@ export function normalizePlacement(value: unknown): {
   };
 }
 
-const SEPARATOR_STYLES = [
+export const SEPARATOR_STYLES = [
   "powerline",
   "powerline-thin",
   "slash",
@@ -95,6 +95,18 @@ export function normalizeCaptureSigil(value: unknown): string | false {
   if (typeof value !== "string") return "#";
   const normalized = value.trim();
   return normalized && !/\s/.test(normalized) ? normalized : "#";
+}
+
+export function normalizeRetentionHours(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 24;
+  return Math.min(24 * 365, Math.max(1, Math.floor(value)));
+}
+
+export function normalizeCostAlert(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return Math.round(value * 100) / 100;
 }
 
 export function normalizeCustomSegmentType(

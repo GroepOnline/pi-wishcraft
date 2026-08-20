@@ -1,13 +1,16 @@
 import {
   normalizeCustomItems,
+  normalizeCustomItemsAuto,
   normalizeCustomPresets,
   normalizeCustomSegments,
 } from "./custom-items.ts";
 import {
   isRecord,
   normalizeCaptureSigil,
+  normalizeCostAlert,
   normalizePlacement,
   normalizePreset,
+  normalizeRetentionHours,
   normalizeSegmentLabels,
   normalizeSeparator,
 } from "./primitives.ts";
@@ -37,7 +40,11 @@ export interface PowerlineConfig {
   invalidPlacement: string | null;
   welcome: boolean;
   stashSharpSShortcut: boolean;
-  queue: { captureSigil: string | false };
+  /** Session cost threshold (USD) for a once-per-session warning. */
+  costAlert: number | null;
+  /** Auto-promote live extension status keys into `custom:<key>` segments. */
+  customItemsAuto: boolean;
+  queue: { captureSigil: string | false; retentionHours: number };
   /** User-defined computed segments (command/env/static), keyed by id */
   segments: Record<string, CustomSegmentConfig>;
   /** User-defined presets, keyed by name */
@@ -63,7 +70,9 @@ export function parsePowerlineConfig(
     invalidPlacement: null,
     welcome: true,
     stashSharpSShortcut: false,
-    queue: { captureSigil: "#" },
+    costAlert: null,
+    customItemsAuto: false,
+    queue: { captureSigil: "#", retentionHours: 24 },
     segments: {},
     presets: {},
     segmentLabels: {},
@@ -90,7 +99,10 @@ export function parsePowerlineConfig(
   );
   const { placement, invalidPlacement } = normalizePlacement(value.placement);
   const queue = isRecord(value.queue)
-    ? { captureSigil: normalizeCaptureSigil(value.queue.captureSigil) }
+    ? {
+        captureSigil: normalizeCaptureSigil(value.queue.captureSigil),
+        retentionHours: normalizeRetentionHours(value.queue.retentionHours),
+      }
     : defaultConfig.queue;
   const customItemIds = new Set(customItems.map((item) => item.id));
   const customPresetDefs = normalizeCustomPresets(
@@ -119,6 +131,10 @@ export function parsePowerlineConfig(
     invalidPlacement,
     welcome: value.welcome !== false,
     stashSharpSShortcut: value.stashSharpSShortcut === true,
+    costAlert: normalizeCostAlert(value.costAlert),
+    customItemsAuto:
+      normalizeCustomItemsAuto(value.customItems) ||
+      value.customItemsAuto === true,
     queue,
     segments: customSegments,
     presets: customPresetDefs,

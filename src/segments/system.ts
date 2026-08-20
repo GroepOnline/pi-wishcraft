@@ -50,11 +50,11 @@ export const subagentsSegment: StatusLineSegment = {
     const subagentCost = ctx.usageStats?.subagentCost ?? 0;
     if (!subagentCost) return { content: "", visible: false };
 
-    // label wordt centraal toegepast (renderSegment)
     const cost =
       formatUsdCost(subagentCost, ctx.options.cost?.currency) ?? "sub";
+    const text = `sub ${cost}`;
     return {
-      content: withIcon(getIcons().agents, color(ctx, "cost", `sub ${cost}`)),
+      content: withIcon(getIcons().agents, color(ctx, "cost", text)),
       visible: true,
     };
   },
@@ -113,24 +113,65 @@ export const extensionStatusesSegment: StatusLineSegment = {
   },
 };
 
-export function countListeningPorts(includeUdp = false): number {
+/**
+ * Validate a fleet SSH target (hostname, `user@host`, or IPv4). Rejects spaces
+ * and shell metacharacters so it can't be used to inject flags/commands into
+ * the `ssh` invocation.
+ */
+export function sanitizeSshHost(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const host = value.trim();
+  return /^[A-Za-z0-9._@-]+$/.test(host) && host.length > 0 ? host : null;
+}
+
+/**
+ * Wrap a probe command for a remote host, or return it unchanged for local
+ * probing. Remote commands are quoted so the local shell can't reinterpret the
+ * inner `2>/dev/null`; `BatchMode` fails fast (no password prompt) on hosts
+ * that require interactive auth or an unknown host key.
+ */
+function sshCommand(
+  host: string | undefined,
+  remoteCmd: string,
+): string | null {
+  if (!host) return remoteCmd;
+  const safe = sanitizeSshHost(host);
+  if (!safe) return null;
+  return `ssh -o ConnectTimeout=3 -o BatchMode=yes ${safe} ${JSON.stringify(remoteCmd)} 2>/dev/null`;
+}
+
+export function countListeningPorts(includeUdp = false, host?: string): number {
   // ponytail: count UNIQUE TCP listening ports (dedupes IPv4/IPv6 dual-stack and
   // repeated multicast binds). UDP is noisy (mDNS/DHCP/ephemeral) so it's opt-in.
+  // A configured host switches to a best-effort SSH probe (fleet open-ports).
   const run = (cmd: string): string | null => {
     try {
-      return execSync(cmd, { encoding: "utf8", timeout: 2000 });
+      return execSync(cmd, { encoding: "utf8", timeout: 3000 });
     } catch {
       return null;
     }
   };
+  const remote = (cmd: string): string | null =>
+    host ? sshCommand(host, cmd) : cmd;
+
   const proto = includeUdp ? "-tulnH" : "-tlnH";
-  let out = run(`ss ${proto} 2>/dev/null`);
-  if (out === null) out = run(`ss ${proto.replace("H", "")} 2>/dev/null`);
-  if (out === null)
-    out = run(
+  const ssCmd = remote(`ss ${proto} 2>/dev/null`);
+  let out = ssCmd === null ? null : run(ssCmd);
+  if (out === null) {
+    const fallback = remote(`ss ${proto.replace("H", "")} 2>/dev/null`);
+    if (fallback !== null) out = run(fallback);
+  }
+  if (out === null) {
+    const netstatCmd = remote(
       includeUdp ? "netstat -tuln 2>/dev/null" : "netstat -tln 2>/dev/null",
     );
-  if (out === null) return readProcListeningPorts(includeUdp);
+    if (netstatCmd !== null) out = run(netstatCmd);
+  }
+  if (out === null) {
+    // /proc/net is only reachable locally; a remote host without ss/netstat is
+    // "unknown" rather than silently zero.
+    return host ? -1 : readProcListeningPorts(includeUdp);
+  }
 
   const lines = out
     .split("\n")
@@ -172,12 +213,132 @@ function readProcListeningPorts(includeUdp: boolean): number {
   return ports.size;
 }
 
-const TPS_RING_MS = 5000;
-const TPS_MAX_SAMPLES = 240;
+// ═══════════════════════════════════════════════════════════════════════════
+// Listening ports → owning process (best-effort, for the segment detail view)
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Rolling sliding-window samples. Exported for deterministic tests of the ring
-// math (inject a controlled reference sample, then assert the rate/mode output).
-export const tpsSamples: { at: number; output: number; input: number }[] = [];
+export interface OpenPortProcess {
+  port: number;
+  proto: "tcp" | "udp";
+  /** Local bind address with the port stripped (e.g. `0.0.0.0`, `[::]`, `*`). */
+  address: string;
+  /** Human-readable owner (`sshd (1071)`), or null when the kernel hides it. */
+  process: string | null;
+}
+
+function parseSsProcess(line: string): string | null {
+  // iproute2 `ss -p`: users:(("name",pid=NNN,fd=NN)); older versions omit `pid=`.
+  const m = /users:\(+\s*"([^"]*)",\s*(?:pid=)?(\d+)/.exec(line);
+  if (!m) return null;
+  return `${m[1]} (${m[2]})`;
+}
+
+/**
+ * Parse `ss -tulnp` / `netstat -tulnp` output into a deduped, port-sorted
+ * list of (proto, port → process). Dual-stack binds (IPv4 + IPv6 for the same
+ * port) collapse to one entry, preferring whichever row has a visible owner.
+ */
+export function parseOpenPortProcesses(text: string): OpenPortProcess[] {
+  const entries: OpenPortProcess[] = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^(Netid|Proto|State|Local|Active)/i.test(line)) continue;
+
+    const tokens = line.split(/\s+/);
+    if (tokens.length < 6) continue;
+
+    // ss puts the socket State (LISTEN/UNCONN) in column 1; netstat has a
+    // numeric Recv-Q there. That tells us which local-address column to use.
+    const isSsRow = !/^\d+$/.test(tokens[1] ?? "");
+    const local = isSsRow ? tokens[4] : tokens[3];
+    const portMatch = local ? /:(\d+)$/.exec(local) : null;
+    if (!portMatch) continue;
+
+    let process: string | null = null;
+    if (isSsRow) {
+      process = parseSsProcess(line);
+    } else {
+      // netstat has no State column for UDP, so PID/name is always last.
+      const last = tokens[tokens.length - 1];
+      const procMatch = /^(\d+)\/(.+)$/.exec(last);
+      process = procMatch ? `${procMatch[2]} (${procMatch[1]})` : null;
+    }
+
+    entries.push({
+      port: Number(portMatch[1]),
+      proto: tokens[0].toLowerCase().startsWith("udp") ? "udp" : "tcp",
+      address: local.replace(/:(\d+)$/, ""),
+      process,
+    });
+  }
+
+  const byKey = new Map<string, OpenPortProcess>();
+  for (const entry of entries) {
+    const key = `${entry.proto}:${entry.port}`;
+    const existing = byKey.get(key);
+    if (!existing || (existing.process === null && entry.process !== null)) {
+      byKey.set(key, entry);
+    }
+  }
+  return [...byKey.values()].sort(
+    (a, b) =>
+      a.port - b.port || (a.proto === b.proto ? 0 : a.proto === "tcp" ? -1 : 1),
+  );
+}
+
+const openPortProcessesCache = new Map<
+  string,
+  { at: number; entries: OpenPortProcess[] }
+>();
+const OPEN_PORT_PROCESSES_TTL_MS = 2000;
+
+/**
+ * Best-effort process owners for listening ports via `ss -tulnp` (falls back
+ * to `netstat -tulnp`), optionally probed over SSH for a fleet host. Cached
+ * like the open_ports count so the detail view's 1s refresh doesn't spawn a
+ * process on every repaint.
+ */
+export function listOpenPortProcesses(
+  includeUdp = false,
+  host?: string,
+): OpenPortProcess[] {
+  const key = `${includeUdp ? "u" : "t"}:${host ?? ""}`;
+  const now = Date.now();
+  const cached = openPortProcessesCache.get(key);
+  if (cached && now - cached.at < OPEN_PORT_PROCESSES_TTL_MS)
+    return cached.entries;
+
+  const run = (cmd: string): string | null => {
+    try {
+      return execSync(cmd, { encoding: "utf8", timeout: 3000 });
+    } catch {
+      return null;
+    }
+  };
+  const remote = (cmd: string): string | null =>
+    host ? sshCommand(host, cmd) : cmd;
+
+  const ssCmd = remote(
+    includeUdp ? "ss -tulnp 2>/dev/null" : "ss -tlnp 2>/dev/null",
+  );
+  let out = ssCmd === null ? null : run(ssCmd);
+  if (out === null) {
+    const netstatCmd = remote(
+      includeUdp ? "netstat -tulnp 2>/dev/null" : "netstat -tlnp 2>/dev/null",
+    );
+    if (netstatCmd !== null) out = run(netstatCmd);
+  }
+  const entries = out === null ? [] : parseOpenPortProcesses(out);
+  openPortProcessesCache.set(key, { at: now, entries });
+  return entries;
+}
+
+// Rolling 1-second sliding window of (timestamp, cumulative tokens) samples.
+// Renders fire every ~33ms during streaming, so a per-render delta spikes (tiny
+// dt); a fixed ~1s lookback gives a stable, honest tokens/sec over the last
+// second. We track output and input separately so the segment can report both.
+const tpsSamples: { at: number; output: number; input: number }[] = [];
 
 function rateText(rate: number): string {
   return rate >= 100 ? Math.round(rate).toString() : rate.toFixed(1);
@@ -193,27 +354,23 @@ export const tpsSegment: StatusLineSegment = {
         visible: true,
       };
     }
-    const tpsOptions = ctx.options.tps;
-    const windowMs = tpsOptions?.windowMs ?? 1000;
-    const mode = tpsOptions?.mode ?? "both";
-    const hideIdle = tpsOptions?.hideIdle ?? false;
+    const windowMs = ctx.options.tps?.windowMs ?? 1000;
+    const ringMs = Math.max(5000, windowMs * 2);
     const { output, input } = ctx.usageStats ?? { output: 0, input: 0 };
     const now = Date.now();
     tpsSamples.push({ at: now, output, input });
-    // keep the last 5s of samples; drop everything older (idle gaps get forgotten)
-    while (tpsSamples.length > 0 && now - tpsSamples[0].at > TPS_RING_MS)
+    // keep a sliding sample ring; drop everything older (idle gaps get forgotten)
+    while (tpsSamples.length > 0 && now - tpsSamples[0].at > ringMs)
       tpsSamples.shift();
-    if (tpsSamples.length > TPS_MAX_SAMPLES)
-      tpsSamples.splice(0, tpsSamples.length - TPS_MAX_SAMPLES);
+    if (tpsSamples.length > 480) tpsSamples.splice(0, tpsSamples.length - 480);
 
-    // pick the sample closest to [windowMs] ago (window [0.5*windowMs, 2*windowMs])
-    // for a stable rate; scales with the configured lookback while keeping the ring.
+    // pick the sample closest to windowMs old (window [windowMs/2, 2*windowMs])
+    // for a stable rate
     let ref: { at: number; output: number; input: number } | null = null;
     let bestDelta = Infinity;
-    const minAge = Math.floor(windowMs / 2);
     for (const s of tpsSamples) {
       const age = now - s.at;
-      if (age < minAge) continue;
+      if (age < windowMs / 2) continue;
       const d = Math.abs(age - windowMs);
       if (d < bestDelta) {
         bestDelta = d;
@@ -229,18 +386,18 @@ export const tpsSegment: StatusLineSegment = {
       if (dt > 0 && dOut >= 0) outRate = dOut / dt;
       if (dt > 0 && dIn >= 0) inRate = dIn / dt;
     }
-    const showOut = mode === "both" || mode === "out";
-    const showIn = mode === "both" || mode === "in";
     const icons = getIcons();
     const parts: string[] = [];
-    if (showOut && outRate > 0) parts.push(`${icons.output}${rateText(outRate)}`);
-    if (showIn && inRate > 0) parts.push(`${icons.input}${rateText(inRate)}`);
-    const active = (showOut && outRate > 0) || (showIn && inRate > 0);
+    if (outRate > 0) parts.push(`${icons.output}${rateText(outRate)}`);
+    if (inRate > 0) parts.push(`${icons.input}${rateText(inRate)}`);
     const valueText = parts.length > 0 ? parts.join(" ") : "0";
-    if (!active && hideIdle) return { content: "", visible: false };
+    const active = outRate > 0 || inRate > 0;
     // levendig: light up in the tokens color while generating, dim while idle
     return {
-      content: withIcon(icons.tps, color(ctx, active ? "tokens" : "queue", valueText)),
+      content: withIcon(
+        icons.tps,
+        color(ctx, active ? "tokens" : "queue", valueText),
+      ),
       visible: true,
     };
   },
@@ -248,22 +405,24 @@ export const tpsSegment: StatusLineSegment = {
 
 // open_ports runs blocking `ss`/`netstat`; cache the count so it doesn't respawn
 // a process on every repaint (the footer repaints ~every 33ms while streaming).
-const openPortsCache = new Map<boolean, { at: number; count: number }>();
+const openPortsCache = new Map<string, { at: number; count: number }>();
 const OPEN_PORTS_TTL_MS = 2000;
 
 export const openPortsSegment: StatusLineSegment = {
   id: "open_ports",
   render(ctx) {
     const includeUdp = ctx.options?.openPorts?.includeUdp === true;
+    const host = ctx.options?.openPorts?.host;
+    const key = `${includeUdp ? "u" : "t"}:${host ?? ""}`;
     const now = Date.now();
-    let entry = openPortsCache.get(includeUdp);
+    let entry = openPortsCache.get(key);
     if (!entry || now - entry.at >= OPEN_PORTS_TTL_MS) {
-      entry = { at: now, count: countListeningPorts(includeUdp) };
-      openPortsCache.set(includeUdp, entry);
+      entry = { at: now, count: countListeningPorts(includeUdp, host) };
+      openPortsCache.set(key, entry);
     }
-    // label wordt centraal toegepast (renderSegment)
+    const text = entry.count < 0 ? "?" : String(entry.count);
     return {
-      content: withIcon(getIcons().ports, color(ctx, "queue", String(entry.count))),
+      content: withIcon(getIcons().ports, color(ctx, "queue", text)),
       visible: true,
     };
   },

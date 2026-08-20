@@ -23,7 +23,9 @@ import { ACTIVE_QUEUE_STATUSES } from "./types.ts";
 
 const STORE_DIR = "powerline-footer";
 const INBOX_FILE = "inbox.jsonl";
+const ARCHIVE_FILE = "inbox.archive.jsonl";
 const ALIASES_FILE = "projects.json";
+const DEFAULT_SENT_RETENTION_MS = 24 * 60 * 60 * 1000;
 const LOCK_RETRY_MS = 25;
 const LOCK_TIMEOUT_MS = 2000;
 
@@ -126,10 +128,12 @@ function sleepSync(ms: number): void {
 export function getQueueStorePaths(): {
   inboxPath: string;
   aliasesPath: string;
+  archivePath: string;
 } {
   return {
     inboxPath: getAgentPath(STORE_DIR, INBOX_FILE),
     aliasesPath: getAgentPath(STORE_DIR, ALIASES_FILE),
+    archivePath: getAgentPath(STORE_DIR, ARCHIVE_FILE),
   };
 }
 
@@ -155,13 +159,23 @@ export function createQueueItem(
 export class PowerlineQueueStore {
   private readonly inboxPath: string;
   private readonly aliasesPath: string;
+  private readonly archivePath: string;
+  /** How long completed (sent) items stay in the inbox before pruning/archiving. */
+  private sentRetentionMs: number = DEFAULT_SENT_RETENTION_MS;
 
   constructor(
     inboxPath: string = getQueueStorePaths().inboxPath,
     aliasesPath: string = getQueueStorePaths().aliasesPath,
+    archivePath: string = getQueueStorePaths().archivePath,
   ) {
     this.inboxPath = inboxPath;
     this.aliasesPath = aliasesPath;
+    this.archivePath = archivePath;
+  }
+
+  /** Configure the retention window for completed items (clamped to >= 1 hour). */
+  setSentRetentionMs(ms: number): void {
+    this.sentRetentionMs = Math.max(60 * 60 * 1000, Number.isFinite(ms) ? ms : DEFAULT_SENT_RETENTION_MS);
   }
 
   list(): PowerlineQueueItem[] {
@@ -323,13 +337,16 @@ export class PowerlineQueueStore {
     }
   }
 
-  private writeItems(items: readonly PowerlineQueueItem[]): void {
+  private writeItems(
+    items: readonly PowerlineQueueItem[],
+    now: number = Date.now(),
+  ): void {
     mkdirSync(dirname(this.inboxPath), { recursive: true });
+    const retentionCutoff = now - this.sentRetentionMs;
     const activeOrRecent = items
       .filter(
         (item) =>
-          item.status !== "sent" ||
-          Date.now() - item.updatedAt < 24 * 60 * 60 * 1000,
+          item.status !== "sent" || item.updatedAt >= retentionCutoff,
       )
       .map((item) => JSON.stringify(item))
       .join("\n");
@@ -337,6 +354,58 @@ export class PowerlineQueueStore {
       this.inboxPath,
       activeOrRecent ? `${activeOrRecent}\n` : "",
     );
+  }
+
+  /**
+   * Move completed (sent) items older than the retention window out of the
+   * inbox into the archive file, keeping the inbox lean. Returns how many
+   * items were archived and how many sent items remain in the inbox.
+   *
+   * `archiveSentItems` and `writeItems` share one `now` snapshot so a sent
+   * item counted as remaining cannot be pruned on the same write.
+   */
+  archiveSentItems(olderThanMs: number = this.sentRetentionMs): {
+    archived: number;
+    remainingSent: number;
+  } {
+    return this.withStoreLock(() => {
+      const now = Date.now();
+      const items = this.list();
+      // writeItems prunes sent items older than sentRetentionMs on every write.
+      // If the requested archive window were wider than that, items in the gap
+      // would be silently dropped (neither archived nor kept) while still being
+      // reported as "remaining". Clamp the cutoff so anything past the inbox
+      // retention window is archived rather than lost.
+      const effectiveOlderThanMs = Math.min(olderThanMs, this.sentRetentionMs);
+      const cutoff = now - effectiveOlderThanMs;
+      const archived: PowerlineQueueItem[] = [];
+      const kept: PowerlineQueueItem[] = [];
+      let remainingSent = 0;
+
+      for (const item of items) {
+        if (item.status === "sent" && item.updatedAt < cutoff) {
+          archived.push(item);
+        } else {
+          kept.push(item);
+          if (item.status === "sent") remainingSent += 1;
+        }
+      }
+
+      if (archived.length > 0) {
+        mkdirSync(dirname(this.archivePath), { recursive: true });
+        const existing = existsSync(this.archivePath)
+          ? readFileSync(this.archivePath, "utf-8")
+          : "";
+        const lines = archived.map((item) => JSON.stringify(item)).join("\n");
+        this.writeAtomic(
+          this.archivePath,
+          `${existing.trimEnd() ? `${existing.trimEnd()}\n` : ""}${lines}\n`,
+        );
+        this.writeItems(kept, now);
+      }
+
+      return { archived: archived.length, remainingSent };
+    });
   }
 
   private writeJson(path: string, value: unknown): void {

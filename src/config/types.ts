@@ -80,14 +80,23 @@ export type PowerlinePlacement = "above" | "below";
 export type StatusLinePreset =
   "default" | "minimal" | "compact" | "full" | "nerd" | "ascii" | "chef";
 
+// Optional `{value}` template override shared by all segment option groups.
+// Replaces `{value}` in the rendered value text (e.g. "{value} tok/s").
+export interface SegmentFormatOption {
+  template?: string;
+}
+
 // Per-segment options
 export interface StatusLineSegmentOptions {
-  model?: { showThinkingLevel?: boolean; display?: "name" | "qualified" };
-  path?: {
+  model?: SegmentFormatOption & {
+    showThinkingLevel?: boolean;
+    display?: "name" | "qualified";
+  };
+  path?: SegmentFormatOption & {
     mode?: "basename" | "abbreviated" | "full";
     maxLength?: number;
   };
-  git?: {
+  git?: SegmentFormatOption & {
     showBranch?: boolean;
     showStaged?: boolean;
     showUnstaged?: boolean;
@@ -103,25 +112,26 @@ export interface StatusLineSegmentOptions {
     /** Max length of the commit subject before truncation. Default 24. */
     maxCommitSubjectLength?: number;
   };
-  time?: { format?: "12h" | "24h"; showSeconds?: boolean };
-  cost?: {
+  time?: SegmentFormatOption & { format?: "12h" | "24h"; showSeconds?: boolean };
+  cost?: SegmentFormatOption & {
     subscriptionDisplay?: "subscription" | "reported-cost" | "both";
     currency?: CostCurrencyCode;
   };
-  context?: { format?: "full" | "percent" };
-  cache_read?: { format?: "tokens" | "percent" | "both" };
-  openPorts?: {
-    /** Include UDP listeners (mDNS/DHCP/ephemeral) in the count. Default false. */ includeUdp?: boolean;
+  context?: SegmentFormatOption & { format?: "full" | "percent" };
+  cache_read?: SegmentFormatOption & { format?: "tokens" | "percent" | "both" };
+  openPorts?: SegmentFormatOption & {
+    /** Include UDP listeners (mDNS/DHCP/ephemeral) in the count. Default false. */
+    includeUdp?: boolean;
+    /**
+     * SSH host to probe instead of the local machine (fleet open-ports).
+     * Best-effort, opt-in: requires passwordless/agent SSH to that host and
+     * falls back to `?` when the probe cannot run.
+     */
+    host?: string;
   };
-  tps?: {
-    /** Rolling window length (ms) for the tokens/sec lookback. Default 1000. */
+  tps?: SegmentFormatOption & {
+    /** Sliding rate window length in ms (default 1000; wider = smoother, e.g. 2000 for fast models). */
     windowMs?: number;
-    /** Which rates to show. Default "both". */
-    mode?: "both" | "out" | "in";
-    /** Hide the segment entirely when idle (both rates 0). Default false (show dim "0"). */
-    hideIdle?: boolean;
-    /** Render template applied centrally; {value} is the plain segment content. Overrides segmentLabels. */
-    template?: string;
   };
 }
 
@@ -241,6 +251,8 @@ export interface SegmentContext {
   extensionStatuses: ReadonlyMap<string, string>;
   hiddenExtensionStatusKeys: ReadonlySet<string>;
   customItemsById: ReadonlyMap<string, CustomStatusItem>;
+  /** Explicit custom items + auto-promoted status items (customItems.auto). */
+  effectiveCustomItems: readonly CustomStatusItem[];
 
   // Options
   options: StatusLineSegmentOptions;

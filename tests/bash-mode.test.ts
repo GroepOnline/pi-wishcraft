@@ -30,6 +30,7 @@ import {
 import { getIcons } from "../src/theme/icons.ts";
 import { resolveColor } from "../src/theme/theme.ts";
 import { ManagedShellSession } from "../bash-mode/shell-session.ts";
+import { parseBashModeSettings } from "../src/extension/shortcuts/shortcuts-config.ts";
 
 function getMethod(target: object, name: string): Function {
   const method = Reflect.get(target, name);
@@ -133,10 +134,8 @@ test("theme.json can override icons without touching colors", () => {
     ? readFileSync(themePath, "utf8")
     : null;
   const originalNerdFonts = process.env.POWERLINE_NERD_FONTS;
-  const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 
   try {
-    delete process.env.PI_CODING_AGENT_DIR;
     writeFileSync(
       themePath,
       JSON.stringify({ icons: { auto: "↯", warning: "" } }, null, 2) + "\n",
@@ -158,12 +157,6 @@ test("theme.json can override icons without touching colors", () => {
       delete process.env.POWERLINE_NERD_FONTS;
     } else {
       process.env.POWERLINE_NERD_FONTS = originalNerdFonts;
-    }
-
-    if (originalAgentDir === undefined) {
-      delete process.env.PI_CODING_AGENT_DIR;
-    } else {
-      process.env.PI_CODING_AGENT_DIR = originalAgentDir;
     }
   }
 });
@@ -2029,5 +2022,48 @@ test("bash editor submit clears the prompt and refreshes the empty ghost suggest
     assert.equal(refreshed, true);
   } finally {
     links.cleanup();
+  }
+});
+
+test("parseBashModeSettings reads a project init script and defaults it off", () => {
+  const configured = parseBashModeSettings({
+    bashMode: { initScript: "export FOO=bar\ncd subdir\n" },
+  });
+  const blank = parseBashModeSettings({ bashMode: { initScript: "   " } });
+  const missing = parseBashModeSettings({});
+
+  assert.equal(configured.initScript, "export FOO=bar\ncd subdir\n");
+  assert.equal(blank.initScript, null);
+  assert.equal(missing.initScript, null);
+});
+
+test("managed shell session sources the project init script before ready", async (t) => {
+  const shellPath = resolveManagedShellPath();
+  if (!shellPath) {
+    t.skip("requires zsh or bash");
+    return;
+  }
+
+  const cwd = mkdtempSync(join(tmpdir(), "powerline-shell-init-"));
+  const childDir = join(cwd, "init-child");
+  mkdirSync(childDir, { recursive: true });
+  const store = new BashTranscriptStore({
+    transcriptMaxLines: 100,
+    transcriptMaxBytes: 64 * 1024,
+  });
+  const session = new ManagedShellSession(
+    shellPath,
+    cwd,
+    store,
+    () => {},
+    () => {},
+    `cd ${childDir}`,
+  );
+
+  try {
+    await session.ensureReady();
+    assert.equal(session.state.cwd, childDir);
+  } finally {
+    session.dispose();
   }
 });

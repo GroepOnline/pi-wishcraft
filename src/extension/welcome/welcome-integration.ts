@@ -2,6 +2,7 @@ import {
   WelcomeComponent,
   WelcomeHeader,
   discoverLoadedCounts,
+  discoverWhatsNew,
   getRecentSessions,
 } from "../../welcome/index.ts";
 import { estimateInitialContextTokens } from "../../usage/context.ts";
@@ -19,6 +20,7 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   const queueCount = queueSummary.queueCount + queueSummary.ideaCount;
   const hasStash =
     rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
+  const whatsNew = discoverWhatsNew();
 
   const header = new WelcomeHeader(
     modelName,
@@ -28,6 +30,7 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
     initialContextTokens,
     queueCount,
     hasStash,
+    whatsNew,
   );
   rt.welcomeHeaderActive = true;
 
@@ -83,6 +86,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
     const queueCount = queueSummary.queueCount + queueSummary.ideaCount;
     const hasStash =
       rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
+    const whatsNew = discoverWhatsNew();
 
     ctx.ui
       .custom(
@@ -100,18 +104,17 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             initialContextTokens,
             queueCount,
             hasStash,
+            whatsNew,
           );
 
           let countdown = 30;
           let dismissed = false;
           let interval: ReturnType<typeof setInterval> | null = null;
-          let glow: ReturnType<typeof setInterval> | null = null;
 
           const dismiss = () => {
             if (dismissed) return;
             dismissed = true;
             if (interval) clearInterval(interval);
-            if (glow) clearInterval(glow);
             rt.dismissWelcomeOverlay = null;
             done();
           };
@@ -123,12 +126,6 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             tui.requestRender();
             if (countdown <= 0) dismiss();
           }, 1000);
-
-          // wensballon: zachte vlam-flikker, alleen tijdens de overlay
-          glow = setInterval(() => {
-            if (dismissed) return;
-            tui.requestRender();
-          }, 140);
 
           rt.dismissWelcomeOverlay = dismiss;
 
@@ -145,7 +142,6 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             dispose: () => {
               dismissed = true;
               if (interval) clearInterval(interval);
-              if (glow) clearInterval(glow);
             },
           };
         },

@@ -7,6 +7,8 @@ import { PRESETS } from "../../config/presets.ts";
 import { registerCdCommand } from "../../shell/cd-command.ts";
 import { registerVibeCommand } from "./vibe-command.ts";
 import { registerQueueCommands } from "./queue-commands.ts";
+import { runPowerlineDoctor } from "./powerline-doctor.ts";
+import { runPowerlineExport } from "./powerline-export.ts";
 import { registerSkillManagerCommand } from "../skills/skill-manager.ts";
 import { registerWishcraftConfigCommand } from "../settings/wishcraft-config.ts";
 import { getRepairCounts } from "../hooks/index.ts";
@@ -14,10 +16,7 @@ import {
   writePowerlineOptionSetting,
   writePowerlinePresetSetting,
 } from "../settings/settings-io.ts";
-import {
-  showOpenPortsList,
-  showSelectOverlay,
-} from "../ui/menu-views.ts";
+import { showOpenPortsList, showSelectOverlay } from "../ui/menu-views.ts";
 import { showPowerlineMainMenu } from "../ui/powerline-menu-view.ts";
 import { openStashHistory } from "../shortcuts/shortcuts-router.ts";
 import { ensureShellSession, setBashModeActive } from "./bash-mode-actions.ts";
@@ -27,6 +26,7 @@ import {
   requestStatusRender,
   resetLayoutCache,
 } from "../core/segment-context.ts";
+import { publishPowerlineStatuses } from "../core/status-export.ts";
 import { config, normalizePreset } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getPowerlineArgumentCompletions } from "./powerline-completions.ts";
@@ -92,6 +92,14 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       }
 
       const normalizedArgs = args.trim().toLowerCase();
+      if (normalizedArgs === "doctor") {
+        await runPowerlineDoctor(rt, ctx);
+        return;
+      }
+      if (normalizedArgs === "export") {
+        await runPowerlineExport(ctx);
+        return;
+      }
       const placementMatch = /^placement(?:\s+(above|below|toggle))?$/.exec(
         normalizedArgs,
       );
@@ -129,6 +137,7 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       const preset = normalizePreset(args);
       if (preset) {
         config.preset = preset;
+        publishPowerlineStatuses(ctx, { preset });
         resetLayoutCache(rt);
         if (rt.enabled) {
           setupCustomEditor(pi, rt, ctx);
@@ -207,22 +216,6 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
     },
   });
 
-  pi.registerCommand("tps", {
-    description: "Show or set POWERLINE_TPS value",
-    handler: async (args, ctx) => {
-      rt.currentCtx = ctx;
-      const value = args?.trim();
-      if (!value) {
-        const current = process.env.POWERLINE_TPS || "not set";
-        ctx.ui.notify(`TPS: ${current}`, "info");
-        return;
-      }
-      process.env.POWERLINE_TPS = value;
-      ctx.ui.notify(`TPS set to: ${value}`, "info");
-      rt.tuiRef?.requestRender();
-    },
-  });
-
   pi.registerCommand("repairs", {
     description: "Show tool-input repair stats (wishcraft harness layer)",
     handler: async (_args, ctx) => {
@@ -235,6 +228,23 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
         .map(([key, n]) => `${key}: ${n}×`)
         .join("  ·  ");
       ctx.ui.notify(`Repairs — ${summary}`, "info");
+    },
+  });
+
+  pi.registerCommand("tps", {
+    description: "Show or set POWERLINE_TPS value",
+    handler: async (args, ctx) => {
+      rt.currentCtx = ctx;
+      const value = args?.trim();
+      if (!value) {
+        const current = process.env.POWERLINE_TPS || "not set";
+        ctx.ui.notify(`TPS: ${current}`, "info");
+        return;
+      }
+      process.env.POWERLINE_TPS = value;
+      publishPowerlineStatuses(ctx, { tps: value });
+      ctx.ui.notify(`TPS set to: ${value}`, "info");
+      rt.tuiRef?.requestRender();
     },
   });
 

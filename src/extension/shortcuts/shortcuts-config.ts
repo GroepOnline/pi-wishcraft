@@ -348,10 +348,15 @@ export function parseBashModeSettings(
     Number.isFinite(raw.transcriptMaxBytes)
       ? Math.max(16 * 1024, Math.floor(raw.transcriptMaxBytes))
       : DEFAULT_BASH_MODE_SETTINGS.transcriptMaxBytes;
+  const initScript =
+    typeof raw.initScript === "string" && raw.initScript.trim()
+      ? raw.initScript
+      : null;
 
   return {
     toggleShortcut,
     transcriptMaxLines,
     transcriptMaxBytes,
+    initScript,
   };
 }

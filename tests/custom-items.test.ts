@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   collectHiddenExtensionStatusKeys,
+  deriveAutoCustomItems,
   getNotificationExtensionStatuses,
+  normalizeCustomItemsAuto,
   normalizeExtensionStatusValue,
   parsePowerlineConfig,
   mergeSegmentOptions,
@@ -45,7 +47,7 @@ test("parsePowerlineConfig supports object config with custom items", () => {
   assert.equal(config.invalidPlacement, null);
   assert.equal(config.welcome, true);
   assert.equal(config.stashSharpSShortcut, false);
-  assert.deepEqual(config.queue, { captureSigil: "#" });
+  assert.deepEqual(config.queue, { captureSigil: "#", retentionHours: 24 });
 });
 
 test("parsePowerlineConfig supports disabled segments", () => {
@@ -194,16 +196,26 @@ test("parsePowerlineConfig supports welcome, legacy sharp-S, and queue capture s
     { preset: "compact", queue: { captureSigil: "# note" } },
     ["default", "compact"],
   );
+  const customRetention = parsePowerlineConfig(
+    { preset: "compact", queue: { captureSigil: "//", retentionHours: 168 } },
+    ["default", "compact"],
+  );
+  const invalidRetention = parsePowerlineConfig(
+    { preset: "compact", queue: { retentionHours: 0 } },
+    ["default", "compact"],
+  );
   const shorthand = parsePowerlineConfig("compact", ["default", "compact"]);
 
   assert.equal(disabled.welcome, false);
   assert.equal(disabled.stashSharpSShortcut, true);
-  assert.deepEqual(disabled.queue, { captureSigil: false });
-  assert.deepEqual(customSigil.queue, { captureSigil: "//" });
-  assert.deepEqual(invalidSigil.queue, { captureSigil: "#" });
+  assert.deepEqual(disabled.queue, { captureSigil: false, retentionHours: 24 });
+  assert.deepEqual(customSigil.queue, { captureSigil: "//", retentionHours: 24 });
+  assert.deepEqual(invalidSigil.queue, { captureSigil: "#", retentionHours: 24 });
+  assert.deepEqual(customRetention.queue, { captureSigil: "//", retentionHours: 168 });
+  assert.deepEqual(invalidRetention.queue, { captureSigil: "#", retentionHours: 1 });
   assert.equal(shorthand.welcome, true);
   assert.equal(shorthand.stashSharpSShortcut, false);
-  assert.deepEqual(shorthand.queue, { captureSigil: "#" });
+  assert.deepEqual(shorthand.queue, { captureSigil: "#", retentionHours: 24 });
 });
 
 test("parsePowerlineConfig extracts supported segment options", () => {
@@ -444,6 +456,70 @@ test("nextPowerlineSettingWithOptions converts string presets to object settings
       preset: "compact",
       placement: "below",
     },
+  );
+});
+
+test("normalizeCustomItemsAuto reads the record auto key and rejects arrays", () => {
+  assert.equal(normalizeCustomItemsAuto({ auto: true }), true);
+  assert.equal(normalizeCustomItemsAuto({ auto: false }), false);
+  assert.equal(normalizeCustomItemsAuto([]), false);
+  assert.equal(normalizeCustomItemsAuto(undefined), false);
+});
+
+test("parsePowerlineConfig enables customItems auto from the record or top-level key", () => {
+  const record = parsePowerlineConfig(
+    { preset: "default", customItems: { auto: true } },
+    ["default", "compact"],
+  );
+  const topLevel = parsePowerlineConfig(
+    { preset: "default", customItemsAuto: true },
+    ["default", "compact"],
+  );
+  const off = parsePowerlineConfig(
+    { preset: "default", customItems: [{ id: "ci" }] },
+    ["default", "compact"],
+  );
+
+  assert.equal(record.customItemsAuto, true);
+  assert.equal(record.customItems.length, 0);
+  assert.equal(topLevel.customItemsAuto, true);
+  assert.equal(off.customItemsAuto, false);
+});
+
+test("deriveAutoCustomItems promotes unclaimed status keys as right segments", () => {
+  const statuses = new Map<string, string>([
+    ["chefbar", "sync ok"],
+    ["ci", "[ci] queued"],
+    ["stash", "stash ✓"],
+  ]);
+  const derived = deriveAutoCustomItems(
+    [{ id: "ci", statusKey: "ci", position: "right", hideWhenMissing: true, excludeFromExtensionStatuses: true }],
+    statuses,
+    true,
+    new Set(["stash"]),
+  );
+
+  assert.deepEqual(
+    derived.map((item) => item.id),
+    ["ci", "chefbar"],
+  );
+  const auto = derived.find((item) => item.id === "chefbar");
+  assert.deepEqual(auto, {
+    id: "chefbar",
+    statusKey: "chefbar",
+    position: "right",
+    hideWhenMissing: true,
+    excludeFromExtensionStatuses: true,
+  });
+});
+
+test("deriveAutoCustomItems is a no-op when auto is disabled", () => {
+  const statuses = new Map<string, string>([["chefbar", "sync ok"]]);
+  const customItems = [{ id: "ci", statusKey: "ci", position: "right", hideWhenMissing: true, excludeFromExtensionStatuses: true }];
+
+  assert.deepEqual(
+    deriveAutoCustomItems(customItems, statuses, false, new Set()),
+    customItems,
   );
 });
 

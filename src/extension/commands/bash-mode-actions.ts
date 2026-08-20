@@ -43,6 +43,7 @@ export const ensureShellSession = async (
       () => requestStatusRender(rt),
       (command, cwd) =>
         appendProjectHistory(rt.currentCtx?.cwd ?? process.cwd(), command, cwd),
+      rt.bashModeSettings.initScript,
     );
   }
   await rt.shellSession.ensureReady();

@@ -1,25 +1,56 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
+  matchesKey,
   type SelectItem,
   SelectList,
   truncateToWidth,
 } from "@earendil-works/pi-tui";
 import { execSync } from "node:child_process";
 
-import type { StatusLinePreset } from "../../config/types.ts";
-import { getPreset, PRESETS } from "../../config/presets.ts";
-import { mergeSegmentsWithCustomItems } from "../../config/powerline-config.ts";
+import type {
+  StatusLinePreset,
+  StatusLineSegmentId,
+  StatusLineSeparatorStyle,
+} from "../../config/types.ts";
+import { getPreset, PRESETS, registerCustomPresets } from "../../config/presets.ts";
+import { SEPARATOR_STYLES } from "../../config/primitives.ts";
 import {
-  writePowerlineDisabledSegmentSetting,
+  countListeningPorts,
+  listOpenPortProcesses,
+  sanitizeSshHost,
+} from "../../segments/system.ts";
+import {
+  writePowerlineCustomPresetSetting,
+  writePowerlineOptionSetting,
   writePowerlinePresetSetting,
 } from "../settings/settings-io.ts";
-import { renderSegmentWithWidth } from "./layout.ts";
 import {
   buildSegmentContext,
   requestImmediateStatusRender,
+  resetLayoutCache,
 } from "../core/segment-context.ts";
 import { config, setConfig } from "../core/state.ts";
+import {
+  formatPortsStatusValue,
+  publishPowerlineStatuses,
+} from "../core/status-export.ts";
 import type { RuntimeState } from "../core/types.ts";
+import {
+  buildConfigureItems,
+  buildCustomPresetDef,
+  buildCustomPresetSegmentIds,
+  buildPresetEditorAddItems,
+  buildSegmentDetailLines,
+  buildSegmentItems,
+  collectSegmentIds,
+  configureItemsToSelectItems,
+  segmentItemsToSelectItems,
+  selectIndexForValue,
+  validatePresetName,
+} from "./menu-items.ts";
+
+/** How often the open segment navigator re-reads live segment state. */
+const SEGMENT_NAVIGATOR_REFRESH_MS = 1000;
 
 export function overlaySelectListTheme(theme: Theme) {
   return {
@@ -100,8 +131,19 @@ export async function showSelectOverlay(
 export async function showOpenPortsList(ctx: any): Promise<void> {
   try {
     const includeUdp = config.segmentOptions?.openPorts?.includeUdp === true;
-    const proto = includeUdp ? "-tuln" : "-tln";
-    const stdout = execSync(`ss ${proto} 2>/dev/null`, { encoding: "utf8" });
+    const host = config.segmentOptions?.openPorts?.host;
+    if (host && !sanitizeSshHost(host)) {
+      ctx.ui.notify(`Invalid open-ports host: ${host}`, "error");
+      return;
+    }
+    const proto = includeUdp ? "-tulnp" : "-tlnp";
+    const command = host
+      ? `ssh -o ConnectTimeout=3 -o BatchMode=yes ${host} "ss ${proto} 2>/dev/null" 2>/dev/null`
+      : `ss ${proto} 2>/dev/null`;
+    const stdout = execSync(command, { encoding: "utf8" });
+    publishPowerlineStatuses(ctx, {
+      ports: formatPortsStatusValue(countListeningPorts(includeUdp, host)),
+    });
     const lines = stdout
       .split("\n")
       .map((l) => l.trim())
@@ -118,7 +160,7 @@ export async function showOpenPortsList(ctx: any): Promise<void> {
     }));
     const picked = await showSelectOverlay(
       ctx,
-      "Open ports",
+      host ? `Open ports · ${host}` : "Open ports",
       "↑↓ navigate · enter copy · esc close",
       items,
       Math.min(items.length, 24),
@@ -132,36 +174,19 @@ export async function showOpenPortsList(ctx: any): Promise<void> {
   }
 }
 
-/** Alle segment-ids van de huidige preset + custom items (voor menu's). */
-function mergedIds(): string[] {
-  const presetDef = getPreset(config.preset);
-  const merged = mergeSegmentsWithCustomItems(presetDef, config.customItems, {
-    layout: config.layout,
-    disabledSegments: [],
-  });
-  return [
-    ...new Set([
-      ...merged.leftSegments,
-      ...merged.rightSegments,
-      ...merged.secondarySegments,
-    ]),
-  ] as string[];
-}
-
 /** Configure sub-menu: preset, TPS value/label, ports UDP, segment labels. */
 export async function configurePowerline(
   rt: RuntimeState,
   ctx: any,
 ): Promise<void> {
-  const choice = await ctx.ui.select("Powerline · configure", [
-    "Change preset",
-    "Set TPS value (POWERLINE_TPS)",
-    "Clear TPS override (use live)",
-    "Toggle UDP in open-ports",
-    "Set segment label…",
-    "Toggle segment visibility…",
-    "Show current config",
-  ]);
+  const picked = await showSelectOverlay(
+    ctx,
+    "Powerline · configure",
+    "↑↓ navigate · enter select · esc back",
+    configureItemsToSelectItems(),
+    Math.min(buildConfigureItems().length, 12),
+  );
+  const choice = picked?.value;
   if (!choice) return;
   if (choice === "Change preset") {
     const names = Object.keys(PRESETS) as StatusLinePreset[];
@@ -172,6 +197,7 @@ export async function configurePowerline(
         picked as StatusLinePreset,
         ctx.cwd ?? process.cwd(),
       );
+      publishPowerlineStatuses(ctx, { preset: picked });
       ctx.ui.notify(`Preset: ${picked} (saved)`, "info");
       requestImmediateStatusRender(rt, { deferDuringTyping: false });
     }
@@ -184,6 +210,7 @@ export async function configurePowerline(
     );
     if (val && val.trim()) {
       process.env.POWERLINE_TPS = val.trim();
+      publishPowerlineStatuses(ctx, { tps: val.trim() });
       ctx.ui.notify(`TPS override set: ${val.trim()}`, "info");
       requestImmediateStatusRender(rt, { deferDuringTyping: false });
     }
@@ -191,20 +218,56 @@ export async function configurePowerline(
   }
   if (choice === "Clear TPS override (use live)") {
     delete process.env.POWERLINE_TPS;
+    publishPowerlineStatuses(ctx, { tps: undefined });
     ctx.ui.notify("TPS override cleared (live rate)", "info");
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     return;
   }
   if (choice === "Toggle UDP in open-ports") {
     const now = config.segmentOptions?.openPorts?.includeUdp === true;
+    const host = config.segmentOptions?.openPorts?.host;
     setConfig({
       ...config,
       segmentOptions: {
         ...config.segmentOptions,
-        openPorts: { includeUdp: !now },
+        openPorts: { ...config.segmentOptions?.openPorts, includeUdp: !now },
       },
     });
+    publishPowerlineStatuses(ctx, {
+      ports: formatPortsStatusValue(countListeningPorts(!now, host)),
+    });
     ctx.ui.notify(`Open-ports UDP: ${!now ? "on" : "off"}`, "info");
+    requestImmediateStatusRender(rt, { deferDuringTyping: false });
+    return;
+  }
+  if (choice === "Toggle segment visibility…") {
+    const ids = collectSegmentIds(config);
+    const items: SelectItem[] = ids.map((id) => ({
+      label: `${config.disabledSegments.includes(id) ? "◌" : "●"} ${id}`,
+      value: id,
+    }));
+    const picked = await showSelectOverlay(
+      ctx,
+      "Toggle segments",
+      "↑↓ navigate · enter toggle · esc close",
+      items,
+      Math.min(items.length, 20),
+    );
+    if (!picked) return;
+    const id = picked.value as StatusLineSegmentId;
+    const next = config.disabledSegments.includes(id)
+      ? config.disabledSegments.filter((x) => x !== id)
+      : [...config.disabledSegments, id];
+    setConfig({ ...config, disabledSegments: next });
+    const saved = writePowerlineOptionSetting(
+      ctx.cwd ?? process.cwd(),
+      { disabledSegments: next },
+      config.preset,
+    );
+    ctx.ui.notify(
+      `${next.includes(id) ? "Disabled" : "Enabled"}: ${id}${saved ? " (saved)" : " (not persisted; check settings.json)"}`,
+      "info",
+    );
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     return;
   }
@@ -224,28 +287,8 @@ export async function configurePowerline(
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     return;
   }
-  if (choice === "Toggle segment visibility…") {
-    const ids = [
-      ...mergedIds(),
-    ];
-    const names = ids.map(
-      (id) =>
-        `${config.disabledSegments.includes(id as any) ? "[ ]" : "[x]"} ${id}`,
-    );
-    const picked = await ctx.ui.select("Segment aan/uit (enter wisselt)", names);
-    if (!picked) return;
-    const id = picked.replace(/^\[.\] /, "");
-    const disabled = new Set(config.disabledSegments);
-    if (disabled.has(id)) disabled.delete(id);
-    else disabled.add(id);
-    const list = [...disabled];
-    setConfig({ ...config, disabledSegments: list });
-    writePowerlineDisabledSegmentSetting(list, ctx.cwd ?? process.cwd());
-    ctx.ui.notify(
-      `${id}: ${disabled.has(id) ? "verborgen" : "zichtbaar"} (opgeslagen)`,
-      "info",
-    );
-    requestImmediateStatusRender(rt, { deferDuringTyping: false });
+  if (choice === "Build custom preset…") {
+    await runPresetEditor(rt, ctx);
     return;
   }
   if (choice === "Show current config") {
@@ -260,6 +303,97 @@ export async function configurePowerline(
     ctx.ui.notify(summary, "info");
     return;
   }
+}
+
+/**
+ * Interactive loop for one preset group (left/right/secondary): pick segments
+ * one at a time from the remaining ids, choosing the done sentinel to finish.
+ * Returns null when the user cancels with esc.
+ */
+async function pickPresetGroup(
+  ctx: any,
+  group: string,
+  all: readonly StatusLineSegmentId[],
+  initial: readonly StatusLineSegmentId[],
+): Promise<StatusLineSegmentId[] | null> {
+  const chosen: StatusLineSegmentId[] = [...initial];
+  for (;;) {
+    const items = buildPresetEditorAddItems(all, chosen);
+    const picked = await showSelectOverlay(
+      ctx,
+      `Preset · ${group} segments`,
+      "↑↓ pick · enter add · done to finish · esc cancel",
+      items,
+      Math.min(items.length, 20),
+    );
+    if (!picked || picked.value === "__done__") break;
+    chosen.push(picked.value as StatusLineSegmentId);
+  }
+  return chosen;
+}
+
+/** Build a custom preset interactively and save it to settings + runtime. */
+export async function runPresetEditor(
+  rt: RuntimeState,
+  ctx: any,
+): Promise<void> {
+  const rawName = await ctx.ui.input("Preset name", "");
+  if (!rawName) return;
+  const name = validatePresetName(rawName);
+  if (!name) {
+    ctx.ui.notify("Invalid preset name (a-z, 0-9, -, _)", "error");
+    return;
+  }
+
+  const baseNames = Object.keys(PRESETS) as StatusLinePreset[];
+  const basePick = await ctx.ui.select("Base preset (colors + options)", baseNames);
+  if (!basePick) return;
+  const base = getPreset(basePick);
+
+  const all = buildCustomPresetSegmentIds(config);
+  const left = await pickPresetGroup(ctx, "left", all, base.leftSegments);
+  if (!left) return;
+  const right = await pickPresetGroup(ctx, "right", all, base.rightSegments);
+  if (!right) return;
+  const secondary = await pickPresetGroup(
+    ctx,
+    "secondary",
+    all,
+    base.secondarySegments ?? [],
+  );
+  if (!secondary) return;
+
+  const separator = await ctx.ui.select(
+    "Separator",
+    SEPARATOR_STYLES as unknown as string[],
+  );
+  if (!separator) return;
+
+  const def = buildCustomPresetDef(
+    base,
+    left,
+    right,
+    secondary,
+    separator as StatusLineSeparatorStyle,
+  );
+
+  const saved = writePowerlineCustomPresetSetting(
+    ctx.cwd ?? process.cwd(),
+    name,
+    def,
+  );
+  const presets = { ...config.presets, [name]: def };
+  registerCustomPresets(presets);
+  setConfig({ ...config, preset: name as StatusLinePreset, presets });
+  resetLayoutCache(rt);
+  requestImmediateStatusRender(rt, { deferDuringTyping: false });
+  publishPowerlineStatuses(ctx, { preset: name });
+  ctx.ui.notify(
+    saved
+      ? `Preset "${name}" saved and applied`
+      : `Preset "${name}" applied (not persisted; check settings.json)`,
+    saved ? "info" : "warning",
+  );
 }
 
 /** Activate a segment picked from the navigator (Enter). */
@@ -305,7 +439,11 @@ export async function activateSegment(
   ctx.ui.notify(`${id}: ${value}`, "info");
 }
 
-/** Navigable overlay that mirrors the live powerline segments; arrow keys move, Enter activates. */
+/**
+ * Navigable overlay that mirrors the live powerline segments. Arrow keys move,
+ * Enter activates, and →/tab opens a stacked per-segment detail view (←/esc
+ * returns to the list). Pure item/detail building lives in `menu-items.ts`.
+ */
 export async function showSegmentNavigator(
   rt: RuntimeState,
   ctx: any,
@@ -317,70 +455,175 @@ export async function showSegmentNavigator(
       _keybindings: any,
       done: (result: { id: string; label: string } | null) => void,
     ) => {
-      // Build live segment values now that we have a theme
-      const segCtx = buildSegmentContext(rt, ctx, theme);
-      const presetDef = getPreset(config.preset);
-      const merged = mergeSegmentsWithCustomItems(
-        presetDef,
-        config.customItems,
-        {
-          layout: config.layout,
-          disabledSegments: config.disabledSegments,
-        },
-      );
-      const ids = [
-        ...merged.leftSegments,
-        ...merged.rightSegments,
-        ...merged.secondarySegments,
-      ];
-      const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
-      const items: SelectItem[] = [];
-      for (const id of ids) {
-        const rendered = renderSegmentWithWidth(id, segCtx);
-        if (!rendered.visible) continue;
-        const value = stripAnsi(rendered.content).trim() || "(empty)";
-        items.push({ label: `${id}  ${value}`, value: id });
-      }
-      if (items.length === 0) {
-        items.push({ label: "(no visible segments)", value: "__none__" });
-      }
-      const selectList = new SelectList(
-        items,
-        Math.min(items.length, 20),
-        overlaySelectListTheme(theme),
-      );
+      let segCtx = buildSegmentContext(rt, ctx, theme);
+      let items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
+      let detailId: StatusLineSegmentId | null = null;
+      let detailLines: ReturnType<typeof buildSegmentDetailLines> = [];
+      let timer: ReturnType<typeof setInterval> | null = null;
+
       const border = (text: string) => theme.fg("dim", text);
       const wrapRow = (text: string, innerWidth: number) =>
         `${border("│")}${truncateToWidth(text, innerWidth, "…", true)}${border("│")}`;
-      selectList.onSelect = (item) =>
-        done({ id: item.value, label: item.label });
-      selectList.onCancel = () => done(null);
+
+      const buildDetail = (id: StatusLineSegmentId) =>
+        id === "open_ports"
+          ? buildSegmentDetailLines(
+              id,
+              segCtx,
+              listOpenPortProcesses(
+                config.segmentOptions?.openPorts?.includeUdp === true,
+                config.segmentOptions?.openPorts?.host,
+              ),
+            )
+          : buildSegmentDetailLines(id, segCtx);
+
+      const openDetail = (id: string) => {
+        if (id === "__none__") return;
+        detailId = id as StatusLineSegmentId;
+        detailLines = buildDetail(detailId);
+      };
+
+      const finish = (result: { id: string; label: string } | null) => {
+        if (timer !== null) {
+          clearInterval(timer);
+          timer = null;
+        }
+        done(result);
+      };
+
+      const makeSelectList = () => {
+        const list = new SelectList(
+          items,
+          Math.min(items.length, 20),
+          overlaySelectListTheme(theme),
+        );
+        list.onSelect = (item) =>
+          finish(
+            item.value === "__none__"
+              ? null
+              : { id: item.value, label: item.label },
+          );
+        list.onCancel = () => finish(null);
+        return list;
+      };
+
+      let selectList = makeSelectList();
+
+      // Re-read live segment state (TPS, context %, cost, git, queue, …) while
+      // the overlay stays open, preserving the selected segment across rebuilds.
+      const refresh = () => {
+        const previous = selectList.getSelectedItem()?.value ?? null;
+        segCtx = buildSegmentContext(rt, ctx, theme);
+        items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
+        selectList = makeSelectList();
+        selectList.setSelectedIndex(selectIndexForValue(items, previous));
+        if (detailId !== null) {
+          detailLines = buildDetail(detailId);
+        }
+        tui.requestRender();
+      };
+
+      timer = setInterval(refresh, SEGMENT_NAVIGATOR_REFRESH_MS);
+
+      const renderList = (innerWidth: number): string[] => {
+        const lines: string[] = [];
+        lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
+        lines.push(
+          wrapRow(
+            theme.fg("accent", theme.bold("Powerline segments")),
+            innerWidth,
+          ),
+        );
+        lines.push(border(`├${"─".repeat(innerWidth)}┤`));
+        for (const line of selectList.render(innerWidth))
+          lines.push(wrapRow(line, innerWidth));
+        lines.push(border(`├${"─".repeat(innerWidth)}┤`));
+        lines.push(
+          wrapRow(
+            theme.fg(
+              "dim",
+              "↑↓ navigate · enter activate · →/tab detail · esc cancel",
+            ),
+            innerWidth,
+          ),
+        );
+        lines.push(border(`╰${"─".repeat(innerWidth)}╯`));
+        return lines;
+      };
+
+      const renderDetail = (innerWidth: number): string[] => {
+        const lines: string[] = [];
+        lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
+        lines.push(
+          wrapRow(
+            theme.fg(
+              "accent",
+              theme.bold(`Segment detail: ${detailId ?? ""}`),
+            ),
+            innerWidth,
+          ),
+        );
+        lines.push(border(`├${"─".repeat(innerWidth)}┤`));
+        const labelWidth = detailLines.reduce(
+          (max, line) => Math.max(max, line.label.length),
+          0,
+        );
+        for (const line of detailLines) {
+          lines.push(
+            wrapRow(
+              `  ${line.label.padEnd(labelWidth)}  ${line.value}`,
+              innerWidth,
+            ),
+          );
+        }
+        lines.push(border(`├${"─".repeat(innerWidth)}┤`));
+        lines.push(
+          wrapRow(
+            theme.fg("dim", "← back · enter copy · esc close"),
+            innerWidth,
+          ),
+        );
+        lines.push(border(`╰${"─".repeat(innerWidth)}╯`));
+        return lines;
+      };
+
       return {
         render: (width: number) => {
           const innerWidth = Math.max(1, width - 2);
-          const lines: string[] = [];
-          lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
-          lines.push(
-            wrapRow(
-              theme.fg("accent", theme.bold("Powerline segments")),
-              innerWidth,
-            ),
-          );
-          lines.push(border(`├${"─".repeat(innerWidth)}┤`));
-          for (const line of selectList.render(innerWidth))
-            lines.push(wrapRow(line, innerWidth));
-          lines.push(border(`├${"─".repeat(innerWidth)}┤`));
-          lines.push(
-            wrapRow(
-              theme.fg("dim", "↑↓ navigate · enter activate · esc cancel"),
-              innerWidth,
-            ),
-          );
-          lines.push(border(`╰${"─".repeat(innerWidth)}╯`));
-          return lines;
+          return detailId
+            ? renderDetail(innerWidth)
+            : renderList(innerWidth);
         },
         invalidate: () => selectList.invalidate(),
         handleInput: (data: string) => {
+          if (detailId !== null) {
+            if (
+              matchesKey(data, "left") ||
+              matchesKey(data, "escape") ||
+              matchesKey(data, "backspace")
+            ) {
+              detailId = null;
+            } else if (matchesKey(data, "enter")) {
+              const summary = detailLines
+                .map((line) => `${line.label}: ${line.value}`)
+                .join("  ·  ");
+              ctx.ui.notify(`${detailId}: ${summary}`, "info");
+              finish(null);
+              return;
+            }
+            tui.requestRender();
+            return;
+          }
+
+          if (matchesKey(data, "right") || matchesKey(data, "tab")) {
+            const selected = selectList.getSelectedItem();
+            if (selected && selected.value !== "__none__") {
+              openDetail(selected.value);
+              tui.requestRender();
+              return;
+            }
+          }
+
           selectList.handleInput(data);
           tui.requestRender();
         },

@@ -12,6 +12,7 @@ import {
 } from "../queue/queue-integration.ts";
 import { getCurrentEditorText } from "../shortcuts/shortcuts-router.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
+import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 
 export function registerQueueCommands(
@@ -210,6 +211,30 @@ export function registerQueueCommands(
         return;
       }
 
+      if (action === "archive") {
+        const hoursArg = Number(parts[1]);
+        const hours =
+          Number.isFinite(hoursArg) && hoursArg > 0
+            ? Math.min(hoursArg, 24 * 365)
+            : config.queue.retentionHours;
+        const result = rt.queueStore.archiveSentItems(
+          hours * 60 * 60 * 1000,
+        );
+        if (result.archived === 0) {
+          ctx.ui.notify(
+            `Nothing to archive — ${result.remainingSent} sent item${result.remainingSent === 1 ? " is" : "s are"} newer than ${hours}h (retention: powerline.queue.retentionHours)`,
+            "info",
+          );
+        } else {
+          ctx.ui.notify(
+            `Archived ${result.archived} sent item${result.archived === 1 ? "" : "s"} older than ${hours}h to inbox.archive.jsonl`,
+            "info",
+          );
+        }
+        requestQueueRender(rt);
+        return;
+      }
+
       if (action === "target") {
         const id = parts[1];
         const spec = parts[2];
@@ -239,7 +264,10 @@ export function registerQueueCommands(
         return;
       }
 
-      ctx.ui.notify("Usage: /queue [send|retry|clear|target|alias]", "info");
+      ctx.ui.notify(
+        "Usage: /queue [send|retry|clear|target|alias|archive [hours]]",
+        "info",
+      );
     },
   });
 }
