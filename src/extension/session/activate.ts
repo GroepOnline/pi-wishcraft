@@ -6,6 +6,7 @@ import { registerCustomSegments } from "../../segments/index.ts";
 import { readSettings } from "../settings/settings-io.ts";
 import { registerSessionLifecycle } from "./session-lifecycle.ts";
 import { registerCommands } from "../commands/commands.ts";
+import { setupHooks } from "../hooks/index.ts";
 import { setupInlineInvocation } from "../skills/inline-invocation.ts";
 import {
   config,
@@ -26,4 +27,5 @@ export default function powerlineFooter(pi: ExtensionAPI) {
   registerSessionLifecycle(pi, rt);
   registerCommands(pi, rt);
   setupInlineInvocation(pi, rt);
+  setupHooks(pi, rt, process.cwd());
 }

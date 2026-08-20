@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Command hooks, session context inject, and `/repairs` run: `setupHooks` is registered on activation.
+
 ## [0.22.2] - 2026-08-20
 
 ### Fixed
