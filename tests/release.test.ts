@@ -15,6 +15,7 @@ import {
   bump,
   chooseBump,
   existingTagAction,
+  extractChangelogNotes,
   parseLatestVersionTag,
   resolveReleaseVersion,
   rewriteUnreleasedHeading,
@@ -342,4 +343,179 @@ test(".github/workflows/release.yml tests origin/main after reset and before tag
 test("CHANGELOG.md keeps a well-formed Unreleased section for release.mjs to rewrite", () => {
   const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
   assert.match(changelog, /^# Changelog\n\n## \[Unreleased\]\n/);
+});
+
+test("extractChangelogNotes returns the section under ## [version]", () => {
+  const changelog = `# Changelog
+
+## [Unreleased]
+
+## [1.2.3] - 2026-08-20
+
+### Fixed
+- First.
+
+## [1.2.2] - 2026-08-19
+
+### Added
+- Older.
+`;
+  assert.equal(
+    extractChangelogNotes(changelog, "1.2.3"),
+    "### Fixed\n- First.",
+  );
+  assert.equal(
+    extractChangelogNotes(changelog, "1.2.2"),
+    "### Added\n- Older.",
+  );
+  assert.equal(extractChangelogNotes(changelog, "9.9.9"), "");
+  assert.throws(() => extractChangelogNotes(changelog, "v1.2.3"), /Invalid version/);
+});
+
+test("release.mjs notes prints the CHANGELOG section for a shipped version", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["scripts/release.mjs", "notes", "0.22.2"],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /Queue archive cutoff/);
+  assert.doesNotMatch(result.stdout, /## \[0\.22\.1\]/);
+});
+
+test("github-release.sh fails closed without GITHUB_TOKEN", () => {
+  const env = { ...process.env };
+  delete env.GITHUB_TOKEN;
+  delete env.GH_TOKEN;
+  const result = spawnSync("sh", ["scripts/github-release.sh"], {
+    cwd: root,
+    env,
+    encoding: "utf8",
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /GITHUB_TOKEN is missing/);
+});
+
+const STUB_CURL = `#!/bin/sh
+out=""
+method="GET"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    -w) shift 2 ;;
+    -X) method="$2"; shift 2 ;;
+    -H) shift 2 ;;
+    -d|--data|--data-binary) shift 2 ;;
+    -sS|-s|-S) shift ;;
+    -*) shift ;;
+    *) url="$1"; shift ;;
+  esac
+done
+if echo "$url" | grep -q '/releases/tags/'; then
+  [ -n "$out" ] && printf '%s\\n' "{\\"message\\":\\"Not Found\\"}" > "$out"
+  echo "\${STUB_VIEW_HTTP:-404}"
+  exit 0
+fi
+if echo "$url" | grep -q '/releases$'; then
+  [ -n "\${STUB_CREATE_MARKER:-}" ] && printf '%s\\n' "$method $url" > "$STUB_CREATE_MARKER"
+  if [ "\${STUB_CREATE_HTTP:-201}" = "422" ]; then
+    [ -n "$out" ] && printf '%s\\n' '{"errors":[{"code":"already_exists"}]}' > "$out"
+  else
+    [ -n "$out" ] && printf '%s\\n' '{"html_url":"https://example.test/release"}' > "$out"
+  fi
+  echo "\${STUB_CREATE_HTTP:-201}"
+  exit 0
+fi
+echo 500
+exit 0
+`;
+
+function withStubCurl() {
+  const binDir = mkdtempSync(join(tmpdir(), "pi-wishcraft-gh-release-bin-"));
+  const curlPath = join(binDir, "curl");
+  writeFileSync(curlPath, STUB_CURL);
+  chmodSync(curlPath, 0o755);
+  return {
+    binDir,
+    cleanup() {
+      rmSync(binDir, { recursive: true, force: true });
+    },
+  };
+}
+
+function runGithubReleaseScript(
+  binDir: string,
+  extraEnv: Record<string, string | undefined> = {},
+) {
+  return spawnSync("sh", [join(root, "scripts/github-release.sh"), "0.22.2"], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PATH: `${binDir}:${process.env.PATH}`,
+      GITHUB_TOKEN: "fake-token-for-tests",
+      GITHUB_REPOSITORY: "GroepOnline/pi-wishcraft",
+      ...extraEnv,
+    },
+  });
+}
+
+test("github-release.sh skips create when the tag already has a Release", () => {
+  const { binDir, cleanup } = withStubCurl();
+  try {
+    const marker = join(binDir, "create-called");
+    const result = runGithubReleaseScript(binDir, {
+      STUB_VIEW_HTTP: "200",
+      STUB_CREATE_MARKER: marker,
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /already exists; skip/);
+    assert.equal(existsSync(marker), false, "create should not run");
+  } finally {
+    cleanup();
+  }
+});
+
+test("github-release.sh creates a Release when the tag has none", () => {
+  const { binDir, cleanup } = withStubCurl();
+  try {
+    const marker = join(binDir, "create-called");
+    const result = runGithubReleaseScript(binDir, {
+      STUB_VIEW_HTTP: "404",
+      STUB_CREATE_HTTP: "201",
+      STUB_CREATE_MARKER: marker,
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /Created GitHub release v0\.22\.2/);
+    assert.equal(existsSync(marker), true, "create should run");
+    assert.match(readFileSync(marker, "utf8"), /POST /);
+  } finally {
+    cleanup();
+  }
+});
+
+test("github-release.sh treats 422 already_exists as a successful skip", () => {
+  const { binDir, cleanup } = withStubCurl();
+  try {
+    const result = runGithubReleaseScript(binDir, {
+      STUB_VIEW_HTTP: "404",
+      STUB_CREATE_HTTP: "422",
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /already exists; skip/);
+  } finally {
+    cleanup();
+  }
+});
+
+test(".github/workflows/release.yml creates a GitHub Release from both jobs after npm publish", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  const releaseSteps = workflow.match(/run: sh scripts\/github-release\.sh/g) ?? [];
+  assert.equal(releaseSteps.length, 2, "expected one GitHub Release step per job");
+  assert.match(workflow, /GITHUB_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
+  const publishJob = workflow.slice(workflow.indexOf("name: test + publish"));
+  assert.match(publishJob, /contents:\s*write/);
+  const npmIndex = workflow.indexOf("run: sh scripts/npm-publish.sh");
+  const ghIndex = workflow.indexOf("run: sh scripts/github-release.sh");
+  assert.ok(ghIndex > npmIndex, "GitHub Release step must come after npm publish");
 });

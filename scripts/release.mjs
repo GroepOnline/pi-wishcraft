@@ -113,6 +113,19 @@ export function rewriteUnreleasedHeading(changelog, next, date) {
   };
 }
 
+/** Body under `## [version]` up to the next heading. Empty when missing. */
+export function extractChangelogNotes(changelog, version) {
+  if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    throw new Error(`Invalid version: ${version}`);
+  }
+  const heading = new RegExp(`^## \\[${version.replace(/\\./g, "\\\\.")}\\][^\\n]*\\n`, "m");
+  const match = heading.exec(changelog);
+  if (!match) return "";
+  const rest = changelog.slice(match.index + match[0].length);
+  const next = rest.search(/^## \[/m);
+  return (next === -1 ? rest : rest.slice(0, next)).trim();
+}
+
 function main() {
   const { flags, kind: kindArg } = parseArgs(process.argv.slice(2));
   const headSubject = git("git log -1 --pretty=%s");
@@ -189,7 +202,14 @@ const invokedAsCli =
 
 if (invokedAsCli) {
   try {
-    main();
+    if (process.argv[2] === "notes") {
+      const version = process.argv[3];
+      if (!version) throw new Error("usage: node scripts/release.mjs notes <version>");
+      const changelog = readFileSync(changelogPath, "utf8");
+      process.stdout.write(extractChangelogNotes(changelog, version) + "\n");
+    } else {
+      main();
+    }
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

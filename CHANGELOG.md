@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Release workflow creates a GitHub Release for each tag so the Releases page Latest matches npm.
+
 ## [0.22.2] - 2026-08-20
 
 ### Fixed
