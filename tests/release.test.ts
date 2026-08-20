@@ -150,13 +150,19 @@ test("rewriteUnreleasedHeading keeps an empty Unreleased section above the new v
     "2026-08-20",
   );
   assert.equal(rolled.rewritten, true);
-  assert.match(
+  assert.equal(
     rolled.changelog,
-    /^# Changelog\n\n## \[Unreleased\]\n\n## \[0\.19\.2\] - 2026-08-20\n/,
+    "# Changelog\n\n## [Unreleased]\n\n## [0.19.2] - 2026-08-20\n\n### Added\n- Tab complete\n",
   );
   const missing = rewriteUnreleasedHeading("# Changelog\n", "0.19.2", "2026-08-20");
   assert.equal(missing.rewritten, false);
   assert.equal(missing.changelog, "# Changelog\n");
+  const prose = rewriteUnreleasedHeading(
+    "# Changelog\n\nSee ## [Unreleased] in the docs.\n\n### [Unreleased]\n",
+    "0.19.2",
+    "2026-08-20",
+  );
+  assert.equal(prose.rewritten, false);
 });
 
 test("parseLatestVersionTag picks the highest vX.Y.Z tag", () => {

@@ -303,7 +303,7 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 |---|---|
 | GRO-1060 fork cleanup | Deels gedaan (tags). Rest = PR A debris + concept-png. CHANGELOG niet inkorten. Versie niet resetten. |
 | GRO-1061 CI queue | Ops, niet deze roadmap. |
-| CHE-40 `/powerline` tab | In Progress. `/powerline <tab>` presets + `placement above|below|toggle`. |
+| CHE-40 `/powerline` tab | In Progress. `/powerline` tab completes presets and placement above, below, or toggle. |
 | CHE-41 alt+i info | Wordt 1.0 detail-view. Ticket hernoemen of GRO-child. |
 | CHE-42 drill-down | = 0.20 PR G. Hernoemen naar wishcraft / GRO. |
 

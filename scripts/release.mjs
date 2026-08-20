@@ -100,12 +100,13 @@ export function existingTagAction(currentVersion, next, tagExists) {
 }
 
 export function rewriteUnreleasedHeading(changelog, next, date) {
-  if (!changelog.includes("## [Unreleased]")) {
+  const unreleasedHeading = /^## \[Unreleased\][ \t]*$/m;
+  if (!unreleasedHeading.test(changelog)) {
     return { changelog, rewritten: false };
   }
   return {
     changelog: changelog.replace(
-      "## [Unreleased]",
+      unreleasedHeading,
       `## [Unreleased]\n\n## [${next}] - ${date}`,
     ),
     rewritten: true,

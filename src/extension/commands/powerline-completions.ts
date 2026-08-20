@@ -67,7 +67,8 @@ export function getPowerlineArgumentCompletions(
 
   const completingSecond =
     first.toLowerCase() === "placement" &&
-    (tokens.length > 1 || (tokens.length === 1 && lastComplete));
+    ((tokens.length === 1 && lastComplete) ||
+      (tokens.length === 2 && !lastComplete));
 
   if (completingSecond) {
     const valuePrefix = tokens.length > 1 ? tokens[1] : "";
