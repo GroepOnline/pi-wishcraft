@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderSegment } from "../src/segments/index.ts";
+import {
+  parseOpenPortProcesses,
+  sanitizeSshHost,
+} from "../src/segments/system.ts";
 import { resolvePreset, PRESETS } from "../src/config/presets.ts";
 import type {
   ColorScheme,
@@ -126,6 +130,76 @@ test("tps segment honors the POWERLINE_TPS override", () => {
   } finally {
     delete process.env.POWERLINE_TPS;
   }
+});
+
+test("parseOpenPortProcesses maps ss -tulnp rows to port→process and dedupes dual-stack", () => {
+  const text = [
+    "Netid State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process",
+    'tcp   LISTEN 0      128    0.0.0.0:22         0.0.0.0:*         users:(("sshd",pid=1071,fd=3))',
+    'tcp   LISTEN 0      511    [::]:22            [::]:*            users:(("sshd",pid=1071,fd=4))',
+    'tcp   LISTEN 0      511    127.0.0.1:3000     0.0.0.0:*         users:(("node",pid=12345,fd=24))',
+    'udp   UNCONN 0      0      127.0.0.53%lo:53   0.0.0.0:*         users:(("systemd-resolve",pid=532,fd=12))',
+  ].join("\n");
+  const ports = parseOpenPortProcesses(text);
+  assert.deepEqual(
+    ports.map((p) => [p.proto, p.port, p.process]),
+    [
+      ["tcp", 22, "sshd (1071)"],
+      ["udp", 53, "systemd-resolve (532)"],
+      ["tcp", 3000, "node (12345)"],
+    ],
+  );
+});
+
+test("parseOpenPortProcesses keeps ss rows without a visible process owner", () => {
+  const text = [
+    "Netid State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process",
+    "tcp   LISTEN 0      511    0.0.0.0:3000        0.0.0.0:*",
+  ].join("\n");
+  const ports = parseOpenPortProcesses(text);
+  assert.equal(ports.length, 1);
+  assert.deepEqual(ports[0], {
+    port: 3000,
+    proto: "tcp",
+    address: "0.0.0.0",
+    process: null,
+  });
+});
+
+test("parseOpenPortProcesses falls back to netstat -tulnp format", () => {
+  const text = [
+    "Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name",
+    "tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      1071/sshd",
+    "udp        0      0 127.0.0.53:53           0.0.0.0:*                           532/systemd-resolve",
+  ].join("\n");
+  const ports = parseOpenPortProcesses(text);
+  assert.deepEqual(
+    ports.map((p) => [p.proto, p.port, p.process]),
+    [
+      ["tcp", 22, "sshd (1071)"],
+      ["udp", 53, "systemd-resolve (532)"],
+    ],
+  );
+});
+
+test("parseOpenPortProcesses ignores headers and empty input", () => {
+  assert.deepEqual(parseOpenPortProcesses(""), []);
+  assert.deepEqual(parseOpenPortProcesses("Netid State Recv-Q Send-Q\n"), []);
+});
+
+test("sanitizeSshHost accepts hostnames, user@host, and IPv4", () => {
+  assert.equal(sanitizeSshHost("sofie"), "sofie");
+  assert.equal(sanitizeSshHost(" user@sofie.local "), "user@sofie.local");
+  assert.equal(sanitizeSshHost("192.168.1.10"), "192.168.1.10");
+});
+
+test("sanitizeSshHost rejects empty, spaced, and shell-metacharacter input", () => {
+  assert.equal(sanitizeSshHost(undefined), null);
+  assert.equal(sanitizeSshHost(""), null);
+  assert.equal(sanitizeSshHost("   "), null);
+  assert.equal(sanitizeSshHost("sofie; rm -rf /"), null);
+  assert.equal(sanitizeSshHost("sofie -p 2222"), null);
+  assert.equal(sanitizeSshHost("sofie`id`"), null);
 });
 
 test("resolvePreset warns once and falls back to default for unknown names", () => {

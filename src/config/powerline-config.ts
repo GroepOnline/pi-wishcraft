@@ -6,6 +6,11 @@ export { parsePowerlineConfig } from "./parse.ts";
 export { mergeSegmentOptions } from "./segment-options.ts";
 export { mergeSegmentsWithCustomItems } from "./layout.ts";
 export {
+  deriveAutoCustomItems,
+  normalizeCustomItemsAuto,
+} from "./custom-items.ts";
+export {
+  nextPowerlineSettingWithCustomPreset,
   nextPowerlineSettingWithPreset,
   nextPowerlineSettingWithOptions,
 } from "./settings-patch.ts";

@@ -6,6 +6,8 @@ export interface BashModeSettings {
   toggleShortcut: string | null;
   transcriptMaxLines: number;
   transcriptMaxBytes: number;
+  /** Shell commands sourced once when the managed shell starts (project-scoped init). */
+  initScript: string | null;
 }
 
 export interface BashCommandRecord {

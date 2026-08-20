@@ -78,3 +78,38 @@ export function resetShellHistoryBrowse(state: object): void {
   Reflect.set(state, "shellHistoryItems", []);
   Reflect.set(state, "shellHistoryDraft", "");
 }
+
+/**
+ * Move the editor cursor to the first or last visual line/column. Reads and
+ * writes the editor's internal cursor state through `Reflect` so the helper can
+ * live outside the editor class without widening its private surface.
+ */
+export function moveCursorToEditorBoundary(
+  editor: any,
+  position: "start" | "end",
+): void {
+  const state = Reflect.get(editor, "state");
+  const lines =
+    state && typeof state === "object" ? Reflect.get(state, "lines") : null;
+  if (!Array.isArray(lines)) {
+    throw new Error("Editor cursor state is unavailable");
+  }
+
+  if (position === "start") {
+    Reflect.set(state, "cursorLine", 0);
+    Reflect.set(state, "cursorCol", 0);
+  } else {
+    const lastLine = Math.max(0, lines.length - 1);
+    Reflect.set(state, "cursorLine", lastLine);
+    Reflect.set(
+      state,
+      "cursorCol",
+      typeof lines[lastLine] === "string" ? lines[lastLine].length : 0,
+    );
+  }
+
+  Reflect.set(editor, "lastAction", null);
+  Reflect.set(editor, "preferredVisualCol", null);
+  Reflect.set(editor, "snappedFromCursorCol", null);
+  editor.tui.requestRender();
+}

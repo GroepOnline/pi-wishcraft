@@ -30,6 +30,11 @@ Each message should end with "..."
 Be creative, varied, and thematic. No duplicates.
 Output one message per line, nothing else. No numbering, no bullets.`;
 
+export const SAMPLES_PROMPT = `Generate {count} distinct 2-4 word loading messages for a "{theme}" theme.
+Each message should end with "..." and hint at a different activity.
+Be creative, varied, and thematic. No duplicates.
+Output one message per line, nothing else. No numbering, no bullets.`;
+
 export const VIBE_SYSTEM_PROMPT =
   "You generate short themed loading messages and reply with the requested text only.";
 

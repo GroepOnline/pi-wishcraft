@@ -62,6 +62,8 @@ export interface RuntimeState {
   stashedEditorText: string | null;
   stashedPromptHistory: string[];
   currentEditor: any;
+  /** True once the configured `costAlert` threshold has been notified this session. */
+  costAlertNotified: boolean;
   bashModeActive: boolean;
   bashTranscript: BashTranscriptStore;
   bashCompletionEngine: BashCompletionEngine;

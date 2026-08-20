@@ -158,14 +158,13 @@ test("segmentLabels override tps/open_ports text", () => {
   const noLabel = renderSegment("open_ports" as any, base);
   const stripped = noLabel.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
   assert.ok(/\d+$/.test(stripped), `expected a bare count, got ${stripped}`);
-  // with label -> "ports" prefix vóór het hele segment (centrale toepassing)
+  // with label -> icon + "ports <count>"
   const labeled = renderSegment("open_ports" as any, {
     ...base,
     segmentLabels: new Map([["open_ports", "ports"]]),
   });
   const s2 = labeled.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
-  assert.ok(s2.startsWith("ports"), `expected label prefix, got ${s2}`);
-  assert.ok(/\d+$/.test(s2), `expected trailing count, got ${s2}`);
+  assert.match(s2, /ports \d+$/);
 });
 
 test("parsePowerlineConfig parses segmentLabels", () => {
@@ -179,26 +178,93 @@ test("parsePowerlineConfig parses segmentLabels", () => {
   assert.deepEqual(cfg.segmentLabels, { tps: "speed", open_ports: "ports" });
 });
 
-test("segmentOptions template overrides label and wraps plain value", () => {
+test("segmentLabels apply to any segment (label between icon and value)", () => {
+  const theme: any = { fg: (_c: string, t: string) => t };
+  const ctx: any = {
+    theme,
+    colors: {},
+    options: {},
+    segmentLabels: new Map([["time", "clock"]]),
+    usageStats: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      cost: 0,
+      subagentCost: 0,
+    },
+    sessionStartTime: Date.now(),
+    customItemsById: new Map(),
+    extensionStatuses: new Map(),
+  };
+  const rendered = renderSegment("time" as any, ctx);
+  const stripped = rendered.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
+  assert.match(stripped, /clock \d{1,2}:\d{2}/);
+});
+
+test("segment template replaces {value} and combines with a label", () => {
   const theme: any = { fg: (_c: string, t: string) => t };
   const base: any = {
     theme,
     colors: {},
-    usageStats: { input: 10, output: 20, cacheRead: 0, cacheWrite: 0, cost: 0, subagentCost: 0 },
-    contextWindow: 0,
-    customCompactionEnabled: false,
-    autoCompactEnabled: false,
-    usingSubscription: false,
-    options: {
-      open_ports: { template: "» {value} poort" },
+    options: {},
+    segmentLabels: new Map(),
+    usageStats: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      cost: 0,
+      subagentCost: 0,
     },
-    segmentLabels: new Map([["open_ports", "ports"]]),
+    customItemsById: new Map(),
     extensionStatuses: new Map(),
   };
-  const rendered = renderSegment("open_ports" as any, base as any);
-  const stripped = rendered.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
-  // template wint op het label; {value} = kale segmenttekst (icoon + count)
-  assert.ok(stripped.startsWith("» "), `expected template prefix, got ${stripped}`);
-  assert.ok(/poort$/.test(stripped), `expected template suffix, got ${stripped}`);
-  assert.ok(!stripped.startsWith("ports"), `label must not apply when template set: ${stripped}`);
+
+  const templated = renderSegment("tps" as any, {
+    ...base,
+    options: { tps: { template: "{value} tok/s" } },
+  });
+  const s1 = templated.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
+  assert.match(s1, /0 tok\/s$/);
+  assert.ok(!/0 tok\/s tok\/s/.test(s1), `template applied twice: ${s1}`);
+
+  const labeled = renderSegment("tps" as any, {
+    ...base,
+    options: { tps: { template: "{value} tok/s" } },
+    segmentLabels: new Map([["tps", "speed"]]),
+  });
+  const s2 = labeled.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
+  assert.match(s2, /speed 0 tok\/s$/);
+});
+
+test("parsePowerlineConfig parses tps windowMs and per-segment templates", () => {
+  const cfg = parsePowerlineConfig(
+    {
+      preset: "chef",
+      tps: { windowMs: 2000, template: "{value} tok/s" },
+      time: { template: "{value} ⏱" },
+    },
+    ["default", "chef"] as unknown as readonly string[],
+  );
+  assert.equal(cfg.segmentOptions.tps?.windowMs, 2000);
+  assert.equal(cfg.segmentOptions.tps?.template, "{value} tok/s");
+  assert.equal(cfg.segmentOptions.time?.template, "{value} ⏱");
+  assert.equal(cfg.segmentOptions.path?.template, undefined);
+
+  const clamped = parsePowerlineConfig(
+    {
+      preset: "chef",
+      tps: { windowMs: 50, template: "   " },
+    },
+    ["default", "chef"] as unknown as readonly string[],
+  );
+  assert.equal(clamped.segmentOptions.tps?.windowMs, 500);
+  assert.equal(clamped.segmentOptions.tps?.template, undefined);
+
+  const capped = parsePowerlineConfig(
+    { preset: "chef", tps: { windowMs: 99999 } },
+    ["default", "chef"] as unknown as readonly string[],
+  );
+  assert.equal(capped.segmentOptions.tps?.windowMs, 5000);
 });

@@ -76,7 +76,7 @@ Niet de fork. Niet de SaaS-agent.
   gebruikerscontent.
 - Geen skills-markt als identiteit vóór 1.0. Eerst discovery die klopt
   en een manager die zoekt.
-- Geen fleet-SSH `open_ports` totdat iemand het concreet vraagt.
+- Geen fleet-SSH `open_ports` zonder expliciete opt-in (`segmentOptions.openPorts.host`; sanitized, geen shell-injectie).
 - Geen versie-reset naar 1.0.0. We blijven op 0.19 → 0.20 → 1.0 wanneer
   de cockpit stabiel is.
 
@@ -173,9 +173,12 @@ GRO-1061 (runner-queue) is ops, geen product-slice.
 ## 0.20.0 — Harness
 
 Vier stacked PRs. 0.19.2 staat op npm. Hooks, repairs-subset en
-skills-manager v2 UI zijn al op `main` (#12). Wat hier nog openstaat:
-overlay-chrome, CHE-42, Configure-submenu, token-overlays, rest-repairs,
-README-voorbeelden.
+skills-manager v2 UI zijn al op `main` (#12). Op `feat/complete-wishcraft-backlog`
+(reopen #13) landen nu de unieke 0.20-expansies bovenop CHE-42 (#19):
+`/powerline doctor` + `export`, queue-archive + retention (P1 single-clock),
+`customItems.auto`, fleet-SSH `openPorts.host`, what's-new welcome widget,
+cost-alert, bash editor-history split, `docs/` guides, custom-preset builder in
+Configure. Nog open: token-overlays, rest-repairs, README-hookvoorbeelden.
 
 Overlay-chrome kit, één keer, daarna hergebruiken: box + ronde hoeken,
 accent-kop, dim metadata, rechts uitgelijnde counts, `→` detail /
@@ -218,15 +221,13 @@ zijn eigen schema's.
 Done: pure `repairToolInput(tool, input)` + table-driven tests voor
 de zes gevallen + de parse-vóór-wrap invariant.
 
-### PR G — overlay-submenus (CHE-42) — in #19
+### PR G — overlay-submenus (CHE-42) — ✅ #19 + expansion (#13 reopen)
 
 Het `alt+p`-menu krijgt gestapelde `SelectList`-overlays (pijltjes +
 descriptions) in plaats van platte `ctx.ui.select`. Max drie
-top-level ingangen. Pure functie `buildPowerlineMenuItems`
-unit-testen. #19 landt de top-level boom (Navigate / Configure /
-Status). Configure zelf blijft `ctx.ui.select` tot de volgende
-0.20-snede. CHE-40 is Done (#18). CHE-41 is 1.0 per-segment detail,
-geen tweede `alt+i`-pad.
+top-level ingangen. #19 landt de top-level boom (Navigate / Configure /
+Status). Configure gebruikt nu `showSelectOverlay` (CHE-42 rest). CHE-40
+is Done (#18). CHE-41 is 1.0 per-segment detail, geen tweede `alt+i`-pad.
 
 ### PR H — skills manager v2 UI + token-overlays
 

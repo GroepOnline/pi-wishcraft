@@ -115,41 +115,46 @@ export function normalizeSegmentOptions(
       ...(typeof raw.openPorts.includeUdp === "boolean"
         ? { includeUdp: raw.openPorts.includeUdp }
         : {}),
+      ...(typeof raw.openPorts.host === "string" && raw.openPorts.host.trim()
+        ? { host: raw.openPorts.host.trim() }
+        : {}),
     };
   }
 
   if (isRecord(raw.tps)) {
     options.tps = {
-      // De lookback gebruikt [0.5·windowMs, 2·windowMs] binnen een 5s-ring, dus
-      // windowMs boven 2500 zou nooit een sample vinden. Afkappen op 2500.
       ...(typeof raw.tps.windowMs === "number" &&
-      Number.isFinite(raw.tps.windowMs) &&
-      raw.tps.windowMs > 0
-        ? { windowMs: Math.min(raw.tps.windowMs, 2500) }
-        : {}),
-      ...(raw.tps.mode === "both" ||
-      raw.tps.mode === "out" ||
-      raw.tps.mode === "in"
-        ? { mode: raw.tps.mode }
-        : {}),
-      ...(typeof raw.tps.hideIdle === "boolean"
-        ? { hideIdle: raw.tps.hideIdle }
+      Number.isFinite(raw.tps.windowMs)
+        ? { windowMs: Math.min(5000, Math.max(500, Math.floor(raw.tps.windowMs))) }
         : {}),
     };
   }
 
-  // GR: Generic per-segment template override (segmentOptions.<seg>.template) that
-  // applies to any segment id (incl. custom items). Kept alongside the typed fields
-  // above; read centrally at render time via the options record.
-  const optionsAsRecord = options as unknown as Record<
-    string,
-    { template?: string }
+  // Generic `template` override for every segment option group:
+  // segmentOptions.<id>.template: "{value} tok/s" replaces the value text.
+  const TEMPLATE_OPTION_KEYS = [
+    "model",
+    "path",
+    "git",
+    "time",
+    "cost",
+    "context",
+    "cache_read",
+    "openPorts",
+    "tps",
+  ] as const;
+  const genericOptions = options as Record<
+    (typeof TEMPLATE_OPTION_KEYS)[number],
+    { template?: string } | undefined
   >;
-  for (const [seg, segRaw] of Object.entries(raw)) {
-    if (!isRecord(segRaw)) continue;
-    if (typeof segRaw.template !== "string" || !segRaw.template.trim()) continue;
-    const holder = isRecord(optionsAsRecord[seg]) ? optionsAsRecord[seg] : {};
-    optionsAsRecord[seg] = { ...holder, template: segRaw.template.trim() };
+  for (const key of TEMPLATE_OPTION_KEYS) {
+    const rawOpt = raw[key];
+    if (isRecord(rawOpt) && typeof rawOpt.template === "string") {
+      const template = rawOpt.template.trim();
+      if (template) {
+        genericOptions[key] = { ...genericOptions[key], template };
+      }
+    }
   }
 
   return options;

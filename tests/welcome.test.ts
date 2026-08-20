@@ -117,7 +117,7 @@ test("welcome renders the initial system prompt token estimate", () => {
   }
   assert.match(
     indexSource,
-    /new WelcomeHeader\(\s*modelName,\s*providerName,\s*recentSessions,\s*loadedCounts,\s*initialContextTokens,\s*queueCount,\s*hasStash,\s*\)/,
+    /new WelcomeHeader\(\s*modelName,\s*providerName,\s*recentSessions,\s*loadedCounts,\s*initialContextTokens,\s*queueCount,\s*hasStash,\s*whatsNew,\s*\)/,
   );
 
   const overlayStart = indexSource.indexOf("export function setupWelcomeOverlay(");

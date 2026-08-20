@@ -4,7 +4,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parseVibeGenerateArgs } from "../src/working-vibes/index.ts";
+import {
+  parseVibeGenerateArgs,
+  parseVibeLines,
+} from "../src/working-vibes/index.ts";
 
 async function importFauxProviderTools() {
   // The faux provider (fauxAssistantMessage, fauxProvider, etc.) is exported
@@ -258,6 +261,87 @@ test("on-demand vibe generation includes a system prompt for providers that requ
 
     assert.equal(updates[0], "Channeling star trek...");
     assert.ok(updates.includes("Engaging warp drive..."));
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+    rmSync(home, { recursive: true, force: true });
+    _links.cleanup();
+  }
+});
+
+test("parseVibeLines cleans numbered/bulleted responses into ellipsized vibes", () => {
+  assert.deepEqual(
+    parseVibeLines(
+      "1. \"Hoisting the sails\"\n- Swabbing the deck\nCharting course.\n...\n",
+    ),
+    ["Hoisting the sails...", "Swabbing the deck...", "Charting course..."],
+  );
+  assert.deepEqual(parseVibeLines(""), []);
+});
+
+test("generateVibeSamples previews a theme without writing a vibe file", async () => {
+  const _links = { cleanup() {} };
+  const home = mkdtempSync(join(tmpdir(), "powerline-vibes-home-"));
+  const previousHome = process.env.HOME;
+  process.env.HOME = home;
+
+  try {
+    const { fauxAssistantMessage, fauxProvider } =
+      await importFauxProviderTools();
+    const { generateVibeSamples, initVibeManager, setVibeModel } =
+      await import("../src/working-vibes/index.ts");
+
+    const registration = fauxProvider({
+      provider: "test-provider",
+      models: [{ id: "test-model" }],
+    });
+
+    const model = registration.getModel("test-model");
+    assert.ok(model);
+
+    registration.setResponses([
+      fauxAssistantMessage(
+        "Hoisting the sails...\nSwabbing the deck...\nCharting course...",
+      ),
+    ]);
+
+    initVibeManager({
+      modelRegistry: {
+        find(provider: string, modelId: string) {
+          return provider === "test-provider" && modelId === "test-model"
+            ? model
+            : undefined;
+        },
+        async getApiKeyAndHeaders() {
+          return { ok: true, apiKey: "test-key", headers: {} };
+        },
+        getProvider(provider: string) {
+          return provider === "test-provider"
+            ? registration.provider
+            : undefined;
+        },
+        async getProviderAuth() {
+          return undefined;
+        },
+      },
+    });
+
+    assert.equal(setVibeModel("test-provider/test-model"), true);
+
+    const result = await generateVibeSamples("pirate", 3);
+
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.theme, "pirate");
+      assert.deepEqual(result.samples, [
+        "Hoisting the sails...",
+        "Swabbing the deck...",
+        "Charting course...",
+      ]);
+    }
   } finally {
     if (previousHome === undefined) {
       delete process.env.HOME;

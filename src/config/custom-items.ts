@@ -9,6 +9,7 @@ import {
 } from "./primitives.ts";
 import { normalizeSegmentOptions } from "./segment-options.ts";
 import { normalizeStatusLineSegmentId } from "./segment-ids.ts";
+import { isNotificationExtensionStatus } from "./extension-statuses.ts";
 import type {
   ColorScheme,
   CustomSegmentConfig,
@@ -179,4 +180,48 @@ export function normalizeCustomItems(raw: unknown): CustomStatusItem[] {
   }
 
   return [...deduped.values()];
+}
+
+/**
+ * `powerline.customItems.auto` — when `customItems` is an object/record with
+ * an `auto: true` key, offer live extension status keys as segments without
+ * listing each one explicitly (the ChefBar status bridge).
+ */
+export function normalizeCustomItemsAuto(raw: unknown): boolean {
+  if (isRecord(raw)) return raw.auto === true;
+  return false;
+}
+
+/**
+ * Build the effective custom item list at render time. When `enabled`, every
+ * non-notification extension status key becomes an implicit right-aligned
+ * custom item unless it is already claimed by an explicit item, is an
+ * excluded internal key, or is not a valid segment id. Auto items are marked
+ * `excludeFromExtensionStatuses` so each status renders exactly once.
+ */
+export function deriveAutoCustomItems(
+  customItems: readonly CustomStatusItem[],
+  extensionStatuses: ReadonlyMap<string, string>,
+  enabled: boolean,
+  excludedStatusKeys: ReadonlySet<string>,
+): CustomStatusItem[] {
+  if (!enabled) return [...customItems];
+
+  const claimed = new Set(customItems.map((item) => item.statusKey));
+  const auto: CustomStatusItem[] = [];
+  for (const [statusKey, value] of extensionStatuses) {
+    if (claimed.has(statusKey) || excludedStatusKeys.has(statusKey)) continue;
+    if (!normalizeCustomItemId(statusKey)) continue;
+    if (isNotificationExtensionStatus(value)) continue;
+
+    auto.push({
+      id: statusKey,
+      statusKey,
+      position: "right",
+      hideWhenMissing: true,
+      excludeFromExtensionStatuses: true,
+    });
+  }
+
+  return [...customItems, ...auto];
 }

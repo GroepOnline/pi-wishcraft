@@ -1,9 +1,13 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 
-import type { StatusLinePreset } from "../../config/types.ts";
+import type {
+  CustomPresetConfig,
+  StatusLinePreset,
+} from "../../config/types.ts";
 import type { PowerlineConfig } from "../../config/powerline-config.ts";
 import {
+  nextPowerlineSettingWithCustomPreset,
   nextPowerlineSettingWithOptions,
   nextPowerlineSettingWithPreset,
 } from "../../config/powerline-config.ts";
@@ -182,21 +186,6 @@ export function writePowerlineSetting(
   return writeSettingKey(cwd, "powerline", update);
 }
 
-export function writePowerlineDisabledSegmentSetting(
-  disabledSegments: string[],
-  cwd: string = process.cwd(),
-): boolean {
-  return writePowerlineSetting(cwd, (existing) => {
-    // Shorthand string (bv. "chef") is een preset-naam: bewaar 'm.
-    const base = isRecord(existing)
-      ? existing
-      : typeof existing === "string"
-        ? { preset: existing }
-        : {};
-    return { ...base, disabledSegments };
-  });
-}
-
 export function writePowerlinePresetSetting(
   preset: StatusLinePreset,
   cwd: string = process.cwd(),
@@ -206,10 +195,27 @@ export function writePowerlinePresetSetting(
   );
 }
 
+export function writePowerlineCustomPresetSetting(
+  cwd: string,
+  name: string,
+  presetDef: CustomPresetConfig,
+): boolean {
+  return writePowerlineSetting(cwd, (existingPowerlineSetting) =>
+    nextPowerlineSettingWithCustomPreset(
+      existingPowerlineSetting,
+      name,
+      presetDef,
+    ),
+  );
+}
+
 export function writePowerlineOptionSetting(
   cwd: string,
   updates: Partial<
-    Pick<PowerlineConfig, "welcome" | "stashSharpSShortcut" | "placement">
+    Pick<
+      PowerlineConfig,
+      "welcome" | "stashSharpSShortcut" | "placement" | "disabledSegments"
+    >
   >,
   currentPreset: StatusLinePreset,
 ): boolean {

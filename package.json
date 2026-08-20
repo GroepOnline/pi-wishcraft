@@ -8,6 +8,7 @@
     "*.md",
     "*.json",
     "banner.png",
+    "docs/**/*.md",
     "src/**/*.ts",
     "src/**/*.txt",
     "bash-mode/**/*.ts",

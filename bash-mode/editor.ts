@@ -14,9 +14,18 @@ import {
   droppedPathTextFromInput,
   isCommandUndoShortcut,
   isPrintableInput,
+  moveCursorToEditorBoundary as moveCursorToEditorBoundaryImpl,
   resetShellHistoryBrowse,
 } from "./editor-input.ts";
-import { overlayGhostSuggestion } from "./editor-ghost.ts";
+import {
+  acceptGhostSuggestion as acceptGhostSuggestionImpl,
+  completeGhostSuggestionOneToken as completeGhostSuggestionOneTokenImpl,
+  overlayGhostSuggestion,
+} from "./editor-ghost.ts";
+import {
+  isPromptHistoryRecallPosition as isPromptHistoryRecallPositionImpl,
+  navigateShellHistory as navigateShellHistoryImpl,
+} from "./editor-history.ts";
 import type {
   BashModeEditorOptions,
   GhostSuggestion,
@@ -301,155 +310,28 @@ export class BashModeEditor extends CustomEditor {
     return (
       this.optionsRef.isBashModeActive() || this.isOneOffBashCommandContext()
     );
-  }
-
-  private isOneOffBashCommandContext(): boolean {
+  }  private isOneOffBashCommandContext(): boolean {
     return getOneOffBashCommandContext(this.getExpandedText()) !== null;
   }
 
   private moveCursorToEditorBoundary(position: "start" | "end"): void {
-    const state = Reflect.get(this, "state");
-    const lines =
-      state && typeof state === "object" ? Reflect.get(state, "lines") : null;
-    if (!Array.isArray(lines)) {
-      throw new Error("Editor cursor state is unavailable");
-    }
-
-    if (position === "start") {
-      Reflect.set(state, "cursorLine", 0);
-      Reflect.set(state, "cursorCol", 0);
-    } else {
-      const lastLine = Math.max(0, lines.length - 1);
-      Reflect.set(state, "cursorLine", lastLine);
-      Reflect.set(
-        state,
-        "cursorCol",
-        typeof lines[lastLine] === "string" ? lines[lastLine].length : 0,
-      );
-    }
-
-    Reflect.set(this, "lastAction", null);
-    Reflect.set(this, "preferredVisualCol", null);
-    Reflect.set(this, "snappedFromCursorCol", null);
-    this.tui.requestRender();
+    moveCursorToEditorBoundaryImpl(this, position);
   }
 
   private acceptGhostSuggestion(): boolean {
-    if (!this.ghost) return false;
-    const text = this.getExpandedText();
-    if (text.includes("\n")) return false;
-
-    const cursor = this.getCursor();
-    if (cursor.line !== 0 || cursor.col !== text.length) return false;
-
-    if (!this.ghost.value.startsWith(text) || this.ghost.value === text)
-      return false;
-    this.setText(this.ghost.value);
-    this.clearGhostSuggestion();
-    return true;
+    return acceptGhostSuggestionImpl(this);
   }
 
-  /**
-   * Advance the buffer by exactly one token/segment toward the active ghost
-   * suggestion (the next whitespace-delimited chunk). Repeated Tabs step
-   * through the rest of the suggestion one token at a time instead of
-   * inserting the whole line at once. The ghost stays live after a partial
-   * step so the next Tab continues from where it left off, and it is only
-   * cleared once the full suggestion has been inserted.
-   */
   private completeGhostSuggestionOneToken(): boolean {
-    if (!this.ghost) return false;
-    const text = this.getExpandedText();
-    if (text.includes("\n")) return false;
-
-    const cursor = this.getCursor();
-    if (cursor.line !== 0 || cursor.col !== text.length) return false;
-
-    const value = this.ghost.value;
-    if (!value.startsWith(text) || value === text) return false;
-
-    // Next chunk = leading whitespace (when the current token is complete)
-    // plus the next whitespace-delimited token from the projected ghost value.
-    const rest = value.slice(text.length);
-    const nextChunk = rest.match(/^\s*\S*/)?.[0];
-    if (!nextChunk) return false;
-
-    const next = text + nextChunk;
-    this.setText(next);
-
-    if (value === next) {
-      // The full ghost suggestion is now in the buffer; nothing is left to
-      // step through.
-      this.clearGhostSuggestion();
-    } else if (value.startsWith(next)) {
-      // Re-resolve against the updated buffer rather than reusing a stale ghost.
-      this.scheduleGhostUpdate();
-    } else {
-      this.clearGhostSuggestion();
-    }
-    return true;
+    return completeGhostSuggestionOneTokenImpl(this);
   }
 
   private isPromptHistoryRecallPosition(): boolean {
-    if (this.isShowingAutocomplete()) return false;
-
-    const history = Reflect.get(this, "history");
-    if (!Array.isArray(history) || history.length === 0) return false;
-
-    const lines = this.getLines();
-    const cursor = this.getCursor();
-    if (lines.length === 1) {
-      return cursor.line === 0 && cursor.col === (lines[0]?.length ?? 0);
-    }
-
-    const isOnFirstVisualLine = Reflect.get(this, "isOnFirstVisualLine");
-    if (
-      typeof isOnFirstVisualLine === "function" &&
-      !isOnFirstVisualLine.call(this)
-    ) {
-      return false;
-    }
-
-    return cursor.line === 0;
+    return isPromptHistoryRecallPositionImpl(this);
   }
 
   private navigateShellHistory(direction: -1 | 1): void {
-    const prefix = this.shellHistoryDraft || this.getExpandedText();
-    if (this.shellHistoryIndex === -1) {
-      this.shellHistoryDraft = prefix;
-      this.shellHistoryItems = this.optionsRef.getHistoryEntries(prefix);
-    }
-
-    if (this.shellHistoryItems.length === 0) {
-      this.optionsRef.onNotify("No shell history matches", "info");
-      return;
-    }
-
-    if (direction < 0) {
-      this.shellHistoryIndex = Math.min(
-        this.shellHistoryItems.length - 1,
-        this.shellHistoryIndex + 1,
-      );
-      this.setText(
-        this.shellHistoryItems[this.shellHistoryIndex] ??
-          this.shellHistoryDraft,
-      );
-      this.clearGhostSuggestion();
-      return;
-    }
-
-    this.shellHistoryIndex -= 1;
-    if (this.shellHistoryIndex < 0) {
-      this.shellHistoryIndex = -1;
-      this.setText(this.shellHistoryDraft);
-      this.scheduleGhostUpdate();
-      return;
-    }
-
-    this.setText(
-      this.shellHistoryItems[this.shellHistoryIndex] ?? this.shellHistoryDraft,
-    );
-    this.clearGhostSuggestion();
+    navigateShellHistoryImpl(this, direction);
   }
 
   private scheduleGhostUpdate(): void {

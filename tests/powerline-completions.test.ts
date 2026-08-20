@@ -8,10 +8,12 @@ import {
 } from "../src/extension/commands/powerline-completions.ts";
 
 
-test("empty /powerline prefix completes placement and every built-in preset", () => {
+test("empty /powerline prefix completes subcommands and every built-in preset", () => {
   const items = getPowerlineArgumentCompletions("");
   assert.ok(items);
   const values = items.map((item) => item.value);
+  assert.ok(values.includes("doctor"));
+  assert.ok(values.includes("export"));
   assert.deepEqual(
     values.filter((value) => value === "placement"),
     ["placement"],
@@ -46,12 +48,9 @@ test("/powerline placement a completes above", () => {
   assert.deepEqual(items?.map((item) => item.value), ["placement above"]);
 });
 
-test("/powerline d completes the default preset", () => {
+test("/powerline d completes doctor and default preset", () => {
   const items = getPowerlineArgumentCompletions("d");
-  assert.deepEqual(
-    items?.map((item) => item.value),
-    ["default"],
-  );
+  assert.deepEqual(items?.map((item) => item.value), ["doctor", "default"]);
 });
 
 test("unknown and unsupported /powerline arguments return no completions", () => {

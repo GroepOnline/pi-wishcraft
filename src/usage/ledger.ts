@@ -39,6 +39,12 @@ export function getUsageTokenTotal(usage: SessionAssistantUsage): number {
   return usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
 }
 
+export function getSessionTotalCost(
+  stats: Pick<SessionTokenStats, "cost" | "subagentCost">,
+): number {
+  return stats.cost + stats.subagentCost;
+}
+
 const SUBAGENT_SLASH_RESULT_TYPE = "subagent-slash-result";
 function getSubagentCost(entry: any): number {
   if (!entry || typeof entry !== "object") return 0;
