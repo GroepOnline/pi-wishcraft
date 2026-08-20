@@ -223,7 +223,7 @@ Het `alt+p`-menu krijgt gestapelde `SelectList`-overlays (pijltjes +
 descriptions) in plaats van platte `ctx.ui.select`. Max drie
 top-level ingangen. #19 landt de top-level boom (Navigate / Configure /
 Status). Configure gebruikt nu `showSelectOverlay` (CHE-42 rest). CHE-40
-is Done (#18). CHE-41 is 1.0 per-segment detail, geen tweede `alt+i`-pad.
+is Done (#18). CHE-41 is Done: `→` in Navigate, snapshot bij openen, geen tweede `alt+i`-pad.
 
 ### PR H — skills manager v2 UI + token-overlays
 
@@ -281,9 +281,9 @@ Pas na 0.20. Geen parallelle 1.0-tak.
    blijven voor alles wat niet in een regel past.
 4. **Preset editor** — links/rechts segmenten kiezen in het menu,
    opslaan in settings. Vandaag is custom JSON-only.
-5. **Per-segment detail** (CHE-41): `→` in de navigator opent
+5. **Per-segment detail** (CHE-41): ✅ `→` in de navigator opent
    ports-lijst, git-samenvatting, cost-breakdown, context-math.
-   Refresh bij openen, geen 500ms-timer.
+   Snapshot bij openen, geen live timer.
 6. **Idee-review** — `/ideas` in dezelfde overlay-taal; status
    idea / in-progress / done; tags; "verwerk met skill X".
    Welcome queue-widget: item oppakken → prompt.
@@ -303,9 +303,9 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 | GRO-1060 fork cleanup | Done. Release-pad bewezen. CHANGELOG niet inkorten. Versie niet resetten. `banner.png` blijft. |
 | GRO-1061 CI queue | Ops, niet deze roadmap. |
 | CHE-40 `/powerline` tab | Done (#18 / 0.19.2). |
-| CHE-41 per-segment detail | 1.0. Ticket hernoemd; geen tweede `alt+i`-pad. |
+| CHE-41 per-segment detail | Done. `→` in Navigate; snapshot on open; `alt+i` stays ports. |
 | CHE-42 drill-down | Done (#19 + Configure in #13). |
-| GRO-1414 0.20 leftovers | In Progress. Hooks docs, rest-repairs, `/tps` `/usage`, substring filter. |
+| GRO-1414 0.20 leftovers | Done (#20 / 0.22.0). |
 
 Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
 die package nog leeft.

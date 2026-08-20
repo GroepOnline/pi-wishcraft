@@ -1,7 +1,6 @@
 # pi-wishcraft documentation
 
-This is the detailed documentation split out of the top-level `README.md`.
-The README stays a short landing page; everything below lives here.
+The README is the public landing page (`banner.png` only). Everything below lives here.
 
 ## Guides
 
