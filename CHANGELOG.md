@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- `/ideas` review overlay: `reviewStatus` (idea / in-progress / done), tags, and Run with skill X. Welcome queue widget shows the next idea plus `/ideas next`.
+
 ## [0.26.0] - 2026-08-20
 
 ### Added

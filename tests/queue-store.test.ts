@@ -382,3 +382,48 @@ test("archiveSentItems keeps sent items exactly at the retention cutoff", () =>
     assert.equal(result.remainingSent, 1);
     assert.deepEqual(store.list().map((item) => item.id), [boundaryId]);
   }));
+
+test("legacy idea JSONL lines still parse without reviewStatus or tags", () =>
+  withStore((store, dir) => {
+    appendFileSync(
+      join(dir, "inbox.jsonl"),
+      `${JSON.stringify({
+        id: "legacy01",
+        text: "old captured idea",
+        createdAt: 100,
+        updatedAt: 100,
+        source: { cwd: "/tmp/project" },
+        target: { kind: "project", cwd: "/tmp/project" },
+        intent: "idea",
+        status: "queued",
+      })}\n`,
+    );
+    const item = store.get("legacy01");
+    assert.ok(item);
+    assert.equal(item.intent, "idea");
+    assert.equal(item.reviewStatus, undefined);
+    assert.equal(item.tags, undefined);
+  }));
+
+test("new ideas persist reviewStatus and ignore duplicate tags", () =>
+  withStore((store) => {
+    const item = store.add({
+      text: "tagged thought",
+      source: { cwd: "/tmp/project" },
+      target: { kind: "project", cwd: "/tmp/project" },
+      intent: "idea",
+      tags: ["later", "later", "  ", "review"],
+    });
+    assert.equal(item.reviewStatus, "idea");
+    assert.deepEqual(item.tags, ["later", "review"]);
+
+    store.update(item.id, { reviewStatus: "in-progress", tags: ["bug"] });
+    const updated = store.get(item.id);
+    assert.equal(updated?.reviewStatus, "in-progress");
+    assert.deepEqual(updated?.tags, ["bug"]);
+
+    store.update(item.id, { reviewStatus: "done", tags: undefined });
+    const done = store.get(item.id);
+    assert.equal(done?.reviewStatus, "done");
+    assert.equal(done?.tags, undefined);
+  }));

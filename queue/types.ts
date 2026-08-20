@@ -1,5 +1,12 @@
 export type QueueIntent = "steer" | "follow-up" | "post-compact" | "idea";
 export type QueueStatus = "queued" | "blocked" | "delivering" | "sent" | "failed";
+/** Review language for captured ideas. Separate from delivery `QueueStatus`. */
+export type IdeaReviewStatus = "idea" | "in-progress" | "done";
+export const IDEA_REVIEW_STATUSES = [
+  "idea",
+  "in-progress",
+  "done",
+] as const satisfies readonly IdeaReviewStatus[];
 
 export type QueueTarget =
   | { kind: "current-session" }
@@ -21,6 +28,8 @@ export interface PowerlineQueueItem {
   intent: QueueIntent;
   status: QueueStatus;
   error?: string;
+  reviewStatus?: IdeaReviewStatus;
+  tags?: string[];
 }
 
 export interface QueueAliasMap {
@@ -43,6 +52,8 @@ export interface CreateQueueItemInput {
   target: QueueTarget;
   intent: QueueIntent;
   status?: QueueStatus;
+  reviewStatus?: IdeaReviewStatus;
+  tags?: string[];
   now?: number;
 }
 

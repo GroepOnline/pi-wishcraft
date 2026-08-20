@@ -9,6 +9,7 @@ import { estimateInitialContextTokens } from "../../usage/context.ts";
 import { isRecord } from "../settings/settings-io.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
+import { pickNextReviewIdea } from "../queue/idea-review.ts";
 
 export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   const modelName = ctx.model?.name || ctx.model?.id || "No model";
@@ -20,6 +21,9 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   const queueCount = queueSummary.queueCount + queueSummary.ideaCount;
   const hasStash =
     rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
+  const nextIdeaText = pickNextReviewIdea(
+    rt.queueStore.activeItems(getQueueContext(ctx)),
+  )?.text;
   const whatsNew = discoverWhatsNew();
 
   const header = new WelcomeHeader(
@@ -31,6 +35,7 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
     queueCount,
     hasStash,
     whatsNew,
+    nextIdeaText,
   );
   rt.welcomeHeaderActive = true;
 
@@ -86,6 +91,9 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
     const queueCount = queueSummary.queueCount + queueSummary.ideaCount;
     const hasStash =
       rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
+    const nextIdeaText = pickNextReviewIdea(
+      rt.queueStore.activeItems(getQueueContext(ctx)),
+    )?.text;
     const whatsNew = discoverWhatsNew();
 
     ctx.ui
@@ -105,6 +113,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             queueCount,
             hasStash,
             whatsNew,
+            nextIdeaText,
           );
 
           let countdown = 30;

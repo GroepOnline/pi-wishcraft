@@ -384,11 +384,10 @@ export function findNextIdea(
   rt: RuntimeState,
   ctx: any,
 ): PowerlineQueueItem | null {
-  return (
-    rt.queueStore
-      .activeItems(getQueueContext(ctx))
-      .find((candidate) => candidate.intent === "idea") ?? null
-  );
+  const ideas = rt.queueStore
+    .activeItems(getQueueContext(ctx))
+    .filter((candidate) => candidate.intent === "idea");
+  return ideas.find((candidate) => candidate.reviewStatus !== "done") ?? null;
 }
 
 export function sendIdeaIssueHandoff(

@@ -10,6 +10,7 @@ import {
   sendIdeaIssueHandoffById,
   sendOrRetryQueueItem,
 } from "../queue/queue-integration.ts";
+import { openIdeasReview } from "../queue/idea-review.ts";
 import { getCurrentEditorText } from "../shortcuts/shortcuts-router.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { config } from "../core/state.ts";
@@ -65,7 +66,7 @@ export function registerQueueCommands(
       const id = parts[1];
 
       if (!action) {
-        await openQueuePicker(pi, rt, ctx, "ideas");
+        await openIdeasReview(pi, rt, ctx);
         return;
       }
 
@@ -78,6 +79,7 @@ export function registerQueueCommands(
         const updated = rt.queueStore.update(item.id, {
           status: "queued",
           target: { kind: "current-session" },
+          reviewStatus: "in-progress",
           error: undefined,
         });
         if (updated) deliverQueueItem(pi, rt, ctx, updated);
@@ -107,6 +109,7 @@ export function registerQueueCommands(
         const updated = rt.queueStore.update(item.id, {
           status: "queued",
           target: { kind: "current-session" },
+          reviewStatus: "in-progress",
           error: undefined,
         });
         if (updated) deliverQueueItem(pi, rt, ctx, updated);
@@ -121,7 +124,11 @@ export function registerQueueCommands(
       }
 
       if (action === "clear") {
-        rt.queueStore.clear(item.id);
+        rt.queueStore.update(item.id, {
+          status: "sent",
+          reviewStatus: "done",
+          error: undefined,
+        });
         ctx.ui.notify(`Cleared idea ${item.id}`, "info");
         requestQueueRender(rt);
         return;
