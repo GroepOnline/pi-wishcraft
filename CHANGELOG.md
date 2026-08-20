@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-08-20
+
 ### Changed
 - README is a landing page for the 0.22 cockpit. The Kongming banner stays; the inherited upstream screenshot is gone.
 
