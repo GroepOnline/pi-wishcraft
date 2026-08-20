@@ -11,9 +11,9 @@
 
 import { loadSkills } from "@earendil-works/pi-coding-agent";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { getAgentDir, getAgentPath } from "../../paths/agent-dirs.ts";
-import { stripFrontmatter } from "../../core/frontmatter.ts";
+import { parseSkillFrontmatter, stripFrontmatter } from "../../core/frontmatter.ts";
 
 /** Categorie: waar de skill vandaan komt. */
 export type SkillCategory = "global" | "project" | "prompts" | "extra";
@@ -158,6 +158,92 @@ function parseFrontmatterKeys(content: string): string[] {
   return keys;
 }
 
+/** Walk canonical skill trees the same way pi core discovers nested SKILL.md. */
+function walkCanonicalSkillMdFiles(dir: string, visit: (filePath: string) => void): void {
+  if (!existsSync(dir)) return;
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  const skillMd = entries.find((entry) => entry.isFile() && entry.name === "SKILL.md");
+  if (skillMd) {
+    visit(join(dir, skillMd.name));
+    return;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name === "node_modules") {
+      continue;
+    }
+    walkCanonicalSkillMdFiles(join(dir, entry.name), visit);
+  }
+}
+
+/** Core rejects these paths (skill: null) but still emits diagnostics — surface them for doctor/manager. */
+function buildRejectedSkillEntries(
+  diagnostics: { message: string; path?: string }[],
+  knownPaths: Set<string>,
+  cwd: string,
+  extras: { path: string; category: SkillCategory }[],
+): SkillEntry[] {
+  const byPath = new Map<string, string>();
+  for (const d of diagnostics) {
+    if (!d.path || knownPaths.has(d.path)) continue;
+    if (!byPath.has(d.path)) byPath.set(d.path, d.message);
+  }
+
+  const agent = getAgentDir();
+  for (const root of [join(agent, "skills"), join(cwd, ".pi", "skills"), join(cwd, "skills")]) {
+    walkCanonicalSkillMdFiles(root, (filePath) => {
+      if (!knownPaths.has(filePath) && !byPath.has(filePath)) {
+        byPath.set(filePath, "skill file not loaded by catalog");
+      }
+    });
+  }
+
+  const out: SkillEntry[] = [];
+  for (const [filePath, message] of byPath) {
+    let content = "";
+    let sizeBytes = 0;
+    let lineCount = 0;
+    let mtimeMs = 0;
+    try {
+      content = readFileSync(filePath, "utf8");
+      sizeBytes = Buffer.byteLength(content, "utf8");
+      lineCount = content.split("\n").length;
+      mtimeMs = statSync(filePath).mtimeMs;
+    } catch {
+      // include unreadable paths so doctor can still report them
+    }
+
+    const fm = parseSkillFrontmatter(content);
+    const base = basename(filePath);
+    const name =
+      fm.name ??
+      (base === "SKILL.md"
+        ? basename(dirname(filePath))
+        : base.replace(/\.(md|txt)$/, ""));
+
+    out.push({
+      name,
+      description: fm.description ?? "",
+      filePath,
+      baseDir: dirname(filePath),
+      isDirectorySkill: base === "SKILL.md",
+      category: categorize(filePath, cwd, extras),
+      disableModelInvocation: false,
+      sizeBytes,
+      lineCount,
+      mtimeMs,
+      frontmatterKeys: parseFrontmatterKeys(content),
+      warning: message,
+    });
+    knownPaths.add(filePath);
+  }
+  return out;
+}
+
 /** Bouw de volledige skill-catalogus (gecached, TTL 30s). */
 export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
   const now = Date.now();
@@ -215,10 +301,23 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
 
   // loose entries achteraan; bij naam-collisie wint core
   const looseNames = new Set(loose.map((e) => e.name));
+  const catalogPaths = new Set([
+    ...entries.map((e) => e.filePath),
+    ...loose.map((e) => e.filePath),
+  ]);
+  const rejected = buildRejectedSkillEntries(
+    result.diagnostics,
+    catalogPaths,
+    cwd,
+    extras,
+  );
   cachedAt = now;
-    cachedCwd = cwd;
-  cachedEntries = [...entries.filter((e) => !looseNames.has(e.name)), ...loose]
-    .sort((a, b) => a.name.localeCompare(b.name));
+  cachedCwd = cwd;
+  cachedEntries = [
+    ...entries.filter((e) => !looseNames.has(e.name)),
+    ...loose,
+    ...rejected,
+  ].sort((a, b) => a.name.localeCompare(b.name));
   cachedPathMap = new Map(cachedEntries.map((e) => [e.name, e.filePath] as const));
   return cachedEntries;
 }
