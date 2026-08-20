@@ -93,10 +93,76 @@ Niet de fork. Niet de SaaS-agent.
   uit `ctx.ui.select`, token-overlays, rest-repairs, README-hooks die
   waar zijn. Done = drie README-hookvoorbeelden werken, repair-teller
   zichtbaar, `alt+p` overlay-boom, `/tps` deelt de ring met het segment.
+- **0.22.0 — "Volwassenheid"** (nieuw, uit top-15-gatenanalyse). Sluit de
+  P0-cluster: settings-contract naar pi core, per-segment foutisolatie,
+  macOS first-class (open_ports + CI), changelog-roll in release-job. Dit is
+  de release-gate vóór 1.0 — zonder deze vier is de extensie niet "af" voor
+  een willekeurige pi-gebruiker. P1-gaten (zero-config, i18n, docs-CI,
+  perf-budget, accessibility, semver) volgen waar mogelijk mee in 0.22/0.23.
 - **1.0 — "Cockpit"**. Skills-doctor/install, declaratieve policy,
   preset-editor, idee-review, stabiele ChefGroep-statuskeys,
   documentatie die waar is. Done = README dekt alles wat we shipten,
   geen kapotte footer-belofte.
+
+## Top-15-traject: volwassenheidsgaten
+
+Geschreven 2026-08-20 op basis van code-review (niet alleen deze ROADMAP).
+De feature-dichtheid is al hoog (status, queue, stash, bash, vibes, hooks,
+repairs, skills-manager, TPS, usage-ledger, what's-new, doctor/export,
+fleet-SSH). Wat ontbreekt is de **volwassenheidslaag** die een top-15-pi-
+extensie van een feature-rijke prototype scheidt. Elke release vanaf 0.22 is
+één gat-cluster; P0 is release-gate voor 1.0.
+
+Marker: `*` = al op de 1.0-lijst hierboven, `–` = nieuw / onderbelicht.
+
+### P0 — blokkeert top-15-bereik (release-gate voor 1.0)
+1. **`–` Geen settings-contract naar pi core.** Geen
+   `contributes.settings`/schema; gebruikers editen JSON met de hand, zonder
+   autocomplete, beschrijvingen of defaults in pi's settings-UI. Top-extensies
+   declareren typed settings. *Fix: settings-schema + contributions.*
+2. **`–` Geen foutisolatie per segment.** `renderSegment` heeft geen
+   try/catch (`segments/core.ts`, `index.ts`, `render/` gecheckt). Eén
+   `command`-segment van een gebruiker dat crasht, kan de hele footer
+   leegmaken. *Fix: per-segment guard + error-indicator.*
+3. **`–` macOS niet first-class.** `open_ports` valt terug op `/proc/net`
+   (Linux-only); `ss` bestaat niet op macOS; ongetest in CI. Globale top-15 =
+   macOS is primair platform. *Fix: macOS-netstat-pad + macOS-runner in CI.*
+4. **`–` Release-discipline / changelog-drift.** Het what's-new-paneel leest
+   `CHANGELOG.md`, maar 0.20/0.21 staan als `[Unreleased]` zonder
+   versiekoppen → paneel toont ze nooit. *Fix: changelog-roll geautomatiseerd
+   in de release-job.*
+
+### P1 — differentiatie & kwaliteit
+5. **`–` Geen zero-config eerste-run.** Install vereist JSON-editen voor de
+   nuttigste features. Top-extensies werken direct na `pi install`. *Fix:
+   sensibele defaults + eerste-run setup-overlay.*
+6. **`–` Geen i18n / English-first.** UI is Nederlands (GroepOnline-
+   identiteit), maar voor globale adoptie is English de lingua franca. *Fix:
+   string-table en/nl, default en.*
+7. **`*` Docs-accuratesse (hook-voorbeelden drift).** ROADMAP erkent het
+   zelf. Harde graadmeter voor top-15. *Fix: docs-CI die voorbeelden
+   daadwerkelijk uitvoert als test.*
+8. **`–` Geen perf-budget / low-power mode.** Status rendert elke ~33ms;
+   zware segments (bash-history, git) kunnen de hot-path raken op trage
+   machines. *Fix: configureerbare refresh + "lite mode".*
+9. **`–` Geen accessibility (no-color / reduced-motion).** Truecolor +
+   animaties (vibes, rainbow think) breken op terminals zonder truecolor of
+   voor gevoelige gebruikers. *Fix: `NO_COLOR`/8-color + reduced-motion
+   respect.*
+10. **`–` Geen publieke API-stabiliteit / semver-beloft.** Nog 0.x; top-15
+    extensies hebben een stabiliteitscontract + deprecation-pad. *Fix:
+    gedocumenteerde API-surface + semver-policy.*
+
+### P2 — roadmap-1.0, wel killers voor "volwaardig"
+11. **`*` Policy engine** (declaratieve regels zonder spawn) — het echte
+    onderscheid t.o.v. "alleen een balk".
+12. **`*` Per-segment detail (CHE-41)** — `→` opent ports/git/cost/context-
+    diepte, refresh bij openen.
+13. **`*` Preset editor in-menu** — nu custom JSON-only.
+14. **`*` Skill-install van repo/npm** — discovery + doctor bestaan,
+    installeren/curateren ontbreekt voor de "skills als OS"-identiteit.
+15. **`*` Host-status-integratie** — status ook naar pi core
+    `ctx.ui.setStatus` (niet alleen footer), zodat het in de host-UI toont.
 
 ---
 
@@ -308,6 +374,16 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 | CHE-40 `/powerline` tab | Done (#18 / 0.19.2). |
 | CHE-41 per-segment detail | 1.0. Ticket hernoemd; geen tweede `alt+i`-pad. |
 | CHE-42 drill-down | In Progress. #19 = drie top-level overlays + Status. Configure-overlay volgt. |
+| CHE-50 settings-contract | 0.22 P0. `contributes.settings` + typed schema; geen hand-JSON meer. |
+| CHE-51 segment-fault-isolation | 0.22 P0. Per-segment try/catch + error-indicator in `renderSegment`. |
+| CHE-52 macOS first-class | 0.22 P0. `open_ports` macOS-netstat-pad + macOS-runner in CI. |
+| CHE-53 changelog-roll | 0.22 P0. Release-job rolt CHANGELOG; what's-new-paneel klopt. |
+| CHE-54 zero-config first-run | 0.22/0.23 P1. Defaults + setup-overlay bij eerste run. |
+| CHE-55 i18n en/nl | 0.22/0.23 P1. String-table, default en. |
+| CHE-56 docs-CI | 0.23 P1. Hook-voorbeelden uitgevoerd als test. |
+| CHE-57 perf-budget | 0.23 P1. Configureerbare refresh + lite mode. |
+| CHE-58 accessibility | 0.23 P1. `NO_COLOR`/8-color + reduced-motion. |
+| CHE-59 semver-policy | 0.23 P1. Gedocumenteerde API-surface + deprecation-pad. |
 
 Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
 die package nog leeft.
