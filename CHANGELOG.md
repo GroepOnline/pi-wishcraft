@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-08-20
+
 ### Added
 - `powerline.skills.count` status export, published on session start and after skill-cache invalidation.
 - Read-tool continuation hints on partial core `read` results when the core output omits a range or offset summary.
