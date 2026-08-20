@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-08-20
+
 ### Added
 - `/powerline doctor` and `/powerline export`.
 - `/queue archive [hours]` with a single clock snapshot so sent items cannot vanish from both inbox and archive.
