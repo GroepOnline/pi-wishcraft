@@ -34,11 +34,12 @@ Then restart pi or `/reload`. Peer range is `@earendil-works/pi-coding-agent` `>
 | --- | --- |
 | Status bar | Git, TPS (1s window over a 5s ring), context, cost, ports, queue. Default placement is the editor top border; `/powerline placement below` moves it. |
 | `alt+p` | Three overlays: Navigate, Configure, Status. In Navigate, `→` / `tab` opens per-segment detail (ports, git, cost, context). `alt+i` is the ports list. |
-| `# <idea>` | File-backed inbox. Does not send the prompt. `/ideas next` feeds the oldest active idea into the session. |
+| `# <idea>` | File-backed inbox. Does not send the prompt. `/ideas` reviews status, tags, and skill insert. `/ideas next` feeds the oldest active idea into the session. |
 | `alt+s` | Stash the draft, ask something else, get it back when the run finishes. |
-| `/skills` | Substring search on name, description, and path. Enter inserts. |
+| `/skills` | Overlay search on name, description, and path. Enter inserts. `/skills doctor` is the health table. `/skills new` writes a SKILL.md from a template. |
 | `!cmd` / bash mode | Managed shell with ghost suggestions from project history. No shell-native completion probes. |
 | Hooks + repairs | Command hooks on pi events. Custom-tool input repairs before execution. Kill-switch: `wishcraft.hooksEnabled`. |
+| Policy | In-process deny/inject rules in global settings. No spawn. Kill-switch: `wishcraft.policyEnabled`. |
 
 Pi owns the footer chrome, feed scrolling, and input. Wishcraft supplies widgets, overlays, and the bash/stash/editor integrations. The bar is not clickable; actions are commands and overlays.
 
@@ -54,6 +55,9 @@ Activates on load. `/powerline` toggles it. `/powerline <preset>` switches look.
 /usage                session / today / week from ~/.pi/agent/wishcraft-usage.json
 /repairs              tool-input repair counters
 /skills               skill manager
+/skills doctor        health table (broken frontmatter, dupes, unused, budget)
+/skills new [name]    write a SKILL.md from a template
+/ideas                idea review overlay (status, tags, skill insert)
 /wishcraft            settings TUI
 /open-ports           listening sockets
 /cd <path>            continue this conversation in another directory
@@ -65,6 +69,7 @@ Queue:
 
 - `# <text>` current project; `# @global`, `# @current`, `# @alias`
 - `/idea`, `/ideas`, `/queue` for capture, send, retry, clear, archive
+- `/ideas` overlay: `reviewStatus` (`idea` / `in-progress` / `done`), tags, Run with skill X
 
 Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
 

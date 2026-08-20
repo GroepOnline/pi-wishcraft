@@ -125,13 +125,13 @@ extension from a feature-rich prototype.
 - **English operator UI** — overlays, skill manager, `/wishcraft` TUI
   (GRO-1422, #24, 0.27.1).
 - **`powerline.skills.count` + read hints + Status trim** (GRO-1420, 0.23.0).
+- **1.0.0 cockpit cut** — README lists doctor, templates, policy, and
+  idea-review (GRO-1421). Semver leaves 0.x.
 
 ### Remaining open gaps (maturity)
-P0 — release gate for 1.0:
+P1 — differentiation and quality:
 1. **Settings contract to pi core.** No `contributes.settings`/schema;
    users hand-edit JSON. *Fix: typed settings schema + contributions.*
-
-P1 — differentiation and quality:
 2. **Zero-config first run.** Install still expects JSON edits for the most
    useful features. *Fix: sensible defaults + first-run setup overlay.*
 3. **Perf budget / low-power mode.** Status renders every ~33ms; heavy
@@ -140,15 +140,12 @@ P1 — differentiation and quality:
 4. **Accessibility (no-color / reduced-motion).** Truecolor + animations
    (vibes, rainbow think) break on terminals without truecolor. *Fix:
    `NO_COLOR`/8-color + reduced-motion respect.*
-5. **Semver policy / public API stability.** Still 0.x; top-15 extensions
-   ship a stability contract + deprecation path. *Fix: documented API
-   surface + semver policy. **1.0 cut: GRO-1421 (next).***
 
-P2 — full product, post-1.0 or ride-along on GRO-1415:
-6. **Preset editor in-menu** — custom JSON-only today.
-7. **Skill install from repo/npm** — discovery + doctor exist; install and
+P2 — full product, post-1.0:
+5. **Preset editor in-menu** — custom JSON-only today.
+6. **Skill install from repo/npm** — discovery + doctor exist; install and
    curate missing.
-8. **Host-status integration** — `ctx.ui.setStatus` beside the footer so
+7. **Host-status integration** — `ctx.ui.setStatus` beside the footer so
    status also shows in host UI (`skills.count` is a start; full coverage
    remains).
 
@@ -324,31 +321,26 @@ the same ring as the segment (no second source of truth).
 
 ## 1.0 — Cockpit
 
-Pas na 0.20. Geen parallelle 1.0-tak.
+Shipped. The 0.x train ends at this cut. Preset editor and skill
+install-from-repo stay post-1.0 (top-15 P2).
 
-1. **`/skills doctor`** — kapot frontmatter, te lange descriptions
-   (prompt-budget), duplicates global/project, ongebruikte skills.
-   Tabel, geen essay.
-2. **`/skills new` templates** — standaard, browser-workflow,
-   CLI-workflow, review-checklist. Install-van-GitHub/npm is
-   post-1.0; 1.0 is doctor + templates, geen markt.
-3. **Policy engine** — hooks zonder spawn: `deny bash matching
-   "sudo rm"`, `context inject when reading .env`. Command-hooks
-   blijven voor alles wat niet in een regel past.
-4. **Preset editor** — links/rechts segmenten kiezen in het menu,
-   opslaan in settings. Vandaag is custom JSON-only.
-5. **Per-segment detail** (CHE-41): ✅ `→` in de navigator opent
-   ports-lijst, git-samenvatting, cost-breakdown, context-math.
-   Snapshot bij openen, geen live timer.
-6. **Idee-review** — `/ideas` in dezelfde overlay-taal; status
-   idea / in-progress / done; tags; "verwerk met skill X".
-   Welcome queue-widget: item oppakken → prompt.
-7. **ChefGroep-keys** — stabiel `powerline.tps`, `powerline.ports`,
-   `powerline.preset`, `powerline.skills.count` via
-   `ctx.ui.setStatus`.
-8. **Read-tool hints** — `tool_result` op `read` verrijken met
-   "N regels, M–K getoond, volgende offset" alleen als core dat
-   niet zelf al geeft. Eerst meten, dan aanvullen.
+- [x] `/skills doctor` — broken frontmatter, long descriptions, global/project
+      duplicates, unused skills. Table, not an essay. (GRO-1416, #28)
+- [x] `/skills new` templates — standard, browser-workflow, CLI-workflow,
+      review-checklist. No marketplace. (GRO-1417, #32)
+- [x] Policy engine — in-process deny/inject, no spawn. Command hooks remain
+      for anything that needs a process. (GRO-1418, #29)
+- [x] Per-segment detail (CHE-41) — `→` in Navigate, snapshot on open.
+- [x] Idea review — `/ideas` overlay: idea / in-progress / done, tags,
+      Run with skill X. Welcome widget shows next idea + `/ideas next`.
+      (GRO-1419, #31)
+- [x] Status keys — `powerline.tps`, `powerline.ports`, `powerline.preset`,
+      `powerline.skills.count` via `ctx.ui.setStatus`. Not the public pitch.
+      (GRO-1420)
+- [x] Read-tool hints — continuation hint when core omits a range/offset
+      summary. (GRO-1420)
+- [x] English operator UI. (GRO-1422, #24)
+- [x] README lists doctor, new, policy, and idea-review. `banner.png` only.
 
 ---
 

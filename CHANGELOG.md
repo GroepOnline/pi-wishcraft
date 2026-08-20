@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Wishcraft 1.0 cockpit: README lists `/skills doctor`, `/skills new`, `wishcraft.policy`, and idea-review.
+
 ## [0.27.2] - 2026-08-20
 
 ### Added
