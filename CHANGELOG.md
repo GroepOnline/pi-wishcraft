@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-08-20
+
 ### Added
 - `examples/settings.example.json` — every setting at its default, including
   `wishcraft.policy`, `readHints`, and other post-0.22 keys.
