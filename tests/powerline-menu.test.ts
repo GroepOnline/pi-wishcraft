@@ -16,12 +16,12 @@ test("powerline menu has at most three top-level entries", () => {
   );
 });
 
-test("status drills down to ports, TPS, and toggle", () => {
+test("status exposes a broad drill-down command tree", () => {
   const status = findPowerlineMenuNode("status");
   assert.ok(status?.children);
   assert.deepEqual(
     status.children.map((item) => item.id),
-    ["ports", "tps", "toggle"],
+    ["ports", "tps", "toggle", "cpu", "memory", "network", "uptime", "version", "logs", "diagnostics"],
   );
 });
 
