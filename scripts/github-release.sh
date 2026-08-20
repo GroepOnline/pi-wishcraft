@@ -11,7 +11,15 @@ if [ -z "$TOKEN" ]; then
 fi
 
 REPO="${GITHUB_REPOSITORY:-GroepOnline/pi-wishcraft}"
-VERSION="${1:-$(node -p "require('./package.json').version")}"
+PKG_VERSION="$(node -p "require('./package.json').version")"
+VERSION="${1:-$PKG_VERSION}"
+case "$VERSION" in
+  v*) VERSION="${VERSION#v}" ;;
+esac
+if [ "$VERSION" != "$PKG_VERSION" ]; then
+  echo "GitHub Release version ${VERSION} does not match package.json ${PKG_VERSION}." >&2
+  exit 1
+fi
 TAG="v${VERSION}"
 MAKE_LATEST="${MAKE_LATEST:-true}"
 API="https://api.github.com/repos/${REPO}"

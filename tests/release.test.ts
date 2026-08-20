@@ -508,6 +508,30 @@ test("github-release.sh treats 422 already_exists as a successful skip", () => {
   }
 });
 
+test("github-release.sh fails when the requested version does not match package.json", () => {
+  const { binDir, cleanup } = withStubCurl();
+  try {
+    const result = spawnSync(
+      "sh",
+      [join(root, "scripts/github-release.sh"), "9.9.9"],
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH}`,
+          GITHUB_TOKEN: "fake-token-for-tests",
+          GITHUB_REPOSITORY: "GroepOnline/pi-wishcraft",
+        },
+      },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /does not match package.json/);
+  } finally {
+    cleanup();
+  }
+});
+
 test(".github/workflows/release.yml creates a GitHub Release from both jobs after npm publish", () => {
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   const releaseSteps = workflow.match(/run: sh scripts\/github-release\.sh/g) ?? [];
@@ -515,6 +539,10 @@ test(".github/workflows/release.yml creates a GitHub Release from both jobs afte
   assert.match(workflow, /GITHUB_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
   const publishJob = workflow.slice(workflow.indexOf("name: test + publish"));
   assert.match(publishJob, /contents:\s*write/);
+  assert.match(
+    publishJob,
+    /run: sh scripts\/github-release\.sh "\$\{GITHUB_REF_NAME\}"/,
+  );
   const npmIndex = workflow.indexOf("run: sh scripts/npm-publish.sh");
   const ghIndex = workflow.indexOf("run: sh scripts/github-release.sh");
   assert.ok(ghIndex > npmIndex, "GitHub Release step must come after npm publish");

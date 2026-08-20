@@ -95,4 +95,4 @@ jobs:
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: sh scripts/github-release.sh
+        run: sh scripts/github-release.sh "${GITHUB_REF_NAME}"
