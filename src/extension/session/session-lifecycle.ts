@@ -81,6 +81,7 @@ import {
 import {
   invalidateSkillCache,
   loadSkillCatalog,
+  setSkillCacheInvalidationHandler,
 } from "../skills/skill-registry.ts";
 import {
   extractReadToolResultText,
@@ -210,7 +211,14 @@ export function registerSessionLifecycle(
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("stash", undefined);
-      invalidateSkillCache();
+      setSkillCacheInvalidationHandler(() => {
+          publishPowerlineStatuses(ctx, {
+            skillsCount: formatSkillsCountStatusValue(
+              loadSkillCatalog(ctx.cwd ?? process.cwd()).length,
+            ),
+          });
+        });
+        invalidateSkillCache();
       publishPowerlineStatuses(ctx, {
         skillsCount: formatSkillsCountStatusValue(
           loadSkillCatalog(ctx.cwd ?? process.cwd()).length,
@@ -290,7 +298,7 @@ export function registerSessionLifecycle(
       const text = extractReadToolResultText(event.content);
       const input = event.input as { offset?: number; limit?: number } | undefined;
       const details = event.details as ReadHintDetails | undefined;
-      if (shouldAppendReadHint(input, text, details)) {
+      if (readSettings(ctx.cwd).wishcraft?.readHints !== false && shouldAppendReadHint(input, text, details)) {
         const hint = formatReadHint(input!, text, details);
         if (Array.isArray(event.content)) {
           return {
