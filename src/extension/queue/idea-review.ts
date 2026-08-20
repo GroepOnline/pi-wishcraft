@@ -15,8 +15,8 @@ import {
 import { buildStashPreview } from "../history/stash-history.ts";
 import {
   loadSkillCatalog,
-  readSkillBody,
-  recordSkillUsage,
+  readSkillBodyStrict,
+  insertSkillBody,
 } from "../skills/skill-registry.ts";
 import { showSelectOverlay } from "../ui/overlay-chrome.ts";
 import type { RuntimeState } from "../core/types.ts";
@@ -156,7 +156,7 @@ export function pickNextReviewIdea(
   const ideas = items.filter((item) => item.intent === "idea");
   return (
     ideas.find((item) => ideaReviewStatusOf(item) !== "done") ??
-    ideas[0] ??
+    null ??
     null
   );
 }
@@ -173,12 +173,12 @@ function insertSkillAndIdea(
   filePath: string,
   ideaText: string,
 ): void {
-  const chunk = composeSkillIdeaInsert(readSkillBody(filePath), ideaText);
-  const current = ctx.ui.getEditorText?.() ?? "";
-  const separator = current && !current.endsWith("\n") ? "\n\n" : current ? "\n" : "";
-  ctx.ui.setEditorText(`${current}${separator}${chunk}\n`);
-  recordSkillUsage(skillName);
-  ctx.ui.notify("Skill and idea inserted into the prompt", "info");
+  try {
+    insertSkillBody(ctx, skillName, readSkillBodyStrict(filePath), ideaText);
+    ctx.ui.notify("Skill and idea inserted into the prompt", "info");
+  } catch (error) {
+    ctx.ui.notify(`Could not read skill: ${error instanceof Error ? error.message : String(error)}`, "error");
+  }
 }
 
 async function pickSkillForIdea(
