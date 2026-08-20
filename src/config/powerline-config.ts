@@ -16,3 +16,7 @@ export {
   normalizeExtensionStatusValue,
   normalizeCompactExtensionStatus,
 } from "./extension-statuses.ts";
+export {
+  deriveAutoCustomItems,
+  normalizeCustomItemsAuto,
+} from "./custom-items.ts";

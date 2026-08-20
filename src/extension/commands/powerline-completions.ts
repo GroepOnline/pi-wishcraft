@@ -11,6 +11,14 @@ export const POWERLINE_SUBCOMMANDS: ReadonlyArray<{
     value: "placement",
     description: "Move the primary row above or below the editor",
   },
+  {
+    value: "doctor",
+    description: "Diagnose settings, git polling, and queue files",
+  },
+  {
+    value: "export",
+    description: "Copy the effective powerline layout as JSON",
+  },
 ];
 
 const PLACEMENT_DESCRIPTIONS: Record<(typeof POWERLINE_PLACEMENT_VALUES)[number], string> = {

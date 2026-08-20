@@ -6,9 +6,13 @@ import {
 } from "@earendil-works/pi-tui";
 import { execSync } from "node:child_process";
 
-import type { StatusLinePreset } from "../../config/types.ts";
+import type { StatusLinePreset, StatusLineSegmentId } from "../../config/types.ts";
 import { getPreset, PRESETS } from "../../config/presets.ts";
 import { mergeSegmentsWithCustomItems } from "../../config/powerline-config.ts";
+import {
+  countListeningPorts,
+  sanitizeSshHost,
+} from "../../segments/system.ts";
 import {
   writePowerlineDisabledSegmentSetting,
   writePowerlinePresetSetting,
@@ -18,6 +22,10 @@ import {
   buildSegmentContext,
   requestImmediateStatusRender,
 } from "../core/segment-context.ts";
+import {
+  formatPortsStatusValue,
+  publishPowerlineStatuses,
+} from "../core/status-export.ts";
 import { config, setConfig } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 
@@ -100,8 +108,19 @@ export async function showSelectOverlay(
 export async function showOpenPortsList(ctx: any): Promise<void> {
   try {
     const includeUdp = config.segmentOptions?.openPorts?.includeUdp === true;
-    const proto = includeUdp ? "-tuln" : "-tln";
-    const stdout = execSync(`ss ${proto} 2>/dev/null`, { encoding: "utf8" });
+    const host = config.segmentOptions?.openPorts?.host;
+    if (host && !sanitizeSshHost(host)) {
+      ctx.ui.notify(`Invalid open-ports host: ${host}`, "error");
+      return;
+    }
+    const proto = includeUdp ? "-tulnp" : "-tlnp";
+    const command = host
+      ? `ssh -o ConnectTimeout=3 -o BatchMode=yes ${host} "ss ${proto} 2>/dev/null" 2>/dev/null`
+      : `ss ${proto} 2>/dev/null`;
+    const stdout = execSync(command, { encoding: "utf8" });
+    publishPowerlineStatuses(ctx, {
+      ports: formatPortsStatusValue(countListeningPorts(includeUdp, host)),
+    });
     const lines = stdout
       .split("\n")
       .map((l) => l.trim())
@@ -118,7 +137,7 @@ export async function showOpenPortsList(ctx: any): Promise<void> {
     }));
     const picked = await showSelectOverlay(
       ctx,
-      "Open ports",
+      host ? `Open ports · ${host}` : "Open ports",
       "↑↓ navigate · enter copy · esc close",
       items,
       Math.min(items.length, 24),
@@ -153,62 +172,113 @@ export async function configurePowerline(
   rt: RuntimeState,
   ctx: any,
 ): Promise<void> {
-  const choice = await ctx.ui.select("Powerline · configure", [
-    "Change preset",
-    "Set TPS value (POWERLINE_TPS)",
-    "Clear TPS override (use live)",
-    "Toggle UDP in open-ports",
-    "Set segment label…",
-    "Toggle segment visibility…",
-    "Show current config",
-  ]);
-  if (!choice) return;
-  if (choice === "Change preset") {
+  const picked = await showSelectOverlay(
+    ctx,
+    "Powerline · configure",
+    "↑↓ navigate · enter open · esc back",
+    [
+      {
+        value: "preset",
+        label: "Change preset",
+        description: "Switch a built-in layout",
+      },
+      {
+        value: "tps",
+        label: "Set TPS value",
+        description: "Override POWERLINE_TPS",
+      },
+      {
+        value: "tps-clear",
+        label: "Clear TPS override",
+        description: "Use the live 1s window",
+      },
+      {
+        value: "udp",
+        label: "Toggle UDP in open-ports",
+        description: "Include noisy UDP listeners",
+      },
+      {
+        value: "label",
+        label: "Set segment label",
+        description: "Custom text beside a segment",
+      },
+      {
+        value: "visibility",
+        label: "Toggle segment visibility",
+        description: "Hide or show a live segment",
+      },
+      {
+        value: "summary",
+        label: "Show current config",
+        description: "Preset, TPS, UDP, labels",
+      },
+    ],
+    8,
+  );
+  if (!picked) return;
+  if (picked.value === "preset") {
     const names = Object.keys(PRESETS) as StatusLinePreset[];
-    const picked = await ctx.ui.select("Preset", names);
-    if (picked) {
-      setConfig({ ...config, preset: picked as StatusLinePreset });
+    const presetPick = await showSelectOverlay(
+      ctx,
+      "Preset",
+      "↑↓ navigate · enter apply · esc back",
+      names.map((name) => ({
+        value: name,
+        label: name,
+        description: `Switch to ${name}`,
+      })),
+      Math.min(names.length, 12),
+    );
+    if (presetPick) {
+      setConfig({ ...config, preset: presetPick.value as StatusLinePreset });
       writePowerlinePresetSetting(
-        picked as StatusLinePreset,
+        presetPick.value as StatusLinePreset,
         ctx.cwd ?? process.cwd(),
       );
-      ctx.ui.notify(`Preset: ${picked} (saved)`, "info");
+      publishPowerlineStatuses(ctx, { preset: presetPick.value });
+      ctx.ui.notify(`Preset: ${presetPick.value} (saved)`, "info");
       requestImmediateStatusRender(rt, { deferDuringTyping: false });
     }
     return;
   }
-  if (choice === "Set TPS value (POWERLINE_TPS)") {
+  if (picked.value === "tps") {
     const val = await ctx.ui.input(
       "TPS value",
       process.env.POWERLINE_TPS || "",
     );
     if (val && val.trim()) {
       process.env.POWERLINE_TPS = val.trim();
+      publishPowerlineStatuses(ctx, { tps: val.trim() });
       ctx.ui.notify(`TPS override set: ${val.trim()}`, "info");
       requestImmediateStatusRender(rt, { deferDuringTyping: false });
     }
     return;
   }
-  if (choice === "Clear TPS override (use live)") {
+  if (picked.value === "tps-clear") {
     delete process.env.POWERLINE_TPS;
+    publishPowerlineStatuses(ctx, { tps: undefined });
     ctx.ui.notify("TPS override cleared (live rate)", "info");
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     return;
   }
-  if (choice === "Toggle UDP in open-ports") {
+  if (picked.value === "udp") {
     const now = config.segmentOptions?.openPorts?.includeUdp === true;
+    const host = config.segmentOptions?.openPorts?.host;
     setConfig({
       ...config,
       segmentOptions: {
         ...config.segmentOptions,
-        openPorts: { includeUdp: !now },
+        openPorts: { ...config.segmentOptions?.openPorts, includeUdp: !now },
       },
+    });
+    publishPowerlineStatuses(ctx, {
+      ports: formatPortsStatusValue(countListeningPorts(!now, host)),
     });
     ctx.ui.notify(`Open-ports UDP: ${!now ? "on" : "off"}`, "info");
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     return;
   }
-  if (choice === "Set segment label…") {
+  if (picked.value === "label") {
     const id = await ctx.ui.input("Segment id", "tps");
     if (!id) return;
     const label = await ctx.ui.input(
@@ -224,18 +294,24 @@ export async function configurePowerline(
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     return;
   }
-  if (choice === "Toggle segment visibility…") {
-    const ids = [
-      ...mergedIds(),
-    ];
-    const names = ids.map(
-      (id) =>
-        `${config.disabledSegments.includes(id as any) ? "[ ]" : "[x]"} ${id}`,
+  if (picked.value === "visibility") {
+    const ids = [...mergedIds()];
+    const visibilityPick = await showSelectOverlay(
+      ctx,
+      "Segment aan/uit",
+      "↑↓ navigate · enter wisselt · esc back",
+      ids.map((id) => ({
+        value: id,
+        label: `${config.disabledSegments.includes(id as never) ? "[ ]" : "[x]"} ${id}`,
+        description: config.disabledSegments.includes(id as never)
+          ? "Currently hidden"
+          : "Currently visible",
+      })),
+      Math.min(ids.length, 12),
     );
-    const picked = await ctx.ui.select("Segment aan/uit (enter wisselt)", names);
-    if (!picked) return;
-    const id = picked.replace(/^\[.\] /, "");
-    const disabled = new Set(config.disabledSegments);
+    if (!visibilityPick) return;
+    const id = visibilityPick.value as StatusLineSegmentId;
+    const disabled = new Set<StatusLineSegmentId>(config.disabledSegments);
     if (disabled.has(id)) disabled.delete(id);
     else disabled.add(id);
     const list = [...disabled];
@@ -248,7 +324,7 @@ export async function configurePowerline(
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     return;
   }
-  if (choice === "Show current config") {
+  if (picked.value === "summary") {
     const summary = [
       `preset: ${config.preset}`,
       `separator: ${config.separator ?? "(preset default)"}`,
@@ -258,7 +334,6 @@ export async function configurePowerline(
       `labels: ${Object.keys(config.segmentLabels).join(",") || "(none)"}`,
     ].join("  ·  ");
     ctx.ui.notify(summary, "info");
-    return;
   }
 }
 
@@ -322,7 +397,7 @@ export async function showSegmentNavigator(
       const presetDef = getPreset(config.preset);
       const merged = mergeSegmentsWithCustomItems(
         presetDef,
-        config.customItems,
+        segCtx.effectiveCustomItems,
         {
           layout: config.layout,
           disabledSegments: config.disabledSegments,

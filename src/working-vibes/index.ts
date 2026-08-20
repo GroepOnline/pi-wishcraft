@@ -20,5 +20,5 @@ export {
 
 export type { VibeMode } from "./storage.ts";
 
-export type { GenerateVibesResult } from "./generate.ts";
-export { parseVibeGenerateArgs, generateVibesBatch } from "./generate.ts";
+export type { GenerateVibesResult, GenerateVibeSamplesResult } from "./generate.ts";
+export { parseVibeGenerateArgs, generateVibesBatch, generateVibeSamples } from "./generate.ts";

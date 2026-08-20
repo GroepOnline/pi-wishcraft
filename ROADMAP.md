@@ -5,6 +5,11 @@ op npm. CHE-40 (`/powerline` tab) is Done via #18. Overlay-submenus
 (CHE-42 / #19) starten 0.20. ROADMAP was achter op de code: hooks,
 repairs-subset en skills-manager v2 UI zitten al op `main`.
 
+**0.20 slices (CHE-42 base, #13 backlog):** `/powerline doctor|export`,
+queue archive + retention, Configure overlay, cost alert, `customItems.auto`,
+`bashMode.initScript`, fleet open-ports host, `/vibe test`, whats-new welcome,
+and `docs/` guides. CHE-40 is closed; these ship as 0.20 expansion work.
+
 Pi core is de engine. Wishcraft is de cockpit. Elke feature dient één van
 drie doelen: **grip** (skills, tokens, config), **prestatie** (repairs,
 hooks, read-hints), of **leven** (overlays, vibes, detail views).

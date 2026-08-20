@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderSegment } from "../src/segments/index.ts";
+import { sanitizeSshHost } from "../src/segments/system.ts";
 import { resolvePreset, PRESETS } from "../src/config/presets.ts";
 import type {
   ColorScheme,
@@ -47,6 +48,7 @@ function createSegmentContext(
     extensionStatuses: new Map(),
     hiddenExtensionStatusKeys: new Set(),
     customItemsById: new Map(),
+    effectiveCustomItems: [],
     options: {},
     segmentLabels: new Map(),
     theme: {
@@ -148,4 +150,19 @@ test("resolvePreset warns once and falls back to default for unknown names", () 
     console.warn = originalWarn;
   }
   assert.equal(warnings.length, 2);
+});
+
+test("sanitizeSshHost accepts hostnames, user@host, and IPv4", () => {
+  assert.equal(sanitizeSshHost("sofie"), "sofie");
+  assert.equal(sanitizeSshHost(" user@sofie.local "), "user@sofie.local");
+  assert.equal(sanitizeSshHost("192.168.1.10"), "192.168.1.10");
+});
+
+test("sanitizeSshHost rejects empty, spaced, and shell-metacharacter input", () => {
+  assert.equal(sanitizeSshHost(undefined), null);
+  assert.equal(sanitizeSshHost(""), null);
+  assert.equal(sanitizeSshHost("   "), null);
+  assert.equal(sanitizeSshHost("sofie; rm -rf /"), null);
+  assert.equal(sanitizeSshHost("sofie -p 2222"), null);
+  assert.equal(sanitizeSshHost("sofie`id`"), null);
 });

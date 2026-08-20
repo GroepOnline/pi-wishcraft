@@ -15,10 +15,15 @@ import {
   onVibeToolCall,
 } from "../../working-vibes/index.ts";
 import {
+  getSessionTotalCost,
   getUsageTokenTotal,
   hasSessionAssistantUsage,
   isSessionAssistantMessage,
 } from "../../usage/ledger.ts";
+import {
+  formatCostAlertMessage,
+  shouldTriggerCostAlert,
+} from "./cost-alert.ts";
 import {
   detectCustomCompactionEnabled,
   readSettings,
@@ -58,6 +63,36 @@ import {
   dismissWelcome,
   scheduleDismissWelcome,
 } from "../welcome/welcome-control.ts";
+
+/**
+ * Fire the configured `powerline.costAlert` warning at most once per session.
+ * Reads the running cost from the (cached) token ledger so repeated calls are
+ * cheap; a UI-less or already-notified session short-circuits immediately.
+ */
+function maybeNotifyCostAlert(rt: RuntimeState, ctx: any): void {
+  if (!ctx?.hasUI || rt.costAlertNotified) return;
+  const threshold = config.costAlert;
+  const sessionEvents = rt.sessionBranchCache.get(ctx.sessionManager);
+  const totalCost = getSessionTotalCost(rt.tokenStatsCache.get(sessionEvents));
+  if (
+    !shouldTriggerCostAlert({
+      totalCost,
+      threshold,
+      alreadyNotified: rt.costAlertNotified,
+    })
+  ) {
+    return;
+  }
+  rt.costAlertNotified = true;
+  ctx.ui.notify(
+    formatCostAlertMessage(
+      totalCost,
+      threshold as number,
+      config.segmentOptions?.cost?.currency ?? "USD",
+    ),
+    "warning",
+  );
+}
 
 // Helper to extract recent agent response text (skipping thinking blocks)
 function getRecentAgentContext(ctx: any): string | undefined {
@@ -107,6 +142,7 @@ export function registerSessionLifecycle(
     rt.lastUserPrompt = "";
     rt.isStreaming = false;
     rt.liveAssistantUsage = null;
+    rt.costAlertNotified = false;
     rt.powerlineCompacting = false;
     rt.deliverAfterRetrySettles = false;
     rt.stashedEditorText = null;
@@ -116,6 +152,9 @@ export function registerSessionLifecycle(
     rt.bashModeSettings = parseBashModeSettings(settings, rt.resolvedShortcuts);
     rt.showLastPrompt = settings.showLastPrompt !== false;
     setConfig(parsePowerlineConfig(settings.powerline, PRESET_NAMES));
+    rt.queueStore.setSentRetentionMs(
+      config.queue.retentionHours * 60 * 60 * 1000,
+    );
     registerCustomSegments(config.segments);
     registerCustomPresets(config.presets);
     warnInvalidSegmentSettings(ctx);
@@ -274,6 +313,7 @@ export function registerSessionLifecycle(
       }
     }
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
+    maybeNotifyCostAlert(rt, ctx);
   });
 
   pi.on("turn_end", async (_event, ctx) => {
@@ -361,6 +401,7 @@ export function registerSessionLifecycle(
             );
           }
         }
+        maybeNotifyCostAlert(rt, ctx);
       }
     } catch (error) {
       if (!isStaleExtensionContextError(error)) throw error;

@@ -29,6 +29,7 @@ export class WelcomeComponent implements Component {
     initialContextTokens: number | null = null,
     queueCount?: number,
     hasStash?: boolean,
+    whatsNew?: string[],
   ) {
     this.data = {
       modelName,
@@ -38,6 +39,7 @@ export class WelcomeComponent implements Component {
       initialContextTokens,
       queueCount,
       hasStash,
+      whatsNew,
     };
   }
 

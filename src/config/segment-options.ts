@@ -115,6 +115,9 @@ export function normalizeSegmentOptions(
       ...(typeof raw.openPorts.includeUdp === "boolean"
         ? { includeUdp: raw.openPorts.includeUdp }
         : {}),
+      ...(typeof raw.openPorts.host === "string" && raw.openPorts.host.trim()
+        ? { host: raw.openPorts.host.trim() }
+        : {}),
     };
   }
 

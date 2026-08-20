@@ -61,7 +61,7 @@ export function computeResponsiveLayout(
   // Get all segments: primary first, then secondary
   const mergedSegments = mergeSegmentsWithCustomItems(
     presetDef,
-    config.customItems,
+    ctx.effectiveCustomItems,
     {
       layout: config.layout,
       disabledSegments: config.disabledSegments,

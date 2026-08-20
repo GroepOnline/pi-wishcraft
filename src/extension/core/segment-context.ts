@@ -7,6 +7,7 @@ import type { SegmentContext, ColorScheme } from "../../config/types.ts";
 import { getPreset } from "../../config/presets.ts";
 import {
   collectHiddenExtensionStatusKeys,
+  deriveAutoCustomItems,
   mergeSegmentOptions,
 } from "../../config/powerline-config.ts";
 import { getDefaultColors } from "../../theme/theme.ts";
@@ -18,6 +19,7 @@ import {
   EDITOR_STATUS_DEFER_MS,
 } from "./constants.ts";
 import { config, customCompactionEnabled } from "./state.ts";
+import { HIDDEN_POWERLINE_STATUS_KEYS } from "./status-export.ts";
 import type { RuntimeState } from "./types.ts";
 
 /**
@@ -154,12 +156,26 @@ export function buildSegmentContext(
   const gitStatus = getGitStatus(gitBranch, segmentOptions.git?.polling);
   const extensionStatuses =
     rt.footerDataRef?.getExtensionStatuses() ?? new Map();
+  const excludedStatusKeys = new Set<string>([
+    CUSTOM_COMPACTION_STATUS_KEY,
+    "stash",
+    ...HIDDEN_POWERLINE_STATUS_KEYS,
+  ]);
+  const effectiveCustomItems = deriveAutoCustomItems(
+    config.customItems,
+    extensionStatuses,
+    config.customItemsAuto,
+    excludedStatusKeys,
+  );
   const customItemsById = new Map(
-    config.customItems.map((item) => [item.id, item]),
+    effectiveCustomItems.map((item) => [item.id, item]),
   );
   const hiddenExtensionStatusKeys = collectHiddenExtensionStatusKeys(
-    config.customItems,
+    effectiveCustomItems,
   );
+  for (const key of HIDDEN_POWERLINE_STATUS_KEYS) {
+    hiddenExtensionStatusKeys.add(key);
+  }
 
   // Check if using OAuth subscription
   const usingSubscription = ctx.model
@@ -201,6 +217,7 @@ export function buildSegmentContext(
     extensionStatuses,
     hiddenExtensionStatusKeys,
     customItemsById,
+    effectiveCustomItems,
     options: segmentOptions,
     segmentLabels: new Map(Object.entries(config.segmentLabels)),
     theme,

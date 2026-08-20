@@ -113,24 +113,65 @@ export const extensionStatusesSegment: StatusLineSegment = {
   },
 };
 
-export function countListeningPorts(includeUdp = false): number {
+/**
+ * Validate a fleet SSH target (hostname, `user@host`, or IPv4). Rejects spaces
+ * and shell metacharacters so it can't be used to inject flags/commands into
+ * the `ssh` invocation.
+ */
+export function sanitizeSshHost(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const host = value.trim();
+  return /^[A-Za-z0-9._@-]+$/.test(host) && host.length > 0 ? host : null;
+}
+
+/**
+ * Wrap a probe command for a remote host, or return it unchanged for local
+ * probing. Remote commands are quoted so the local shell can't reinterpret the
+ * inner `2>/dev/null`; `BatchMode` fails fast (no password prompt) on hosts
+ * that require interactive auth or an unknown host key.
+ */
+function sshCommand(
+  host: string | undefined,
+  remoteCmd: string,
+): string | null {
+  if (!host) return remoteCmd;
+  const safe = sanitizeSshHost(host);
+  if (!safe) return null;
+  return `ssh -o ConnectTimeout=3 -o BatchMode=yes ${safe} ${JSON.stringify(remoteCmd)} 2>/dev/null`;
+}
+
+export function countListeningPorts(includeUdp = false, host?: string): number {
   // ponytail: count UNIQUE TCP listening ports (dedupes IPv4/IPv6 dual-stack and
   // repeated multicast binds). UDP is noisy (mDNS/DHCP/ephemeral) so it's opt-in.
+  // A configured host switches to a best-effort SSH probe (fleet open-ports).
   const run = (cmd: string): string | null => {
     try {
-      return execSync(cmd, { encoding: "utf8", timeout: 2000 });
+      return execSync(cmd, { encoding: "utf8", timeout: 3000 });
     } catch {
       return null;
     }
   };
+  const remote = (cmd: string): string | null =>
+    host ? sshCommand(host, cmd) : cmd;
+
   const proto = includeUdp ? "-tulnH" : "-tlnH";
-  let out = run(`ss ${proto} 2>/dev/null`);
-  if (out === null) out = run(`ss ${proto.replace("H", "")} 2>/dev/null`);
-  if (out === null)
-    out = run(
+  const ssCmd = remote(`ss ${proto} 2>/dev/null`);
+  let out = ssCmd === null ? null : run(ssCmd);
+  if (out === null) {
+    const fallback = remote(`ss ${proto.replace("H", "")} 2>/dev/null`);
+    if (fallback !== null) out = run(fallback);
+  }
+  if (out === null) {
+    const netstatCmd = remote(
       includeUdp ? "netstat -tuln 2>/dev/null" : "netstat -tln 2>/dev/null",
     );
-  if (out === null) return readProcListeningPorts(includeUdp);
+    if (netstatCmd !== null) out = run(netstatCmd);
+  }
+  if (out === null) {
+    // /proc/net is only reachable locally; a remote host without ss/netstat is
+    // "unknown" rather than silently zero.
+    return host ? -1 : readProcListeningPorts(includeUdp);
+  }
 
   const lines = out
     .split("\n")
@@ -248,22 +289,24 @@ export const tpsSegment: StatusLineSegment = {
 
 // open_ports runs blocking `ss`/`netstat`; cache the count so it doesn't respawn
 // a process on every repaint (the footer repaints ~every 33ms while streaming).
-const openPortsCache = new Map<boolean, { at: number; count: number }>();
+const openPortsCache = new Map<string, { at: number; count: number }>();
 const OPEN_PORTS_TTL_MS = 2000;
 
 export const openPortsSegment: StatusLineSegment = {
   id: "open_ports",
   render(ctx) {
     const includeUdp = ctx.options?.openPorts?.includeUdp === true;
+    const host = ctx.options?.openPorts?.host;
+    const key = `${includeUdp ? "u" : "t"}:${host ?? ""}`;
     const now = Date.now();
-    let entry = openPortsCache.get(includeUdp);
+    let entry = openPortsCache.get(key);
     if (!entry || now - entry.at >= OPEN_PORTS_TTL_MS) {
-      entry = { at: now, count: countListeningPorts(includeUdp) };
-      openPortsCache.set(includeUdp, entry);
+      entry = { at: now, count: countListeningPorts(includeUdp, host) };
+      openPortsCache.set(key, entry);
     }
-    // label wordt centraal toegepast (renderSegment)
+    const text = entry.count < 0 ? "?" : String(entry.count);
     return {
-      content: withIcon(getIcons().ports, color(ctx, "queue", String(entry.count))),
+      content: withIcon(getIcons().ports, color(ctx, "queue", text)),
       visible: true,
     };
   },

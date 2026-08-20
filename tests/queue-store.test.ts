@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { PowerlineQueueStore, currentQueueContext, formatIdeaIssuePrompt, formatQueueDeliveryText, parseCompactQueuedPrompt, parseSigilIdeaCapture, parseTargetPrefix, targetForIdea } from "../queue/store.ts";
@@ -8,7 +15,14 @@ import { PowerlineQueueStore, currentQueueContext, formatIdeaIssuePrompt, format
 function withStore(fn: (store: PowerlineQueueStore, dir: string) => void): void {
   const dir = mkdtempSync(join(tmpdir(), "powerline-queue-"));
   try {
-    fn(new PowerlineQueueStore(join(dir, "inbox.jsonl"), join(dir, "projects.json")), dir);
+    fn(
+      new PowerlineQueueStore(
+        join(dir, "inbox.jsonl"),
+        join(dir, "projects.json"),
+        join(dir, "inbox.archive.jsonl"),
+      ),
+      dir,
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -193,3 +207,132 @@ test("queue store times out instead of stealing an existing lock", () => withSto
   }), /Timed out waiting for Powerline queue store lock/);
   assert.equal(existsSync(lockPath), true);
 }));
+
+test("archiveSentItems moves old sent items to the archive file", () =>
+  withStore((store, dir) => {
+    const archivePath = join(dir, "inbox.archive.jsonl");
+    const recent = store.add({
+      text: "recent sent prompt",
+      source: { cwd: "/tmp/project" },
+      target: { kind: "project", cwd: "/tmp/project" },
+      intent: "follow-up",
+      now: Date.now() - 1000,
+    });
+    const queued = store.add({
+      text: "still queued",
+      source: { cwd: "/tmp/project" },
+      target: { kind: "project", cwd: "/tmp/project" },
+      intent: "idea",
+      now: Date.now() - 1000,
+    });
+    store.update(recent.id, { status: "sent", updatedAt: Date.now() });
+
+    const oldId = "old0001";
+    appendFileSync(
+      join(dir, "inbox.jsonl"),
+      JSON.stringify({
+        id: oldId,
+        text: "old sent prompt",
+        createdAt: 100,
+        updatedAt: 100,
+        source: { cwd: "/tmp/project" },
+        target: { kind: "project", cwd: "/tmp/project" },
+        intent: "follow-up",
+        status: "sent",
+      }) + "\n",
+    );
+
+    const result = store.archiveSentItems(60 * 60 * 1000);
+    assert.equal(result.archived, 1);
+    assert.equal(result.remainingSent, 1);
+
+    const ids = store.list().map((item) => item.id);
+    assert.ok(ids.includes(recent.id));
+    assert.ok(ids.includes(queued.id));
+    assert.ok(!ids.includes(oldId));
+
+    const archivedLines = existsSync(archivePath)
+      ? readFileSync(archivePath, "utf-8").trim().split("\n").filter(Boolean)
+      : [];
+    assert.equal(archivedLines.length, 1);
+    assert.match(archivedLines[0] ?? "", /old sent prompt/);
+  }));
+
+test("archiveSentItems clamps a wider window to the retention so no sent item is dropped", () =>
+  withStore((store, dir) => {
+    const archivePath = join(dir, "inbox.archive.jsonl");
+    store.setSentRetentionMs(60 * 60 * 1000);
+
+    const now = Date.now();
+    const freshId = "fresh001";
+    const middleId = "middle01";
+    appendFileSync(
+      join(dir, "inbox.jsonl"),
+      [
+        JSON.stringify({
+          id: freshId,
+          text: "fresh sent",
+          createdAt: now - 30 * 60 * 1000,
+          updatedAt: now - 30 * 60 * 1000,
+          source: { cwd: "/tmp/project" },
+          target: { kind: "project", cwd: "/tmp/project" },
+          intent: "follow-up",
+          status: "sent",
+        }),
+        JSON.stringify({
+          id: middleId,
+          text: "middle sent",
+          createdAt: now - 2 * 60 * 60 * 1000,
+          updatedAt: now - 2 * 60 * 60 * 1000,
+          source: { cwd: "/tmp/project" },
+          target: { kind: "project", cwd: "/tmp/project" },
+          intent: "follow-up",
+          status: "sent",
+        }),
+      ].join("\n") + "\n",
+    );
+
+    const result = store.archiveSentItems(3 * 60 * 60 * 1000, now);
+    assert.equal(result.archived, 1);
+    assert.equal(result.remainingSent, 1);
+
+    const ids = store.list().map((item) => item.id);
+    assert.deepEqual(ids, [freshId]);
+
+    const archivedLines = readFileSync(archivePath, "utf-8")
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+    assert.equal(archivedLines.length, 1);
+    assert.match(archivedLines[0] ?? "", /middle sent/);
+  }));
+
+test("archiveSentItems keeps a cutoff-boundary sent item instead of dropping it", () =>
+  withStore((store, dir) => {
+    const archivePath = join(dir, "inbox.archive.jsonl");
+    store.setSentRetentionMs(60 * 60 * 1000);
+    const now = 1_700_000_000_000;
+    const cutoff = now - 60 * 60 * 1000;
+    appendFileSync(
+      join(dir, "inbox.jsonl"),
+      JSON.stringify({
+        id: "boundary",
+        text: "boundary sent",
+        createdAt: cutoff,
+        updatedAt: cutoff,
+        source: { cwd: "/tmp/project" },
+        target: { kind: "project", cwd: "/tmp/project" },
+        intent: "follow-up",
+        status: "sent",
+      }) + "\n",
+    );
+
+    const result = store.archiveSentItems(60 * 60 * 1000, now);
+    assert.equal(result.archived, 0);
+    assert.equal(result.remainingSent, 1);
+    assert.deepEqual(
+      store.list().map((item) => item.id),
+      ["boundary"],
+    );
+    assert.equal(existsSync(archivePath), false);
+  }));

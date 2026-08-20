@@ -87,6 +87,7 @@ print -r -- "${READY_SENTINEL}:$PWD"
 
 export class ManagedShellSession {
   private readonly shellPath: string;
+  private readonly initScript: string | null;
   private readonly transcript: BashTranscriptStore;
   private readonly onStateChange: () => void;
   private readonly onCommandSuccess: (command: string, cwd: string) => void;
@@ -107,8 +108,10 @@ export class ManagedShellSession {
     transcript: BashTranscriptStore,
     onStateChange: () => void,
     onCommandSuccess: (command: string, cwd: string) => void,
+    initScript: string | null = null,
   ) {
     this.shellPath = shellPath;
+    this.initScript = initScript;
     this.transcript = transcript;
     this.onStateChange = onStateChange;
     this.onCommandSuccess = onCommandSuccess;
@@ -174,7 +177,12 @@ export class ManagedShellSession {
       this.onStateChange();
     });
 
-    this.sendRaw(getShellInitScript(this.state.shellName) + "\n");
+    const projectInit = this.initScript
+      ? this.initScript.endsWith("\n")
+        ? this.initScript
+        : `${this.initScript}\n`
+      : "";
+    this.sendRaw(projectInit + getShellInitScript(this.state.shellName) + "\n");
     return this.readyPromise;
   }
 

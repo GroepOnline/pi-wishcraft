@@ -16,6 +16,8 @@ test("empty /powerline prefix completes placement and every built-in preset", ()
     values.filter((value) => value === "placement"),
     ["placement"],
   );
+  assert.ok(values.includes("doctor"), "missing doctor");
+  assert.ok(values.includes("export"), "missing export");
   for (const name of Object.keys(PRESETS)) {
     assert.ok(values.includes(name), `missing preset ${name}`);
   }
@@ -46,12 +48,9 @@ test("/powerline placement a completes above", () => {
   assert.deepEqual(items?.map((item) => item.value), ["placement above"]);
 });
 
-test("/powerline d completes the default preset", () => {
+test("/powerline d completes doctor and the default preset", () => {
   const items = getPowerlineArgumentCompletions("d");
-  assert.deepEqual(
-    items?.map((item) => item.value),
-    ["default"],
-  );
+  assert.deepEqual(items?.map((item) => item.value), ["doctor", "default"]);
 });
 
 test("unknown and unsupported /powerline arguments return no completions", () => {

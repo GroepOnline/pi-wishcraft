@@ -46,6 +46,7 @@ function createSegmentContext(
     extensionStatuses: new Map(),
     hiddenExtensionStatusKeys: new Set(),
     customItemsById: new Map(),
+    effectiveCustomItems: [],
     options: {},
     segmentLabels: new Map(),
     theme: {

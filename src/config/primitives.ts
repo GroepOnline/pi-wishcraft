@@ -90,6 +90,18 @@ export function normalizeCustomPrefix(value: unknown): string | undefined {
   return normalized ? normalized : undefined;
 }
 
+export function normalizeRetentionHours(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 24;
+  return Math.min(24 * 365, Math.max(1, Math.floor(value)));
+}
+
+export function normalizeCostAlert(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return Math.round(value * 100) / 100;
+}
+
 export function normalizeCaptureSigil(value: unknown): string | false {
   if (value === false) return false;
   if (typeof value !== "string") return "#";

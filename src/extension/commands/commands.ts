@@ -7,6 +7,8 @@ import { PRESETS } from "../../config/presets.ts";
 import { registerCdCommand } from "../../shell/cd-command.ts";
 import { registerVibeCommand } from "./vibe-command.ts";
 import { registerQueueCommands } from "./queue-commands.ts";
+import { runPowerlineDoctor } from "./powerline-doctor.ts";
+import { runPowerlineExport } from "./powerline-export.ts";
 import { registerSkillManagerCommand } from "../skills/skill-manager.ts";
 import { registerWishcraftConfigCommand } from "../settings/wishcraft-config.ts";
 import { getRepairCounts } from "../hooks/index.ts";
@@ -27,6 +29,7 @@ import {
   requestStatusRender,
   resetLayoutCache,
 } from "../core/segment-context.ts";
+import { publishPowerlineStatuses } from "../core/status-export.ts";
 import { config, normalizePreset } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getPowerlineArgumentCompletions } from "./powerline-completions.ts";
@@ -92,6 +95,14 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       }
 
       const normalizedArgs = args.trim().toLowerCase();
+      if (normalizedArgs === "doctor") {
+        await runPowerlineDoctor(rt, ctx);
+        return;
+      }
+      if (normalizedArgs === "export") {
+        await runPowerlineExport(ctx);
+        return;
+      }
       const placementMatch = /^placement(?:\s+(above|below|toggle))?$/.exec(
         normalizedArgs,
       );
@@ -129,6 +140,7 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       const preset = normalizePreset(args);
       if (preset) {
         config.preset = preset;
+        publishPowerlineStatuses(ctx, { preset });
         resetLayoutCache(rt);
         if (rt.enabled) {
           setupCustomEditor(pi, rt, ctx);
@@ -218,6 +230,7 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
         return;
       }
       process.env.POWERLINE_TPS = value;
+      publishPowerlineStatuses(ctx, { tps: value });
       ctx.ui.notify(`TPS set to: ${value}`, "info");
       rt.tuiRef?.requestRender();
     },

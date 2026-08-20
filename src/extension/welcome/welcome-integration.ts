@@ -2,6 +2,7 @@ import {
   WelcomeComponent,
   WelcomeHeader,
   discoverLoadedCounts,
+  discoverWhatsNew,
   getRecentSessions,
 } from "../../welcome/index.ts";
 import { estimateInitialContextTokens } from "../../usage/context.ts";
@@ -19,6 +20,7 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   const queueCount = queueSummary.queueCount + queueSummary.ideaCount;
   const hasStash =
     rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
+  const whatsNew = discoverWhatsNew();
 
   const header = new WelcomeHeader(
     modelName,
@@ -28,6 +30,7 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
     initialContextTokens,
     queueCount,
     hasStash,
+    whatsNew,
   );
   rt.welcomeHeaderActive = true;
 
@@ -83,6 +86,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
     const queueCount = queueSummary.queueCount + queueSummary.ideaCount;
     const hasStash =
       rt.stashedEditorText !== null || rt.stashedPromptHistory.length > 0;
+    const whatsNew = discoverWhatsNew();
 
     ctx.ui
       .custom(
@@ -100,6 +104,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             initialContextTokens,
             queueCount,
             hasStash,
+            whatsNew,
           );
 
           let countdown = 30;

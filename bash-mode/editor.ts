@@ -16,6 +16,10 @@ import {
   isPrintableInput,
   resetShellHistoryBrowse,
 } from "./editor-input.ts";
+import {
+  isPromptHistoryRecallPosition,
+  navigateShellHistory,
+} from "./editor-history.ts";
 import { overlayGhostSuggestion } from "./editor-ghost.ts";
 import type {
   BashModeEditorOptions,
@@ -140,7 +144,7 @@ export class BashModeEditor extends CustomEditor {
         bashMode &&
         this.keybindingsRef.matches(data, "tui.editor.cursorUp")
       ) {
-        this.navigateShellHistory(-1);
+        navigateShellHistory(this, -1);
         return;
       }
 
@@ -148,7 +152,7 @@ export class BashModeEditor extends CustomEditor {
         bashMode &&
         this.keybindingsRef.matches(data, "tui.editor.cursorDown")
       ) {
-        this.navigateShellHistory(1);
+        navigateShellHistory(this, 1);
         return;
       }
 
@@ -190,7 +194,7 @@ export class BashModeEditor extends CustomEditor {
       if (
         !bashMode &&
         matchesKey(data, "up") &&
-        this.isPromptHistoryRecallPosition()
+        isPromptHistoryRecallPosition(this)
       ) {
         const navigateHistory = Reflect.get(this, "navigateHistory");
         if (typeof navigateHistory === "function") {
@@ -388,68 +392,6 @@ export class BashModeEditor extends CustomEditor {
       this.clearGhostSuggestion();
     }
     return true;
-  }
-
-  private isPromptHistoryRecallPosition(): boolean {
-    if (this.isShowingAutocomplete()) return false;
-
-    const history = Reflect.get(this, "history");
-    if (!Array.isArray(history) || history.length === 0) return false;
-
-    const lines = this.getLines();
-    const cursor = this.getCursor();
-    if (lines.length === 1) {
-      return cursor.line === 0 && cursor.col === (lines[0]?.length ?? 0);
-    }
-
-    const isOnFirstVisualLine = Reflect.get(this, "isOnFirstVisualLine");
-    if (
-      typeof isOnFirstVisualLine === "function" &&
-      !isOnFirstVisualLine.call(this)
-    ) {
-      return false;
-    }
-
-    return cursor.line === 0;
-  }
-
-  private navigateShellHistory(direction: -1 | 1): void {
-    const prefix = this.shellHistoryDraft || this.getExpandedText();
-    if (this.shellHistoryIndex === -1) {
-      this.shellHistoryDraft = prefix;
-      this.shellHistoryItems = this.optionsRef.getHistoryEntries(prefix);
-    }
-
-    if (this.shellHistoryItems.length === 0) {
-      this.optionsRef.onNotify("No shell history matches", "info");
-      return;
-    }
-
-    if (direction < 0) {
-      this.shellHistoryIndex = Math.min(
-        this.shellHistoryItems.length - 1,
-        this.shellHistoryIndex + 1,
-      );
-      this.setText(
-        this.shellHistoryItems[this.shellHistoryIndex] ??
-          this.shellHistoryDraft,
-      );
-      this.clearGhostSuggestion();
-      return;
-    }
-
-    this.shellHistoryIndex -= 1;
-    if (this.shellHistoryIndex < 0) {
-      this.shellHistoryIndex = -1;
-      this.setText(this.shellHistoryDraft);
-      this.scheduleGhostUpdate();
-      return;
-    }
-
-    this.setText(
-      this.shellHistoryItems[this.shellHistoryIndex] ?? this.shellHistoryDraft,
-    );
-    this.clearGhostSuggestion();
   }
 
   private scheduleGhostUpdate(): void {

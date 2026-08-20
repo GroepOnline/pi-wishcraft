@@ -23,6 +23,7 @@ export class WelcomeHeader implements Component {
     initialContextTokens: number | null = null,
     queueCount?: number,
     hasStash?: boolean,
+    whatsNew?: string[],
   ) {
     this.data = {
       modelName,
@@ -33,6 +34,7 @@ export class WelcomeHeader implements Component {
       queueCount,
       hasStash,
       quietStartup: true,
+      whatsNew,
     };
   }
 

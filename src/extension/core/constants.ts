@@ -22,6 +22,7 @@ export const DEFAULT_BASH_MODE_SETTINGS = {
   toggleShortcut: "ctrl+shift+b",
   transcriptMaxLines: 2000,
   transcriptMaxBytes: 512 * 1024,
+  initScript: null,
 } as const satisfies BashModeSettings;
 export const SHORTCUT_KEYS: PowerlineShortcutKey[] = [
   "stashHistory",

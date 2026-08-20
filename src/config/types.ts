@@ -111,7 +111,10 @@ export interface StatusLineSegmentOptions {
   context?: { format?: "full" | "percent" };
   cache_read?: { format?: "tokens" | "percent" | "both" };
   openPorts?: {
-    /** Include UDP listeners (mDNS/DHCP/ephemeral) in the count. Default false. */ includeUdp?: boolean;
+    /** Include UDP listeners (mDNS/DHCP/ephemeral) in the count. Default false. */
+    includeUdp?: boolean;
+    /** Optional SSH host for remote open-ports probe (fleet). */
+    host?: string;
   };
   tps?: {
     /** Rolling window length (ms) for the tokens/sec lookback. Default 1000. */
@@ -241,6 +244,8 @@ export interface SegmentContext {
   extensionStatuses: ReadonlyMap<string, string>;
   hiddenExtensionStatusKeys: ReadonlySet<string>;
   customItemsById: ReadonlyMap<string, CustomStatusItem>;
+  /** Custom items after `customItems.auto` promotion (layout + navigator). */
+  effectiveCustomItems: readonly CustomStatusItem[];
 
   // Options
   options: StatusLineSegmentOptions;

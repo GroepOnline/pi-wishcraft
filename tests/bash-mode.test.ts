@@ -1194,6 +1194,7 @@ test("bash editor shell history state does not clobber the base prompt history i
 
   try {
     const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { navigateShellHistory } = await import("../bash-mode/editor-history.ts");
     const fakeEditor = {
       historyIndex: 5,
       shellHistoryIndex: -1,
@@ -1213,10 +1214,7 @@ test("bash editor shell history state does not clobber the base prompt history i
       scheduleGhostUpdate() {},
     };
 
-    getMethod(BashModeEditor.prototype, "navigateShellHistory").call(
-      fakeEditor,
-      -1,
-    );
+    navigateShellHistory(fakeEditor, -1);
 
     assert.equal(fakeEditor.historyIndex, 5);
     assert.equal(fakeEditor.shellHistoryIndex, 0);

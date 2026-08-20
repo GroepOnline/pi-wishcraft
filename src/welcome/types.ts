@@ -20,6 +20,7 @@ export interface WelcomeData {
   hasStash?: boolean;
   /** true = statische ballon (header-mode), false = geanimeerde vlam. */
   quietStartup?: boolean;
+  whatsNew?: string[];
 }
 
 export interface WelcomeWidget {

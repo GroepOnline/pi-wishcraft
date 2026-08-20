@@ -3,11 +3,7 @@ import { ansi, fgOnly, getFgAnsiCode } from "../theme/colors.ts";
 import { centerText, fitToWidth, getBoxLayout } from "./layout.ts";
 import type { WelcomeData, WelcomeWidget, WidgetRenderContext } from "./types.ts";
 import { renderLantern } from "./lantern.ts";
-
-import { QueueWidget } from "./widgets/queue-widget.ts";
-import { SessionsWidget } from "./widgets/sessions-widget.ts";
-import { ShortcutsWidget } from "./widgets/shortcuts-widget.ts";
-import { SystemWidget } from "./widgets/system-widget.ts";
+import { ALL_WELCOME_WIDGETS } from "./widgets/index.ts";
 
 function bold(text: string): string {
   return `\x1b[1m${text}\x1b[22m`;
@@ -75,12 +71,12 @@ export function renderWelcomeBox(
   const bl = dim("╰");
   const br = dim("╯");
 
-  const rightWidgets = [
-    SystemWidget,
-    QueueWidget,
-    ShortcutsWidget,
-    SessionsWidget,
-  ];
+  const rightWidgets = ALL_WELCOME_WIDGETS.filter((widget) => {
+    if (widget.id === "whats-new") {
+      return (data.whatsNew?.length ?? 0) > 0;
+    }
+    return true;
+  });
 
   const leftCtx: WidgetRenderContext = {
     data,

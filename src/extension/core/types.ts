@@ -70,6 +70,8 @@ export interface RuntimeState {
   powerlineCompacting: boolean;
   deliverAfterRetrySettles: boolean;
   queueDeliveryTimer: ReturnType<typeof setTimeout> | null;
+  /** Set after the once-per-session cost alert fires. */
+  costAlertNotified: boolean;
 
   // Cache for the top and secondary powerline widgets.
   lastLayoutWidth: number;

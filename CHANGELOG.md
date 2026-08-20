@@ -4,6 +4,10 @@
 
 ### Added
 - `alt+p` menu is three overlay entries (Navigate, Configure, Status) with a Status drill-down for ports, TPS, and toggle.
+- Configure uses the same SelectList overlay as `alt+p`.
+- `/powerline doctor` and `/powerline export`, with tab completion.
+- `/queue archive [hours]` moves old sent items to `inbox.archive.jsonl` using one clock snapshot.
+- Focused docs under `docs/` for commands, configuration, segments, bash mode, vibes, and shortcuts.
 
 ### Fixed
 - `theme.json` in the working directory overrides icons, and the theme cache busts when that file changes.
