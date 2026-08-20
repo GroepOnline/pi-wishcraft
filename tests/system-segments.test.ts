@@ -6,7 +6,10 @@ import {
   parseListeningPortsFromText,
   sanitizeSshHost,
 } from "../src/segments/system.ts";
-import { customComputedSegments } from "../src/segments/custom.ts";
+import {
+  customComputedSegments,
+  registerCustomSegments,
+} from "../src/segments/custom.ts";
 import { resolvePreset, PRESETS } from "../src/config/presets.ts";
 import type {
   ColorScheme,
@@ -234,19 +237,16 @@ test("parseOpenPortProcesses handles macOS netstat dot-separated ports", () => {
   );
 });
 
-test("renderSegment isolates a throwing segment instead of blanking the footer", () => {
-  customComputedSegments.set("boom", {
-    id: "custom:boom",
-    render: () => {
-      throw new Error("boom");
-    },
+test("renderSegment isolates a failing command segment instead of blanking the footer", () => {
+  registerCustomSegments({
+    boom: { type: "command", command: 'node -e "process.exit(1)"' },
   });
   try {
     const out = renderSegment("custom:boom", createSegmentContext());
     assert.equal(out.visible, true);
     assert.equal(out.content, "!custom:boom");
   } finally {
-    customComputedSegments.delete("boom");
+    customComputedSegments.clear();
   }
 });
 
