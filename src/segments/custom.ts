@@ -35,7 +35,9 @@ function runCommandCached(
       commandCache.set(command, { at: now, value: out });
     return out;
   } catch {
-    return null;
+    // Preserve command failures so renderSegment can isolate this segment and
+    // expose a visible fault marker instead of silently hiding it.
+    throw new Error(`Command failed: ${command}`);
   }
 }
 

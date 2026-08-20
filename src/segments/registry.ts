@@ -164,16 +164,24 @@ export function renderSegment(
   id: StatusLineSegmentId,
   ctx: SegmentContext,
 ): RenderedSegment {
-  let rendered: RenderedSegment;
-  if (isCustomSegmentId(id)) {
-    const customId = id.slice("custom:".length);
-    const computed = customComputedSegments.get(customId);
-    rendered = computed
-      ? computed.render(ctx)
-      : renderCustomSegment(id, ctx);
-  } else {
-    const segment = SEGMENTS[id];
-    rendered = segment ? segment.render(ctx) : { content: "", visible: false };
+  try {
+    let rendered: RenderedSegment;
+    if (isCustomSegmentId(id)) {
+      const customId = id.slice("custom:".length);
+      const computed = customComputedSegments.get(customId);
+      rendered = computed
+        ? computed.render(ctx)
+        : renderCustomSegment(id, ctx);
+    } else {
+      const segment = SEGMENTS[id];
+      rendered = segment ? segment.render(ctx) : { content: "", visible: false };
+    }
+    return applySegmentDecoration(id, ctx, rendered);
+  } catch {
+    // ponytail: per-segment fault isolation. A throwing segment (most often a
+    // user `command` custom segment with a failing script) must not blank the
+    // whole footer; surface a visible `!id` marker so the operator sees
+    // which segment broke. No per-render log: the bar repaints ~30/s.
+    return { content: `!${id}`, visible: true };
   }
-  return applySegmentDecoration(id, ctx, rendered);
 }
