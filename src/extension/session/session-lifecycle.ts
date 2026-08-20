@@ -88,6 +88,17 @@ import {
   readHintsEnabled,
 } from "./read-hints.ts";
 
+function publishSkillsCount(ctx: {
+  cwd?: string;
+  ui?: { setStatus?: (key: string, value: string | undefined) => void };
+}): void {
+  publishPowerlineStatuses(ctx, {
+    skillsCount: formatSkillsCountStatusValue(
+      loadSkillCatalog(ctx.cwd ?? process.cwd()).length,
+    ),
+  });
+}
+
 /**
  * Fire the configured `powerline.costAlert` warning at most once per session.
  * Reads the running cost from the (cached) token ledger so repeated calls are
@@ -209,19 +220,8 @@ export function registerSessionLifecycle(
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("stash", undefined);
-      setSkillCacheInvalidationHandler(() => {
-          publishPowerlineStatuses(ctx, {
-            skillsCount: formatSkillsCountStatusValue(
-              loadSkillCatalog(ctx.cwd ?? process.cwd()).length,
-            ),
-          });
-        });
-        invalidateSkillCache();
-      publishPowerlineStatuses(ctx, {
-        skillsCount: formatSkillsCountStatusValue(
-          loadSkillCatalog(ctx.cwd ?? process.cwd()).length,
-        ),
-      });
+      setSkillCacheInvalidationHandler(() => publishSkillsCount(ctx));
+      invalidateSkillCache();
       const pendingIdeas = rt.queueStore
         .activeItems(getQueueContext(ctx))
         .filter((item) => item.intent === "idea").length;
@@ -252,6 +252,7 @@ export function registerSessionLifecycle(
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
+    setSkillCacheInvalidationHandler(null);
     rt.sessionGeneration++;
     rt.dismissWelcomeOverlay?.();
     rt.dismissWelcomeOverlay = null;
@@ -293,7 +294,7 @@ export function registerSessionLifecycle(
       invalidateGitForCommand(rt, String(event.input.command));
     }
     if (event.toolName === "read") {
-      if (!readHintsEnabled(readSettings(ctx.cwd).wishcraft)) {
+      if (!readHintsEnabled(readSettings(ctx?.cwd).wishcraft)) {
         return;
       }
       return appendReadHintToEvent(event);

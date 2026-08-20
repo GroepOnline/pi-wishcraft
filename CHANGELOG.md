@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- `powerline.skills.count` status export, published on session start.
+- `powerline.skills.count` status export, published on session start and after skill-cache invalidation.
 - Read-tool continuation hints on partial core `read` results when the core output omits a range summary.
 
 ### Changed

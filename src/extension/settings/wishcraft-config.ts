@@ -139,7 +139,7 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
       title: "Skills",
       items: [
         { label: "Inline-expansie /command en $skill", path: "wishcraft.inlineSkills", kind: "toggle", hint: "nog niet actief zonder herstart" },
-          { label: "Read-hints", path: "wishcraft.readHints", kind: "toggle", hint: "uit = geen vervolghint na gedeeltelijke reads" },
+        { label: "Read-hints", path: "wishcraft.readHints", kind: "toggle", hint: "uit = geen vervolghint na gedeeltelijke reads" },
       ],
     },
     {
