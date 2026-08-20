@@ -14,9 +14,21 @@ const CORE_RANGE_SUMMARY =
   /\[Showing lines \d+|\bUse offset=\d+|\d+ more lines in file|\d+ lines, showing \d+[–-]\d+/i;
 
 function coreFooter(text: string): string {
-  const lines = text.split("\\n");
+  const lines = text.split("\n");
   while (lines.length > 0 && lines[lines.length - 1]!.trim() === "") lines.pop();
   return lines[lines.length - 1]?.trim() ?? "";
+}
+
+/** Default on. `wishcraft.readHints: false` is the opt-out. */
+export function readHintsEnabled(wishcraftSettings: unknown): boolean {
+  if (
+    !wishcraftSettings ||
+    typeof wishcraftSettings !== "object" ||
+    Array.isArray(wishcraftSettings)
+  ) {
+    return true;
+  }
+  return (wishcraftSettings as Record<string, unknown>).readHints !== false;
 }
 
 /** True when core read output already carries an offset/range continuation line. */
@@ -82,4 +94,27 @@ export function extractReadToolResultText(content: unknown): string {
       ? String((block as { text?: unknown }).text ?? "")
       : "",
   ).join("\n");
+}
+
+/**
+ * Append a continuation hint to a core `read` tool_result.
+ * Returns a replacement payload; never mutates `event.input` or `event.content`.
+ */
+export function appendReadHintToEvent(event: {
+  input?: unknown;
+  content?: unknown;
+  details?: unknown;
+}): { content: Array<{ type: "text"; text: string }> } | undefined {
+  const text = extractReadToolResultText(event.content);
+  const input = event.input as ReadToolInput | undefined;
+  const details = event.details as ReadHintDetails | undefined;
+  if (!shouldAppendReadHint(input, text, details) || !input) return undefined;
+  if (!Array.isArray(event.content)) return undefined;
+  const hint = formatReadHint(input, text, details);
+  return {
+    content: [
+      ...(event.content as Array<{ type: "text"; text: string }>),
+      { type: "text", text: hint },
+    ],
+  };
 }

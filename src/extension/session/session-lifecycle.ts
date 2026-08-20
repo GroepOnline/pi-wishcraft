@@ -84,10 +84,8 @@ import {
   setSkillCacheInvalidationHandler,
 } from "../skills/skill-registry.ts";
 import {
-  extractReadToolResultText,
-  formatReadHint,
-  shouldAppendReadHint,
-  type ReadHintDetails,
+  appendReadHintToEvent,
+  readHintsEnabled,
 } from "./read-hints.ts";
 
 /**
@@ -285,7 +283,7 @@ export function registerSessionLifecycle(
   });
 
   // Invalidate git status on file changes, trigger re-render on potential branch changes
-  pi.on("tool_result", async (event) => {
+  pi.on("tool_result", async (event, ctx) => {
     if (event.toolName === "write" || event.toolName === "edit") {
       invalidateGitStatus();
       requestStatusRender(rt);
@@ -295,17 +293,10 @@ export function registerSessionLifecycle(
       invalidateGitForCommand(rt, String(event.input.command));
     }
     if (event.toolName === "read") {
-      const text = extractReadToolResultText(event.content);
-      const input = event.input as { offset?: number; limit?: number } | undefined;
-      const details = event.details as ReadHintDetails | undefined;
-      if (readSettings(ctx.cwd).wishcraft?.readHints !== false && shouldAppendReadHint(input, text, details)) {
-        const hint = formatReadHint(input!, text, details);
-        if (Array.isArray(event.content)) {
-          return {
-            content: [...event.content, { type: "text", text: hint }],
-          };
-        }
+      if (!readHintsEnabled(readSettings(ctx.cwd).wishcraft)) {
+        return;
       }
+      return appendReadHintToEvent(event);
     }
   });
 
