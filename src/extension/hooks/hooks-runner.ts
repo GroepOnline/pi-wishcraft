@@ -114,8 +114,9 @@ export function runHookCommand(
     try {
       child.stdin?.write(JSON.stringify(payload));
       child.stdin?.end();
-    } catch {
-      // stdin weg → hook zonder input; laat 'm zelf falen
+    } catch (error) {
+      stderr += `wishcraft hook stdin error: ${error instanceof Error ? error.message : String(error)}\n`;
+      finish(null);
     }
   });
 }

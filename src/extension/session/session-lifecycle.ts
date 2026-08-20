@@ -377,10 +377,15 @@ export function registerSessionLifecycle(
   });
 
   pi.on("session_compact", async (event, ctx) => {
+    if (!rt.powerlineCompacting) {
+      rt.currentCtx = ctx;
+      rt.coreContextUsageCache.reset();
+      requestImmediateStatusRender(rt, { deferDuringTyping: false });
+      requestQueueRender(rt);
+      return;
+    }
     rt.powerlineCompacting = false;
     rt.currentCtx = ctx;
-    // Compaction rewrites the conversation, so the cached context-usage (tokens/window/percent)
-    // is stale. Reset it and force a redraw — otherwise the bar keeps showing the pre-compact fill.
     rt.coreContextUsageCache.reset();
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     if (event.willRetry) {

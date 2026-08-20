@@ -13,9 +13,9 @@ export interface ReadHintDetails {
 }
 
 const CORE_SHOWING_LINES =
-  /^\[Showing lines \d+[–-]\d+(?: of \d+)?\.(?: Use offset=\d+ to continue\.)?\]$/i;
+  /^\[Showing lines \d+[–-]\d+ of \d+\.(?: Use offset=\d+ to continue\.)?\]$/i;
 const CORE_MORE_LINES =
-  /^\[?\d+ more lines in file\. Use offset=\d+ to continue\.?\]?$/i;
+  /^\[\d+ more lines in file\. Use offset=\d+ to continue\.\]$/i;
 const OWN_READ_HINT = /^\d+ lines, showing \d+[–-]\d+, next offset \d+$/;
 
 function isCoreRangeFooter(line: string): boolean {

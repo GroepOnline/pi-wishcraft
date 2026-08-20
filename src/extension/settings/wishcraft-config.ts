@@ -261,11 +261,12 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
 
       const toggle = (item: ConfigItem) => {
         const cur = readConfigPath(settings, item.path);
-        const ok = writeConfigPath(cwd, item.path, !(cur === true));
+        const next = !(cur === true);
+        const ok = writeConfigPath(cwd, item.path, next);
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
         ctx.ui.notify(
-          ok ? `${item.label}: ${!(cur === true) ? "aan" : "uit"} (opgeslagen)` : `${item.label} niet opgeslagen`,
+          ok ? `${item.label}: ${next ? "aan" : "uit"} (opgeslagen)` : `${item.label} niet opgeslagen`,
           ok ? "info" : "warning",
         );
       };

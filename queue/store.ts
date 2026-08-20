@@ -143,7 +143,7 @@ export function createQueueItem(
   const now = input.now ?? Date.now();
   const sourceSessionId = input.source.sessionId?.trim();
   return {
-    id: randomUUID().slice(0, 8),
+    id: randomUUID(),
     text: input.text,
     createdAt: now,
     updatedAt: now,
@@ -342,17 +342,35 @@ export class PowerlineQueueStore {
     now: number = Date.now(),
   ): void {
     mkdirSync(dirname(this.inboxPath), { recursive: true });
-    const retentionCutoff = now - this.sentRetentionMs;
-    const activeOrRecent = items
-      .filter(
-        (item) =>
-          item.status !== "sent" || item.updatedAt >= retentionCutoff,
-      )
-      .map((item) => JSON.stringify(item))
-      .join("\n");
+    const sentRecent = new Set<number>();
+    const activeOrRecent: string[] = [];
+    for (const item of items) {
+      if (item.status === "sent" && item.updatedAt < now - this.sentRetentionMs) {
+        continue;
+      }
+      if (item.status === "sent") {
+        sentRecent.add(item.updatedAt);
+      }
+      activeOrRecent.push(JSON.stringify(item));
+    }
+    const archival = items.filter(
+      (item) =>
+        item.status === "sent" && item.updatedAt < now - this.sentRetentionMs,
+    );
+    if (archival.length > 0) {
+      mkdirSync(dirname(this.archivePath), { recursive: true });
+      const existing = existsSync(this.archivePath)
+        ? readFileSync(this.archivePath, "utf-8")
+        : "";
+      const lines = archival.map((item) => JSON.stringify(item)).join("\n");
+      this.writeAtomic(
+        this.archivePath,
+        `${existing.trimEnd() ? `${existing.trimEnd()}\n` : ""}${lines}\n`,
+      );
+    }
     this.writeAtomic(
       this.inboxPath,
-      activeOrRecent ? `${activeOrRecent}\n` : "",
+      activeOrRecent.length ? `${activeOrRecent.join("\n")}\n` : "",
     );
   }
 
@@ -418,7 +436,12 @@ export class PowerlineQueueStore {
   private writeAtomic(path: string, content: string): void {
     const tempPath = `${path}.${process.pid}.${Date.now()}.tmp`;
     writeFileSync(tempPath, content, "utf-8");
-    renameSync(tempPath, path);
+    try {
+      renameSync(tempPath, path);
+    } catch (error) {
+      try { rmSync(tempPath, { force: true }); } catch { /* best-effort cleanup */ }
+      throw error;
+    }
   }
 }
 

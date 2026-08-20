@@ -200,11 +200,11 @@ export function schedulePostCompactionDelivery(
   ctx: any,
 ): void {
   if (rt.queueDeliveryTimer) clearTimeout(rt.queueDeliveryTimer);
-  const queueContext = getQueueContext(ctx);
   const scheduledGeneration = rt.sessionGeneration;
   rt.queueDeliveryTimer = setTimeout(() => {
     rt.queueDeliveryTimer = null;
     if (scheduledGeneration !== rt.sessionGeneration) return;
+    const queueContext = getQueueContext(ctx);
     const item = rt.queueStore.queuedDeliveryItems(
       queueContext,
       "post-compact",
