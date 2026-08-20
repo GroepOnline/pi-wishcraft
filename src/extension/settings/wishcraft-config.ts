@@ -1,11 +1,10 @@
 /**
  * wishcraft-config.ts
  * ---------------------------------------------------------------------------
- * `/wishcraft` — één configuratie-TUI voor álle wishcraft-instellingen:
- * overzichtelijk per groep én direct aanpasbaar (toggle, keuze, tekst,
- * getal), live weggeschreven naar settings en direct zichtbaar.
- * Data-driven: instellingen worden gedeclareerd als ConfigItem[]; de overlay
- * rendert en bewerkt ze generiek.
+ * `/wishcraft` — one configuration TUI for every wishcraft setting:
+ * grouped, directly editable (toggle, choice, text, number), written live
+ * to settings and visible immediately. Data-driven: settings are declared
+ * as ConfigItem[]; the overlay renders and edits them generically.
  * ---------------------------------------------------------------------------
  */
 
@@ -24,17 +23,17 @@ import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 export type ConfigValue = boolean | string | number | null;
 
 export interface ConfigItem {
-  /** Label in de lijst. */
+  /** Label in the list. */
   label: string;
-  /** Pad binnen settings ("powerline.placement", "wishcraft.hooksEnabled", ...). */
+  /** Path inside settings ("powerline.placement", "wishcraft.hooksEnabled", ...). */
   path: string;
-  /** Bewerkingsoptype. */
+  /** Edit kind. */
   kind: "toggle" | "select" | "text" | "number";
-  /** Voor select: de keuzes. */
+  /** For select: the choices. */
   choices?: string[];
-  /** Hulpregels onder de groep. */
+  /** Hint under the group. */
   hint?: string;
-  /** Uitleg bij het item in detail (optioneel). */
+  /** Detail explanation (optional). */
   description?: string;
 }
 
@@ -43,7 +42,7 @@ export interface ConfigGroup {
   items: ConfigItem[];
 }
 
-/** Genest uitlezen: "wishcraft.hooksEnabled" → settings.wishcraft.hooksEnabled. */
+/** Nested read: "wishcraft.hooksEnabled" → settings.wishcraft.hooksEnabled. */
 export function readConfigPath(settings: Record<string, unknown>, path: string): ConfigValue {
   let cur: unknown = settings;
   for (const part of path.split(".")) {
@@ -130,61 +129,61 @@ const SEPARATORS = [
   "star",
 ];
 
-/** Bouw de groepen op basis van huidige settings (waarden live getoond). */
+/** Build groups from current settings (values shown live). */
 export function buildConfigGroups(settings: Record<string, unknown>): ConfigGroup[] {
   return [
     {
-      title: "Statusbalk",
+      title: "Status bar",
       items: [
         { label: "Preset", path: "powerline.preset", kind: "select", choices: ["default", "minimal", "compact", "full", "nerd", "ascii", "chef"] },
         { label: "Separator", path: "powerline.separator", kind: "select", choices: SEPARATORS },
-        { label: "Plaatsing", path: "powerline.placement", kind: "select", choices: ["above", "below"] },
-        { label: "Pad-modus", path: "powerline.segmentOptions.path.mode", kind: "select", choices: ["basename", "abbreviated", "full"] },
-        { label: "Pad-maxlengte", path: "powerline.segmentOptions.path.maxLength", kind: "number", hint: "0 = onbeperkt" },
-        { label: "Tijd formaat", path: "powerline.segmentOptions.time.format", kind: "select", choices: ["12h", "24h"] },
-        { label: "Tijd seconden", path: "powerline.segmentOptions.time.showSeconds", kind: "toggle" },
-        { label: "Git host-iconen", path: "powerline.segmentOptions.git.hostIcon", kind: "toggle" },
+        { label: "Placement", path: "powerline.placement", kind: "select", choices: ["above", "below"] },
+        { label: "Path mode", path: "powerline.segmentOptions.path.mode", kind: "select", choices: ["basename", "abbreviated", "full"] },
+        { label: "Path max length", path: "powerline.segmentOptions.path.maxLength", kind: "number", hint: "0 = unlimited" },
+        { label: "Time format", path: "powerline.segmentOptions.time.format", kind: "select", choices: ["12h", "24h"] },
+        { label: "Time seconds", path: "powerline.segmentOptions.time.showSeconds", kind: "toggle" },
+        { label: "Git host icons", path: "powerline.segmentOptions.git.hostIcon", kind: "toggle" },
         { label: "Git ahead/behind", path: "powerline.segmentOptions.git.showAheadBehind", kind: "toggle" },
-        { label: "Git laatste commit", path: "powerline.segmentOptions.git.showCommit", kind: "toggle" },
-        { label: "Context formaat", path: "powerline.segmentOptions.context.format", kind: "select", choices: ["full", "percent"] },
-        { label: "Cache-read formaat", path: "powerline.segmentOptions.cache_read.format", kind: "select", choices: ["tokens", "percent", "both"] },
-        { label: "Kosten toning", path: "powerline.segmentOptions.cost.subscriptionDisplay", kind: "select", choices: ["subscription", "reported-cost", "both"] },
-        { label: "Valuta", path: "powerline.segmentOptions.cost.currency", kind: "text" },
-        { label: "Ports incl. UDP", path: "powerline.segmentOptions.openPorts.includeUdp", kind: "toggle" },
-        { label: "TPS venster (ms)", path: "powerline.segmentOptions.tps.windowMs", kind: "number", hint: "default 1000" },
-        { label: "TPS modus", path: "powerline.segmentOptions.tps.mode", kind: "select", choices: ["both", "out", "in"] },
-        { label: "TPS label", path: "powerline.segmentLabels.tps", kind: "text", hint: "leeg = geen label" },
+        { label: "Git latest commit", path: "powerline.segmentOptions.git.showCommit", kind: "toggle" },
+        { label: "Context format", path: "powerline.segmentOptions.context.format", kind: "select", choices: ["full", "percent"] },
+        { label: "Cache-read format", path: "powerline.segmentOptions.cache_read.format", kind: "select", choices: ["tokens", "percent", "both"] },
+        { label: "Cost display", path: "powerline.segmentOptions.cost.subscriptionDisplay", kind: "select", choices: ["subscription", "reported-cost", "both"] },
+        { label: "Currency", path: "powerline.segmentOptions.cost.currency", kind: "text" },
+        { label: "Ports include UDP", path: "powerline.segmentOptions.openPorts.includeUdp", kind: "toggle" },
+        { label: "TPS window (ms)", path: "powerline.segmentOptions.tps.windowMs", kind: "number", hint: "default 1000" },
+        { label: "TPS mode", path: "powerline.segmentOptions.tps.mode", kind: "select", choices: ["both", "out", "in"] },
+        { label: "TPS label", path: "powerline.segmentLabels.tps", kind: "text", hint: "empty = no label" },
       ],
     },
     {
-      title: "Welkom & vibes",
+      title: "Welcome & vibes",
       items: [
-        { label: "Welcome overlay", path: "powerline.welcome", kind: "toggle", hint: "aan = overlay bij opstart, uit = geen welcome" },
-        { label: "Wishcraft-ballon animeren", path: "wishcraft.welcome.animateLantern", kind: "toggle", hint: "flikker-effect op de wensballon" },
+        { label: "Welcome overlay", path: "powerline.welcome", kind: "toggle", hint: "on = overlay at startup, off = no welcome" },
+        { label: "Animate wishcraft lantern", path: "wishcraft.welcome.animateLantern", kind: "toggle", hint: "flicker on the lantern" },
       ],
     },
     {
       title: "Skills",
       items: [
-        { label: "Inline-expansie /command en $skill", path: "wishcraft.inlineSkills", kind: "toggle", hint: "nog niet actief zonder herstart" },
+        { label: "Inline expand /command and $skill", path: "wishcraft.inlineSkills", kind: "toggle", hint: "needs a restart to take effect" },
         { label: "Read hints", path: "wishcraft.readHints", kind: "toggle", hint: "off = no continuation hint after partial reads" },
       ],
     },
     {
-      title: "Hooks & repairs (harness-laag)",
+      title: "Hooks & repairs (harness)",
       items: [
-        { label: "Hooks ingeschakeld", path: "wishcraft.hooksEnabled", kind: "toggle", hint: "commandcode-achtige preToolUse/postToolUse/sessionStart hooks" },
+        { label: "Hooks enabled", path: "wishcraft.hooksEnabled", kind: "toggle", hint: "preToolUse / postToolUse / sessionStart command hooks" },
         { label: "Tool-input repairs", path: "wishcraft.repairsEnabled", kind: "toggle", hint: "null-for-optional, auto-link, json-array, path aliases" },
-        { label: "Dagelijks tokenbudget", path: "wishcraft.tokenBudget.daily", kind: "number", hint: "kleurt cost-segment; blokkeert nooit. 0 = uit" },
+        { label: "Daily token budget", path: "wishcraft.tokenBudget.daily", kind: "number", hint: "colours the cost segment; never blocks. 0 = off" },
       ],
     },
     {
-      title: "Sneltoetsen",
+      title: "Shortcuts",
       items: [
-        { label: "Menu", path: "powerlineShortcuts.menu", kind: "text", hint: "bv. alt+p" },
+        { label: "Menu", path: "powerlineShortcuts.menu", kind: "text", hint: "e.g. alt+p" },
         { label: "Info", path: "powerlineShortcuts.info", kind: "text" },
         { label: "Stash", path: "powerlineShortcuts.stashHistory", kind: "text" },
-        { label: "Idee", path: "powerlineShortcuts.ideaCapture", kind: "text" },
+        { label: "Idea", path: "powerlineShortcuts.ideaCapture", kind: "text" },
         { label: "Queue", path: "powerlineShortcuts.queueOpen", kind: "text" },
       ],
     },
@@ -202,8 +201,8 @@ function isPrintable(data: string): boolean {
 }
 
 function displayValue(item: ConfigItem, value: ConfigValue): string {
-  if (value === null || value === undefined || value === "") return item.kind === "toggle" ? "uit" : "—";
-  if (item.kind === "toggle") return value ? "aan" : "uit";
+  if (value === null || value === undefined || value === "") return item.kind === "toggle" ? "off" : "—";
+  if (item.kind === "toggle") return value ? "on" : "off";
   return String(value);
 }
 
@@ -220,7 +219,7 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
   let settings = readSettings(cwd);
   let groups = buildConfigGroups(settings);
 
-  // platte rijenlijst: groepstitels + items
+  // flat row list: group titles + items
   type Row =
     | { type: "group"; title: string }
     | { type: "item"; group: number; item: ConfigItem };
@@ -239,7 +238,7 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
       const wrapRow = (t: string, w: number) =>
         `${border("│")}${truncateToWidth(t, w, "…", true)}${border("│")}`;
 
-      let selected = 1; // eerste item (rij 0 is een groepstitel)
+      let selected = 1; // first item (row 0 is a group title)
       let editing = false;
       let editBuffer = "";
 
@@ -254,12 +253,12 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         if (!cur) return;
         const { item } = cur;
         let value: ConfigValue;
-        if (item.kind === "toggle") value = next === "aan";
+        if (item.kind === "toggle") value = next === "on";
         else value = coerce(item, readConfigPath(settings, item.path), next);
         const ok = writeConfigPath(cwd, item.path, value);
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
-        // live herladen powerline-config + statusbalk
+        // live-reload powerline config + status bar
         if (item.path.startsWith("powerline")) {
           setConfig({
             ...stateConfig,
@@ -268,7 +267,7 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
           rt.tuiRef?.requestRender?.();
         }
         ctx.ui.notify(
-          ok ? `${item.label}: ${displayValue(item, value)} (opgeslagen)` : `${item.label} niet opgeslagen (settings.json?)`,
+          ok ? `${item.label}: ${displayValue(item, value)} (saved)` : `${item.label} not saved (settings.json?)`,
           ok ? "info" : "warning",
         );
       };
@@ -282,7 +281,7 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
         ctx.ui.notify(
-          ok ? `${item.label}: ${next} (opgeslagen)` : `${item.label} niet opgeslagen`,
+          ok ? `${item.label}: ${next} (saved)` : `${item.label} not saved`,
           ok ? "info" : "warning",
         );
       };
@@ -293,7 +292,7 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
         ctx.ui.notify(
-          ok ? `${item.label}: ${!(cur === true) ? "aan" : "uit"} (opgeslagen)` : `${item.label} niet opgeslagen`,
+          ok ? `${item.label}: ${!(cur === true) ? "on" : "off"} (saved)` : `${item.label} not saved`,
           ok ? "info" : "warning",
         );
       };
@@ -304,12 +303,12 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
           const lines: string[] = [];
           lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
           lines.push(
-            wrapRow(theme.fg("accent", theme.bold("Wishcraft · configuratie")), innerWidth),
+            wrapRow(theme.fg("accent", theme.bold("Wishcraft · configuration")), innerWidth),
           );
           lines.push(border(`├${"─".repeat(innerWidth)}┤`));
 
           const rows = buildRows();
-          // scroll-venster rondom selectie
+          // scroll window around the selection
           let start = Math.max(0, selected - Math.floor(LIST_ROWS / 2));
           let end = Math.min(start + LIST_ROWS, rows.length);
           if (end - start < Math.min(LIST_ROWS, rows.length)) start = Math.max(0, end - LIST_ROWS);
@@ -341,8 +340,8 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
               theme.fg(
                 "dim",
                 editing
-                  ? "typ=waarde · enter=opslaan · esc=annuleren"
-                  : "↑↓ · enter=kiezen/bewerken (←→ wisselt) · esc=sluiten",
+                  ? "type=value · enter=save · esc=cancel"
+                  : "↑↓ · enter=select/edit (←→ cycles) · esc=close",
               ),
               innerWidth,
             ),
@@ -388,7 +387,7 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
             } while (rows[selected]!.type === "group");
           } else if (matchesKey(data, "pageUp")) {
             selected = Math.max(1, selected - LIST_ROWS);
-            // niet op een groepskop landen: schuif door naar het volgende item
+            // do not land on a group header: skip to the next item
             while (selected < rows.length - 1 && rows[selected]!.type === "group")
               selected++;
           } else if (matchesKey(data, "pageDown")) {
@@ -424,10 +423,10 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
   );
 }
 
-/** Registreer /wishcraft. */
+/** Register /wishcraft. */
 export function registerWishcraftConfigCommand(pi: ExtensionAPI, rt: RuntimeState): void {
   pi.registerCommand("wishcraft", {
-    description: "Configureer alles van wishcraft in één overzicht (statusbalk, welcome, hooks, sneltoetsen)",
+    description: "Configure all wishcraft settings in one overlay (status bar, welcome, hooks, shortcuts)",
     handler: async (_args: string, ctx: any) => {
       if (!rt.enabled || !ctx.hasUI) {
         ctx.ui.notify("Powerline UI is disabled", "info");

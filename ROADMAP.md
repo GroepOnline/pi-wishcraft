@@ -219,50 +219,49 @@ de zes gevallen + de parse-vóór-wrap invariant.
 
 ### PR G — overlay-submenus (CHE-42) — ✅ #19 + expansion (#13 reopen)
 
-Het `alt+p`-menu krijgt gestapelde `SelectList`-overlays (pijltjes +
-descriptions) in plaats van platte `ctx.ui.select`. Max drie
-top-level ingangen. #19 landt de top-level boom (Navigate / Configure /
-Status). Configure gebruikt nu `showSelectOverlay` (CHE-42 rest). CHE-40
-is Done (#18). CHE-41 is Done: `→` in Navigate, snapshot bij openen, geen tweede `alt+i`-pad.
+The `alt+p` menu gets stacked `SelectList` overlays (arrows +
+descriptions) instead of flat `ctx.ui.select`. Maximum three top-level
+entries. #19 lands the top-level tree (Navigate / Configure /
+Status). Configure now uses `showSelectOverlay` (CHE-42 remainder). CHE-40
+is Done (#18). CHE-41 is Done: `→` in Navigate, snapshot on open, no second `alt+i` path.
 
 ### PR H — skills manager v2 UI + token-overlays
 
-Vervangt `skill-manager.ts` (242 regels). Data-laag bouwt op Pi
+Replaces `skill-manager.ts` (242 lines). The data layer builds on Pi
 core `loadSkills` / `loadSkillsFromDir` / `Skill` /
-`SkillFrontmatter` (publiek geëxporteerd in
+`SkillFrontmatter` (publicly exported in
 `@earendil-works/pi-coding-agent`).
 
-UI, niet onderhandelbaar:
+UI, non-negotiable:
 
-- Zoeken die werkt: substring op naam + beschrijving + pad,
-  case-insensitive; `ctrl+u` wist; lege match = rij
-  `geen skills voor '<q>'`.
-- Categorieën met kopregels (bundled / global / project / prompts);
-  `tab` wisselt filter; `s` sorteert naam ↔ gebruik.
-- `→` detail (frontmatter-tabel, usage, pad, body + scroll);
-  `enter` insert; `e` opent `$EDITOR` (default nvim) via extern
-  spawn zoals pi's `!`; `n` nieuwe skill in
-  `~/.pi/agent/skills/<naam>/SKILL.md`; `d` delete + confirm.
-- Usage-ledger `~/.pi/agent/skill-usage.json` (naam, timestamp,
-  trigger-type). Best-effort, nooit blokkerend op de input hot path.
-- Skill health: core-diagnostics als waarschuwingsicoon; `?` legt
-  het uit.
+- Working search: substring on name + description + path,
+  case-insensitive; `ctrl+u` clears; empty match = row
+  `no skills for '<q>'`.
+- Categories with headings (bundled / global / project / prompts);
+  `tab` switches the filter; `s` sorts name ↔ usage.
+- `→` detail (frontmatter table, usage, path, body + scroll);
+  `enter` inserts; `e` opens `$EDITOR` (default nvim) via external
+  spawn like pi's `!`; `n` creates a new skill in
+  `~/.pi/agent/skills/<name>/SKILL.md`; `d` delete + confirm.
+- Usage-ledger `~/.pi/agent/skill-usage.json` (name, timestamp,
+  trigger type). Best-effort, never blocking on the input hot path.
+- Skill health: core-diagnostics as a warning icon; `?` explains it.
 
-Zelfde chrome als de segment-navigator. Nederlands, direct.
+Same chrome as the segment navigator. English, direct.
 
-Tegelijk, klein:
+At the same time, small additions:
 
-- `/tps` overlay: in/out, piek + gemiddelde over de bestaande ring.
-  Geen nieuwe sampler.
-- `/usage` overlay: vandaag / deze week / deze sessie; per model;
-  cache-hit %; ASCII-sparkline. File
-  `~/.pi/agent/wishcraft-usage.json` (append-only, compaction bij
-  drempel).
-- `wishcraft.tokenBudget.daily` kleurt het segment rood en waarschuwt
-  in welcome bij 80% / 100%. Nooit blokkerend.
+- `/tps` overlay: in/out, peak + average over the existing ring.
+  No new sampler.
+- `/usage` overlay: today / this week / this session; per model;
+  cache-hit %; ASCII sparkline. File
+  `~/.pi/agent/wishcraft-usage.json` (append-only, compaction at
+  threshold).
+- `wishcraft.tokenBudget.daily` colors the segment red and warns
+  in the welcome at 80% / 100%. Never blocking.
 
-Done: filter-tests op substring; usage-ledger tests; `/tps` leest
-dezelfde ring als het segment (geen tweede waarheid).
+Done: substring filter tests; usage-ledger tests; `/tps` reads
+the same ring as the segment (no second source of truth).
 
 ---
 
@@ -314,7 +313,9 @@ die package nog leeft.
 
 ## Kwaliteit (altijd)
 
-- Overlay-logica testbaar via pure functies. Geen headless `ctx.ui`.
+- Overlay logic is testable via pure functions. No headless `ctx.ui`.
+- **English UI:** operator overlays, notify strings, and `/wishcraft` copy are
+  English. Do not add Dutch UI strings.
 - `prepublishOnly` = `tsc --noEmit`. Een slecht type ship't niet.
 - `madge --circular` blijft CI. Nieuwe map in `src/` → check mee.
 - Dependabot-vulns (devDep-transitief): waiven, track op GRO-603.

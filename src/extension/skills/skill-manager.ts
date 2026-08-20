@@ -1,13 +1,13 @@
 /**
  * skill-manager.ts
  * ---------------------------------------------------------------------------
- * Skills Manager v2 — volledig eigen TUI-overlay (lijst ⇄ detail) met:
- *   - zoeken dat echt filtert (type=filter, ctrl+u wist)
- *   - categorie-koppen (global/project/prompts/extra) + tab-categoriefilter
- *   - sorteren op naam of gebruik (s), usage-counts uit de ledger
- *   - detail-paneel: metadata, frontmatter, body met scroll
- *   - e=bewerken (edit-commando in de editor via pi's !-flow),
- *     n=nieuwe skill, d=verwijderen met confirm
+ * Skills Manager v2 — list ⇄ detail overlay:
+ *   - search that actually filters (type=filter, ctrl+u clears)
+ *   - category headers (global/project/prompts/extra) + tab category filter
+ *   - sort by name or usage (s), usage counts from the ledger
+ *   - detail panel: metadata, frontmatter, body with scroll
+ *   - e=edit (edit command in the editor via pi's ! flow),
+ *     n=new skill, d=delete with confirm
  * ---------------------------------------------------------------------------
  */
 
@@ -30,7 +30,7 @@ import { runSkillDoctor } from "./skill-doctor.ts";
 import { runSkillsNew } from "./skill-templates.ts";
 
 const CATEGORY_LABELS: Record<SkillCategory | "all", string> = {
-  all: "alles",
+  all: "all",
   global: "global",
   project: "project",
   prompts: "prompts",
@@ -59,18 +59,18 @@ function formatBytes(n: number): string {
 }
 
 function formatLastUsed(ms: number): string {
-  if (!ms) return "nooit";
+  if (!ms) return "never";
   const diff = Date.now() - ms;
   const min = Math.floor(diff / 60_000);
-  if (min < 1) return "zojuist";
-  if (min < 60) return `${min}m geleden`;
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h}u geleden`;
+  if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
-  return `${d}d geleden`;
+  return `${d}d ago`;
 }
 
-/** Voeg tekst toe aan de editor als nieuwe regel; de gebruiker drukt enter. */
+/** Append text as a new editor line; the user presses enter to run it. */
 function appendToEditor(ctx: any, text: string, notify: string): void {
   const current = ctx.ui.getEditorText?.() ?? "";
   const separator = current && !current.endsWith("\n") ? "\n" : "";
@@ -78,8 +78,8 @@ function appendToEditor(ctx: any, text: string, notify: string): void {
   ctx.ui.notify(notify, "info");
 }
 
-/** POSIX single-quote een pad zodat een skill-naam met shell-metatekens
- * (bv. `a; curl … | sh`, uit een untrusted gecloonde repo) niet injecteert. */
+/** POSIX single-quote a path so a skill name with shell metacharacters
+ * (e.g. `a; curl … | sh` from an untrusted cloned repo) cannot inject. */
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
@@ -144,10 +144,10 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
           } else {
             rmSync(entry.filePath, { force: true });
           }
-          ctx.ui.notify(`Skill verwijderd: ${entry.name}`, "info");
+          ctx.ui.notify(`Skill deleted: ${entry.name}`, "info");
         } catch (error) {
           ctx.ui.notify(
-            `Verwijderen mislukt: ${error instanceof Error ? error.message : String(error)}`,
+            `Delete failed: ${error instanceof Error ? error.message : String(error)}`,
             "error",
           );
         }
@@ -160,7 +160,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
 
       const insertBody = (entry: SkillEntry) => {
         insertSkillBody(ctx, entry.name, readSkillBody(entry.filePath));
-        ctx.ui.notify("Skill ingevoegd in je prompt", "info");
+        ctx.ui.notify("Skill inserted into your prompt", "info");
       };
 
       return {
@@ -171,8 +171,8 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
 
           if (mode === "list") {
             const f = filtered();
-            // Kop: totaal + sort + live filter
-            const head = `Skills · ${f.length}/${entries.length} · ${sort === "name" ? "naam" : "gebruik"} · ${CATEGORY_LABELS[category]}${query ? ` · zoek "${query}"` : ""}`;
+            // Header: total + sort + live filter
+            const head = `Skills · ${f.length}/${entries.length} · ${sort === "name" ? "name" : "usage"} · ${CATEGORY_LABELS[category]}${query ? ` · search "${query}"` : ""}`;
             lines.push(wrapRow(theme.fg("accent", theme.bold(head)), innerWidth));
             lines.push(border(`├${"─".repeat(innerWidth)}┤`));
 
@@ -180,12 +180,12 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
               const emptyMsg =
                 entries.length === 0 && !query
                   ? "No skills installed — ctrl+n to create one"
-                  : `Geen skills voor "${query}"`;
+                  : `No skills for "${query}"`;
               lines.push(
                 wrapRow(theme.fg("warning", emptyMsg), innerWidth),
               );
             } else {
-              // scroll-window rondom de selectie
+              // scroll window around the selection
               const start = Math.max(
                 0,
                 Math.min(selected - Math.floor(LIST_ROWS / 2), f.length - LIST_ROWS),
@@ -238,7 +238,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 wrapRow(
                   theme.fg(
                     "warning",
-                    `ctrl+d of enter = verwijderen "${selectedEntry()?.name ?? ""}", andere toets = annuleren`,
+                    `ctrl+d or enter = delete "${selectedEntry()?.name ?? ""}", any other key cancels`,
                   ),
                   innerWidth,
                 ),
@@ -248,7 +248,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 wrapRow(
                   theme.fg(
                     "dim",
-                    "typ=filter · ↑↓ · →/enter=detail · tab=categorie · ctrl+s=sort",
+                    "type=filter · ↑↓ · →/enter=detail · tab=category · ctrl+s=sort",
                   ),
                   innerWidth,
                 ),
@@ -257,7 +257,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 wrapRow(
                   theme.fg(
                     "dim",
-                    "ctrl+e=bewerken · ctrl+n=nieuw · ctrl+d=verwijderen · esc=sluiten",
+                    "ctrl+e=edit · ctrl+n=new · ctrl+d=delete · esc=close",
                   ),
                   innerWidth,
                 ),
@@ -283,15 +283,15 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
               );
             lines.push(
               meta(
-                "gebruikt",
-                `${u?.count ?? 0}× · laatste ${formatLastUsed(u?.lastUsed ?? 0)}`,
+                "used",
+                `${u?.count ?? 0}× · last ${formatLastUsed(u?.lastUsed ?? 0)}`,
               ),
             );
-            lines.push(meta("bestand", e.filePath));
+            lines.push(meta("file", e.filePath));
             lines.push(
               meta(
-                "omvang",
-                `${formatBytes(e.sizeBytes)} · ${e.lineCount} regels · gewijzigd ${formatLastUsed(e.mtimeMs)}`,
+                "size",
+                `${formatBytes(e.sizeBytes)} · ${e.lineCount} lines · changed ${formatLastUsed(e.mtimeMs)}`,
               ),
             );
             lines.push(
@@ -299,13 +299,13 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 "frontmatter",
                 e.frontmatterKeys.length
                   ? e.frontmatterKeys.join(", ")
-                  : "(geen)",
+                  : "(none)",
               ),
             );
             if (e.disableModelInvocation) {
               lines.push(
                 wrapRow(
-                  theme.fg("warning", "model-invocatie uit — alleen handmatig"),
+                  theme.fg("warning", "model invocation off — insert only"),
                   innerWidth,
                 ),
               );
@@ -316,7 +316,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
             lines.push(border(`├${"─".repeat(innerWidth)}┤`));
             const shown = bodyLines.slice(scroll, scroll + DETAIL_ROWS);
             if (shown.length === 0 || shown.join("").trim() === "") {
-              lines.push(wrapRow(theme.fg("dim", "(lege body)"), innerWidth));
+              lines.push(wrapRow(theme.fg("dim", "(empty body)"), innerWidth));
             }
             for (const line of shown) {
               lines.push(wrapRow(theme.fg("text", line || " "), innerWidth));
@@ -325,7 +325,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
             if (confirmDelete) {
               lines.push(
                 wrapRow(
-                  theme.fg("warning", `ctrl+d of enter = verwijderen "${e.name}", andere toets = annuleren`),
+                  theme.fg("warning", `ctrl+d or enter = delete "${e.name}", any other key cancels`),
                   innerWidth,
                 ),
               );
@@ -334,7 +334,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 wrapRow(
                   theme.fg(
                     "dim",
-                    "↑↓ scroll · enter=invoegen · ctrl+e=bewerken · ctrl+d=verwijderen · ←/esc=terug",
+                    "↑↓ scroll · enter=insert · ctrl+e=edit · ctrl+d=delete · ←/esc=back",
                   ),
                   innerWidth,
                 ),
@@ -356,7 +356,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
           if (mode === "list") {
             const f = filtered();
             if (confirmDelete) {
-              // Bevestig verwijderen: ctrl+d of enter; elke andere toets annuleert.
+              // Confirm delete: ctrl+d or enter; any other key cancels.
               if (data === "\x04" || matchesKey(data, "enter")) {
                 const entry = selectedEntry();
                 if (entry) doDelete(entry);
@@ -375,17 +375,17 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
               category = CATEGORY_ORDER[(idx + 1) % CATEGORY_ORDER.length]!;
               selected = 0;
             } else if (data === "\x13") {
-              // ctrl+s = sorteren
+              // ctrl+s = sort
               sort = sort === "name" ? "usage" : "name";
               selected = 0;
             } else if (data === "\x05") {
-              // ctrl+e = bewerken
+              // ctrl+e = edit
               const entry = selectedEntry();
               if (entry) {
                 appendToEditor(
                   ctx,
                   editorCommand(entry.filePath),
-                  "Edit-commando in de editor — enter draait 'm",
+                  "Edit command in the editor — press enter to run it",
                 );
                 close();
                 return;
@@ -395,7 +395,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
               done("new");
               return;
             } else if (data === "\x04") {
-              // ctrl+d = verwijderen (met confirm)
+              // ctrl+d = delete (with confirm)
               if (selectedEntry()) confirmDelete = true;
             } else if (matchesKey(data, "enter") || matchesKey(data, "right")) {
               const entry = selectedEntry();
@@ -405,7 +405,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
               matchesKey(data, "backspace") ||
               data === "\x15"
             ) {
-              // typen filtert; ctrl+u wist het filter
+              // typing filters; ctrl+u clears the filter
               if (data === "\x15") query = "";
               else if (matchesKey(data, "backspace")) query = query.slice(0, -1);
               else query += data;
@@ -429,16 +429,16 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 scroll + 1,
               );
             } else if (data === "\x05") {
-              // ctrl+e = bewerken
+              // ctrl+e = edit
               appendToEditor(
                 ctx,
                 editorCommand(detail!.filePath),
-                "Edit-commando in de editor — enter draait 'm",
+                "Edit command in the editor — press enter to run it",
               );
               close();
               return;
             } else if (data === "\x04") {
-              // ctrl+d = verwijderen
+              // ctrl+d = delete
               confirmDelete = true;
             } else if (matchesKey(data, "enter") || matchesKey(data, "tab")) {
               insertBody(detail!);
@@ -460,7 +460,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
   );
 }
 
-/** Registreer de `/skills` command. */
+/** Register the `/skills` command. */
 export type SkillManagerCommandDeps = {
   runDoctor?: (ctx: any) => Promise<void>;
 };
@@ -493,5 +493,5 @@ export function registerSkillManagerCommand(
   });
 }
 
-// Re-export voor compatibiliteit met bestaande importers/tests.
+// Re-export for existing importers/tests.
 export { listSkills, readSkillBody } from "./skill-registry.ts";
