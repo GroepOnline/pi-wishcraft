@@ -64,17 +64,20 @@ export async function showPowerlineMainMenu(
   ctx: any,
 ): Promise<void> {
   rt.currentCtx = ctx;
-  const top = await pickPowerlineMenuNode(
-    ctx,
-    "Powerline",
-    assertPowerlineMenuBounds(),
-  );
-  if (!top) return;
-  if (top.children?.length) {
-    const child = await pickPowerlineMenuNode(ctx, top.label, top.children);
-    if (!child) return;
-    await activatePowerlineMenuAction(rt, ctx, child.id);
+  while (true) {
+    const top = await pickPowerlineMenuNode(
+      ctx,
+      "Powerline",
+      assertPowerlineMenuBounds(),
+    );
+    if (!top) return;
+    if (top.children?.length) {
+      const child = await pickPowerlineMenuNode(ctx, top.label, top.children);
+      if (!child) continue;
+      await activatePowerlineMenuAction(rt, ctx, child.id);
+      continue;
+    }
+    await activatePowerlineMenuAction(rt, ctx, top.id);
     return;
   }
-  await activatePowerlineMenuAction(rt, ctx, top.id);
 }
