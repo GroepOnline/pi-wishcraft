@@ -24,16 +24,16 @@ test("parseHooksSettings validates and drops malformed hooks", () => {
         { matcher: "bash", hooks: [{ command: "guard.sh", timeout: 999 }] },
         { matcher: "x", hooks: [] }, // leeg → weg
         { hooks: [{ command: "" }] }, // leeg command → weg
-        "nonsense", // geen object → weg
+        "nonsense", // not an object → dropped
       ],
-      postToolUse: "geen array", // weg
+      postToolUse: "not an array", // dropped
     },
   });
   assert.equal(parsed.enabled, true);
   const cmds = commandsFor(parsed.hooks, "preToolUse", "bash");
   assert.equal(cmds.length, 1);
   assert.equal(cmds[0]!.command, "guard.sh");
-  assert.equal(cmds[0]!.timeout, 600); // afgekapt naar max
+  assert.equal(cmds[0]!.timeout, 600); // clamped to max
 });
 
 test("parseHooksSettings disabled by default without config", () => {
@@ -106,7 +106,7 @@ test("preToolUseVerdict: allow paths do not deny", () => {
     ).deny,
     false,
   );
-  // exit 0 met garbage-stdout → geen mening
+  // exit 0 with garbage stdout → no opinion
   assert.equal(preToolUseVerdict(out({ exitCode: 0, parsed: null })).deny, false);
 });
 

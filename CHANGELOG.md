@@ -26,6 +26,9 @@
 - Command hooks, session context inject, and `/repairs` run: `setupHooks` is registered on activation.
 - Hook runner ignores EPIPE when a command exits before reading stdin.
 
+### Changed
+- Operator UI is English: skill manager, `/wishcraft` TUI, overlay empty-match row, and skill-health warnings.
+
 ## [0.23.3] - 2026-08-20
 
 ### Fixed

@@ -84,13 +84,13 @@ test("loadSkillCatalog categorizes global vs loose prompts and dedupes", () => {
     invalidateSkillCache();
     const cat = loadSkillCatalog(cwd);
     const global = cat.find((e) => e.name === "global-skill");
-    assert.ok(global, "global skill gevonden");
+    assert.ok(global, "global skill found");
     assert.equal(global.category, "global");
     assert.ok(global.description.includes("agent dir"));
     const loose = cat.find((e) => e.name === "loose");
-    assert.ok(loose, "loose prompt gevonden via fallback");
+    assert.ok(loose, "loose prompt found via fallback");
     assert.equal(loose.category, "prompts");
-    assert.ok(loose.warning?.includes("geen description"));
+    assert.ok(loose.warning?.includes("no description"));
     process.chdir(prevCwd);
   } finally {
     delete process.env.PI_CODING_AGENT_DIR;
@@ -136,7 +136,7 @@ test("usage ledger persists across recordSkillUsage calls", async () => {
     const mod = await import("../src/extension/skills/skill-registry.ts");
     mod.recordSkillUsage("my-skill");
     mod.recordSkillUsage("my-skill");
-    mod.flushSkillUsage(); // write is gedebounced; forceer 'm voor de assert
+    mod.flushSkillUsage(); // write is debounced; flush before the assert
     const file = readFileSync(join(agentDir, "skill-usage.json"), "utf8");
     const parsed = JSON.parse(file);
     assert.equal(parsed["my-skill"].count, 2);
