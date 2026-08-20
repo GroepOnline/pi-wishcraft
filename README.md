@@ -247,7 +247,7 @@ Interactivity (Pi core renders the footer as static text, so live click is not p
 
 - `/tps [value]`: show or set `POWERLINE_TPS`
 - `/open-ports`: list listening ports and pick one
-- `alt+p`: **powerline menu**: navigate the live segments (`↑`/`↓` + `enter`), configure (preset / TPS / UDP / labels), or open the full ports list
+- `alt+p`: **powerline menu**: three overlays (Navigate, Configure, Status). Status drills down to ports, TPS, and toggle.
 - `alt+i`: **powerline info**: full open-ports list
 
 Both `alt+p` and `alt+i` are rebindable (see Keybinds below); changes apply after `/reload`.
