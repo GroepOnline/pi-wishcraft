@@ -229,10 +229,10 @@ is Done (#18). CHE-41 is Done: `→` in Navigate, snapshot on open, no second `a
 
 Replaces `skill-manager.ts` (242 lines). The data layer builds on Pi
 core `loadSkills` / `loadSkillsFromDir` / `Skill` /
-`SkillFrontmatter` (publiek geëxporteerd in
+`SkillFrontmatter` (publicly exported in
 `@earendil-works/pi-coding-agent`).
 
-UI, niet onderhandelbaar:
+UI, non-negotiable:
 
 - Working search: substring on name + description + path,
   case-insensitive; `ctrl+u` clears; empty match = row
@@ -242,26 +242,25 @@ UI, niet onderhandelbaar:
 - `→` detail (frontmatter table, usage, path, body + scroll);
   `enter` inserts; `e` opens `$EDITOR` (default nvim) via external
   spawn like pi's `!`; `n` creates a new skill in
-  `~/.pi/agent/skills/<naam>/SKILL.md`; `d` delete + confirm.
+  `~/.pi/agent/skills/<name>/SKILL.md`; `d` delete + confirm.
 - Usage-ledger `~/.pi/agent/skill-usage.json` (name, timestamp,
-  trigger type). Best-effort, never blocking op de input hot path.
-- Skill health: core-diagnostics as a warning icon; `?` legt
-  het uit.
+  trigger type). Best-effort, never blocking on the input hot path.
+- Skill health: core-diagnostics as a warning icon; `?` explains it.
 
 Same chrome as the segment navigator. English, direct.
 
 At the same time, small additions:
 
-- `/tps` overlay: in/out, peak + average over de bestaande ring.
+- `/tps` overlay: in/out, peak + average over the existing ring.
   No new sampler.
 - `/usage` overlay: today / this week / this session; per model;
-  cache-hit %; ASCII-sparkline. File
-  `~/.pi/agent/wishcraft-usage.json` (append-only, compaction bij
-  drempel).
+  cache-hit %; ASCII sparkline. File
+  `~/.pi/agent/wishcraft-usage.json` (append-only, compaction at
+  threshold).
 - `wishcraft.tokenBudget.daily` colors the segment red and warns
-  in the welcome at 80% / 100%. Nooit blokkerend.
+  in the welcome at 80% / 100%. Never blocking.
 
-Done: substring filter tests; usage-ledger tests; `/tps` leest
+Done: substring filter tests; usage-ledger tests; `/tps` reads
 the same ring as the segment (no second source of truth).
 
 ---
@@ -377,6 +376,3 @@ die package nog leeft.
 - [x] README skills-sectie waar; deze ROADMAP in sync met 0.19.2.
 - [x] CHE-40: `/powerline` subcommand-tab geland (#18). CHE-41/42
       hernoemd naar wishcraft.
-
-shcraft.
-craft.
