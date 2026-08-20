@@ -27,5 +27,5 @@ export default function powerlineFooter(pi: ExtensionAPI) {
   registerSessionLifecycle(pi, rt);
   registerCommands(pi, rt);
   setupInlineInvocation(pi, rt);
-  setupHooks(pi, rt, process.cwd());
+  setupHooks(pi, rt);
 }
