@@ -247,7 +247,7 @@ UI, niet onderhandelbaar:
 - Skill health: core-diagnostics als waarschuwingsicoon; `?` legt
   het uit.
 
-Zelfde chrome als de segment-navigator. Nederlands, direct.
+Same chrome as the segment navigator. English, direct.
 
 Tegelijk, klein:
 
@@ -272,11 +272,13 @@ deze campagne is de 1.0-tak. Elke product-PR: verify-trio groen,
 onafhankelijke review, squash op exact-head. `feat:` = 0.23+.
 `feat!:` alleen op PR N = 1.0.0. Docs-only: `[skip release]`.
 
-Locked defaults (geen human-gate): description-budget 240 tekens;
-policy alleen uit globale settings; idea `reviewStatus` is een
-apart veld (niet `QueueStatus`); welcome-widget toont `/ideas next`
-(welcome sluit op elke toets); ChefGroep-keys niet in de publieke
-README; read-hints alleen als core geen range/offset geeft.
+Locked defaults (no human gate): operator UI, overlays, notify
+strings, and ROADMAP are **English** (no Dutch copy); description
+budget 240 characters; policy from global settings only; idea
+`reviewStatus` is a separate field (not `QueueStatus`); welcome
+widget shows `/ideas next` (welcome dismisses on any key);
+ChefGroep keys stay off the public README; read-hints only when
+core omits range/offset.
 
 ### PR I — `/skills doctor` (GRO-1416) → 0.23.0
 
@@ -342,6 +344,7 @@ Al geland, niet opnieuw bouwen:
 | GRO-1419 idee-review | PR L. |
 | GRO-1420 keys + hints + Status | PR M. |
 | GRO-1421 1.0.0 cut | PR N, blocked on 1416–1420. |
+| GRO-1422 English-only UI | PR EN. Operator overlays and ROADMAP in English. |
 
 Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
 die package nog leeft.
@@ -414,7 +417,7 @@ die package nog leeft.
 
 ## Checklist (1.0)
 
-- [ ] PR I gemerged: `/skills doctor` tabel. Verify-trio groen. (GRO-1416)
+- [ ] PR EN gemerged: operator UI/overlays/ROADMAP English. (GRO-1422)
 - [ ] PR J gemerged: vier templates, geen markt. (GRO-1417)
 - [ ] PR K gemerged: deny `sudo rm` + inject `.env` zonder spawn. (GRO-1418)
 - [ ] PR L gemerged: idee-review overlay. (GRO-1419)
