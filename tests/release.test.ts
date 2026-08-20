@@ -17,6 +17,7 @@ import {
   existingTagAction,
   parseLatestVersionTag,
   resolveReleaseVersion,
+  rewriteUnreleasedHeading,
   shouldSkipRelease,
 } from "../scripts/release.mjs";
 
@@ -140,6 +141,22 @@ test("existingTagAction fails closed on a colliding next tag unless this tree is
   assert.equal(existingTagAction("0.19.0", "0.19.1", false), "cut");
   assert.equal(existingTagAction("0.19.1", "0.19.1", true), "already-cut");
   assert.equal(existingTagAction("0.19.0", "0.19.1", true), "collision");
+});
+
+test("rewriteUnreleasedHeading keeps an empty Unreleased section above the new version", () => {
+  const rolled = rewriteUnreleasedHeading(
+    "# Changelog\n\n## [Unreleased]\n\n### Added\n- Tab complete\n",
+    "0.19.2",
+    "2026-08-20",
+  );
+  assert.equal(rolled.rewritten, true);
+  assert.match(
+    rolled.changelog,
+    /^# Changelog\n\n## \[Unreleased\]\n\n## \[0\.19\.2\] - 2026-08-20\n/,
+  );
+  const missing = rewriteUnreleasedHeading("# Changelog\n", "0.19.2", "2026-08-20");
+  assert.equal(missing.rewritten, false);
+  assert.equal(missing.changelog, "# Changelog\n");
 });
 
 test("parseLatestVersionTag picks the highest vX.Y.Z tag", () => {
@@ -319,8 +336,4 @@ test(".github/workflows/release.yml tests origin/main after reset and before tag
 test("CHANGELOG.md keeps a well-formed Unreleased section for release.mjs to rewrite", () => {
   const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
   assert.match(changelog, /^# Changelog\n\n## \[Unreleased\]\n/);
-  assert.match(
-    changelog,
-    /## \[Unreleased\][\s\S]*?### Fixed\n- Release workflow publishes from the bump job/,
-  );
 });

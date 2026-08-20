@@ -68,7 +68,7 @@ Restart or `/reload` pi to activate.
 
 ## Usage
 
-Activates automatically. Toggle with `/powerline`, switch presets with `/powerline <name>`, and move the primary row with `/powerline placement above|below|toggle`.
+Activates automatically. Toggle with `/powerline`, switch presets with `/powerline <name>`, and move the primary row with `/powerline placement above|below|toggle`. Tab after `/powerline` completes preset names and `placement`; tab again after `placement` completes `above`, `below`, or `toggle`.
 
 Use `/cd <path>` to continue the current conversation from another working directory. It supports relative paths, absolute paths, `~`, `~/...`, and directory completions. With no argument, `/cd` prints the current Pi session directory. The command switches into a cwd-updated session file so Pi tools and the footer path segment agree after the change.
 
