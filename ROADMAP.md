@@ -98,6 +98,63 @@ Niet de fork. Niet de SaaS-agent.
   documentatie die waar is. Done = README dekt alles wat we shipten,
   geen kapotte footer-belofte.
 
+## Top-15 track: remaining maturity gaps
+
+Written 2026-08-20, rebaselined on 0.27.1 (code review, not this ROADMAP
+alone). Feature density is high; several original gaps closed in
+0.23–0.27. What remains is the maturity layer that separates a top-15 pi
+extension from a feature-rich prototype.
+
+### Already shipped (0.22.x–0.27.x)
+- **CHE-41 per-segment detail** — `→` in Navigate, snapshot on open (0.22.1).
+- **CHE-42 drill-down** — #19 + Configure in #13.
+- **Changelog roll** — version headers drive the what's-new panel.
+- **Per-segment fault isolation** — throwing custom segments show `!id`
+  instead of blanking the footer (#34, 0.23.1).
+- **macOS open_ports** — netstat dot-address parsing (#34, 0.23.1).
+- **GitHub Release per npm tag** (#25, 0.23.2).
+- **CodeQL proto-pollution hardening** (#27, 0.23.3).
+- **setupHooks wired** (#26, 0.23.4).
+- **Policy engine** — declarative deny/inject, no spawn (GRO-1418, #29,
+  0.24.0).
+- **`/skills doctor`** — broken frontmatter, dupes, unused, budget
+  (GRO-1416, #28, 0.24.0 / 0.25.0 tag).
+- **`/skills new` templates** — no marketplace (GRO-1417, #32, 0.26.0).
+- **`/ideas` review overlay** — status, tags, skill insert (GRO-1419, #31,
+  0.27.0).
+- **English operator UI** — overlays, skill manager, `/wishcraft` TUI
+  (GRO-1422, #24, 0.27.1).
+- **`powerline.skills.count` + read hints + Status trim** (GRO-1420, 0.23.0).
+
+### Remaining open gaps (maturity)
+P0 — release gate for 1.0:
+1. **Settings contract to pi core.** No `contributes.settings`/schema;
+   users hand-edit JSON. *Fix: typed settings schema + contributions.*
+
+P1 — differentiation and quality:
+2. **Zero-config first run.** Install still expects JSON edits for the most
+   useful features. *Fix: sensible defaults + first-run setup overlay.*
+3. **Perf budget / low-power mode.** Status renders every ~33ms; heavy
+   segments (bash-history, git) can hit the hot path. *Fix: configurable
+   refresh + lite mode.*
+4. **Accessibility (no-color / reduced-motion).** Truecolor + animations
+   (vibes, rainbow think) break on terminals without truecolor. *Fix:
+   `NO_COLOR`/8-color + reduced-motion respect.*
+5. **Semver policy / public API stability.** Still 0.x; top-15 extensions
+   ship a stability contract + deprecation path. *Fix: documented API
+   surface + semver policy. **1.0 cut: GRO-1421 (next).***
+
+P2 — full product, post-1.0 or ride-along on GRO-1415:
+6. **Preset editor in-menu** — custom JSON-only today.
+7. **Skill install from repo/npm** — discovery + doctor exist; install and
+   curate missing.
+8. **Host-status integration** — `ctx.ui.setStatus` beside the footer so
+   status also shows in host UI (`skills.count` is a start; full coverage
+   remains).
+
+Linear tickets for open gaps are still to be filed (not invented in this
+ROADMAP).
+
 ---
 
 ## 0.19.0 — Correctheid

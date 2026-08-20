@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- `examples/settings.example.json` — every setting at its default, including
+  `wishcraft.policy`, `readHints`, and other post-0.22 keys.
+- ROADMAP top-15 maturity track rebaselined on 0.27.x (English); landed
+  0.23–0.27 items moved to "Already shipped".
+
 ## [0.27.1] - 2026-08-20
 
 ### Changed
