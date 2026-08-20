@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.19.1] - 2026-08-20
 
 ### Fixed
 - Release workflow publishes from the bump job. A `GITHUB_TOKEN` tag push does not start a second workflow, so waiting for the tag event left `v0.19.0` unpublished. `npm view` failures other than not-found abort; tests run on `origin/main` before the tag is cut.
