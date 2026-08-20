@@ -20,11 +20,12 @@ verify it.
 **Default:** every merge to `main` is a release. `.github/workflows/release.yml`
 runs `node scripts/release.mjs auto --push` on `main` and publishes in that
 same job (`scripts/npm-publish.sh`) with the GroepOnline org secret
-`NPM_TOKEN`. A tag pushed with `GITHUB_TOKEN` does **not** start another
-workflow, so publish cannot wait for the tag event. Manual SSH/PAT tag
-pushes still run the tag job. `auto` reads commit subjects since the last
-`v*` tag: `feat:` → minor, `feat!:` / `BREAKING CHANGE` → major, otherwise
-patch.
+`NPM_TOKEN`, then creates a GitHub Release for the tag
+(`scripts/github-release.sh`) so the Releases page Latest matches npm. A tag
+pushed with `GITHUB_TOKEN` does **not** start another workflow, so publish
+cannot wait for the tag event. Manual SSH/PAT tag pushes still run the tag
+job. `auto` reads commit subjects since the last `v*` tag: `feat:` → minor,
+`feat!:` / `BREAKING CHANGE` → major, otherwise patch.
 
 The first merge after `v0.18.0` therefore becomes **0.19.0** (the 0.19
 `feat:` commits are already on `main`). Later docs/fix merges become
@@ -78,6 +79,7 @@ start a second run.
 7. `npm run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
 8. `node scripts/release.mjs auto --push` (main only)
 9. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` (fail-closed `npm view`, idempotent skip, then the Pi catalog URLs)
+10. `sh scripts/github-release.sh` with `GITHUB_TOKEN` (idempotent: skip if that tag already has a Release; notes from `CHANGELOG.md`)
 
 `NPM_TOKEN` is the GroepOnline **org** Actions secret (publish rights to the
 `@groeponline` scope). This repo has no override; Actions inherits the org
@@ -109,10 +111,14 @@ gh run view <databaseId> --repo GroepOnline/pi-wishcraft \
 # 4. npm registry (published + propagated)
 npm view @groeponline/pi-wishcraft version        # 0.15.0
 npm view @groeponline/pi-wishcraft dist-tags      # { latest: '0.15.0' }
+
+# 5. GitHub Release Latest matches npm
+gh release list --repo GroepOnline/pi-wishcraft --limit 5
 ```
 
-A release is "done" when all four hold: local green, tag on origin, CI
-`success`, and `npm view` returns the new version.
+A release is "done" when all five hold: local green, tag on origin, CI
+`success`, `npm view` returns the new version, and GitHub Releases Latest
+is that same tag.
 
 ## Known gotchas
 

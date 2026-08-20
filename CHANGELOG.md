@@ -2,7 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+- Release workflow creates a GitHub Release for each tag so the Releases page Latest matches npm.
+
 ## [0.23.1] - 2026-08-20
+
+### Fixed
+- Per-segment fault isolation: a throwing custom `command` segment shows `!id` instead of blanking the footer.
+- `open_ports` parses macOS netstat dot-separated local addresses (`*.5900`, `127.0.0.1.631`).
 
 ## [0.23.0] - 2026-08-20
 
