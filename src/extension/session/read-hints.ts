@@ -13,19 +13,25 @@ export interface ReadHintDetails {
 const CORE_RANGE_SUMMARY =
   /\[Showing lines \d+|\bUse offset=\d+|\d+ more lines in file|\d+ lines, showing \d+[–-]\d+/i;
 
+function coreFooter(text: string): string {
+  const lines = text.split("\\n");
+  while (lines.length > 0 && lines[lines.length - 1]!.trim() === "") lines.pop();
+  return lines[lines.length - 1]?.trim() ?? "";
+}
+
 /** True when core read output already carries an offset/range continuation line. */
 export function coreReadResultHasRangeSummary(
   text: string,
   _details?: ReadHintDetails,
 ): boolean {
-  return CORE_RANGE_SUMMARY.test(text);
+  return CORE_RANGE_SUMMARY.test(coreFooter(text));
 }
 
 function countContentLines(text: string): number {
   const lines = text.split("\n");
   let end = lines.length;
   while (end > 0 && lines[end - 1] === "") end--;
-  while (end > 0 && /^\[.*\]$/.test(lines[end - 1]!.trim())) end--;
+  if (end > 0 && CORE_RANGE_SUMMARY.test(lines[end - 1]!.trim())) end--;
   return end;
 }
 
