@@ -85,7 +85,7 @@ export function assignNestedConfigValue(
       if (value === null) delete node[key];
       else node[key] = value;
     } else {
-      if (!isRecord(node[key])) node[key] = Object.create(null);
+      if (!isRecord(node[key])) node[key] = {};
       node = node[key] as Record<string, unknown>;
     }
   }
