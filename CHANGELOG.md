@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+- Nested settings writes reject `__proto__` / `constructor` / `prototype` keys in the assignment loop.
+- Test workflow pins `GITHUB_TOKEN` to `contents: read`.
+
 ## [0.23.2] - 2026-08-20
 
 ### Fixed

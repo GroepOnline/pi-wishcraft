@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 # Cancel superseded runs so the single PR runner isn't clogged by stale queued jobs.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
