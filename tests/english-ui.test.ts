@@ -17,13 +17,13 @@ test("operator UI modules do not ship Dutch overlay copy", () => {
     read("src/extension/settings/wishcraft-config.ts"),
   ].join("\n");
 
-  assert.doesNotMatch(sources, /geen skills voor/);
-  assert.doesNotMatch(sources, /geen match voor/);
+  assert.doesNotMatch(sources, /geen skills voor/i);
+  assert.doesNotMatch(sources, /geen match voor/i);
   assert.doesNotMatch(sources, /opgeslagen/);
   assert.doesNotMatch(sources, /verwijderen/);
   assert.doesNotMatch(sources, /bewerken/);
   assert.doesNotMatch(sources, /ingevoegd/);
-  assert.doesNotMatch(sources, /Nederlands/);
+  assert.doesNotMatch(sources, /Nederlands/i);
   assert.match(sources, /No skills for/);
   assert.match(sources, /no match for/);
 });
