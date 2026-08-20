@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- `/skills new <name> [template]` writes a SKILL.md from standard, browser-workflow, CLI-workflow, or review-checklist. `ctrl+n` opens the template picker.
+
 ## [0.25.0] - 2026-08-20
 
 ## [0.24.0] - 2026-08-20

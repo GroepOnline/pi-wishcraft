@@ -14,10 +14,8 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { rmSync } from "node:fs";
-import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { RuntimeState } from "../core/types.ts";
-import { getAgentPath } from "../../paths/agent-dirs.ts";
 import {
   applySkillFilter,
   getSkillUsage,
@@ -29,6 +27,7 @@ import {
   type SkillEntry,
 } from "./skill-registry.ts";
 import { runSkillDoctor } from "./skill-doctor.ts";
+import { runSkillsNew } from "./skill-templates.ts";
 
 const CATEGORY_LABELS: Record<SkillCategory | "all", string> = {
   all: "alles",
@@ -90,21 +89,20 @@ function editorCommand(path: string): string {
   return `!${ed} ${shellQuote(path)}`;
 }
 
-export async function showSkillManager(ctx: any): Promise<void> {
+export async function showSkillManager(ctx: any): Promise<"new" | null> {
   invalidateSkillCache();
   let entries = loadSkillCatalog(ctx.cwd ?? process.cwd());
   const usage = getSkillUsage();
   if (entries.length === 0) {
     ctx.ui.notify("No skills found", "info");
-    return;
   }
 
-  await ctx.ui.custom(
+  return ctx.ui.custom(
     (
       tui: any,
       theme: Theme,
       _keybindings: any,
-      done: (result: null) => void,
+      done: (result: "new" | null) => void,
     ) => {
       const border = (text: string) => theme.fg("dim", text);
       const wrapRow = (text: string, innerWidth: number): string =>
@@ -183,11 +181,12 @@ export async function showSkillManager(ctx: any): Promise<void> {
             lines.push(border(`├${"─".repeat(innerWidth)}┤`));
 
             if (f.length === 0) {
+              const emptyMsg =
+                entries.length === 0 && !query
+                  ? "No skills installed — ctrl+n to create one"
+                  : `Geen skills voor "${query}"`;
               lines.push(
-                wrapRow(
-                  theme.fg("warning", `Geen skills voor "${query}"`),
-                  innerWidth,
-                ),
+                wrapRow(theme.fg("warning", emptyMsg), innerWidth),
               );
             } else {
               // scroll-window rondom de selectie
@@ -396,13 +395,8 @@ export async function showSkillManager(ctx: any): Promise<void> {
                 return;
               }
             } else if (data === "\x0e") {
-              // ctrl+n = nieuwe skill
-              appendToEditor(
-                ctx,
-                `!mkdir -p ${shellQuote(join(getAgentPath("skills"), "<naam>"))} && ${editorCommand(join(getAgentPath("skills"), "<naam>", "SKILL.md")).slice(1)}`,
-                "Nieuwe skill: vervang <naam>, enter draait 'm",
-              );
-              close();
+              // ctrl+n = new skill from a template
+              done("new");
               return;
             } else if (data === "\x04") {
               // ctrl+d = verwijderen (met confirm)
@@ -482,7 +476,7 @@ export function registerSkillManagerCommand(
 ): void {
   const runDoctor = deps.runDoctor ?? runSkillDoctor;
   pi.registerCommand("skills", {
-    description: "Browse installed skills, or `doctor` for a health table",
+    description: "Browse installed skills, or `doctor` / `new [template]`",
     handler: async (args: string, ctx: any) => {
       if (!rt.enabled || !ctx.hasUI) {
         ctx.ui.notify("Powerline UI is disabled", "info");
@@ -493,7 +487,12 @@ export function registerSkillManagerCommand(
         await runDoctor(ctx);
         return;
       }
-      await showSkillManager(ctx);
+      if (sub === "new") {
+        await runSkillsNew(ctx, args);
+        return;
+      }
+      const result = await showSkillManager(ctx);
+      if (result === "new") await runSkillsNew(ctx, "");
     },
   });
 }
