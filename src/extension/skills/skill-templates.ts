@@ -83,7 +83,8 @@ export function parseSkillsNewArgs(args: string): {
   if (parts[0]?.toLowerCase() === "new") parts.shift();
   if (parts.length === 0) return { template: "standard" };
   if (parts.length === 1) {
-    if (isSkillTemplateId(parts[0]!)) return { template: parts[0] };
+    const singleRaw = parts[0]!.toLowerCase();
+    if (isSkillTemplateId(singleRaw)) return { template: singleRaw };
     return { name: parts[0], template: "standard" };
   }
   const templateRaw = parts[1]!.toLowerCase();
@@ -239,8 +240,9 @@ export async function runSkillsNew(ctx: any, args: string): Promise<void> {
     const picked = await pickSkillTemplate(ctx);
     if (!picked) return;
     template = picked;
+    ctx.ui.setEditorText(`/skills new <name> ${template}`);
     ctx.ui.notify(
-      `Usage: /skills new <name> ${template}`,
+      `Replace <name> and run to create a ${template} skill.`,
       "info",
     );
     return;
