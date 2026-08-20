@@ -98,6 +98,66 @@ Niet de fork. Niet de SaaS-agent.
   documentatie die waar is. Done = README dekt alles wat we shipten,
   geen kapotte footer-belofte.
 
+## Top-15-traject: resterende volwassenheidsgaten
+
+Geschreven 2026-08-20, hergebaseerd op 0.22.2 (code-review, niet alleen
+deze ROADMAP). De feature-dichtheid is hoog; een aantal originele gaten
+is al gesloten of in-flight op actieve branches. Wat overblijft is de
+volwassenheidslaag die een top-15-pi-extensie scheidt van een
+feature-rijke prototype.
+
+### Al geland (0.22.x)
+- **CHE-41 per-segment detail** — `→` in Navigate, snapshot on open.
+- **CHE-42 drill-down** — #19 + Configure in #13.
+- **Changelog-roll** — CHANGELOG heeft versiekoppen; het what's-new-paneel
+  toont ze (was eerder stuk door `[Unreleased]` zonder koppen).
+
+### In-flight (actieve branches)
+- **Policy engine** — GRO-1418 (declaratieve deny/inject, geen spawn).
+- **Skills doctor** — GRO-1416 (broken fm, dupes, unused, budget).
+- **Skills new templates** — GRO-1417.
+- **Ideas review** — GRO-1419 (status/tags/skill-X).
+- **English-only operator UI** — GRO-1422.
+- **1.0-cockpit-finish** — GRO-1415 (overige roadmap-slices).
+- **skills.count + read-hints + status-trim** — GRO-1420.
+
+### Resterende open gaps (maturity, niet gedekt door bovenstaande)
+P0 — release-gate voor 1.0:
+1. **Settings-contract naar pi core.** Geen `contributes.settings`/schema;
+   gebruikers editen JSON met de hand. *Fix: typed settings-schema +
+   contributions.*
+2. **Per-segment foutisolatie.** `renderSegment` heeft geen try/catch
+   (`segments/registry.ts`, `core.ts`); één crashend `command`-segment
+   leegt de hele footer. *Fix: per-segment guard + error-indicator.*
+3. **macOS first-class.** `open_ports` valt terug op `/proc/net`
+   (Linux-only); `ss` ontbreekt op macOS; ongetest in CI. *Fix:
+   macOS-netstat-pad + macOS-runner.*
+
+P1 — differentiatie & kwaliteit:
+4. **Zero-config eerste-run.** Install vereist JSON-editen voor de nuttigste
+   features. *Fix: sensibele defaults + eerste-run setup-overlay.*
+5. **Perf-budget / low-power mode.** Status rendert elke ~33ms; zware
+   segments (bash-history, git) kunnen de hot-path raken. *Fix:
+   configureerbare refresh + lite mode.*
+6. **Accessibility (no-color / reduced-motion).** Truecolor + animaties
+   (vibes, rainbow think) breken op terminals zonder truecolor. *Fix:
+   `NO_COLOR`/8-color + reduced-motion respect.*
+7. **Semver-policy / publieke API-stabiliteit.** Nog 0.x; top-15-extensies
+   hebben een stabiliteitscontract + deprecation-pad. *Fix:
+   gedocumenteerde API-surface + semver-policy.*
+
+P2 — "volwaardig", post-1.0 of meeliften op GRO-1415:
+8. **Preset editor in-menu** — nu custom JSON-only.
+9. **Skill-install van repo/npm** — discovery + doctor bestaan,
+   installeren/curateren ontbreekt.
+10. **Host-status-integratie** — `ctx.ui.setStatus` naast de footer, zodat
+    status ook in de host-UI toont.
+
+De P0-drie zijn kleine, hoog-impact diffs; ze zijn de volgende logische
+release na 0.22.2 (werknaam 0.23.0 — "Volwassenheid") en harde gate
+voor 1.0. Lineartickets voor de open gaps zijn nog te ticketen (niet
+verzonnen in deze ROADMAP).
+
 ---
 
 ## 0.19.0 — Correctheid
