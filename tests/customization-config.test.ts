@@ -6,6 +6,7 @@ import {
   renderSegment,
   countListeningPorts,
 } from "../src/segments/index.ts";
+import { tpsSamples } from "../src/usage/tps-ring.ts";
 
 const PRESETS_FOR_TEST = ["default", "chef"] as const;
 
@@ -107,6 +108,7 @@ test("custom computed segments render via renderSegment", () => {
 });
 
 test("tps starts at 0 (no fake session-average after reload)", () => {
+  tpsSamples.length = 0;
   const theme: any = { fg: (_c: string, t: string) => t };
   const ctx: any = {
     theme,
