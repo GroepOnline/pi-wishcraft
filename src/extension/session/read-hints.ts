@@ -16,14 +16,13 @@ const CORE_SHOWING_LINES =
   /^\[Showing lines \d+[–-]\d+(?: of \d+)?\.(?: Use offset=\d+ to continue\.)?\]$/i;
 const CORE_MORE_LINES =
   /^\[?\d+ more lines in file\. Use offset=\d+ to continue\.?\]?$/i;
-const OWN_READ_HINT = /^\d+ lines, showing \d+[–-]\d+, next offset \d+$/;
+const OWN_READ_HINT = /^\[wishcraft\] \d+ lines, showing \d+[–-]\d+, next offset \d+$/;
 
 function isCoreRangeFooter(line: string): boolean {
   const footer = line.trim();
   return (
     CORE_SHOWING_LINES.test(footer) ||
-    CORE_MORE_LINES.test(footer) ||
-    OWN_READ_HINT.test(footer)
+    CORE_MORE_LINES.test(footer)
   );
 }
 
@@ -31,6 +30,10 @@ function coreFooter(text: string): string {
   const lines = text.split("\n");
   while (lines.length > 0 && lines[lines.length - 1]!.trim() === "") lines.pop();
   return lines[lines.length - 1]?.trim() ?? "";
+}
+
+function hasOwnReadHint(text: string): boolean {
+  return OWN_READ_HINT.test(coreFooter(text));
 }
 
 /** Default on. `wishcraft.readHints: false` is the opt-out. */
@@ -70,6 +73,7 @@ export function shouldAppendReadHint(
   if (!input) return false;
   if (input.offset === undefined && input.limit === undefined) return false;
   if (coreReadResultHasRangeSummary(text, details)) return false;
+  if (hasOwnReadHint(text)) return false;
 
   const lineCount = countContentLines(text);
   if (lineCount === 0) return false;
@@ -95,9 +99,9 @@ export function formatReadHint(
   const next = end + 1;
   const total = details?.truncation?.totalLines;
   if (total !== undefined) {
-    return `${total} lines, showing ${start}–${end}, next offset ${next}`;
+    return `[wishcraft] ${total} lines, showing ${start}–${end}, next offset ${next}`;
   }
-  return `${lineCount} lines, showing ${start}–${end}, next offset ${next}`;
+  return `[wishcraft] ${lineCount} lines, showing ${start}–${end}, next offset ${next}`;
 }
 
 export function extractReadToolResultText(content: unknown): string {
