@@ -4,6 +4,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import { copyToClipboard } from "@earendil-works/pi-coding-agent";
 import type { SelectItem } from "@earendil-works/pi-tui";
 
@@ -67,6 +68,14 @@ export function hasClosedFrontmatter(content: string): boolean {
   return false;
 }
 
+function isLoosePromptOrExtraFile(entry: SkillEntry): boolean {
+  return (
+    (entry.category === "prompts" || entry.category === "extra") &&
+    basename(entry.filePath) !== "SKILL.md" &&
+    !entry.isDirectorySkill
+  );
+}
+
 function pushRow(
   rows: SkillDoctorRow[],
   skill: string,
@@ -115,7 +124,11 @@ export function diagnoseSkills(
         "unclosed-frontmatter",
         `${entry.category} · ${entry.filePath}`,
       );
-    } else if (content !== undefined && !hasClosedFrontmatter(content)) {
+    } else if (
+      content !== undefined &&
+      !hasClosedFrontmatter(content) &&
+      !isLoosePromptOrExtraFile(entry)
+    ) {
       hadFail = true;
       pushRow(
         rows,
@@ -124,7 +137,9 @@ export function diagnoseSkills(
         "missing-frontmatter",
         `${entry.category} · ${entry.filePath}`,
       );
-    } else if (!description) {
+    }
+
+    if (!hadFail && !description) {
       hadFail = true;
       pushRow(
         rows,
@@ -133,7 +148,7 @@ export function diagnoseSkills(
         "missing-description",
         `${entry.category} · model will not see this skill`,
       );
-    } else if (description.length > SKILL_DESCRIPTION_MAX_CHARS) {
+    } else if (!hadFail && description.length > SKILL_DESCRIPTION_MAX_CHARS) {
       pushRow(
         rows,
         entry.name,
@@ -204,9 +219,12 @@ export function skillDoctorRowsToSelectItems(
   }));
 }
 
-/** Overlay table. Enter copies the selected line. */
-export async function runSkillDoctor(ctx: any): Promise<void> {
-  const cwd = ctx.cwd ?? process.cwd();
+/** Build doctor rows and file contents for a cwd (testable without overlay). */
+export function collectSkillDoctorInputs(cwd: string = process.cwd()): {
+  entries: SkillEntry[];
+  usage: Map<string, SkillUsage>;
+  contents: Map<string, string>;
+} {
   invalidateSkillCache();
   const entries = loadSkillCatalog(cwd);
   const usage = getSkillUsage();
@@ -218,6 +236,13 @@ export async function runSkillDoctor(ctx: any): Promise<void> {
       // unreadables already surface as registry warnings
     }
   }
+  return { entries, usage, contents };
+}
+
+/** Overlay table. Enter copies the selected line. */
+export async function runSkillDoctor(ctx: any): Promise<void> {
+  const cwd = ctx.cwd ?? process.cwd();
+  const { entries, usage, contents } = collectSkillDoctorInputs(cwd);
   const items = skillDoctorRowsToSelectItems(
     diagnoseSkills(entries, usage, contents),
   );

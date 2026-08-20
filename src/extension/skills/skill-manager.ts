@@ -471,10 +471,16 @@ export async function showSkillManager(ctx: any): Promise<void> {
 }
 
 /** Registreer de `/skills` command. */
+export type SkillManagerCommandDeps = {
+  runDoctor?: (ctx: any) => Promise<void>;
+};
+
 export function registerSkillManagerCommand(
   pi: ExtensionAPI,
   rt: RuntimeState,
+  deps: SkillManagerCommandDeps = {},
 ): void {
+  const runDoctor = deps.runDoctor ?? runSkillDoctor;
   pi.registerCommand("skills", {
     description: "Browse installed skills, or `doctor` for a health table",
     handler: async (args: string, ctx: any) => {
@@ -484,7 +490,7 @@ export function registerSkillManagerCommand(
       }
       const sub = args?.trim().split(/\s+/)[0]?.toLowerCase();
       if (sub === "doctor") {
-        await runSkillDoctor(ctx);
+        await runDoctor(ctx);
         return;
       }
       await showSkillManager(ctx);

@@ -158,6 +158,28 @@ function parseFrontmatterKeys(content: string): string[] {
   return keys;
 }
 
+/** Walk canonical skill trees the same way pi core discovers nested SKILL.md. */
+function walkCanonicalSkillMdFiles(dir: string, visit: (filePath: string) => void): void {
+  if (!existsSync(dir)) return;
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  const skillMd = entries.find((entry) => entry.isFile() && entry.name === "SKILL.md");
+  if (skillMd) {
+    visit(join(dir, skillMd.name));
+    return;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name === "node_modules") {
+      continue;
+    }
+    walkCanonicalSkillMdFiles(join(dir, entry.name), visit);
+  }
+}
+
 /** Core rejects these paths (skill: null) but still emits diagnostics — surface them for doctor/manager. */
 function buildRejectedSkillEntries(
   diagnostics: { message: string; path?: string }[],
@@ -169,6 +191,15 @@ function buildRejectedSkillEntries(
   for (const d of diagnostics) {
     if (!d.path || knownPaths.has(d.path)) continue;
     if (!byPath.has(d.path)) byPath.set(d.path, d.message);
+  }
+
+  const agent = getAgentDir();
+  for (const root of [join(agent, "skills"), join(cwd, ".pi", "skills"), join(cwd, "skills")]) {
+    walkCanonicalSkillMdFiles(root, (filePath) => {
+      if (!knownPaths.has(filePath) && !byPath.has(filePath)) {
+        byPath.set(filePath, "skill file not loaded by catalog");
+      }
+    });
   }
 
   const out: SkillEntry[] = [];
