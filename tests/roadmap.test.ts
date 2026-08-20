@@ -41,7 +41,7 @@ test("skill manager v2 UI section is in English, not Dutch", () => {
 test("1.0 Cockpit section describes the campaign as lettered PRs with locked English-only defaults", () => {
   assert.match(
     roadmap,
-    /0\.20–0\.22 zijn geland\. Geen parallelle 1\.0-tak naast harness-werk;/,
+    /0\.20–0\.22 have landed\. No parallel 1\.0 branch beside harness work;/,
   );
   assert.match(roadmap, /Locked defaults \(no human gate\): operator UI, overlays, notify/);
   assert.match(roadmap, /strings, and ROADMAP are \*\*English\*\* \(no Dutch copy\)/);
@@ -51,8 +51,8 @@ test("1.0 Cockpit section describes the campaign as lettered PRs with locked Eng
     /### PR I — `\/skills doctor` \(GRO-1416\) → 0\.23\.0/,
     /### PR J — `\/skills new` templates \(GRO-1417\) → 0\.24\.0/,
     /### PR K — policy engine \(GRO-1418\) → 0\.25\.0/,
-    /### PR L — idee-review \(GRO-1419\) → 0\.26\.0/,
-    /### PR M — keys, read-hints, Status-trim \(GRO-1420\) → 0\.27\.0/,
+    /### PR L — idea review \(GRO-1419\) → 0\.26\.0/,
+    /### PR M — keys, read-hints, Status trim \(GRO-1420\) → 0\.27\.0/,
     /### PR N — 1\.0\.0 cut \(GRO-1421\)/,
   ]) {
     assert.match(roadmap, heading);
@@ -64,39 +64,40 @@ test("1.0 Cockpit section describes the campaign as lettered PRs with locked Eng
 });
 
 test("1.0 Cockpit section marks preset editor and per-segment detail as already shipped", () => {
-  assert.match(roadmap, /Al geland, niet opnieuw bouwen:/);
+  assert.match(roadmap, /Already shipped, do not rebuild:/);
   assert.match(roadmap, /\*\*Preset editor\*\* ✅ `runPresetEditor` in Configure \(`alt\+p`\)\./);
   assert.match(roadmap, /\*\*Per-segment detail\*\* \(CHE-41\) ✅ `→` in Navigate, snapshot/);
 });
 
 test("Linear table lists the new GRO-1415..1422 tickets with their PR mapping", () => {
   const expectedRows = [
-    /\| GRO-1415 1\.0 parent \| In Progress\. Cockpit-campagne\. \|/,
+    /\| GRO-1415 1\.0 parent \| In Progress\. Cockpit campaign\. \|/,
     /\| GRO-1416 `\/skills doctor` \| PR I\. \|/,
     /\| GRO-1417 `\/skills new` \| PR J, blocked on 1416\. \|/,
     /\| GRO-1418 policy \| PR K\. \|/,
-    /\| GRO-1419 idee-review \| PR L\. \|/,
+    /\| GRO-1419 idea review \| PR L\. \|/,
     /\| GRO-1420 keys \+ hints \+ Status \| PR M\. \|/,
     /\| GRO-1421 1\.0\.0 cut \| PR N, blocked on 1416–1420\. \|/,
-    /\| GRO-1422 English-only UI \| PR EN\. Operator overlays and ROADMAP in English\. \|/,
+    /\| GRO-1422 English-only UI \| PR EN\. Operator overlays, notify strings, and ROADMAP in English\. \|/,
   ];
   for (const row of expectedRows) {
     assert.match(roadmap, row);
   }
 });
 
-test("Checklist (1.0) section lists the six open PRs as unchecked", () => {
+test("Checklist (1.0) section lists the open PRs as unchecked", () => {
   const checklistIndex = roadmap.indexOf("## Checklist (1.0)");
   assert.notEqual(checklistIndex, -1, "Checklist (1.0) section should exist");
   const checklistSection = roadmap.slice(checklistIndex);
 
   const items = [
-    /- \[ \] PR EN gemerged: operator UI\/overlays\/ROADMAP English\. \(GRO-1422\)/,
-    /- \[ \] PR J gemerged: vier templates, geen markt\. \(GRO-1417\)/,
-    /- \[ \] PR K gemerged: deny `sudo rm` \+ inject `\.env` zonder spawn\. \(GRO-1418\)/,
-    /- \[ \] PR L gemerged: idee-review overlay\. \(GRO-1419\)/,
-    /- \[ \] PR M gemerged: `skills\.count`, read-hints-of-skip, Status-trim\. \(GRO-1420\)/,
-    /- \[ \] PR N: README waar, `npm view` = 1\.0\.0\. \(GRO-1421\)/,
+    /- \[ \] PR EN merged: operator UI\/overlays\/notify strings\/ROADMAP English\. \(GRO-1422\)/,
+    /- \[ \] PR I merged: `\/skills doctor` table, no essay\. \(GRO-1416\)/,
+    /- \[ \] PR J merged: four templates, no marketplace\. \(GRO-1417\)/,
+    /- \[ \] PR K merged: deny `sudo rm` \+ inject `\.env` without spawn\. \(GRO-1418\)/,
+    /- \[ \] PR L merged: idea-review overlay\. \(GRO-1419\)/,
+    /- \[ \] PR M merged: `skills\.count`, read-hints-or-skip, Status trim\. \(GRO-1420\)/,
+    /- \[ \] PR N: README true, ROADMAP checklist complete, `npm view` = 1\.0\.0\. \(GRO-1421\)/,
   ];
   for (const item of items) {
     assert.match(checklistSection, item);

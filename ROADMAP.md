@@ -267,10 +267,10 @@ dezelfde ring als het segment (geen tweede waarheid).
 
 ## 1.0 — Cockpit
 
-0.20–0.22 zijn geland. Geen parallelle 1.0-tak naast harness-werk;
-deze campagne is de 1.0-tak. Elke product-PR: verify-trio groen,
-onafhankelijke review, squash op exact-head. `feat:` = 0.23+.
-`feat!:` alleen op PR N = 1.0.0. Docs-only: `[skip release]`.
+0.20–0.22 have landed. No parallel 1.0 branch beside harness work;
+this campaign is the 1.0 branch. Every product PR: verify-trio green,
+independent review, squash on exact-head. `feat:` = 0.23+.
+`feat!:` only on PR N = 1.0.0. Docs-only: `[skip release]`.
 
 Locked defaults (no human gate): operator UI, overlays, notify
 strings, and ROADMAP are **English** (no Dutch copy); description
@@ -282,48 +282,48 @@ core omits range/offset.
 
 ### PR I — `/skills doctor` (GRO-1416) → 0.23.0
 
-Tabel: kapot frontmatter, description > 240, duplicate naam
-global/project, unused (ledger count 0). Geen essay. Pure
-`diagnoseSkills` + overlay. `/powerline doctor` blijft settings/git.
+Table: broken frontmatter, description > 240, duplicate name in
+global and project, unused (ledger count 0). No essay. Pure
+`diagnoseSkills` plus overlay. `/powerline doctor` stays settings/git.
 
 ### PR J — `/skills new` templates (GRO-1417) → 0.24.0
 
-Na I (zelfde `skill-manager.ts`). Templates: standard,
-browser-workflow, CLI-workflow, review-checklist. Schrijft
-`~/.pi/agent/skills/<naam>/SKILL.md`. Vervangt de `ctrl+n`-stub.
-Install-van-GitHub/npm is post-1.0.
+After I (same `skill-manager.ts`). Templates: standard,
+browser-workflow, CLI-workflow, review-checklist. Writes
+`~/.pi/agent/skills/<name>/SKILL.md`. Replaces the `ctrl+n` stub.
+Install-from-GitHub/npm is post-1.0.
 
 ### PR K — policy engine (GRO-1418) → 0.25.0
 
-Hooks zonder spawn. `deny` bash matching `sudo\s+rm`; `inject`
-wanneer `read` een `.env`-pad raakt. Command-hooks blijven voor
-de rest. Eerste deny wint. `wishcraft.policyEnabled`. Parallel
-met I (andere mappen).
+Hooks without spawn. `deny` bash matching `sudo\s+rm`; `inject`
+when `read` hits a `.env` path. Command-hooks remain for
+everything else. First deny wins. `wishcraft.policyEnabled`. Parallel
+with I (different directories).
 
-### PR L — idee-review (GRO-1419) → 0.26.0
+### PR L — idea review (GRO-1419) → 0.26.0
 
-`/ideas` in dezelfde overlay-taal. `reviewStatus`: idea /
-in-progress / done; `tags`; "verwerk met skill X". Welcome
-queue-widget: volgende idee + `/ideas next`. Parallel met I/K.
+`/ideas` in the same overlay chrome. `reviewStatus`: idea /
+in-progress / done; `tags`; "Run with skill X". Welcome
+queue-widget: next idea plus `/ideas next`. Parallel with I/K.
 
-### PR M — keys, read-hints, Status-trim (GRO-1420) → 0.27.0
+### PR M — keys, read-hints, Status trim (GRO-1420) → 0.27.0
 
-`powerline.skills.count` naast bestaande preset/tps/ports.
-Read-hints op `tool_result` na meten. Dode Status-rijen
-(cpu/memory/network/uptime/version/logs/diagnostics) eruit;
-ports / TPS / toggle blijven. Read-hints in
-`session-lifecycle.ts` zodat K `hooks/index.ts` houdt.
+`powerline.skills.count` next to existing preset/tps/ports.
+Read-hints on `tool_result` after measuring. Drop dead Status rows
+(cpu/memory/network/uptime/version/logs/diagnostics);
+ports / TPS / toggle stay. Read-hints live in
+`session-lifecycle.ts` so K keeps `hooks/index.ts`.
 
 ### PR N — 1.0.0 cut (GRO-1421)
 
-README dekt doctor, templates, policy, idee-review. ROADMAP
-checklist af. `feat!: ship wishcraft 1.0 cockpit`.
+README covers doctor, templates, policy, idea review. ROADMAP
+checklist complete. `feat!: ship wishcraft 1.0 cockpit`.
 
-Al geland, niet opnieuw bouwen:
+Already shipped, do not rebuild:
 
 4. **Preset editor** ✅ `runPresetEditor` in Configure (`alt+p`).
 5. **Per-segment detail** (CHE-41) ✅ `→` in Navigate, snapshot
-   bij openen, `alt+i` blijft ports.
+   on open, `alt+i` stays ports.
 
 ---
 
@@ -337,14 +337,14 @@ Al geland, niet opnieuw bouwen:
 | CHE-41 per-segment detail | Done. `→` in Navigate; snapshot on open; `alt+i` stays ports. |
 | CHE-42 drill-down | Done (#19 + Configure in #13). |
 | GRO-1414 0.20 leftovers | Done (#20 / 0.22.0). |
-| GRO-1415 1.0 parent | In Progress. Cockpit-campagne. |
+| GRO-1415 1.0 parent | In Progress. Cockpit campaign. |
 | GRO-1416 `/skills doctor` | PR I. |
 | GRO-1417 `/skills new` | PR J, blocked on 1416. |
 | GRO-1418 policy | PR K. |
-| GRO-1419 idee-review | PR L. |
+| GRO-1419 idea review | PR L. |
 | GRO-1420 keys + hints + Status | PR M. |
 | GRO-1421 1.0.0 cut | PR N, blocked on 1416–1420. |
-| GRO-1422 English-only UI | PR EN. Operator overlays and ROADMAP in English. |
+| GRO-1422 English-only UI | PR EN. Operator overlays, notify strings, and ROADMAP in English. |
 
 Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
 die package nog leeft.
@@ -417,10 +417,10 @@ die package nog leeft.
 
 ## Checklist (1.0)
 
-- [ ] PR EN gemerged: operator UI/overlays/ROADMAP English. (GRO-1422)
-- [ ] PR I gemerged: `/skills doctor` tabel, geen essay. (GRO-1416)
-- [ ] PR J gemerged: vier templates, geen markt. (GRO-1417)
-- [ ] PR K gemerged: deny `sudo rm` + inject `.env` zonder spawn. (GRO-1418)
-- [ ] PR L gemerged: idee-review overlay. (GRO-1419)
-- [ ] PR M gemerged: `skills.count`, read-hints-of-skip, Status-trim. (GRO-1420)
-- [ ] PR N: README waar, `npm view` = 1.0.0. (GRO-1421)
+- [ ] PR EN merged: operator UI/overlays/notify strings/ROADMAP English. (GRO-1422)
+- [ ] PR I merged: `/skills doctor` table, no essay. (GRO-1416)
+- [ ] PR J merged: four templates, no marketplace. (GRO-1417)
+- [ ] PR K merged: deny `sudo rm` + inject `.env` without spawn. (GRO-1418)
+- [ ] PR L merged: idea-review overlay. (GRO-1419)
+- [ ] PR M merged: `skills.count`, read-hints-or-skip, Status trim. (GRO-1420)
+- [ ] PR N: README true, ROADMAP checklist complete, `npm view` = 1.0.0. (GRO-1421)

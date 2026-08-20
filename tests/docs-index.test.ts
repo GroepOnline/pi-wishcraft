@@ -9,7 +9,7 @@ const docsIndex = readFileSync(join(root, "docs", "index.md"), "utf8");
 test("docs/index.md Planning section points at the 1.0 cockpit campaign", () => {
   assert.match(
     docsIndex,
-    /\[ROADMAP\.md\]\(\.\.\/ROADMAP\.md\) — 1\.0 cockpit campaign \(GRO-1415\)\. 0\.19–0\.22 harness is shipped\./,
+    /\[ROADMAP\.md\]\(\.\.\/ROADMAP\.md\) — 1\.0 cockpit campaign \(GRO-1415\)\. 0\.19 Correctheid and 0\.20–0\.22 harness are shipped\./,
   );
 });
 
