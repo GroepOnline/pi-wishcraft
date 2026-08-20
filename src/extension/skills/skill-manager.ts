@@ -95,7 +95,6 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
   const usage = getSkillUsage();
   if (entries.length === 0) {
     ctx.ui.notify("No skills found", "info");
-    return null;
   }
 
   return ctx.ui.custom(
@@ -182,11 +181,12 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
             lines.push(border(`├${"─".repeat(innerWidth)}┤`));
 
             if (f.length === 0) {
+              const emptyMsg =
+                entries.length === 0 && !query
+                  ? "No skills installed — ctrl+n to create one"
+                  : `Geen skills voor "${query}"`;
               lines.push(
-                wrapRow(
-                  theme.fg("warning", `Geen skills voor "${query}"`),
-                  innerWidth,
-                ),
+                wrapRow(theme.fg("warning", emptyMsg), innerWidth),
               );
             } else {
               // scroll-window rondom de selectie

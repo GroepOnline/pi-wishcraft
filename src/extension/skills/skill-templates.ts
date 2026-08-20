@@ -207,6 +207,12 @@ export function editorCommandFor(path: string): string {
   return `!${ed} ${shellQuote(path)}`;
 }
 
+function appendEditorText(ctx: any, text: string): void {
+  const current = ctx.ui.getEditorText?.() ?? "";
+  const separator = current && !current.endsWith("\n") ? "\n" : "";
+  ctx.ui.setEditorText(`${current}${separator}${text}\n`);
+}
+
 export async function pickSkillTemplate(
   ctx: any,
 ): Promise<SkillTemplateId | null> {
@@ -240,7 +246,7 @@ export async function runSkillsNew(ctx: any, args: string): Promise<void> {
     const picked = await pickSkillTemplate(ctx);
     if (!picked) return;
     template = picked;
-    ctx.ui.setEditorText(`/skills new <name> ${template}`);
+    appendEditorText(ctx, `/skills new <name> ${template}`);
     ctx.ui.notify(
       `Replace <name> and run to create a ${template} skill.`,
       "info",
@@ -250,11 +256,7 @@ export async function runSkillsNew(ctx: any, args: string): Promise<void> {
 
   try {
     const { filePath } = writeSkillFromTemplate(name, template);
-    const current = ctx.ui.getEditorText?.() ?? "";
-    const separator = current && !current.endsWith("\n") ? "\n" : "";
-    ctx.ui.setEditorText(
-      `${current}${separator}${editorCommandFor(filePath)}\n`,
-    );
+    appendEditorText(ctx, editorCommandFor(filePath));
     ctx.ui.notify(`Created ${name} (${template}). Enter runs the editor.`, "info");
   } catch (error) {
     ctx.ui.notify(

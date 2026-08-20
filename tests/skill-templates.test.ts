@@ -9,11 +9,14 @@ import { SKILL_DESCRIPTION_MAX_CHARS } from "../src/extension/skills/skill-docto
 import {
   SKILL_TEMPLATE_IDS,
   buildSkillTemplateItems,
+  editorCommandFor,
   parseSkillsNewArgs,
   renderSkillTemplate,
+  runSkillsNew,
   sanitizeSkillName,
   writeSkillFromTemplate,
 } from "../src/extension/skills/skill-templates.ts";
+import { SKILL_TEMPLATE_GOLDEN } from "./fixtures/skill-template-golden.ts";
 
 test("sanitizeSkillName rejects empty, traversal, and separators", () => {
   assert.throws(() => sanitizeSkillName(""), /required/);
@@ -42,6 +45,12 @@ test("parseSkillsNewArgs reads name and template with standard default", () => {
     template: "standard",
   });
   assert.throws(() => parseSkillsNewArgs("new foo mystery"), /Unknown template/);
+});
+
+test("each template matches its golden rendered output", () => {
+  for (const id of SKILL_TEMPLATE_IDS) {
+    assert.equal(renderSkillTemplate(id, "demo-skill"), SKILL_TEMPLATE_GOLDEN[id], id);
+  }
 });
 
 test("each template is a SKILL.md with a description under the 240-char budget", () => {
@@ -85,4 +94,57 @@ test("writeSkillFromTemplate writes SKILL.md and refuses overwrite and traversal
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+function mockEditorCtx(initialText = "") {
+  let editorText = initialText;
+  const notifications: Array<{ message: string; level: string }> = [];
+  const ctx = {
+    ui: {
+      getEditorText: () => editorText,
+      setEditorText: (text: string) => {
+        editorText = text;
+      },
+      notify: (message: string, level: string) => {
+        notifications.push({ message, level });
+      },
+      custom: async () => ({ value: "cli-workflow", label: "CLI-workflow" }),
+    },
+  };
+  return {
+    ctx,
+    getEditorText: () => editorText,
+    notifications,
+  };
+}
+
+test("runSkillsNew with a name appends the editor command without clearing existing text", async () => {
+  const agentDir = mkdtempSync(join(tmpdir(), "skill-new-agent-"));
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  const { ctx, getEditorText, notifications } = mockEditorCtx("draft prompt");
+  try {
+    await runSkillsNew(ctx, "demo-skill standard");
+    const filePath = join(agentDir, "skills", "demo-skill", "SKILL.md");
+    assert.equal(readFileSync(filePath, "utf8"), SKILL_TEMPLATE_GOLDEN.standard);
+    assert.equal(
+      getEditorText(),
+      `draft prompt\n${editorCommandFor(filePath)}\n`,
+    );
+    assert.match(notifications.at(-1)?.message ?? "", /Created demo-skill/);
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+    rmSync(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("runSkillsNew without a name appends the prefilled command after template pick", async () => {
+  const { ctx, getEditorText, notifications } = mockEditorCtx("in-progress message");
+  await runSkillsNew(ctx, "");
+  assert.equal(
+    getEditorText(),
+    "in-progress message\n/skills new <name> cli-workflow\n",
+  );
+  assert.match(notifications.at(-1)?.message ?? "", /Replace <name>/);
 });
