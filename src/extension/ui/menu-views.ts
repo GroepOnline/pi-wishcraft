@@ -49,6 +49,7 @@ import {
 } from "./menu-items.ts";
 import { overlaySelectListTheme, showSelectOverlay } from "./overlay-chrome.ts";
 import { showTpsOverlay } from "./token-overlays.ts";
+import { showWishcraftConfig } from "../settings/wishcraft-config.ts";
 
 export { overlaySelectListTheme, showSelectOverlay } from "./overlay-chrome.ts";
 
@@ -113,6 +114,10 @@ export async function configurePowerline(
   );
   const choice = picked?.value;
   if (!choice) return;
+  if (choice === "Open full settings (/wishcraft)…") {
+    await showWishcraftConfig(rt, ctx);
+    return;
+  }
   if (choice === "Change preset") {
     const names = Object.keys(PRESETS) as StatusLinePreset[];
     const picked = await showSelectOverlay(

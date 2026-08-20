@@ -86,12 +86,13 @@ function createSegmentContext(
 
 test("buildConfigureItems lists the configure sub-menu choices in order", () => {
   const items = buildConfigureItems();
-  assert.equal(items[0], "Change preset");
+  assert.equal(items[0], "Open full settings (/wishcraft)…");
+  assert.equal(items[1], "Change preset");
   assert.equal(items[items.length - 1], "Show current config");
   assert.ok(items.includes("Toggle segment visibility…"));
   assert.ok(items.includes("Set segment label…"));
   assert.ok(items.includes("Build custom preset…"));
-  assert.equal(items.length, 8);
+  assert.equal(items.length, 9);
 });
 
 test("collectSegmentIds keeps disabled segments so they can be re-enabled", () => {

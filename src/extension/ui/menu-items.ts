@@ -102,6 +102,7 @@ export function selectIndexForValue(
 /** Configure sub-menu choices as plain data (label only; order is the menu). */
 export function buildConfigureItems(): string[] {
   return [
+    "Open full settings (/wishcraft)…",
     "Change preset",
     "Set TPS value (POWERLINE_TPS)",
     "Clear TPS override (use live)",
@@ -114,6 +115,7 @@ export function buildConfigureItems(): string[] {
 }
 
 const CONFIGURE_ITEM_DESCRIPTIONS: Record<string, string> = {
+  "Open full settings (/wishcraft)…": "All wishcraft settings: status bar, welcome art, hooks, shortcuts",
   "Change preset": "Switch left/right segment layout preset",
   "Set TPS value (POWERLINE_TPS)": "Override tokens/sec display with a fixed value",
   "Clear TPS override (use live)": "Remove POWERLINE_TPS and use the live rate",
