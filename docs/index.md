@@ -14,4 +14,4 @@ The README is the public landing page (`banner.png` only). Everything below live
 
 ## Planning
 
-- [ROADMAP.md](../ROADMAP.md) — release campaigns and leftover 0.20 / 1.0 work.
+- [ROADMAP.md](../ROADMAP.md) — 1.0 cockpit campaign (GRO-1415). 0.19–0.22 harness is shipped.

@@ -1,9 +1,8 @@
 # Roadmap — pi-wishcraft
 
-Herschreven 2026-08-18. Vijfde pass 2026-08-20: 0.19.0–0.19.2 staan
-op npm. CHE-40 (`/powerline` tab) is Done via #18. Overlay-submenus
-(CHE-42 / #19) starten 0.20. ROADMAP was achter op de code: hooks,
-repairs-subset en skills-manager v2 UI zitten al op `main`.
+Herschreven 2026-08-18. Zesde pass 2026-08-20: 0.19.0–0.22.2 staan
+op npm. 0.20–0.22 harness is Done (CHE-40/41/42, GRO-1414, README
+landing). Open werk is 1.0 cockpit: GRO-1415 en children GRO-1416–1421.
 
 Pi core is de engine. Wishcraft is de cockpit. Elke feature dient één van
 drie doelen: **grip** (skills, tokens, config), **prestatie** (repairs,
@@ -89,14 +88,14 @@ Niet de fork. Niet de SaaS-agent.
   manager v2 UI gingen mee in #12, eerder dan deze sectie beloofde.
   Done = npm 0.19.2 live, `/skills` filtert, `$test` expandeert geen
   debris, verify-trio groen op de tag.
-- **0.20.0–0.22 — "Harness"** (0.20.0 + 0.21.0 op npm; leftovers in GRO-1414).
-  Overlay-chrome + CHE-42 drill-down, Configure als SelectList, token-overlays,
-  rest-repairs, README-hooks. Done = drie README-hookvoorbeelden, repair-teller,
-  `alt+p` overlay-boom, `/tps` deelt de ring met het segment.
-- **1.0 — "Cockpit"**. Skills-doctor/install, declaratieve policy,
-  preset-editor, idee-review, stabiele ChefGroep-statuskeys,
-  documentatie die waar is. Done = README dekt alles wat we shipten,
-  geen kapotte footer-belofte.
+- **0.20.0–0.22 — "Harness"** (0.20.0–0.22.2 op npm). Overlay-chrome,
+  CHE-42, Configure SelectList, token-overlays, rest-repairs, README-hooks,
+  CHE-41 snapshot-detail, test-determinism. Done = drie hookvoorbeelden,
+  repair-teller, `alt+p` overlay-boom, `/tps` deelt de ring met het segment.
+- **1.0 — "Cockpit"** (open: GRO-1415). Skills-doctor, templates, policy,
+  idee-review, `powerline.skills.count`, read-hints. Preset-editor en
+  CHE-41 zijn al op `main`. Done = README dekt alles wat we shipten,
+  `npm view` = 1.0.0, geen kapotte footer-belofte.
 
 ---
 
@@ -268,31 +267,61 @@ dezelfde ring als het segment (geen tweede waarheid).
 
 ## 1.0 — Cockpit
 
-Pas na 0.20. Geen parallelle 1.0-tak.
+0.20–0.22 zijn geland. Geen parallelle 1.0-tak naast harness-werk;
+deze campagne is de 1.0-tak. Elke product-PR: verify-trio groen,
+onafhankelijke review, squash op exact-head. `feat:` = 0.23+.
+`feat!:` alleen op PR N = 1.0.0. Docs-only: `[skip release]`.
 
-1. **`/skills doctor`** — kapot frontmatter, te lange descriptions
-   (prompt-budget), duplicates global/project, ongebruikte skills.
-   Tabel, geen essay.
-2. **`/skills new` templates** — standaard, browser-workflow,
-   CLI-workflow, review-checklist. Install-van-GitHub/npm is
-   post-1.0; 1.0 is doctor + templates, geen markt.
-3. **Policy engine** — hooks zonder spawn: `deny bash matching
-   "sudo rm"`, `context inject when reading .env`. Command-hooks
-   blijven voor alles wat niet in een regel past.
-4. **Preset editor** — links/rechts segmenten kiezen in het menu,
-   opslaan in settings. Vandaag is custom JSON-only.
-5. **Per-segment detail** (CHE-41): ✅ `→` in de navigator opent
-   ports-lijst, git-samenvatting, cost-breakdown, context-math.
-   Snapshot bij openen, geen live timer.
-6. **Idee-review** — `/ideas` in dezelfde overlay-taal; status
-   idea / in-progress / done; tags; "verwerk met skill X".
-   Welcome queue-widget: item oppakken → prompt.
-7. **ChefGroep-keys** — stabiel `powerline.tps`, `powerline.ports`,
-   `powerline.preset`, `powerline.skills.count` via
-   `ctx.ui.setStatus`.
-8. **Read-tool hints** — `tool_result` op `read` verrijken met
-   "N regels, M–K getoond, volgende offset" alleen als core dat
-   niet zelf al geeft. Eerst meten, dan aanvullen.
+Locked defaults (geen human-gate): description-budget 240 tekens;
+policy alleen uit globale settings; idea `reviewStatus` is een
+apart veld (niet `QueueStatus`); welcome-widget toont `/ideas next`
+(welcome sluit op elke toets); ChefGroep-keys niet in de publieke
+README; read-hints alleen als core geen range/offset geeft.
+
+### PR I — `/skills doctor` (GRO-1416) → 0.23.0
+
+Tabel: kapot frontmatter, description > 240, duplicate naam
+global/project, unused (ledger count 0). Geen essay. Pure
+`diagnoseSkills` + overlay. `/powerline doctor` blijft settings/git.
+
+### PR J — `/skills new` templates (GRO-1417) → 0.24.0
+
+Na I (zelfde `skill-manager.ts`). Templates: standard,
+browser-workflow, CLI-workflow, review-checklist. Schrijft
+`~/.pi/agent/skills/<naam>/SKILL.md`. Vervangt de `ctrl+n`-stub.
+Install-van-GitHub/npm is post-1.0.
+
+### PR K — policy engine (GRO-1418) → 0.25.0
+
+Hooks zonder spawn. `deny` bash matching `sudo\s+rm`; `inject`
+wanneer `read` een `.env`-pad raakt. Command-hooks blijven voor
+de rest. Eerste deny wint. `wishcraft.policyEnabled`. Parallel
+met I (andere mappen).
+
+### PR L — idee-review (GRO-1419) → 0.26.0
+
+`/ideas` in dezelfde overlay-taal. `reviewStatus`: idea /
+in-progress / done; `tags`; "verwerk met skill X". Welcome
+queue-widget: volgende idee + `/ideas next`. Parallel met I/K.
+
+### PR M — keys, read-hints, Status-trim (GRO-1420) → 0.27.0
+
+`powerline.skills.count` naast bestaande preset/tps/ports.
+Read-hints op `tool_result` na meten. Dode Status-rijen
+(cpu/memory/network/uptime/version/logs/diagnostics) eruit;
+ports / TPS / toggle blijven. Read-hints in
+`session-lifecycle.ts` zodat K `hooks/index.ts` houdt.
+
+### PR N — 1.0.0 cut (GRO-1421)
+
+README dekt doctor, templates, policy, idee-review. ROADMAP
+checklist af. `feat!: ship wishcraft 1.0 cockpit`.
+
+Al geland, niet opnieuw bouwen:
+
+4. **Preset editor** ✅ `runPresetEditor` in Configure (`alt+p`).
+5. **Per-segment detail** (CHE-41) ✅ `→` in Navigate, snapshot
+   bij openen, `alt+i` blijft ports.
 
 ---
 
@@ -306,6 +335,13 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 | CHE-41 per-segment detail | Done. `→` in Navigate; snapshot on open; `alt+i` stays ports. |
 | CHE-42 drill-down | Done (#19 + Configure in #13). |
 | GRO-1414 0.20 leftovers | Done (#20 / 0.22.0). |
+| GRO-1415 1.0 parent | In Progress. Cockpit-campagne. |
+| GRO-1416 `/skills doctor` | PR I. |
+| GRO-1417 `/skills new` | PR J, blocked on 1416. |
+| GRO-1418 policy | PR K. |
+| GRO-1419 idee-review | PR L. |
+| GRO-1420 keys + hints + Status | PR M. |
+| GRO-1421 1.0.0 cut | PR N, blocked on 1416–1420. |
 
 Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
 die package nog leeft.
@@ -375,3 +411,12 @@ die package nog leeft.
 - [x] README skills-sectie waar; deze ROADMAP in sync met 0.19.2.
 - [x] CHE-40: `/powerline` subcommand-tab geland (#18). CHE-41/42
       hernoemd naar wishcraft.
+
+## Checklist (1.0)
+
+- [ ] PR I gemerged: `/skills doctor` tabel. Verify-trio groen. (GRO-1416)
+- [ ] PR J gemerged: vier templates, geen markt. (GRO-1417)
+- [ ] PR K gemerged: deny `sudo rm` + inject `.env` zonder spawn. (GRO-1418)
+- [ ] PR L gemerged: idee-review overlay. (GRO-1419)
+- [ ] PR M gemerged: `skills.count`, read-hints-of-skip, Status-trim. (GRO-1420)
+- [ ] PR N: README waar, `npm view` = 1.0.0. (GRO-1421)
