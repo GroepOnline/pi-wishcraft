@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- `/skills doctor` health table: broken frontmatter, descriptions over 240 chars, global/project duplicates, unused skills.
+
 ## [0.22.2] - 2026-08-20
 
 ### Fixed

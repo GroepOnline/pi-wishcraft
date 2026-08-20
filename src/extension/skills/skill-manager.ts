@@ -28,6 +28,7 @@ import {
   type SkillCategory,
   type SkillEntry,
 } from "./skill-registry.ts";
+import { runSkillDoctor } from "./skill-doctor.ts";
 
 const CATEGORY_LABELS: Record<SkillCategory | "all", string> = {
   all: "alles",
@@ -475,10 +476,15 @@ export function registerSkillManagerCommand(
   rt: RuntimeState,
 ): void {
   pi.registerCommand("skills", {
-    description: "Browse installed skills and insert one into your prompt",
-    handler: async (_args: string, ctx: any) => {
+    description: "Browse installed skills, or `doctor` for a health table",
+    handler: async (args: string, ctx: any) => {
       if (!rt.enabled || !ctx.hasUI) {
         ctx.ui.notify("Powerline UI is disabled", "info");
+        return;
+      }
+      const sub = args?.trim().split(/\s+/)[0]?.toLowerCase();
+      if (sub === "doctor") {
+        await runSkillDoctor(ctx);
         return;
       }
       await showSkillManager(ctx);
