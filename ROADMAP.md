@@ -3,7 +3,7 @@
 Herschreven 2026-08-18. Vierde pass 2026-08-20: conflict-restant uit
 `19d6cc0` weg. 0.19-code + catalogus staan op main (#12, #11). Overlay-
 submenus en de rest van de repairs blijven 0.20. CHE-40 is follow-up,
-geen 0.19-blocker. Open: npm-tag 0.19.0 (PR C).
+geen 0.19-blocker. `v0.19.0` en `v0.19.1` staan op npm.
 
 Pi core is de engine. Wishcraft is de cockpit. Elke feature dient één van
 drie doelen: **grip** (skills, tokens, config), **prestatie** (repairs,
@@ -303,7 +303,7 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 |---|---|
 | GRO-1060 fork cleanup | Deels gedaan (tags). Rest = PR A debris + concept-png. CHANGELOG niet inkorten. Versie niet resetten. |
 | GRO-1061 CI queue | Ops, niet deze roadmap. |
-| CHE-40 `/powerline` tab | Open. 0.18 shipped bash token-step, niet `/powerline set <tab>`. Fold in PR B of follow-up. |
+| CHE-40 `/powerline` tab | In Progress. `/powerline` tab completes presets and placement above, below, or toggle. |
 | CHE-41 alt+i info | Wordt 1.0 detail-view. Ticket hernoemen of GRO-child. |
 | CHE-42 drill-down | = 0.20 PR G. Hernoemen naar wishcraft / GRO. |
 
@@ -369,9 +369,8 @@ die package nog leeft.
       Verify-trio groen. (#12)
 - [x] Gallery-contract gemerged (`chore/pi-dev-gallery`): keywords,
       `publishConfig.access`, `pi.image`, `npm run verify:package`. (#11)
-- [ ] PR C: `npm run release minor` → 0.19.0 (of 0.18.1 als alleen
-      A klaar is). Tag + publish + `npm view` klopt + pi.dev card
-      naast fff/orchestrator.
+- [x] PR C: merge to `main` tagged `v0.19.0` then `v0.19.1` and published
+      (`npm view` = `0.19.1`). Same-job bump publish via #16.
 - [ ] README skills-sectie waar; deze ROADMAP in sync.
-- [ ] CHE-40: `/powerline` subcommand-tab landt of blijft een
+- [ ] CHE-40: `/powerline` subcommand-tab landt (deze branch) of blijft een
       open GRO-child. CHE-41/42 hernoemen.

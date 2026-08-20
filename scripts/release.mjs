@@ -99,6 +99,20 @@ export function existingTagAction(currentVersion, next, tagExists) {
   return "collision";
 }
 
+export function rewriteUnreleasedHeading(changelog, next, date) {
+  const unreleasedHeading = /^## \[Unreleased\][ \t]*$/m;
+  if (!unreleasedHeading.test(changelog)) {
+    return { changelog, rewritten: false };
+  }
+  return {
+    changelog: changelog.replace(
+      unreleasedHeading,
+      `## [Unreleased]\n\n## [${next}] - ${date}`,
+    ),
+    rewritten: true,
+  };
+}
+
 function main() {
   const { flags, kind: kindArg } = parseArgs(process.argv.slice(2));
   const headSubject = git("git log -1 --pretty=%s");
@@ -142,10 +156,10 @@ function main() {
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
   const date = new Date().toISOString().slice(0, 10);
-  let changelog = readFileSync(changelogPath, "utf8");
-  if (changelog.includes("## [Unreleased]")) {
-    changelog = changelog.replace("## [Unreleased]", `## [${next}] - ${date}`);
-    writeFileSync(changelogPath, changelog);
+  const changelog = readFileSync(changelogPath, "utf8");
+  const rolled = rewriteUnreleasedHeading(changelog, next, date);
+  if (rolled.rewritten) {
+    writeFileSync(changelogPath, rolled.changelog);
     console.log(`CHANGELOG: [Unreleased] -> [${next}] - ${date}`);
   } else {
     console.log("No [Unreleased] section; leaving CHANGELOG as-is.");

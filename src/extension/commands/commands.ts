@@ -29,6 +29,7 @@ import {
 } from "../core/segment-context.ts";
 import { config, normalizePreset } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
+import { getPowerlineArgumentCompletions } from "./powerline-completions.ts";
 
 export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerCdCommand(pi, () => rt.currentCtx?.cwd ?? process.cwd());
@@ -39,7 +40,10 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
 
   // Command to toggle/configure
   pi.registerCommand("powerline", {
-    description: "Configure powerline status (toggle, preset)",
+    description: "Configure powerline status (toggle, preset, placement)",
+    getArgumentCompletions(argumentPrefix) {
+      return getPowerlineArgumentCompletions(argumentPrefix);
+    },
     handler: async (args, ctx) => {
       // Update context reference (command ctx may have more methods)
       rt.currentCtx = ctx;
