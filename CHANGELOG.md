@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.22.2] - 2026-08-20
+
 ### Fixed
 - Queue archive cutoff uses a frozen clock in tests, and the TPS "starts at 0" case resets the shared ring so file order cannot leak a fake rate.
 
