@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Operator UI is English: skill manager, `/wishcraft` TUI, overlay empty-match row, and skill-health warnings.
+
 ## [0.22.2] - 2026-08-20
 
 ### Fixed

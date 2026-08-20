@@ -1,11 +1,11 @@
 /**
  * skill-registry.ts
  * ---------------------------------------------------------------------------
- * Data-laag voor de skills manager v2: discovery via pi core's eigen
- * `loadSkills()` (recursieve SKILL.md-discovery, loose .md children,
- * SourceInfo, diagnostics) plus rijke metadata per skill en een
- * usage-ledger. Cache met TTL + expliciete invalidatie (session_start,
- * manager-open) zodat nieuwe skills zonder herstart zichtbaar worden.
+ * Data layer for skills manager v2: discovery via pi core `loadSkills()`
+ * (recursive SKILL.md discovery, loose .md children, SourceInfo,
+ * diagnostics) plus rich per-skill metadata and a usage ledger. Cache with
+ * TTL + explicit invalidation (session_start, manager-open) so new skills
+ * show up without a restart.
  * ---------------------------------------------------------------------------
  */
 
@@ -15,7 +15,7 @@ import { dirname, join, relative } from "node:path";
 import { getAgentDir, getAgentPath } from "../../paths/agent-dirs.ts";
 import { stripFrontmatter } from "../../core/frontmatter.ts";
 
-/** Categorie: waar de skill vandaan komt. */
+/** Category: where the skill came from. */
 export type SkillCategory = "global" | "project" | "prompts" | "extra";
 
 export interface SkillUsage {
@@ -28,22 +28,22 @@ export interface SkillEntry {
   description: string;
   filePath: string;
   baseDir: string;
-  /** Alleen true voor core skills die een eigen skill-directory bezitten. */
+  /** True only for core skills that own a skill directory. */
   isDirectorySkill?: boolean;
   category: SkillCategory;
   disableModelInvocation: boolean;
   sizeBytes: number;
   lineCount: number;
   mtimeMs: number;
-  /** Alle frontmatter-keys (raw, inclusief onbekende). */
+  /** All frontmatter keys (raw, including unknown). */
   frontmatterKeys: string[];
-  /** Diagnostische melding (core diagnostics, of lege description). */
+  /** Diagnostic message (core diagnostics, or empty description). */
   warning?: string;
 }
 
-/** Losse .md/.txt in extra-dirs (prompts/legacy) die core weigert (geen
- * frontmatter-description). Core-dirs houden core's strenge regels; alleen
- * de extra dirs krijgen deze lakse fallback zodat oude prompts blijven werken. */
+/** Loose .md/.txt in extra dirs (prompts/legacy) that core rejects (no
+ * frontmatter description). Core dirs keep core's strict rules; only extra
+ * dirs get this lax fallback so old prompts keep working. */
 function scanLooseExtraFiles(
   extras: { path: string; category: SkillCategory }[],
   knownPaths: Set<string>,
@@ -82,7 +82,7 @@ function scanLooseExtraFiles(
         lineCount: content.split("\n").length,
         mtimeMs,
         frontmatterKeys: parseFrontmatterKeys(content),
-        warning: "geen description — model ziet deze skill niet in de prompt",
+        warning: "no description — the model will not see this skill in the prompt",
       });
       knownPaths.add(filePath);
     }
@@ -100,7 +100,7 @@ let cachedCwd: string | null = null;
 const usageCache = new Map<string, SkillUsage>();
 let usageLoaded = false;
 
-/** Verwijder de discovery-cache (volgende leesactie scant opnieuw). */
+/** Drop the discovery cache (the next read scans again). */
 export function invalidateSkillCache(): void {
   cachedAt = 0;
   cachedEntries = null;
@@ -108,7 +108,7 @@ export function invalidateSkillCache(): void {
   cachedCwd = null;
 }
 
-/** Legacy prompts/loose-md dirs die inline-invocation altijd al scanden. */
+/** Legacy prompts/loose-md dirs that inline-invocation already scanned. */
 function extraSkillPaths(cwd: string): { path: string; category: SkillCategory }[] {
   const agent = getAgentDir();
   return [
@@ -138,7 +138,7 @@ function categorize(
   return "extra";
 }
 
-/** Parse alle top-level frontmatter-keys (naam + waarde-indicator niet nodig). */
+/** Parse all top-level frontmatter keys (name only; value is unused). */
 function parseFrontmatterKeys(content: string): string[] {
   const lines = content.split("\n");
   if (lines[0]?.trim() !== "---") return [];
@@ -183,10 +183,10 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
       lineCount = content.split("\n").length;
       mtimeMs = statSync(s.filePath).mtimeMs;
     } catch {
-      warning = "bestand niet leesbaar";
+      warning = "file not readable";
     }
     if (!warning && !s.description.trim()) {
-      warning = "geen description — model ziet deze skill niet in de prompt";
+      warning = "no description — the model will not see this skill in the prompt";
     }
     if (!warning && s.filePath && diagByPath.has(s.filePath)) {
       warning = diagByPath.get(s.filePath);
@@ -207,7 +207,7 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
     };
   });
 
-  // loose entries achteraan; bij naam-collisie wint core
+  // loose entries last; on a name collision core wins
   const looseNames = new Set(loose.map((e) => e.name));
   cachedAt = now;
     cachedCwd = cwd;
@@ -217,7 +217,7 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
   return cachedEntries;
 }
 
-/** Compat: naam → bestandspad (voor inline-invocation). */
+/** Compat: name → file path (for inline-invocation). */
 export function getAvailableSkills(): Map<string, string> {
   loadSkillCatalog();
   return cachedPathMap ?? new Map();
@@ -241,11 +241,11 @@ function loadUsage(): void {
       usageCache.set(name, { count: u.count ?? 0, lastUsed: u.lastUsed ?? 0 });
     }
   } catch {
-    // geen bestand of kapot JSON → lege ledger
+    // missing file or broken JSON → empty ledger
   }
 }
 
-/** Usage voor alle skills (naam → {count, lastUsed}). */
+/** Usage for every skill (name → {count, lastUsed}). */
 export function getSkillUsage(): Map<string, SkillUsage> {
   loadUsage();
   return usageCache;
@@ -254,7 +254,7 @@ export function getSkillUsage(): Map<string, SkillUsage> {
 let usageFlushTimer: ReturnType<typeof setTimeout> | null = null;
 let exitFlushRegistered = false;
 
-/** Schrijf de ledger nu naar schijf (best-effort, sync). */
+/** Write the ledger to disk now (best-effort, sync). */
 export function flushSkillUsage(): void {
   if (usageFlushTimer) {
     clearTimeout(usageFlushTimer);
@@ -266,14 +266,14 @@ export function flushSkillUsage(): void {
     mkdirSync(getAgentDir(), { recursive: true });
     writeFileSync(usageFile(), JSON.stringify(obj, null, 2), "utf8");
   } catch {
-    // best-effort: tracking mag de hot path nooit breken
+    // best-effort: tracking must never break the hot path
   }
 }
 
 /**
- * Log een skill-gebruik. De in-memory ledger wordt meteen bijgewerkt (zodat
- * getSkillUsage() klopt), maar de schijf-write wordt gedebounced zodat de
- * input hot path niet per keystroke een sync writeFileSync doet.
+ * Log a skill use. The in-memory ledger updates immediately (so
+ * getSkillUsage() is correct), but the disk write is debounced so the
+ * input hot path does not do a sync writeFileSync per keystroke.
  */
 export function recordSkillUsage(name: string): void {
   loadUsage();
@@ -312,7 +312,7 @@ export function listSkills(): { name: string; description: string; path: string;
   }));
 }
 
-/** Pure filter/sorteer-logica voor de manager-lijst (testbaar zonder TUI). */
+/** Pure filter/sort for the manager list (testable without a TUI). */
 export function applySkillFilter(
   entries: SkillEntry[],
   query: string,

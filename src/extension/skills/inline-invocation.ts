@@ -1,13 +1,13 @@
 /**
  * inline-invocation.ts
  * ------------------------------------------------------------------------
- * Inline trigger expansie zoals Cursor (met /) en Codex (met $).
+ * Inline trigger expansion like Cursor (`/`) and Codex (`$`).
  *
- *   /command -> vervangt door inhoud van command.md skill file
- *   $skill   -> vervangt door inhoud van skill.md skill file
+ *   /command -> replaced with the command.md skill body
+ *   $skill   -> replaced with the skill.md skill body
  *
- * Discovery en cache leven in skill-registry.ts (pi core loadSkills + TTL),
- * zodat nieuwe skills zonder herstart werken en usage bijgehouden wordt.
+ * Discovery and cache live in skill-registry.ts (pi core loadSkills + TTL)
+ * so new skills work without a restart and usage is tracked.
  * ------------------------------------------------------------------------
  */
 
@@ -64,7 +64,7 @@ function isExcluded(index: number, ranges: Array<[number, number]>): boolean {
 export function expandInlineTriggers(text: string): string {
   const availableSkills = getAvailableSkills();
 
-  // Pattern voor zowel /command als $skill
+  // Pattern for both /command and $skill
   const TRIGGER_REGEX = /(^|[\s(])(\/|\$)([a-zA-Z0-9_-]+)/g;
   const excluded = findExcludedRanges(text);
 
@@ -96,7 +96,7 @@ export function expandInlineTriggers(text: string): string {
   // Geen matches -> originele tekst teruggeven
   if (matches.length === 0) return text;
 
-  // Sorteer op positie en verwijder overlappingen
+  // Sort by position and drop overlaps
   matches.sort((a, b) => a.start - b.start);
   const deduped: typeof matches = [];
   let lastEnd = -1;
@@ -107,7 +107,7 @@ export function expandInlineTriggers(text: string): string {
     }
   }
 
-  // Bouw nieuwe tekst op met expansies
+  // Rebuild the text with expansions
   let result = "";
   let cursor = 0;
 
@@ -160,7 +160,7 @@ export function setupInlineInvocation(
     return { action: "continue" };
   });
 
-  // Cache verversen bij herstart/reload zodat nieuwe skills meteen zichtbaar zijn
+  // Refresh the cache on restart/reload so new skills show up immediately
   pi.on("session_start", () => {
     invalidateSkillCache();
   });

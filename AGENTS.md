@@ -57,6 +57,8 @@ user customization.
 - **Bun/Node-native TS:** `import` paths carry `.ts` extensions
   (`allowImportingTsExtensions`), `node:`-prefixed builtins, `node --test`
   with type stripping. No build step.
+- **English UI:** operator overlays, notify strings, and `/wishcraft` copy are
+  English. Do not add Dutch UI strings.
 - **Tests:** behavior changes in `src/` need a focused regression test near
   the existing tests for that subsystem; structural tests assert on module
   files in `src/` (never `index.ts`).

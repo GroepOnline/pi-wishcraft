@@ -84,7 +84,7 @@ function listForQuery(
       ? filtered
       : [
           {
-            label: `geen match voor '${query}'`,
+            label: `no match for '${query}'`,
             value: NONE_VALUE,
           },
         ];

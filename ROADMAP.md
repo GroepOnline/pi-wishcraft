@@ -236,7 +236,7 @@ UI, niet onderhandelbaar:
 
 - Zoeken die werkt: substring op naam + beschrijving + pad,
   case-insensitive; `ctrl+u` wist; lege match = rij
-  `geen skills voor '<q>'`.
+  `no skills for '<q>'`.
 - Categorieën met kopregels (bundled / global / project / prompts);
   `tab` wisselt filter; `s` sorteert naam ↔ gebruik.
 - `→` detail (frontmatter-tabel, usage, pad, body + scroll);
@@ -248,7 +248,7 @@ UI, niet onderhandelbaar:
 - Skill health: core-diagnostics als waarschuwingsicoon; `?` legt
   het uit.
 
-Zelfde chrome als de segment-navigator. Nederlands, direct.
+Same chrome as the segment navigator. English, direct.
 
 Tegelijk, klein:
 
@@ -314,7 +314,9 @@ die package nog leeft.
 
 ## Kwaliteit (altijd)
 
-- Overlay-logica testbaar via pure functies. Geen headless `ctx.ui`.
+- Overlay logic is testable via pure functions. No headless `ctx.ui`.
+- **English UI:** operator overlays, notify strings, and `/wishcraft` copy are
+  English. Do not add Dutch UI strings.
 - `prepublishOnly` = `tsc --noEmit`. Een slecht type ship't niet.
 - `madge --circular` blijft CI. Nieuwe map in `src/` → check mee.
 - Dependabot-vulns (devDep-transitief): waiven, track op GRO-603.
