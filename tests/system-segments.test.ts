@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { renderSegment } from "../src/segments/index.ts";
 import {
   parseOpenPortProcesses,
+  parseListeningPortsFromText,
   sanitizeSshHost,
 } from "../src/segments/system.ts";
+import { customComputedSegments } from "../src/segments/custom.ts";
 import { resolvePreset, PRESETS } from "../src/config/presets.ts";
 import type {
   ColorScheme,
@@ -185,6 +187,67 @@ test("parseOpenPortProcesses falls back to netstat -tulnp format", () => {
 test("parseOpenPortProcesses ignores headers and empty input", () => {
   assert.deepEqual(parseOpenPortProcesses(""), []);
   assert.deepEqual(parseOpenPortProcesses("Netid State Recv-Q Send-Q\n"), []);
+});
+
+test("parseListeningPortsFromText counts Linux ss/netstat colon-separated ports", () => {
+  const text = [
+    "Netid State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process",
+    "tcp   LISTEN 0      128    0.0.0.0:22         0.0.0.0:*",
+    "tcp   LISTEN 0      511    [::]:443           [::]:*",
+    "tcp   LISTEN 0      511    127.0.0.1:3000     0.0.0.0:*",
+  ].join("\n");
+  const ports = parseListeningPortsFromText(text);
+  assert.equal(ports.size, 3);
+  assert.ok(ports.has(443), "includes IPv6 [::]:443");
+});
+
+test("parseListeningPortsFromText counts macOS netstat dot-separated ports", () => {
+  // macOS `netstat -tln` separates address and port with `.` (`*.5900`,
+  // `127.0.0.1.631`). The colon-only regex returned 0 here.
+  const text = [
+    "Active Internet connections (only servers)",
+    "Proto Recv-Q Send-Q Local Address          Foreign Address        (state)",
+    "tcp4       0      0  *.5900                 *.*                    LISTEN",
+    "tcp46      0      0  *.88                   *.*                    LISTEN",
+    "tcp4       0      0  127.0.0.1.631          *.*                    LISTEN",
+  ].join("\n");
+  const ports = parseListeningPortsFromText(text);
+  assert.equal(ports.size, 3);
+  assert.ok(ports.has(5900), "includes *.5900");
+  assert.ok(ports.has(631), "includes 127.0.0.1.631");
+});
+
+test("parseOpenPortProcesses handles macOS netstat dot-separated ports", () => {
+  const text = [
+    "Proto Recv-Q Send-Q Local Address          Foreign Address        (state)",
+    "tcp4       0      0  *.5900                 *.*                    LISTEN",
+    "tcp4       0      0  127.0.0.1.631          *.*                    LISTEN",
+  ].join("\n");
+  const ports = parseOpenPortProcesses(text);
+  // parseOpenPortProcesses sorts ascending by port; 631 < 5900.
+  assert.deepEqual(
+    ports.map((p) => [p.proto, p.port, p.address, p.process]),
+    [
+      ["tcp", 631, "127.0.0.1", null],
+      ["tcp", 5900, "*", null],
+    ],
+  );
+});
+
+test("renderSegment isolates a throwing segment instead of blanking the footer", () => {
+  customComputedSegments.set("boom", {
+    id: "custom:boom",
+    render: () => {
+      throw new Error("boom");
+    },
+  });
+  try {
+    const out = renderSegment("custom:boom", createSegmentContext());
+    assert.equal(out.visible, true);
+    assert.equal(out.content, "!custom:boom");
+  } finally {
+    customComputedSegments.delete("boom");
+  }
 });
 
 test("sanitizeSshHost accepts hostnames, user@host, and IPv4", () => {
