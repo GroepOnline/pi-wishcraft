@@ -1,5 +1,5 @@
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getAgentPath } from "../paths/agent-dirs.ts";
@@ -64,11 +64,20 @@ function resolvePackageDir(startDir: string): string {
   return startDir;
 }
 
+function fileIdentity(path: string): string {
+  try {
+    return `${path}:${statSync(path).mtimeMs}`;
+  } catch {
+    return `${path}:missing`;
+  }
+}
+
 function getConfigurationPaths(): string[] {
   const currentFileDir = dirname(fileURLToPath(import.meta.url));
   const pkgDir = resolvePackageDir(currentFileDir);
   return [
     getAgentPath("extensions", "powerline-footer", "theme.json"),
+    join(process.cwd(), "theme.json"),
     join(pkgDir, "theme.json"),
   ];
 }
@@ -87,7 +96,7 @@ function mergeThemeConfig(base: PowerlineThemeConfig, overrides: unknown): Power
 
 export function loadThemeConfig(): PowerlineThemeConfig {
   const paths = getConfigurationPaths();
-  const identity = paths.join("|");
+  const identity = paths.map(fileIdentity).join("|");
   const time = Date.now();
 
   if (cachedConfig && cacheIdentifier === identity && time - lastCacheUpdate < CACHE_LIFETIME_MS) {

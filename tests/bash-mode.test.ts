@@ -133,8 +133,10 @@ test("theme.json can override icons without touching colors", () => {
     ? readFileSync(themePath, "utf8")
     : null;
   const originalNerdFonts = process.env.POWERLINE_NERD_FONTS;
+  const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 
   try {
+    delete process.env.PI_CODING_AGENT_DIR;
     writeFileSync(
       themePath,
       JSON.stringify({ icons: { auto: "↯", warning: "" } }, null, 2) + "\n",
@@ -156,6 +158,12 @@ test("theme.json can override icons without touching colors", () => {
       delete process.env.POWERLINE_NERD_FONTS;
     } else {
       process.env.POWERLINE_NERD_FONTS = originalNerdFonts;
+    }
+
+    if (originalAgentDir === undefined) {
+      delete process.env.PI_CODING_AGENT_DIR;
+    } else {
+      process.env.PI_CODING_AGENT_DIR = originalAgentDir;
     }
   }
 });
