@@ -1,8 +1,9 @@
 # Roadmap — pi-wishcraft
 
-Herschreven 2026-08-18. Vervangt de 0.18.0-editie. Tweede pass dezelfde dag:
-onderscheid aangescherpt, 0.19.0 teruggebracht tot wat we écht kunnen
-shippen, harness en skills-UI doorgeschoven naar 0.20.
+Herschreven 2026-08-18. Vierde pass 2026-08-20: conflict-restant uit
+`19d6cc0` weg. 0.19-code + catalogus staan op main (#12, #11). Overlay-
+submenus en de rest van de repairs blijven 0.20. CHE-40 is follow-up,
+geen 0.19-blocker. Open: npm-tag 0.19.0 (PR C).
 
 Pi core is de engine. Wishcraft is de cockpit. Elke feature dient één van
 drie doelen: **grip** (skills, tokens, config), **prestatie** (repairs,
@@ -114,7 +115,7 @@ debris weg, filter werkend (v2: substring i.p.v. prefix), cache-invalide op
 bash-session tempdir + sentinel-colon, `permissions: contents: read`.
 `npm pack --dry-run` bevat geen debris (113 files, geen `ook.md`/`test.md`).
 
-### PR B — config-afmakers
+### PR B — config-afmakers — ✅ geland in `feat/wishcraft-0.19` / #12
 
 Bestanden: `src/config/`, `src/segments/`, `src/extension/ui/`.
 
@@ -133,9 +134,10 @@ check: label op `git` + `cost` zichtbaar, TPS hidden bij 0 wanneer
 
 ### PR C — release 0.19.0
 
-1. `npm run release minor` → 0.19.0 (bump + changelog + commit + tag).
-2. Push GroepOnline SSH (`chefadmin-netizen`):
-   `GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh' git push origin HEAD --tags`.
+1. Merge naar `main` triggert `release.yml`: `node scripts/release.mjs auto --push`.
+   Commits sinds `v0.18.0` bevatten `feat:` → **0.19.0**. Handmatig blijft
+   `npm run release minor` + tag-push mogelijk.
+2. Tag-job publiceert met org-secret `NPM_TOKEN` (geen repo-override).
 3. Verify: tag op origin, publish-job groen, `npm view @groeponline/pi-wishcraft version` = 0.19.0.
    Catalogus (hard): `npm run verify:package` groen in de release-job;
    `npm view @groeponline/pi-wishcraft keywords` bevat `pi-package`,
@@ -195,10 +197,6 @@ voorbeelden: bash-guard (`rm -rf /` blokkeren), write-audit
 (append-only log), SessionStart git-status injectie.
 
 ### PR F — tool-input repairs — ✅ geland in `feat/wishcraft-0.19` (schema-loze subset: null-for-optional + auto-link unwrap; schema-afhankelijke repairs wachten op validator-issues in pi core)
-||||||| 9b069d9
-- No mouse/click on the live footer (Pi core limitation; overlay nav is the path).
-- No custom "embed/component" registration for footer segments — segments are data (text), and `customItems` + `command/env/static` segments already cover user-defined content. `setWidget`/`registerEntryRenderer` are for chat, not the footer.
-- No third control surface — keep interactivity in this extension's overlays + commands.
 
 `tool_call`-handler repareert bekende malformaties vóór executie
 (mutable input). Volgorde vast: json-parse vóór bare-wrap.
@@ -364,13 +362,13 @@ die package nog leeft.
 
 ## Checklist (1:1 met 0.19)
 
-- [ ] PR A gemerged: filter, debris, cache, triggers, bash-leaks,
-      CodeQL. Verify-trio groen.
-- [ ] `npm pack --dry-run` bevat geen `ook.md` / `test.md`.
-- [ ] PR B gemerged: labels, template, TPS-opties, visibility.
-      Verify-trio groen.
-- [ ] Gallery-contract gemerged (`chore/pi-dev-gallery`): keywords,
-      `publishConfig.access`, `pi.image`, `npm run verify:package`.
+- [x] PR A gemerged: filter, debris, cache, triggers, bash-leaks,
+      CodeQL. Verify-trio groen. (#12)
+- [x] `npm pack --dry-run` bevat geen `ook.md` / `test.md`.
+- [x] PR B gemerged: labels, template, TPS-opties, visibility.
+      Verify-trio groen. (#12)
+- [x] Gallery-contract gemerged (`chore/pi-dev-gallery`): keywords,
+      `publishConfig.access`, `pi.image`, `npm run verify:package`. (#11)
 - [ ] PR C: `npm run release minor` → 0.19.0 (of 0.18.1 als alleen
       A klaar is). Tag + publish + `npm view` klopt + pi.dev card
       naast fff/orchestrator.
