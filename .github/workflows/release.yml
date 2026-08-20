@@ -1,8 +1,9 @@
 name: Release
 
-# Merge to main always cuts a tag. The tag job publishes with the GroepOnline
-# org secret NPM_TOKEN (inherited; repo has no override). Put [skip release]
-# in the merge commit to opt out.
+# Merge to main always cuts a tag AND publishes in the same job. A GITHUB_TOKEN
+# tag push does not start a second workflow, so publish cannot wait for the
+# tag event. Manual `git push` of a v* tag still runs the tag job. Put
+# [skip release] in the merge commit to opt out.
 on:
   push:
     branches: [main]
@@ -15,7 +16,7 @@ concurrency:
 
 jobs:
   bump:
-    name: bump + tag
+    name: bump + tag + publish
     if: >-
       github.ref == 'refs/heads/main'
       && github.event_name == 'push'
@@ -26,6 +27,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,6 +37,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          registry-url: "https://registry.npmjs.org"
       - name: Install devDependencies
         run: npm ci --ignore-scripts
       - name: Typecheck
@@ -50,6 +53,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           node scripts/release.mjs auto --push
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: sh scripts/npm-publish.sh
 
   publish:
     name: test + publish
@@ -78,20 +85,4 @@ jobs:
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "NPM_TOKEN is missing (expected GroepOnline org secret)."
-            exit 1
-          fi
-          VERSION="$(node -p "require('./package.json').version")"
-          if npm view "@groeponline/pi-wishcraft@${VERSION}" version >/dev/null 2>&1; then
-            echo "${VERSION} is already on npm; skip publish"
-          else
-            npm publish --access public
-          fi
-      - name: Catalog URLs
-        run: |
-          echo "npm: https://www.npmjs.com/package/@groeponline/pi-wishcraft"
-          echo "pi.dev: https://pi.dev/packages/@groeponline/pi-wishcraft"
-          echo "search: https://pi.dev/packages?name=wishcraft"
-          echo "groeponline: https://pi.dev/packages?name=groeponline"
+        run: sh scripts/npm-publish.sh

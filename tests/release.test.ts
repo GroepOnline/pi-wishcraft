@@ -54,6 +54,20 @@ test("parseLatestVersionTag picks the highest vX.Y.Z tag", () => {
   assert.equal(parseLatestVersionTag(["upstream-v1", "v0.18.0"]), "v0.18.0");
 });
 
+test("npm-publish.sh fails closed without NODE_AUTH_TOKEN", () => {
+  const root = join(import.meta.dirname, "..");
+  const env = { ...process.env };
+  delete env.NODE_AUTH_TOKEN;
+  delete env.NPM_TOKEN;
+  const result = spawnSync("sh", ["scripts/npm-publish.sh"], {
+    cwd: root,
+    env,
+    encoding: "utf8",
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /NPM_TOKEN is missing/);
+});
+
 test("release --dry-run auto does not write package.json", () => {
   const root = join(import.meta.dirname, "..");
   const result = spawnSync(
