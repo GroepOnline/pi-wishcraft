@@ -218,6 +218,8 @@ Set `powerline.costAlert` to a USD threshold to get a single warning notificatio
 
 Command hooks live under `wishcraft.hooks` in the **global** agent settings file. `wishcraft.hooksEnabled: false` is the kill-switch. See the README Hooks section for three copy-paste examples (bash-guard, write-audit, SessionStart git-status).
 
+Declarative policy rules (`wishcraft.policy`) live in the same global file. They run in-process before command hooks: **deny** blocks a tool call when input matches a regex; **inject** appends context after a matching read/write path. `wishcraft.policyEnabled: false` disables policy without deleting rules. See the README Policy section for two copy-paste examples.
+
 Tool-input repairs apply to custom/extension tools only (`wishcraft.repairsEnabled`, default on). `/repairs` prints the counters.
 
 ## Token budget

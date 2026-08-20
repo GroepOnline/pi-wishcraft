@@ -171,6 +171,35 @@ PY
 
 Repairs run on custom/extension tools only, before hooks: drop null optionals, parse JSON-string arrays before wrapping, turn `{}` into `[]` on array keys, wrap bare strings, alias `filePath` / `absolutePath` / `target_file` to `path`, unwrap degenerate markdown auto-links. Core tools (`bash`, `read`, `edit`, `write`, `grep`, `find`, `ls`) are never rewritten. `/repairs` prints the counters.
 
+## Policy
+
+Declarative deny/inject rules in the **global** agent settings file. No shell commands — pure in-process regex. Evaluated before command hooks. `wishcraft.policyEnabled: false` disables policy without deleting rules.
+
+```json
+{
+  "wishcraft": {
+    "policy": [
+      {
+        "action": "deny",
+        "tool": "bash",
+        "match": "sudo\\s+rm",
+        "reason": "destructive sudo rm"
+      },
+      {
+        "action": "inject",
+        "tool": "read",
+        "pathMatch": "\\.env",
+        "context": "Do not leak secrets from .env files into the conversation."
+      }
+    ]
+  }
+}
+```
+
+**deny** — regex on tool input (`bash` uses `command`; other tools use JSON-serialized input). First match wins; the tool call is blocked with `reason`.
+
+**inject** — regex on file path after a matching tool completes; context is appended to the tool result (same shape as postToolUse hook `additionalContext`).
+
 ## Limits
 
 - No mouse on the live footer. Pi core owns that surface.
