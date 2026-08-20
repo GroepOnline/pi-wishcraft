@@ -81,10 +81,15 @@ export function shouldAppendReadHint(
   const start = input.offset ?? 1;
   const end = start + lineCount - 1;
   const total = details?.truncation?.totalLines;
-  if (total !== undefined && end >= total) return false;
-  if (input.limit !== undefined && lineCount < input.limit) return false;
-
-  return true;
+  if (total !== undefined) {
+    // With a known file length we can tell whether the window reached EOF.
+    return end < total;
+  }
+  // Without a total we can only infer more content when the window filled the
+  // requested limit exactly; otherwise the read likely reached EOF and we must
+  // not point the model past the end of the file.
+  if (input.limit === undefined) return false;
+  return lineCount >= input.limit;
 }
 
 /** Format the English continuation hint for a partial read window. */

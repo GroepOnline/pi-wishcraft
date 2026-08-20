@@ -39,6 +39,7 @@ Then restart pi or `/reload`. Peer range is `@earendil-works/pi-coding-agent` `>
 | `/skills` | Overlay search on name, description, and path. Enter inserts. `/skills doctor` is the health table. `/skills new` writes a SKILL.md from a template. |
 | `!cmd` / bash mode | Managed shell with ghost suggestions from project history. No shell-native completion probes. |
 | Hooks + repairs | Command hooks on pi events. Custom-tool input repairs before execution. Kill-switch: `wishcraft.hooksEnabled`. |
+| Read hints | Appends a one-line continuation hint after a partial `read`, so the model knows the next offset. Opt-out: `wishcraft.readHints: false`. |
 | Policy | In-process deny/inject rules in global settings. No spawn. Kill-switch: `wishcraft.policyEnabled`. |
 
 Pi owns the footer chrome, feed scrolling, and input. Wishcraft supplies widgets, overlays, and the bash/stash/editor integrations. The bar is not clickable; actions are commands and overlays.
