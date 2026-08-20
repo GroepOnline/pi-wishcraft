@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-08-20
+
 ### Added
 - `/tps` overlay reads the same 1s/5s ring as the segment; `/usage` shows session / today / week from `wishcraft-usage.json`.
 - Rest of the tool-input repairs on custom tools: JSON-string arrays, `{}` placeholders, bare-string wrap, and path aliases.
