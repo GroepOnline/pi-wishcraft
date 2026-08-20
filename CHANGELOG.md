@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- `/skills new <name> [template]` writes a SKILL.md from standard, browser-workflow, CLI-workflow, or review-checklist. `ctrl+n` opens the template picker.
+
 ## [0.25.0] - 2026-08-20
 
 ## [0.24.0] - 2026-08-20
@@ -9,7 +12,6 @@
 ### Added
 - Declarative policy engine (`wishcraft.policy`): in-process deny/inject rules in global settings, evaluated before command hooks. No process spawn. `policyEnabled: false` is the kill-switch.
 - `/skills doctor` health table: broken frontmatter, descriptions over 240 chars, global/project duplicates, unused skills.
-- `/skills new <name> [template]` writes a SKILL.md from standard, browser-workflow, CLI-workflow, or review-checklist. `ctrl+n` opens the template picker.
 
 ## [0.23.4] - 2026-08-20
 
