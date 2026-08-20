@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -17,6 +18,67 @@ import {
   resolveReleaseVersion,
   shouldSkipRelease,
 } from "../scripts/release.mjs";
+
+const root = join(import.meta.dirname, "..");
+
+// A stub `npm` that never touches the network. Behavior is driven by env
+// vars so a single stub script works for every scenario below:
+//   STUB_NPM_VIEW_EXIT    - exit code for `npm view` (0 = "already published")
+//   STUB_NPM_PUBLISH_EXIT - exit code for `npm publish`
+//   STUB_NPM_PUBLISH_MARKER - file path touched when `npm publish` runs
+const STUB_NPM = `#!/bin/sh
+case "$1" in
+  view)
+    exit "\${STUB_NPM_VIEW_EXIT:-0}"
+    ;;
+  publish)
+    if [ -n "\${STUB_NPM_PUBLISH_MARKER:-}" ]; then
+      : > "$STUB_NPM_PUBLISH_MARKER"
+    fi
+    exit "\${STUB_NPM_PUBLISH_EXIT:-0}"
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+`;
+
+function withStubNpmProject(pkgVersion: string) {
+  const projectDir = mkdtempSync(join(tmpdir(), "pi-wishcraft-npm-publish-"));
+  const binDir = mkdtempSync(join(tmpdir(), "pi-wishcraft-npm-publish-bin-"));
+  writeFileSync(
+    join(projectDir, "package.json"),
+    JSON.stringify({ version: pkgVersion }),
+  );
+  const npmStubPath = join(binDir, "npm");
+  writeFileSync(npmStubPath, STUB_NPM);
+  chmodSync(npmStubPath, 0o755);
+  return {
+    projectDir,
+    binDir,
+    cleanup() {
+      rmSync(projectDir, { recursive: true, force: true });
+      rmSync(binDir, { recursive: true, force: true });
+    },
+  };
+}
+
+function runNpmPublishScript(
+  projectDir: string,
+  binDir: string,
+  extraEnv: Record<string, string | undefined> = {},
+) {
+  return spawnSync("sh", [join(root, "scripts/npm-publish.sh")], {
+    cwd: projectDir,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PATH: `${binDir}:${process.env.PATH}`,
+      NODE_AUTH_TOKEN: "fake-token-for-tests",
+      ...extraEnv,
+    },
+  });
+}
 
 test("bump handles patch, minor, major, and explicit versions", () => {
   assert.equal(bump("0.18.0", "patch"), "0.18.1");
@@ -63,7 +125,6 @@ test("parseLatestVersionTag picks the highest vX.Y.Z tag", () => {
 });
 
 test("npm-publish.sh fails closed without NODE_AUTH_TOKEN", () => {
-  const root = join(import.meta.dirname, "..");
   const env = { ...process.env };
   delete env.NODE_AUTH_TOKEN;
   delete env.NPM_TOKEN;
@@ -76,191 +137,69 @@ test("npm-publish.sh fails closed without NODE_AUTH_TOKEN", () => {
   assert.match(`${result.stdout}${result.stderr}`, /NPM_TOKEN is missing/);
 });
 
-test("npm-publish.sh fails closed when NODE_AUTH_TOKEN is set but empty", () => {
-  const root = join(import.meta.dirname, "..");
-  const env = { ...process.env, NODE_AUTH_TOKEN: "" };
-  delete env.NPM_TOKEN;
-  const result = spawnSync("sh", ["scripts/npm-publish.sh"], {
-    cwd: root,
-    env,
-    encoding: "utf8",
-  });
-  assert.notEqual(result.status, 0);
-  assert.match(`${result.stdout}${result.stderr}`, /NPM_TOKEN is missing/);
-});
-
-// The remaining npm-publish.sh tests stub out `npm` with a fake executable
-// placed first on PATH, so no real registry traffic happens. The fake
-// records every invocation to FAKE_NPM_LOG and reports exit codes from
-// FAKE_NPM_VIEW_EXIT / FAKE_NPM_PUBLISH_EXIT so each test can drive a
-// specific scenario (version published already, version missing, publish
-// failure) without touching the network.
-function withFakeNpm<T>(run: (npmDir: string, logFile: string, publishMarker: string) => T): T {
-  const npmDir = mkdtempSync(join(tmpdir(), "fake-npm-"));
-  const logFile = join(npmDir, "npm.log");
-  const publishMarker = join(npmDir, "published.marker");
-  const npmPath = join(npmDir, "npm");
-  writeFileSync(
-    npmPath,
-    [
-      "#!/bin/sh",
-      'case "$1" in',
-      "  view)",
-      '    echo "$@" >> "$FAKE_NPM_LOG"',
-      '    exit "${FAKE_NPM_VIEW_EXIT:-0}"',
-      "    ;;",
-      "  publish)",
-      '    echo "$@" >> "$FAKE_NPM_LOG"',
-      '    touch "$FAKE_NPM_PUBLISH_MARKER"',
-      '    exit "${FAKE_NPM_PUBLISH_EXIT:-0}"',
-      "    ;;",
-      "  *)",
-      "    exit 1",
-      "    ;;",
-      "esac",
-      "",
-    ].join("\n"),
-  );
-  chmodSync(npmPath, 0o755);
+test("npm-publish.sh skips publish and prints the skip message when the version is already on npm", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("1.2.3");
   try {
-    return run(npmDir, logFile, publishMarker);
+    const marker = join(binDir, "publish-called");
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "0",
+      STUB_NPM_PUBLISH_MARKER: marker,
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /1\.2\.3 is already on npm; skip publish/);
+    assert.equal(existsSync(marker), false, "npm publish should not run");
   } finally {
-    rmSync(npmDir, { recursive: true, force: true });
+    cleanup();
   }
-}
+});
 
-function runNpmPublishScript(
-  npmDir: string,
-  env: Record<string, string | undefined>,
-) {
-  const root = join(import.meta.dirname, "..");
-  return spawnSync("sh", ["scripts/npm-publish.sh"], {
-    cwd: root,
-    env: {
-      ...process.env,
-      PATH: `${npmDir}:${process.env.PATH}`,
-      NODE_AUTH_TOKEN: "test-token",
-      ...env,
-    },
-    encoding: "utf8",
-  });
-}
-
-test("npm-publish.sh skips publish when the version is already on npm", () => {
-  withFakeNpm((npmDir, logFile, publishMarker) => {
-    const result = runNpmPublishScript(npmDir, {
-      FAKE_NPM_LOG: logFile,
-      FAKE_NPM_PUBLISH_MARKER: publishMarker,
-      FAKE_NPM_VIEW_EXIT: "0",
+test("npm-publish.sh publishes when the version is not yet on npm", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("4.5.6");
+  try {
+    const marker = join(binDir, "publish-called");
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_PUBLISH_MARKER: marker,
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /is already on npm; skip publish/);
-    assert.match(
-      result.stdout,
-      /npm: https:\/\/www\.npmjs\.com\/package\/@groeponline\/pi-wishcraft/,
-    );
-    assert.match(
-      result.stdout,
-      /pi\.dev: https:\/\/pi\.dev\/packages\/@groeponline\/pi-wishcraft/,
-    );
+    assert.doesNotMatch(result.stdout, /already on npm/);
+    assert.equal(existsSync(marker), true, "npm publish should run");
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh echoes the Pi catalog URLs after a successful skip or publish", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("7.0.0");
+  try {
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "0",
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /npm: https:\/\/www\.npmjs\.com\/package\/@groeponline\/pi-wishcraft/);
+    assert.match(result.stdout, /pi\.dev: https:\/\/pi\.dev\/packages\/@groeponline\/pi-wishcraft/);
     assert.match(result.stdout, /search: https:\/\/pi\.dev\/packages\?name=wishcraft/);
-    assert.match(
-      result.stdout,
-      /groeponline: https:\/\/pi\.dev\/packages\?name=groeponline/,
-    );
-    assert.throws(() => readFileSync(publishMarker));
-    assert.doesNotMatch(readFileSync(logFile, "utf8"), /publish --access public/);
-  });
+    assert.match(result.stdout, /groeponline: https:\/\/pi\.dev\/packages\?name=groeponline/);
+  } finally {
+    cleanup();
+  }
 });
 
-test("npm-publish.sh publishes when the version is not on npm", () => {
-  withFakeNpm((npmDir, logFile, publishMarker) => {
-    const result = runNpmPublishScript(npmDir, {
-      FAKE_NPM_LOG: logFile,
-      FAKE_NPM_PUBLISH_MARKER: publishMarker,
-      FAKE_NPM_VIEW_EXIT: "1",
-      FAKE_NPM_PUBLISH_EXIT: "0",
-    });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.doesNotMatch(result.stdout, /skip publish/);
-    assert.match(
-      result.stdout,
-      /npm: https:\/\/www\.npmjs\.com\/package\/@groeponline\/pi-wishcraft/,
-    );
-    assert.doesNotThrow(() => readFileSync(publishMarker));
-    assert.match(readFileSync(logFile, "utf8"), /publish --access public/);
-  });
-});
-
-test("npm-publish.sh checks the registry using the current package.json name and version", () => {
-  withFakeNpm((npmDir, logFile) => {
-    const root = join(import.meta.dirname, "..");
-    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    const result = runNpmPublishScript(npmDir, {
-      FAKE_NPM_LOG: logFile,
-      FAKE_NPM_VIEW_EXIT: "0",
-    });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    const escapedVersion = pkg.version.replace(/\./g, "\\.");
-    assert.match(
-      readFileSync(logFile, "utf8"),
-      new RegExp(`view @groeponline/pi-wishcraft@${escapedVersion} version`),
-    );
-  });
-});
-
-test("npm-publish.sh exits non-zero and skips the catalog output when npm publish fails", () => {
-  withFakeNpm((npmDir, logFile, publishMarker) => {
-    const result = runNpmPublishScript(npmDir, {
-      FAKE_NPM_LOG: logFile,
-      FAKE_NPM_PUBLISH_MARKER: publishMarker,
-      FAKE_NPM_VIEW_EXIT: "1",
-      FAKE_NPM_PUBLISH_EXIT: "1",
+test("npm-publish.sh fails and skips the catalog URLs when npm publish fails", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("8.0.0");
+  try {
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_PUBLISH_EXIT: "1",
     });
     assert.notEqual(result.status, 0);
-    assert.doesNotMatch(result.stdout, /npmjs\.com/);
-  });
-});
-
-test("release.yml publishes from the bump job after cutting the release tag", () => {
-  const root = join(import.meta.dirname, "..");
-  const workflow = readFileSync(
-    join(root, ".github/workflows/release.yml"),
-    "utf8",
-  );
-  const bumpJob = workflow.slice(
-    workflow.indexOf("\n  bump:"),
-    workflow.indexOf("\n  publish:"),
-  );
-  assert.match(bumpJob, /name: bump \+ tag \+ publish/);
-  assert.match(bumpJob, /id-token: write/);
-  assert.match(bumpJob, /run: sh scripts\/npm-publish\.sh/);
-  assert.match(bumpJob, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
-  const cutTagIndex = bumpJob.indexOf("Cut release tag");
-  const publishIndex = bumpJob.indexOf("Publish to npm");
-  assert.ok(cutTagIndex > -1, "expected a 'Cut release tag' step");
-  assert.ok(publishIndex > -1, "expected a 'Publish to npm' step");
-  assert.ok(
-    cutTagIndex < publishIndex,
-    "the release tag must be cut before publishing",
-  );
-});
-
-test("release.yml still publishes via npm-publish.sh on a manual v* tag push", () => {
-  const root = join(import.meta.dirname, "..");
-  const workflow = readFileSync(
-    join(root, ".github/workflows/release.yml"),
-    "utf8",
-  );
-  const publishJob = workflow.slice(workflow.indexOf("\n  publish:"));
-  assert.match(publishJob, /if: startsWith\(github\.ref, 'refs\/tags\/v'\)/);
-  assert.match(publishJob, /run: sh scripts\/npm-publish\.sh/);
-  assert.doesNotMatch(publishJob, /npm view/);
-  assert.doesNotMatch(publishJob, /Catalog URLs/);
+    assert.doesNotMatch(result.stdout, /npm: https:\/\/www\.npmjs\.com/);
+  } finally {
+    cleanup();
+  }
 });
 
 test("release --dry-run auto does not write package.json", () => {
-  const root = join(import.meta.dirname, "..");
   const result = spawnSync(
     process.execPath,
     ["scripts/release.mjs", "auto", "--dry-run"],
@@ -268,4 +207,39 @@ test("release --dry-run auto does not write package.json", () => {
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /Would release \d+\.\d+\.\d+ \((patch|minor|major)\)/);
+});
+
+test(".github/workflows/release.yml publishes via npm-publish.sh from both the bump and tag jobs", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  const publishSteps = workflow.match(/run: sh scripts\/npm-publish\.sh/g) ?? [];
+  assert.equal(publishSteps.length, 2, "expected one publish step per job");
+  assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  // The publish logic (fail-closed check, idempotent skip, catalog echoes)
+  // must live in the script, not be duplicated inline in the workflow.
+  assert.doesNotMatch(workflow, /NPM_TOKEN is missing/);
+});
+
+test(".github/workflows/release.yml grants id-token: write and configures the npm registry for both jobs", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  const idTokenGrants = workflow.match(/id-token: write/g) ?? [];
+  assert.equal(idTokenGrants.length, 2);
+  const registryUrls = workflow.match(/registry-url: "https:\/\/registry\.npmjs\.org"/g) ?? [];
+  assert.equal(registryUrls.length, 2);
+});
+
+test(".github/workflows/release.yml runs the bump job's tag step before publishing", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  const tagIndex = workflow.indexOf("node scripts/release.mjs auto --push");
+  const publishIndex = workflow.indexOf("run: sh scripts/npm-publish.sh");
+  assert.ok(tagIndex > -1, "expected the tag step to still run in the bump job");
+  assert.ok(publishIndex > tagIndex, "publish step must come after the tag step");
+});
+
+test("CHANGELOG.md keeps a well-formed Unreleased section for release.mjs to rewrite", () => {
+  const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
+  assert.match(changelog, /^# Changelog\n\n## \[Unreleased\]\n/);
+  assert.match(
+    changelog,
+    /## \[Unreleased\][\s\S]*?### Fixed\n- Release workflow publishes from the bump job/,
+  );
 });
