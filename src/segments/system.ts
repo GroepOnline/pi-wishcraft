@@ -4,6 +4,13 @@ import type { StatusLineSegment } from "../config/types.ts";
 import { normalizeCompactExtensionStatus } from "../config/powerline-config.ts";
 import { getIcons, SEP_DOT } from "../theme/icons.ts";
 import { formatUsdCost } from "../usage/rates.ts";
+import {
+  formatTpsRate,
+  pushTpsSample,
+  ratesFromRing,
+  ringMsForWindow,
+  tpsSamples,
+} from "../usage/tps-ring.ts";
 import { color, withIcon } from "./shared.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -335,14 +342,7 @@ export function listOpenPortProcesses(
 }
 
 // Rolling 1-second sliding window of (timestamp, cumulative tokens) samples.
-// Renders fire every ~33ms during streaming, so a per-render delta spikes (tiny
-// dt); a fixed ~1s lookback gives a stable, honest tokens/sec over the last
-// second. We track output and input separately so the segment can report both.
-const tpsSamples: { at: number; output: number; input: number }[] = [];
-
-function rateText(rate: number): string {
-  return rate >= 100 ? Math.round(rate).toString() : rate.toFixed(1);
-}
+// Math lives in src/usage/tps-ring.ts so `/tps` can read the same ring.
 
 export const tpsSegment: StatusLineSegment = {
   id: "tps",
@@ -355,44 +355,25 @@ export const tpsSegment: StatusLineSegment = {
       };
     }
     const windowMs = ctx.options.tps?.windowMs ?? 1000;
-    const ringMs = Math.max(5000, windowMs * 2);
     const { output, input } = ctx.usageStats ?? { output: 0, input: 0 };
     const now = Date.now();
-    tpsSamples.push({ at: now, output, input });
-    // keep a sliding sample ring; drop everything older (idle gaps get forgotten)
-    while (tpsSamples.length > 0 && now - tpsSamples[0].at > ringMs)
-      tpsSamples.shift();
-    if (tpsSamples.length > 480) tpsSamples.splice(0, tpsSamples.length - 480);
-
-    // pick the sample closest to windowMs old (window [windowMs/2, 2*windowMs])
-    // for a stable rate
-    let ref: { at: number; output: number; input: number } | null = null;
-    let bestDelta = Infinity;
-    for (const s of tpsSamples) {
-      const age = now - s.at;
-      if (age < windowMs / 2) continue;
-      const d = Math.abs(age - windowMs);
-      if (d < bestDelta) {
-        bestDelta = d;
-        ref = s;
-      }
-    }
-    let outRate = 0;
-    let inRate = 0;
-    if (ref) {
-      const dt = (now - ref.at) / 1000;
-      const dOut = output - ref.output;
-      const dIn = input - ref.input;
-      if (dt > 0 && dOut >= 0) outRate = dOut / dt;
-      if (dt > 0 && dIn >= 0) inRate = dIn / dt;
-    }
+    pushTpsSample(
+      tpsSamples,
+      { at: now, output, input },
+      ringMsForWindow(windowMs),
+    );
+    const { inRate, outRate } = ratesFromRing(
+      tpsSamples,
+      now,
+      { input, output },
+      windowMs,
+    );
     const icons = getIcons();
     const parts: string[] = [];
-    if (outRate > 0) parts.push(`${icons.output}${rateText(outRate)}`);
-    if (inRate > 0) parts.push(`${icons.input}${rateText(inRate)}`);
+    if (outRate > 0) parts.push(`${icons.output}${formatTpsRate(outRate)}`);
+    if (inRate > 0) parts.push(`${icons.input}${formatTpsRate(inRate)}`);
     const valueText = parts.length > 0 ? parts.join(" ") : "0";
     const active = outRate > 0 || inRate > 0;
-    // levendig: light up in the tokens color while generating, dim while idle
     return {
       content: withIcon(
         icons.tps,

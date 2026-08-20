@@ -105,9 +105,35 @@ test("repairToolInput unwraps degenerate markdown auto-links", () => {
     label: "[click](https://x.com)",
   };
   const result = repairToolInput("my_tool", input);
-  assert.equal(input.file_path, "notes.md");
+  assert.equal(input.path, "notes.md");
+  assert.equal(input.file_path, undefined);
   assert.equal(input.label, "[click](https://x.com)"); // echte link blijft
-  assert.deepEqual(result.repairs, ["auto-link-unwrap:file_path"]);
+  assert.ok(result.repairs.includes("path-alias:file_path"));
+  assert.ok(result.repairs.includes("auto-link-unwrap:path"));
+});
+
+test("repairToolInput parses JSON-string arrays before wrapping", () => {
+  const input: Record<string, unknown> = { files: '["a.ts","b.ts"]' };
+  const result = repairToolInput("my_tool", input);
+  assert.deepEqual(input.files, ["a.ts", "b.ts"]);
+  assert.deepEqual(result.repairs, ["json-string-array:files"]);
+});
+
+test("repairToolInput wraps a bare string on array keys and empties {}", () => {
+  const input: Record<string, unknown> = { files: "solo.ts", items: {} };
+  const result = repairToolInput("my_tool", input);
+  assert.deepEqual(input.files, ["solo.ts"]);
+  assert.deepEqual(input.items, []);
+  assert.ok(result.repairs.includes("bare-string-wrap:files"));
+  assert.ok(result.repairs.includes("empty-object-placeholder:items"));
+});
+
+test("repairToolInput aliases filePath to path", () => {
+  const input: Record<string, unknown> = { filePath: "src/a.ts" };
+  const result = repairToolInput("ext_tool", input);
+  assert.equal(input.path, "src/a.ts");
+  assert.equal(input.filePath, undefined);
+  assert.deepEqual(result.repairs, ["path-alias:filePath"]);
 });
 
 test("repairToolInput skips pi core tools", () => {

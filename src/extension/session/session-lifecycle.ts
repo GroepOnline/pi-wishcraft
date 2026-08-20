@@ -17,13 +17,24 @@ import {
 import {
   getSessionTotalCost,
   getUsageTokenTotal,
-  hasSessionAssistantUsage,
   isSessionAssistantMessage,
 } from "../../usage/ledger.ts";
 import {
   formatCostAlertMessage,
   shouldTriggerCostAlert,
 } from "./cost-alert.ts";
+import {
+  formatTokenBudgetWarning,
+  parseTokenBudget,
+  tokenBudgetLevel,
+} from "../../usage/token-budget.ts";
+import {
+  recordUsageEvent,
+  loadUsageFileFromDisk,
+  tokenTotal,
+  totalsForRange,
+  dayKey,
+} from "../../usage/usage-store.ts";
 import {
   detectCustomCompactionEnabled,
   readSettings,
@@ -94,6 +105,22 @@ function maybeNotifyCostAlert(rt: RuntimeState, ctx: any): void {
   );
 }
 
+function maybeNotifyTokenBudget(rt: RuntimeState, ctx: any): void {
+  if (!ctx?.hasUI) return;
+  const daily = parseTokenBudget(readSettings(ctx.cwd ?? process.cwd()).wishcraft)
+    .daily;
+  if (!daily) return;
+  const now = Date.now();
+  const todayStart = Date.parse(`${dayKey(now)}T00:00:00`);
+  const used = tokenTotal(
+    totalsForRange(loadUsageFileFromDisk(), todayStart, now + 1),
+  );
+  const { level } = tokenBudgetLevel(used, daily);
+  if (level === 0 || level <= rt.tokenBudgetNotifiedLevel) return;
+  rt.tokenBudgetNotifiedLevel = level;
+  ctx.ui.notify(formatTokenBudgetWarning(used, daily, level), "warning");
+}
+
 // Helper to extract recent agent response text (skipping thinking blocks)
 function getRecentAgentContext(ctx: any): string | undefined {
   const sessionEvents = ctx.sessionManager?.getBranch?.() ?? [];
@@ -143,6 +170,7 @@ export function registerSessionLifecycle(
     rt.isStreaming = false;
     rt.liveAssistantUsage = null;
     rt.costAlertNotified = false;
+    rt.tokenBudgetNotifiedLevel = 0;
     rt.powerlineCompacting = false;
     rt.deliverAfterRetrySettles = false;
     rt.stashedEditorText = null;
@@ -193,6 +221,7 @@ export function registerSessionLifecycle(
       } else {
         dismissWelcome(rt, ctx);
       }
+      maybeNotifyTokenBudget(rt, ctx);
     }
   });
 
@@ -310,10 +339,21 @@ export function registerSessionLifecycle(
         rt.liveAssistantUsage = null;
       } else if (getUsageTokenTotal(event.message.usage) > 0) {
         rt.liveAssistantUsage = event.message.usage;
+        const usage = event.message.usage;
+        recordUsageEvent({
+          at: Date.now(),
+          model: ctx.model?.id ?? ctx.model?.name,
+          input: usage.input,
+          output: usage.output,
+          cacheRead: usage.cacheRead,
+          cacheWrite: usage.cacheWrite,
+          cost: usage.cost.total,
+        });
       }
     }
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     maybeNotifyCostAlert(rt, ctx);
+    maybeNotifyTokenBudget(rt, ctx);
   });
 
   pi.on("turn_end", async (_event, ctx) => {

@@ -96,7 +96,8 @@ Preset selection is saved under `powerline` in the agent settings file and resto
 
 Pi core renders the footer as static text, so live click is not possible; actions live in commands and a navigable overlay.
 
-- `/tps [value]`: show or set `POWERLINE_TPS`
+- `/tps`: overlay of the live 1s window (same ring as the segment). `/tps <value>` sets `POWERLINE_TPS`
+- `/usage`: session / today / week overlay from `~/.pi/agent/wishcraft-usage.json`
 - `/open-ports`: list listening ports and pick one
 - `/powerline doctor`: diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, and queue file health
 - `/powerline export`: export the current preset + effective layout + labels as a JSON snippet (Enter copies it to the clipboard)

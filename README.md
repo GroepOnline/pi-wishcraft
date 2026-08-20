@@ -248,6 +248,7 @@ Define your own preset in settings; it merges over built-ins and is selectable v
 Interactivity (Pi core renders the footer as static text, so live click is not possible; actions live in commands and a navigable overlay):
 
 - `/tps [value]`: show or set `POWERLINE_TPS`
+- `/usage`: today / week / session token overlay (same ledger as the cost segment)
 - `/open-ports`: list listening ports and pick one
 - `alt+p`: **powerline menu**: three overlays (Navigate, Configure, Status). Status drills down to ports, TPS, and toggle.
 - `alt+i`: **powerline info**: full open-ports list
@@ -473,6 +474,86 @@ Browse and insert your installed skills (`SKILL.md` files and `*.md`/`*.txt` pro
 - **`/skills`** — open the skill manager. Filter with plain typing, `↑↓` to move, `enter` to open a skill's detail body, `↑↓` in the detail to scroll, `enter`/`tab` to insert the skill content into your prompt, `esc` to go back/close.
 
 The manager reuses the same skill discovery as inline `/command`/`$skill` triggers, so anything you can inline you can also browse and insert manually.
+
+## Hooks (harness)
+
+Wishcraft can run Command Code-style hooks on Pi's native events (`tool_call`, `tool_result`, `session_start`, `turn_end`). Each hook is a command that reads JSON on stdin. Set `wishcraft.hooksEnabled` to `false` to kill-switch every hook without deleting the config. Hook *definitions* are read from the global agent settings file only (project `.pi/settings.json` cannot install new commands).
+
+Put the scripts somewhere executable (example: `~/.pi/agent/hooks/`) and point settings at them:
+
+```json
+{
+  "wishcraft": {
+    "hooksEnabled": true,
+    "hooks": {
+      "preToolUse": [
+        {
+          "matcher": "bash",
+          "hooks": [{ "command": "~/.pi/agent/hooks/bash-guard.sh", "timeout": 5 }]
+        }
+      ],
+      "postToolUse": [
+        {
+          "matcher": "write",
+          "hooks": [{ "command": "~/.pi/agent/hooks/write-audit.sh", "timeout": 5 }]
+        }
+      ],
+      "sessionStart": [
+        {
+          "hooks": [{ "command": "~/.pi/agent/hooks/session-git-status.sh", "timeout": 10 }]
+        }
+      ]
+    }
+  }
+}
+```
+
+**1. bash-guard** — deny `rm -rf /` (and close variants) before bash runs. Exit 2 is deny; the first stderr line or `permissionDecisionReason` is what the model sees.
+
+```bash
+#!/usr/bin/env bash
+# ~/.pi/agent/hooks/bash-guard.sh
+payload=$(cat)
+cmd=$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))')
+if printf '%s' "$cmd" | grep -Eq '(^|[[:space:]])rm[[:space:]]+(-[a-zA-Z]*[[:space:]]+)*-r[a-zA-Z]*f|-fr[a-zA-Z]*|[[:space:]]/[[:space:]]*$'; then
+  printf '%s\n' '{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"blocked destructive rm"}}'
+  echo "blocked destructive rm" >&2
+  exit 2
+fi
+exit 0
+```
+
+**2. write-audit** — append-only log of write tool calls (does not block).
+
+```bash
+#!/usr/bin/env bash
+# ~/.pi/agent/hooks/write-audit.sh
+mkdir -p "$HOME/.pi/agent/logs"
+printf '%s\n' "$(date -Is) $1" >> "$HOME/.pi/agent/logs/write-audit.jsonl"
+cat >> "$HOME/.pi/agent/logs/write-audit.jsonl"
+```
+
+The hook receives the JSON payload on stdin; the snippet above stores the raw event. Trim or jq-filter as you like.
+
+**3. SessionStart git-status** — inject `git status --short` as extra context at session start.
+
+```bash
+#!/usr/bin/env bash
+# ~/.pi/agent/hooks/session-git-status.sh
+status=$(git status --short 2>/dev/null | head -n 40)
+CTX="$status" python3 - <<'PY'
+import json, os
+print(json.dumps({
+  "hookSpecificOutput": {
+    "additionalContext": "git status:\n" + os.environ.get("CTX", "")
+  }
+}))
+PY
+```
+
+Tool-input repairs (custom/extension tools only) run before hooks: null-for-optional, JSON-string arrays, `{}` → `[]` on array keys, bare-string wrap, path aliases, and markdown auto-link unwrap. `/repairs` shows the counters. Core tools (`bash`, `read`, `edit`, `write`, `grep`, `find`, `ls`) are never rewritten.
+
+`wishcraft.tokenBudget.daily` (token count) paints the cost segment warning/red at 80%/100% and notifies on welcome. It never blocks a turn. `/usage` shows session / today / week from `~/.pi/agent/wishcraft-usage.json`. `/tps` with no args opens the live ring overlay (same sampler as the segment).
 
 ## Working Vibes
 

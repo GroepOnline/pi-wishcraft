@@ -145,7 +145,8 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
       title: "Hooks & repairs (harness-laag)",
       items: [
         { label: "Hooks ingeschakeld", path: "wishcraft.hooksEnabled", kind: "toggle", hint: "commandcode-achtige preToolUse/postToolUse/sessionStart hooks" },
-        { label: "Tool-input repairs", path: "wishcraft.repairsEnabled", kind: "toggle", hint: "null-for-optional, auto-link unwrap op custom tools" },
+        { label: "Tool-input repairs", path: "wishcraft.repairsEnabled", kind: "toggle", hint: "null-for-optional, auto-link, json-array, path aliases" },
+        { label: "Dagelijks tokenbudget", path: "wishcraft.tokenBudget.daily", kind: "number", hint: "kleurt cost-segment; blokkeert nooit. 0 = uit" },
       ],
     },
     {

@@ -112,6 +112,7 @@ export function createRuntimeState(
     stashedPromptHistory: readPersistedStashHistory(),
     currentEditor: null,
     costAlertNotified: false,
+    tokenBudgetNotifiedLevel: 0,
     bashModeActive: false,
     bashTranscript: new BashTranscriptStore(bashModeSettings),
     bashCompletionEngine: new BashCompletionEngine(),

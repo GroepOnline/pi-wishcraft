@@ -64,6 +64,8 @@ export interface RuntimeState {
   currentEditor: any;
   /** True once the configured `costAlert` threshold has been notified this session. */
   costAlertNotified: boolean;
+  /** Highest daily-budget warning already shown this session (0 / 80 / 100). */
+  tokenBudgetNotifiedLevel: 0 | 80 | 100;
   bashModeActive: boolean;
   bashTranscript: BashTranscriptStore;
   bashCompletionEngine: BashCompletionEngine;
