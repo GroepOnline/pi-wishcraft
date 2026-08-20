@@ -2,9 +2,48 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assignNestedConfigValue,
+  buildConfigGroups,
+  displayValue,
   isUnsafeConfigKey,
+  nextToggleValue,
   readConfigPath,
 } from "../src/extension/settings/wishcraft-config.ts";
+
+function findItem(label: string) {
+  for (const group of buildConfigGroups({})) {
+    const item = group.items.find((i) => i.label === label);
+    if (item) return item;
+  }
+  throw new Error(`config item not found: ${label}`);
+}
+
+test("read hints toggle defaults on and the first toggle disables it", () => {
+  const item = findItem("Read hints");
+  assert.equal(item.path, "wishcraft.readHints");
+  assert.equal(item.default, true);
+  // Unset (absent) value renders as enabled.
+  assert.equal(displayValue(item, null), "on");
+  // First toggle writes false, disabling read hints.
+  assert.equal(nextToggleValue(item, null), false);
+  // Toggling back on.
+  assert.equal(nextToggleValue(item, false), true);
+});
+
+test("a normal toggle defaults off and the first toggle enables it", () => {
+  const item = findItem("Hooks enabled");
+  assert.notEqual(item.default, true);
+  assert.equal(displayValue(item, null), "off");
+  assert.equal(nextToggleValue(item, null), true);
+});
+
+test("displayValue renders absent/empty values", () => {
+  const toggle = findItem("Hooks enabled");
+  assert.equal(displayValue(toggle, true), "on");
+  assert.equal(displayValue(toggle, false), "off");
+  const text = findItem("Currency");
+  assert.equal(displayValue(text, null), "—");
+  assert.equal(displayValue(text, "EUR"), "EUR");
+});
 
 test("isUnsafeConfigKey blocks prototype-pollution segments", () => {
   assert.equal(isUnsafeConfigKey("__proto__"), true);
