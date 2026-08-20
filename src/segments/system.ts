@@ -180,7 +180,21 @@ export function countListeningPorts(includeUdp = false, host?: string): number {
     return host ? -1 : readProcListeningPorts(includeUdp);
   }
 
-  const lines = out
+  return parseListeningPortsFromText(out).size;
+}
+
+/**
+ * Pure port-count parser shared by `countListeningPorts`. Accepts `ss` and
+ * `netstat` output. The port separator is `:` on Linux/`ss`/`lsof` but `.` on
+ * macOS `netstat` (`*.5900`, `127.0.0.1.631`); matching both keeps the
+ * open-ports segment honest on macOS.
+ *
+ * ponytail: assumes LISTEN rows always carry a port on the local-address
+ * column; a bare IPv4 with no port (not emitted by LISTEN output) would
+ * false-match the `.<digits>` form.
+ */
+export function parseListeningPortsFromText(text: string): Set<number> {
+  const lines = text
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
@@ -189,14 +203,14 @@ export function countListeningPorts(includeUdp = false, host?: string): number {
   for (const line of lines.slice(start)) {
     // ss/netstat put the local address at different columns; take the first addr:port token
     for (const col of line.split(/\s+/)) {
-      const m = /:(\d+)$/.exec(col);
+      const m = /(?::|\.)(\d+)$/.exec(col);
       if (m) {
         ports.add(Number(m[1]));
         break;
       }
     }
   }
-  return ports.size;
+  return ports;
 }
 
 function readProcListeningPorts(includeUdp: boolean): number {
@@ -259,7 +273,7 @@ export function parseOpenPortProcesses(text: string): OpenPortProcess[] {
     // numeric Recv-Q there. That tells us which local-address column to use.
     const isSsRow = !/^\d+$/.test(tokens[1] ?? "");
     const local = isSsRow ? tokens[4] : tokens[3];
-    const portMatch = local ? /:(\d+)$/.exec(local) : null;
+    const portMatch = local ? /(?::|\.)(\d+)$/.exec(local) : null;
     if (!portMatch) continue;
 
     let process: string | null = null;
@@ -275,7 +289,7 @@ export function parseOpenPortProcesses(text: string): OpenPortProcess[] {
     entries.push({
       port: Number(portMatch[1]),
       proto: tokens[0].toLowerCase().startsWith("udp") ? "udp" : "tcp",
-      address: local.replace(/:(\d+)$/, ""),
+      address: local.replace(/(?::|\.)(\d+)$/, ""),
       process,
     });
   }

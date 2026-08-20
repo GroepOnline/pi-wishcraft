@@ -21,13 +21,6 @@ export function buildPowerlineMenuItems(): PowerlineMenuNode[] {
         { id: "ports", label: "Open ports", description: "Full listening list" },
         { id: "tps", label: "TPS detail", description: "Live 1s window or override" },
         { id: "toggle", label: "Toggle powerline", description: "Use /powerline to enable or disable" },
-        { id: "cpu", label: "CPU usage", description: "Current process CPU usage" },
-        { id: "memory", label: "Memory usage", description: "Current process memory" },
-        { id: "network", label: "Network status", description: "Network interface status" },
-        { id: "uptime", label: "System uptime", description: "Host uptime" },
-        { id: "version", label: "Version info", description: "Runtime and application versions" },
-        { id: "logs", label: "Recent logs", description: "Show recent status messages" },
-        { id: "diagnostics", label: "Diagnostics", description: "Run powerline diagnostics" },
       ],
     },
   ];

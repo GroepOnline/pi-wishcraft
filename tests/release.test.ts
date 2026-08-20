@@ -23,6 +23,9 @@ import {
 } from "../scripts/release.mjs";
 
 const root = join(import.meta.dirname, "..");
+const pkgVersion = JSON.parse(
+  readFileSync(join(root, "package.json"), "utf8"),
+).version as string;
 
 // A stub `npm` that never touches the network. Behavior is driven by env
 // vars so a single stub script works for every scenario below:
@@ -447,7 +450,7 @@ function runGithubReleaseScript(
   binDir: string,
   extraEnv: Record<string, string | undefined> = {},
 ) {
-  return spawnSync("sh", [join(root, "scripts/github-release.sh"), "0.22.2"], {
+  return spawnSync("sh", [join(root, "scripts/github-release.sh"), pkgVersion], {
     cwd: root,
     encoding: "utf8",
     env: {
@@ -486,7 +489,10 @@ test("github-release.sh creates a Release when the tag has none", () => {
       STUB_CREATE_MARKER: marker,
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /Created GitHub release v0\.22\.2/);
+    assert.match(
+      result.stdout,
+      new RegExp(`Created GitHub release v${pkgVersion.replaceAll(".", "\\.")}`),
+    );
     assert.equal(existsSync(marker), true, "create should run");
     assert.match(readFileSync(marker, "utf8"), /POST /);
   } finally {

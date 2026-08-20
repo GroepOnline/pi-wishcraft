@@ -96,6 +96,11 @@ let cachedAt = 0;
 let cachedEntries: SkillEntry[] | null = null;
 let cachedPathMap: Map<string, string> | null = null;
 let cachedCwd: string | null = null;
+let onCacheInvalidated: (() => void) | null = null;
+
+export function setSkillCacheInvalidationHandler(handler: (() => void) | null): void {
+  onCacheInvalidated = handler;
+}
 
 const usageCache = new Map<string, SkillUsage>();
 let usageLoaded = false;
@@ -106,6 +111,7 @@ export function invalidateSkillCache(): void {
   cachedEntries = null;
   cachedPathMap = null;
   cachedCwd = null;
+  onCacheInvalidated?.();
 }
 
 /** Legacy prompts/loose-md dirs die inline-invocation altijd al scanden. */

@@ -5,6 +5,21 @@
 ### Fixed
 - Release workflow creates a GitHub Release for each tag so the Releases page Latest matches npm.
 
+## [0.23.1] - 2026-08-20
+
+### Fixed
+- Per-segment fault isolation: a throwing custom `command` segment shows `!id` instead of blanking the footer.
+- `open_ports` parses macOS netstat dot-separated local addresses (`*.5900`, `127.0.0.1.631`).
+
+## [0.23.0] - 2026-08-20
+
+### Added
+- `powerline.skills.count` status export, published on session start and after skill-cache invalidation.
+- Read-tool continuation hints on partial core `read` results when the core output omits a range or offset summary.
+
+### Changed
+- Powerline Status menu keeps only ports, TPS, and toggle (removed unimplemented diagnostics entries).
+
 ## [0.22.2] - 2026-08-20
 
 ### Fixed
