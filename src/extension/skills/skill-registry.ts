@@ -407,6 +407,23 @@ export function readSkillBody(path: string): string {
   }
 }
 
+export function readSkillBodyStrict(path: string): string {
+  return stripFrontmatter(readFileSync(path, "utf8")).trim();
+}
+
+export function insertSkillBody(
+  ctx: any,
+  skillName: string,
+  body: string,
+  appendedText = "",
+): void {
+  const chunk = appendedText.trim() ? `${body.trim()}\n\n${appendedText.trim()}` : body.trim();
+  const current = ctx.ui.getEditorText?.() ?? "";
+  const separator = current && !current.endsWith("\n") ? "\n\n" : current ? "\n" : "";
+  ctx.ui.setEditorText(`${current}${separator}${chunk}\n`);
+  recordSkillUsage(skillName);
+}
+
 /** Compat-export: catalogus als ouderwets SkillInfo[] (manager v1 API). */
 export function listSkills(): { name: string; description: string; path: string; source: string }[] {
   return loadSkillCatalog().map((e) => ({

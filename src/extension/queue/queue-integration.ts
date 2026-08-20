@@ -389,7 +389,7 @@ export function findNextIdea(
     .filter((candidate) => candidate.intent === "idea");
   return (
     ideas.find((candidate) => candidate.reviewStatus !== "done") ??
-    ideas[0] ??
+    null ??
     null
   );
 }
