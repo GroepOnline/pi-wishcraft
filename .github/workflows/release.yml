@@ -10,8 +10,10 @@ on:
     tags:
       - "v*"
 
+# One lock for main bump and tag publish so they cannot both pass the
+# "version missing" check and then collide on npm's immutable versions.
 concurrency:
-  group: release-${{ github.ref }}
+  group: npm-publish-pi-wishcraft
   cancel-in-progress: false
 
 jobs:
@@ -27,7 +29,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +39,10 @@ jobs:
           node-version: 24
           cache: npm
           registry-url: "https://registry.npmjs.org"
+      - name: Sync to origin/main
+        run: |
+          git fetch origin main --tags --force
+          git reset --hard origin/main
       - name: Install devDependencies
         run: npm ci --ignore-scripts
       - name: Typecheck
@@ -48,8 +53,6 @@ jobs:
         run: npm run verify:package
       - name: Cut release tag
         run: |
-          git fetch origin main --tags --force
-          git reset --hard origin/main
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           node scripts/release.mjs auto --push
@@ -66,7 +69,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

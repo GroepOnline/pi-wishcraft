@@ -71,13 +71,13 @@ start a second run.
 
 1. `actions/checkout@v4` (`fetch-depth: 0`, `fetch-tags: true`)
 2. `actions/setup-node@v4` (node 24, `registry-url: https://registry.npmjs.org`)
-3. `npm ci --ignore-scripts` (installs devDependencies incl. `typescript`)
-4. `npm run typecheck` (tsc)
-5. `npm test` (node test runner)
-6. `npm run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
-7. `node scripts/release.mjs auto --push` (main only)
-8. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`
-9. Echoes the Pi catalog URLs (npm, pi.dev detail page, `?name=wishcraft`, `?name=groeponline`) for post-publish confirmation
+3. Fetch and `git reset --hard origin/main` (bump job only; tests the tree that will be tagged)
+4. `npm ci --ignore-scripts` (installs devDependencies incl. `typescript`)
+5. `npm run typecheck` (tsc)
+6. `npm test` (node test runner)
+7. `npm run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
+8. `node scripts/release.mjs auto --push` (main only)
+9. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` (fail-closed `npm view`, idempotent skip, then the Pi catalog URLs)
 
 `NPM_TOKEN` is the GroepOnline **org** Actions secret (publish rights to the
 `@groeponline` scope). This repo has no override; Actions inherits the org
@@ -137,7 +137,7 @@ A release is "done" when all four hold: local green, tag on origin, CI
 ## Versioning
 
 Feature PRs **do not bump** `package.json`. They stay on the last published npm
-version (today: `0.18.0`) and append under `## [Unreleased]` in `CHANGELOG.md`.
+version (today: `0.19.0`) and append under `## [Unreleased]` in `CHANGELOG.md`.
 The bump happens on `main` in the release workflow, not in the feature PR.
 
 Never bump in the same PR as the feature work. Never tag from a stacked

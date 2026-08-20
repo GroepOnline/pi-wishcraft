@@ -14,6 +14,7 @@ import { join } from "node:path";
 import {
   bump,
   chooseBump,
+  existingTagAction,
   parseLatestVersionTag,
   resolveReleaseVersion,
   shouldSkipRelease,
@@ -29,11 +30,25 @@ const root = join(import.meta.dirname, "..");
 const STUB_NPM = `#!/bin/sh
 case "$1" in
   view)
-    exit "\${STUB_NPM_VIEW_EXIT:-0}"
+    if [ "\${STUB_NPM_VIEW_EXIT:-0}" -eq 0 ]; then
+      echo "1.2.3"
+      exit 0
+    fi
+    if [ "\${STUB_NPM_VIEW_KIND:-404}" = "404" ]; then
+      echo "npm error code E404" >&2
+      echo "npm error 404 Not Found - GET https://registry.npmjs.org/missing" >&2
+      exit 1
+    fi
+    echo "npm error code E500" >&2
+    echo "network timeout" >&2
+    exit 1
     ;;
   publish)
     if [ -n "\${STUB_NPM_PUBLISH_MARKER:-}" ]; then
       : > "$STUB_NPM_PUBLISH_MARKER"
+    fi
+    if [ -n "\${STUB_NPM_PUBLISH_ERR:-}" ]; then
+      printf '%s\n' "$STUB_NPM_PUBLISH_ERR" >&2
     fi
     exit "\${STUB_NPM_PUBLISH_EXIT:-0}"
     ;;
@@ -48,7 +63,10 @@ function withStubNpmProject(pkgVersion: string) {
   const binDir = mkdtempSync(join(tmpdir(), "pi-wishcraft-npm-publish-bin-"));
   writeFileSync(
     join(projectDir, "package.json"),
-    JSON.stringify({ version: pkgVersion }),
+    JSON.stringify({
+      name: "@groeponline/pi-wishcraft",
+      version: pkgVersion,
+    }),
   );
   const npmStubPath = join(binDir, "npm");
   writeFileSync(npmStubPath, STUB_NPM);
@@ -118,6 +136,12 @@ test("resolveReleaseVersion maps auto from subjects onto the current version", (
   });
 });
 
+test("existingTagAction fails closed on a colliding next tag unless this tree is already that release", () => {
+  assert.equal(existingTagAction("0.19.0", "0.19.1", false), "cut");
+  assert.equal(existingTagAction("0.19.1", "0.19.1", true), "already-cut");
+  assert.equal(existingTagAction("0.19.0", "0.19.1", true), "collision");
+});
+
 test("parseLatestVersionTag picks the highest vX.Y.Z tag", () => {
   assert.equal(parseLatestVersionTag([]), null);
   assert.equal(parseLatestVersionTag(["v0.9.0", "v0.18.0", "v0.10.0"]), "v0.18.0");
@@ -185,15 +209,68 @@ test("npm-publish.sh echoes the Pi catalog URLs after a successful skip or publi
   }
 });
 
+test("npm-publish.sh fails closed when npm view errors for any reason other than not-found", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("9.9.9");
+  try {
+    const marker = join(binDir, "publish-called");
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_VIEW_KIND: "error",
+      STUB_NPM_PUBLISH_MARKER: marker,
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /not publishing/);
+    assert.equal(existsSync(marker), false, "npm publish should not run");
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh treats cannot-publish-over-existing as a successful skip", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("3.3.3");
+  try {
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_PUBLISH_EXIT: "1",
+      STUB_NPM_PUBLISH_ERR:
+        "You cannot publish over the previously published versions",
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /3\.3\.3 is already on npm; skip publish/);
+    assert.match(result.stdout, /npm: https:\/\/www\.npmjs\.com\/package\/@groeponline\/pi-wishcraft/);
+  } finally {
+    cleanup();
+  }
+});
+
 test("npm-publish.sh fails and skips the catalog URLs when npm publish fails", () => {
   const { projectDir, binDir, cleanup } = withStubNpmProject("8.0.0");
   try {
     const result = runNpmPublishScript(projectDir, binDir, {
       STUB_NPM_VIEW_EXIT: "1",
       STUB_NPM_PUBLISH_EXIT: "1",
+      STUB_NPM_PUBLISH_ERR: "EPERM forbidden",
     });
     assert.notEqual(result.status, 0);
     assert.doesNotMatch(result.stdout, /npm: https:\/\/www\.npmjs\.com/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh reads the package name from package.json", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("1.0.0");
+  try {
+    writeFileSync(
+      join(projectDir, "package.json"),
+      JSON.stringify({ name: "@tmp/widget", version: "1.0.0" }),
+    );
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "0",
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /npm: https:\/\/www\.npmjs\.com\/package\/@tmp\/widget/);
+    assert.doesNotMatch(result.stdout, /@groeponline\/pi-wishcraft/);
   } finally {
     cleanup();
   }
@@ -219,19 +296,23 @@ test(".github/workflows/release.yml publishes via npm-publish.sh from both the b
   assert.doesNotMatch(workflow, /NPM_TOKEN is missing/);
 });
 
-test(".github/workflows/release.yml grants id-token: write and configures the npm registry for both jobs", () => {
+test(".github/workflows/release.yml does not grant id-token write and configures the npm registry for both jobs", () => {
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
-  const idTokenGrants = workflow.match(/id-token: write/g) ?? [];
-  assert.equal(idTokenGrants.length, 2);
+  assert.doesNotMatch(workflow, /id-token:\s*write/);
   const registryUrls = workflow.match(/registry-url: "https:\/\/registry\.npmjs\.org"/g) ?? [];
   assert.equal(registryUrls.length, 2);
+  assert.match(workflow, /group: npm-publish-pi-wishcraft/);
 });
 
-test(".github/workflows/release.yml runs the bump job's tag step before publishing", () => {
+test(".github/workflows/release.yml tests origin/main after reset and before tagging", () => {
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  const resetIndex = workflow.indexOf("git reset --hard origin/main");
+  const testIndex = workflow.indexOf("run: npm test");
   const tagIndex = workflow.indexOf("node scripts/release.mjs auto --push");
   const publishIndex = workflow.indexOf("run: sh scripts/npm-publish.sh");
-  assert.ok(tagIndex > -1, "expected the tag step to still run in the bump job");
+  assert.ok(resetIndex > -1, "expected the bump job to reset to origin/main");
+  assert.ok(testIndex > resetIndex, "tests must run on the origin/main tree");
+  assert.ok(tagIndex > testIndex, "tag step must come after tests");
   assert.ok(publishIndex > tagIndex, "publish step must come after the tag step");
 });
 
