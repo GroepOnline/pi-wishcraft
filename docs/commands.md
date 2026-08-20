@@ -18,8 +18,8 @@ Commands and capture shortcuts:
 - `/compact <text>`: compact now and queue `<text>` as the next prompt after successful compaction
 - `/idea [@target] <text>`: command form of idea capture, useful for scripts and users who disable the sigil
 - `/idea issue [id]`: hand the oldest active idea, or a specific idea, to the current agent for safe GitHub issue triage
-- `/ideas`: open the captured-ideas picker
-- `/ideas next`: send the oldest active idea to the current session
+- `/ideas`: open the idea-review overlay (status, tags, run with skill)
+- `/ideas next`: send the oldest active idea that is not review-done
 - `/ideas issue [id]`: ask the current agent to dedupe and file a GitHub issue only when the target repo is clear and owned/controlled
 - `/ideas send <id>`: send an idea to the current session
 - `/queue`: open the queued-prompt picker
@@ -55,7 +55,7 @@ Set `captureSigil` to `false` if you often submit markdown headings and prefer `
 }
 ```
 
-Captured data is stored under the Pi agent directory in `powerline-footer/inbox.jsonl` and `powerline-footer/projects.json`. `inbox.jsonl` is a stable read surface for orchestrators and helper agents; each line is a queue item with `id`, `text`, `createdAt`, `updatedAt`, `source`, `target`, `intent`, `status`, and optional `error`. Writes should still go through Powerline commands or the store so locking and atomic writes are preserved. Ideas sent with `/ideas next` or `/ideas send <id>` include a small provenance header so the receiving agent can treat them as deferred captured context. `/idea issue` and `/ideas issue` do not file issues directly from the extension; they send a guarded handoff prompt that tells the current agent to dedupe open issues first, create a GitHub issue only for a clear owned/controlled repo, and ask before filing when the target is unclear.
+Captured data is stored under the Pi agent directory in `powerline-footer/inbox.jsonl` and `powerline-footer/projects.json`. `inbox.jsonl` is a stable read surface for orchestrators and helper agents; each line is a queue item with `id`, `text`, `createdAt`, `updatedAt`, `source`, `target`, `intent`, `status`, optional `error`, and for ideas optional `reviewStatus` (`idea` | `in-progress` | `done`) and `tags`. Legacy lines without those fields still parse. Writes should still go through Powerline commands or the store so locking and atomic writes are preserved. Ideas sent with `/ideas next` or `/ideas send <id>` include a small provenance header so the receiving agent can treat them as deferred captured context. `/ideas` opens the review overlay (same chrome as `/skills`): set review status and tags, or **Run with skill X** to insert the skill body plus the idea into the editor. The welcome queue widget shows the next idea and `/ideas next`; welcome dismisses on any key, so that widget does not bind enter-to-send. `/idea issue` and `/ideas issue` do not file issues directly from the extension; they send a guarded handoff prompt that tells the current agent to dedupe open issues first, create a GitHub issue only for a clear owned/controlled repo, and ask before filing when the target is unclear.
 
 ### Placement
 

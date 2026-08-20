@@ -18,6 +18,7 @@ export interface WelcomeData {
   initialContextTokens: number | null;
   queueCount?: number;
   hasStash?: boolean;
+  nextIdeaText?: string;
   whatsNew?: string[];
 }
 

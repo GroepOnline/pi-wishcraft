@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { getAgentPath } from "../src/paths/agent-dirs.ts";
 import type {
   CreateQueueItemInput,
+  IdeaReviewStatus,
   PowerlineQueueItem,
   QueueAliasMap,
   QueueContext,
@@ -19,7 +20,7 @@ import type {
   QueueSummary,
   QueueTarget,
 } from "./types.ts";
-import { ACTIVE_QUEUE_STATUSES } from "./types.ts";
+import { ACTIVE_QUEUE_STATUSES, IDEA_REVIEW_STATUSES } from "./types.ts";
 
 const STORE_DIR = "powerline-footer";
 const INBOX_FILE = "inbox.jsonl";
@@ -77,6 +78,30 @@ function normalizeStatus(value: unknown): QueueStatus | null {
     : null;
 }
 
+function normalizeReviewStatus(value: unknown): IdeaReviewStatus | undefined {
+  return IDEA_REVIEW_STATUSES.includes(value as IdeaReviewStatus)
+    ? (value as IdeaReviewStatus)
+    : undefined;
+}
+
+const MAX_IDEA_TAGS = 8;
+const MAX_TAG_CHARS = 32;
+
+export function normalizeIdeaTags(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const tag = entry.trim().slice(0, MAX_TAG_CHARS);
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    tags.push(tag);
+    if (tags.length >= MAX_IDEA_TAGS) break;
+  }
+  return tags.length > 0 ? tags : undefined;
+}
+
 function normalizeItem(value: unknown): PowerlineQueueItem | null {
   if (!isRecord(value)) return null;
   if (typeof value.id !== "string" || !value.id.trim()) return null;
@@ -99,6 +124,9 @@ function normalizeItem(value: unknown): PowerlineQueueItem | null {
 
   const sessionId = normalizeOptionalString(value.source.sessionId);
   const error = normalizeOptionalString(value.error);
+  const reviewStatus =
+    intent === "idea" ? normalizeReviewStatus(value.reviewStatus) : undefined;
+  const tags = intent === "idea" ? normalizeIdeaTags(value.tags) : undefined;
 
   return {
     id: value.id.trim(),
@@ -112,6 +140,8 @@ function normalizeItem(value: unknown): PowerlineQueueItem | null {
     intent,
     status,
     ...(error ? { error } : {}),
+    ...(reviewStatus ? { reviewStatus } : {}),
+    ...(tags ? { tags } : {}),
   };
 }
 
@@ -142,6 +172,12 @@ export function createQueueItem(
 ): PowerlineQueueItem {
   const now = input.now ?? Date.now();
   const sourceSessionId = input.source.sessionId?.trim();
+  const reviewStatus =
+    input.intent === "idea"
+      ? (input.reviewStatus ?? "idea")
+      : undefined;
+  const tags =
+    input.intent === "idea" ? normalizeIdeaTags(input.tags) : undefined;
   return {
     id: randomUUID().slice(0, 8),
     text: input.text,
@@ -153,6 +189,8 @@ export function createQueueItem(
     target: normalizeTarget(input.target) ?? input.target,
     intent: input.intent,
     status: input.status ?? "queued",
+    ...(reviewStatus ? { reviewStatus } : {}),
+    ...(tags ? { tags } : {}),
   };
 }
 
