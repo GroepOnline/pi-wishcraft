@@ -89,10 +89,10 @@ Niet de fork. Niet de SaaS-agent.
   manager v2 UI gingen mee in #12, eerder dan deze sectie beloofde.
   Done = npm 0.19.2 live, `/skills` filtert, `$test` expandeert geen
   debris, verify-trio groen op de tag.
-- **0.20.0 — "Harness"**. Overlay-chrome + CHE-42 drill-down, Configure
-  uit `ctx.ui.select`, token-overlays, rest-repairs, README-hooks die
-  waar zijn. Done = drie README-hookvoorbeelden werken, repair-teller
-  zichtbaar, `alt+p` overlay-boom, `/tps` deelt de ring met het segment.
+- **0.20.0–0.22 — "Harness"** (0.20.0 + 0.21.0 op npm; leftovers in GRO-1414).
+  Overlay-chrome + CHE-42 drill-down, Configure als SelectList, token-overlays,
+  rest-repairs, README-hooks. Done = drie README-hookvoorbeelden, repair-teller,
+  `alt+p` overlay-boom, `/tps` deelt de ring met het segment.
 - **1.0 — "Cockpit"**. Skills-doctor/install, declaratieve policy,
   preset-editor, idee-review, stabiele ChefGroep-statuskeys,
   documentatie die waar is. Done = README dekt alles wat we shipten,
@@ -172,13 +172,9 @@ GRO-1061 (runner-queue) is ops, geen product-slice.
 
 ## 0.20.0 — Harness
 
-Vier stacked PRs. 0.19.2 staat op npm. Hooks, repairs-subset en
-skills-manager v2 UI zijn al op `main` (#12). Op `feat/complete-wishcraft-backlog`
-(reopen #13) landen nu de unieke 0.20-expansies bovenop CHE-42 (#19):
-`/powerline doctor` + `export`, queue-archive + retention (P1 single-clock),
-`customItems.auto`, fleet-SSH `openPorts.host`, what's-new welcome widget,
-cost-alert, bash editor-history split, `docs/` guides, custom-preset builder in
-Configure. Nog open: token-overlays, rest-repairs, README-hookvoorbeelden.
+Vier stacked PRs. 0.20.0 (#19) en 0.21.0 (#13) staan op npm. CHE-42
+Configure-overlay, doctor/export, queue-archive en `docs/` zijn geland.
+GRO-1414 sluit README-hooks, rest-repairs, `/tps`+`/usage`, substring-filter.
 
 Overlay-chrome kit, één keer, daarna hergebruiken: box + ronde hoeken,
 accent-kop, dim metadata, rechts uitgelijnde counts, `→` detail /
@@ -186,7 +182,7 @@ accent-kop, dim metadata, rechts uitgelijnde counts, `→` detail /
 skills v2; tweede = `/usage`; derde = queue/idea. Pure render-
 functies, geen `ctx.ui`-mock.
 
-### PR E — hooks — ✅ geland in `feat/wishcraft-0.19` (`src/extension/hooks/`, `/repairs` stats-command; README-voorbeelden volgen in de release-PR)
+### PR E — hooks — ✅ geland in `feat/wishcraft-0.19`; README-voorbeelden in GRO-1414
 
 Settings: `wishcraft.hooks` met events
 `preToolUse | postToolUse | sessionStart | turnEnd`. Per hook
@@ -201,7 +197,7 @@ Done: `parseHookOutput` unit-testen. README met drie werkende
 voorbeelden: bash-guard (`rm -rf /` blokkeren), write-audit
 (append-only log), SessionStart git-status injectie.
 
-### PR F — tool-input repairs — ✅ geland in `feat/wishcraft-0.19` (schema-loze subset: null-for-optional + auto-link unwrap; schema-afhankelijke repairs wachten op validator-issues in pi core)
+### PR F — tool-input repairs — ✅ schema-loze subset in 0.19; rest (JSON-array, `{}`, bare-wrap, path aliases) in GRO-1414. Core tools blijven met rust.
 
 `tool_call`-handler repareert bekende malformaties vóór executie
 (mutable input). Volgorde vast: json-parse vóór bare-wrap.
@@ -308,7 +304,8 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 | GRO-1061 CI queue | Ops, niet deze roadmap. |
 | CHE-40 `/powerline` tab | Done (#18 / 0.19.2). |
 | CHE-41 per-segment detail | 1.0. Ticket hernoemd; geen tweede `alt+i`-pad. |
-| CHE-42 drill-down | In Progress. #19 = drie top-level overlays + Status. Configure-overlay volgt. |
+| CHE-42 drill-down | Done (#19 + Configure in #13). |
+| GRO-1414 0.20 leftovers | In Progress. Hooks docs, rest-repairs, `/tps` `/usage`, substring filter. |
 
 Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
 die package nog leeft.
@@ -331,8 +328,8 @@ die package nog leeft.
 
 ## Residual risks
 
-- `SelectList.setFilter` matcht alleen prefix op `value`. 0.19
-  accepteert dat; 0.20 vervangt het.
+- `SelectList.setFilter` matcht alleen prefix op `value`. Overlay-chrome
+  filtert zelf op substring (GRO-1414). Skills-manager had dat al.
 - `npm deprecate` van de oude naam faalt tot de scope-owner het
   token verruimt. Gebruikers die `pi-powerline-footer` installeren
   blijven op 0.17.2.

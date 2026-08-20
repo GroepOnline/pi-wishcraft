@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+- `/tps` overlay reads the same 1s/5s ring as the segment; `/usage` shows session / today / week from `wishcraft-usage.json`.
+- Rest of the tool-input repairs on custom tools: JSON-string arrays, `{}` placeholders, bare-string wrap, and path aliases.
+- README hook examples (bash-guard, write-audit, SessionStart git-status) plus `wishcraft.hooksEnabled` kill-switch docs.
+- Overlay type-to-filter uses substring on label, value, and description.
+- `wishcraft.tokenBudget.daily` colours the cost segment at 80%/100% and warns on welcome; it never blocks.
+
 ## [0.21.0] - 2026-08-20
 
 ### Added

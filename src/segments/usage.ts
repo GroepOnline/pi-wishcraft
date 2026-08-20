@@ -1,6 +1,7 @@
 import type { StatusLineSegment } from "../config/types.ts";
 import { getIcons } from "../theme/icons.ts";
 import { formatUsdCost } from "../usage/rates.ts";
+import { costColorForBudget, tokenBudgetLevel } from "../usage/token-budget.ts";
 import { color, withIcon, formatTokens } from "./shared.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -56,25 +57,30 @@ export const costSegment: StatusLineSegment = {
 
     const reportedCost =
       cost > 0 ? formatUsdCost(cost, ctx.options.cost?.currency) : null;
+    const budgetLevel = tokenBudgetLevel(
+      ctx.tokenBudget?.dailyUsed ?? 0,
+      ctx.tokenBudget?.dailyLimit ?? null,
+    );
+    const costColor = costColorForBudget(budgetLevel.level);
     if (!usingSubscription) {
       return reportedCost
-        ? { content: color(ctx, "cost", reportedCost), visible: true }
+        ? { content: color(ctx, costColor, reportedCost), visible: true }
         : { content: "", visible: false };
     }
 
     const subscriptionDisplay =
       ctx.options.cost?.subscriptionDisplay ?? "subscription";
     if (subscriptionDisplay === "reported-cost" && reportedCost) {
-      return { content: color(ctx, "cost", reportedCost), visible: true };
+      return { content: color(ctx, costColor, reportedCost), visible: true };
     }
     if (subscriptionDisplay === "both" && reportedCost) {
       return {
-        content: color(ctx, "cost", `${reportedCost} (sub)`),
+        content: color(ctx, costColor, `${reportedCost} (sub)`),
         visible: true,
       };
     }
 
-    return { content: color(ctx, "cost", "(sub)"), visible: true };
+    return { content: color(ctx, costColor, "(sub)"), visible: true };
   },
 };
 

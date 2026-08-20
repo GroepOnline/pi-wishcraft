@@ -259,6 +259,9 @@ export interface SegmentContext {
   /** Per-segment custom text labels (from powerline.segmentLabels). */
   segmentLabels: ReadonlyMap<string, string>;
 
+  /** Daily token budget progress (wishcraft.tokenBudget.daily). */
+  tokenBudget?: { dailyLimit: number | null; dailyUsed: number };
+
   // Theming
   theme: ThemeLike;
   colors: ColorScheme;

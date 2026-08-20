@@ -48,84 +48,13 @@ import {
   selectIndexForValue,
   validatePresetName,
 } from "./menu-items.ts";
+import { overlaySelectListTheme, showSelectOverlay } from "./overlay-chrome.ts";
+import { showTpsOverlay } from "./token-overlays.ts";
+
+export { overlaySelectListTheme, showSelectOverlay } from "./overlay-chrome.ts";
 
 /** How often the open segment navigator re-reads live segment state. */
 const SEGMENT_NAVIGATOR_REFRESH_MS = 1000;
-
-export function overlaySelectListTheme(theme: Theme) {
-  return {
-    selectedPrefix: (text: string) => theme.fg("accent", text),
-    selectedText: (text: string) => theme.fg("accent", text),
-    description: (text: string) => theme.fg("muted", text),
-    scrollInfo: (text: string) => theme.fg("dim", text),
-    noMatch: (text: string) => theme.fg("warning", text),
-  };
-}
-
-export async function showSelectOverlay(
-  ctx: any,
-  title: string,
-  hint: string,
-  items: SelectItem[],
-  maxVisible: number,
-): Promise<SelectItem | null> {
-  return ctx.ui.custom(
-    (
-      tui: any,
-      theme: Theme,
-      _keybindings: any,
-      done: (result: SelectItem | null) => void,
-    ) => {
-      const selectList = new SelectList(
-        items,
-        maxVisible,
-        overlaySelectListTheme(theme),
-      );
-      const border = (text: string) => theme.fg("dim", text);
-      const wrapRow = (text: string, innerWidth: number): string => {
-        return `${border("│")}${truncateToWidth(text, innerWidth, "…", true)}${border("│")}`;
-      };
-
-      selectList.onSelect = (item) => done(item);
-      selectList.onCancel = () => done(null);
-
-      return {
-        render: (width: number) => {
-          const innerWidth = Math.max(1, width - 2);
-          const lines: string[] = [];
-
-          lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
-          lines.push(
-            wrapRow(theme.fg("accent", theme.bold(title)), innerWidth),
-          );
-          lines.push(border(`├${"─".repeat(innerWidth)}┤`));
-
-          for (const line of selectList.render(innerWidth)) {
-            lines.push(wrapRow(line, innerWidth));
-          }
-
-          lines.push(border(`├${"─".repeat(innerWidth)}┤`));
-          lines.push(wrapRow(theme.fg("dim", hint), innerWidth));
-          lines.push(border(`╰${"─".repeat(innerWidth)}╯`));
-
-          return lines;
-        },
-        invalidate: () => selectList.invalidate(),
-        handleInput: (data: string) => {
-          selectList.handleInput(data);
-          tui.requestRender();
-        },
-      };
-    },
-    {
-      overlay: true,
-      overlayOptions: () => ({
-        verticalAlign: "center",
-        horizontalAlign: "center",
-      }),
-    },
-  );
-}
 
 /** Full open-ports list as a scrollable overlay (the Info view). */
 export async function showOpenPortsList(ctx: any): Promise<void> {
@@ -190,15 +119,21 @@ export async function configurePowerline(
   if (!choice) return;
   if (choice === "Change preset") {
     const names = Object.keys(PRESETS) as StatusLinePreset[];
-    const picked = await ctx.ui.select("Preset", names);
+    const picked = await showSelectOverlay(
+      ctx,
+      "Preset",
+      "↑↓ navigate · enter apply · esc back",
+      names.map((name) => ({ label: name, value: name })),
+      Math.min(names.length, 12),
+    );
     if (picked) {
-      setConfig({ ...config, preset: picked as StatusLinePreset });
+      setConfig({ ...config, preset: picked.value as StatusLinePreset });
       writePowerlinePresetSetting(
-        picked as StatusLinePreset,
+        picked.value as StatusLinePreset,
         ctx.cwd ?? process.cwd(),
       );
-      publishPowerlineStatuses(ctx, { preset: picked });
-      ctx.ui.notify(`Preset: ${picked} (saved)`, "info");
+      publishPowerlineStatuses(ctx, { preset: picked.value });
+      ctx.ui.notify(`Preset: ${picked.value} (saved)`, "info");
       requestImmediateStatusRender(rt, { deferDuringTyping: false });
     }
     return;
@@ -346,9 +281,15 @@ export async function runPresetEditor(
   }
 
   const baseNames = Object.keys(PRESETS) as StatusLinePreset[];
-  const basePick = await ctx.ui.select("Base preset (colors + options)", baseNames);
+  const basePick = await showSelectOverlay(
+    ctx,
+    "Base preset (colors + options)",
+    "↑↓ navigate · enter select · esc cancel",
+    baseNames.map((name) => ({ label: name, value: name })),
+    Math.min(baseNames.length, 12),
+  );
   if (!basePick) return;
-  const base = getPreset(basePick);
+  const base = getPreset(basePick.value as StatusLinePreset);
 
   const all = buildCustomPresetSegmentIds(config);
   const left = await pickPresetGroup(ctx, "left", all, base.leftSegments);
@@ -363,9 +304,15 @@ export async function runPresetEditor(
   );
   if (!secondary) return;
 
-  const separator = await ctx.ui.select(
+  const separator = await showSelectOverlay(
+    ctx,
     "Separator",
-    SEPARATOR_STYLES as unknown as string[],
+    "↑↓ navigate · enter select · esc cancel",
+    (SEPARATOR_STYLES as unknown as string[]).map((name) => ({
+      label: name,
+      value: name,
+    })),
+    Math.min(SEPARATOR_STYLES.length, 12),
   );
   if (!separator) return;
 
@@ -374,7 +321,7 @@ export async function runPresetEditor(
     left,
     right,
     secondary,
-    separator as StatusLineSeparatorStyle,
+    separator.value as StatusLineSeparatorStyle,
   );
 
   const saved = writePowerlineCustomPresetSetting(
@@ -405,11 +352,7 @@ export async function activateSegment(
   const id = picked.id;
   if (id === "__none__") return;
   if (id === "tps") {
-    const current = process.env.POWERLINE_TPS || "(live, auto)";
-    ctx.ui.notify(
-      `TPS: ${current} — set via Configure or /tps <value>`,
-      "info",
-    );
+    await showTpsOverlay(rt, ctx);
     return;
   }
   if (id === "open_ports") {

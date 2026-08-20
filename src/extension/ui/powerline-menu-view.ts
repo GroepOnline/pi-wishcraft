@@ -6,6 +6,7 @@ import {
   showSegmentNavigator,
   showSelectOverlay,
 } from "./menu-views.ts";
+import { showTpsOverlay } from "./token-overlays.ts";
 import {
   assertPowerlineMenuBounds,
   type PowerlineMenuNode,
@@ -47,10 +48,7 @@ async function activatePowerlineMenuAction(
     return;
   }
   if (id === "tps") {
-    const live = process.env.POWERLINE_TPS
-      ? `(override ${process.env.POWERLINE_TPS})`
-      : "(live 1s window)";
-    ctx.ui.notify(`TPS ${live}`, "info");
+    await showTpsOverlay(rt, ctx);
     return;
   }
   if (id === "toggle") {

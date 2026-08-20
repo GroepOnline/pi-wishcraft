@@ -17,6 +17,7 @@ import {
   writePowerlinePresetSetting,
 } from "../settings/settings-io.ts";
 import { showOpenPortsList, showSelectOverlay } from "../ui/menu-views.ts";
+import { showTpsOverlay, showUsageOverlay } from "../ui/token-overlays.ts";
 import { showPowerlineMainMenu } from "../ui/powerline-menu-view.ts";
 import { openStashHistory } from "../shortcuts/shortcuts-router.ts";
 import { ensureShellSession, setBashModeActive } from "./bash-mode-actions.ts";
@@ -232,19 +233,26 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   });
 
   pi.registerCommand("tps", {
-    description: "Show or set POWERLINE_TPS value",
+    description: "Show the live TPS overlay, or set POWERLINE_TPS",
     handler: async (args, ctx) => {
       rt.currentCtx = ctx;
       const value = args?.trim();
       if (!value) {
-        const current = process.env.POWERLINE_TPS || "not set";
-        ctx.ui.notify(`TPS: ${current}`, "info");
+        await showTpsOverlay(rt, ctx);
         return;
       }
       process.env.POWERLINE_TPS = value;
       publishPowerlineStatuses(ctx, { tps: value });
       ctx.ui.notify(`TPS set to: ${value}`, "info");
       rt.tuiRef?.requestRender();
+    },
+  });
+
+  pi.registerCommand("usage", {
+    description: "Show session / today / week token usage overlay",
+    handler: async (_args, ctx) => {
+      rt.currentCtx = ctx;
+      await showUsageOverlay(rt, ctx);
     },
   });
 

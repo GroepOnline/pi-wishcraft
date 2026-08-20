@@ -5,8 +5,8 @@ The README stays a short landing page; everything below lives here.
 
 ## Guides
 
-- [Commands & interactivity](./commands.md) — `/powerline`, `/queue`, `/idea`, placement, presets, keybinds, and the navigable overlay.
-- [Configuration](./configuration.md) — custom items, custom segments, custom presets, labels, templates, layout, cost alert, and display formats.
+- [Commands & interactivity](./commands.md) — `/powerline`, `/tps`, `/usage`, `/queue`, `/idea`, placement, presets, keybinds, and the navigable overlay.
+- [Configuration](./configuration.md) — custom items, hooks, repairs, token budget, labels, templates, layout, cost alert, and display formats.
 - [Bash mode](./bash-mode.md) — sticky shell, ghost suggestions, and shell config.
 - [Stash & shortcuts](./stash-and-shortcuts.md) — editor stash, prompt history, clipboard/navigation shortcuts, and shortcut config.
 - [Skill manager](./skill-manager.md) — browsing and inserting installed skills.
