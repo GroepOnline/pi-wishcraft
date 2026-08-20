@@ -418,6 +418,7 @@ die package nog leeft.
 ## Checklist (1.0)
 
 - [ ] PR EN gemerged: operator UI/overlays/ROADMAP English. (GRO-1422)
+- [ ] PR I gemerged: `/skills doctor` tabel, geen essay. (GRO-1416)
 - [ ] PR J gemerged: vier templates, geen markt. (GRO-1417)
 - [ ] PR K gemerged: deny `sudo rm` + inject `.env` zonder spawn. (GRO-1418)
 - [ ] PR L gemerged: idee-review overlay. (GRO-1419)
