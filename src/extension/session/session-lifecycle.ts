@@ -74,6 +74,20 @@ import {
   dismissWelcome,
   scheduleDismissWelcome,
 } from "../welcome/welcome-control.ts";
+import {
+  formatSkillsCountStatusValue,
+  publishPowerlineStatuses,
+} from "../core/status-export.ts";
+import {
+  invalidateSkillCache,
+  loadSkillCatalog,
+} from "../skills/skill-registry.ts";
+import {
+  extractReadToolResultText,
+  formatReadHint,
+  shouldAppendReadHint,
+  type ReadHintDetails,
+} from "./read-hints.ts";
 
 /**
  * Fire the configured `powerline.costAlert` warning at most once per session.
@@ -196,6 +210,12 @@ export function registerSessionLifecycle(
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("stash", undefined);
+      invalidateSkillCache();
+      publishPowerlineStatuses(ctx, {
+        skillsCount: formatSkillsCountStatusValue(
+          loadSkillCatalog(ctx.cwd ?? process.cwd()).length,
+        ),
+      });
       const pendingIdeas = rt.queueStore
         .activeItems(getQueueContext(ctx))
         .filter((item) => item.intent === "idea").length;
@@ -265,6 +285,19 @@ export function registerSessionLifecycle(
     // Check for bash commands that might change git branch
     if (event.toolName === "bash" && event.input?.command) {
       invalidateGitForCommand(rt, String(event.input.command));
+    }
+    if (event.toolName === "read") {
+      const text = extractReadToolResultText(event.content);
+      const input = event.input as { offset?: number; limit?: number } | undefined;
+      const details = event.details as ReadHintDetails | undefined;
+      if (shouldAppendReadHint(input, text, details)) {
+        const hint = formatReadHint(input!, text, details);
+        if (Array.isArray(event.content)) {
+          return {
+            content: [...event.content, { type: "text", text: hint }],
+          };
+        }
+      }
     }
   });
 

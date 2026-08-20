@@ -9,6 +9,7 @@ export const POWERLINE_STATUS_KEYS = {
   preset: "powerline.preset",
   tps: "powerline.tps",
   ports: "powerline.ports",
+  skillsCount: "powerline.skills.count",
 } as const;
 
 /** Keys never rendered in powerline's own bar (they exist for other extensions). */
@@ -23,6 +24,8 @@ export interface PowerlineStatusSnapshot {
   tps?: string | undefined;
   /** open_ports count as text (`?` when a fleet host probe failed). */
   ports?: string;
+  /** Skill catalog length as a decimal string. */
+  skillsCount?: string;
 }
 
 type StatusPublisherCtx = {
@@ -47,7 +50,15 @@ export function buildPowerlineStatusExport(
   if ("ports" in snapshot) {
     entries.push([POWERLINE_STATUS_KEYS.ports, snapshot.ports]);
   }
+  if ("skillsCount" in snapshot) {
+    entries.push([POWERLINE_STATUS_KEYS.skillsCount, snapshot.skillsCount]);
+  }
   return entries;
+}
+
+/** Format a skill-catalog length for the status export. */
+export function formatSkillsCountStatusValue(count: number): string {
+  return String(count);
 }
 
 /** Publish only the snapshot keys present, via `ctx.ui.setStatus`. */

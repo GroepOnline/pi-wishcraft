@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildPowerlineStatusExport,
   formatPortsStatusValue,
+  formatSkillsCountStatusValue,
   POWERLINE_STATUS_KEYS,
   publishPowerlineStatuses,
 } from "../src/extension/core/status-export.ts";
@@ -54,4 +55,16 @@ test("formatPortsStatusValue shows ? for unknown counts", () => {
   assert.equal(formatPortsStatusValue(12), "12");
   assert.equal(formatPortsStatusValue(0), "0");
   assert.equal(formatPortsStatusValue(-1), "?");
+});
+
+test("buildPowerlineStatusExport emits skills.count as a string integer", () => {
+  assert.deepEqual(
+    buildPowerlineStatusExport({ skillsCount: "7" }),
+    [[POWERLINE_STATUS_KEYS.skillsCount, "7"]],
+  );
+});
+
+test("formatSkillsCountStatusValue stringifies catalog length", () => {
+  assert.equal(formatSkillsCountStatusValue(0), "0");
+  assert.equal(formatSkillsCountStatusValue(42), "42");
 });

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+- `powerline.skills.count` ChefGroep status export, published on session start.
+- Read-tool continuation hints on partial core `read` results when the core output omits a range summary.
+
+### Changed
+- Powerline Status menu keeps only ports, TPS, and toggle (removed unimplemented diagnostics entries).
+
 ## [0.22.2] - 2026-08-20
 
 ### Fixed
