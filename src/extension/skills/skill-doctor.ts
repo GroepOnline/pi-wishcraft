@@ -4,11 +4,13 @@
  */
 
 import { readFileSync } from "node:fs";
+import { copyToClipboard } from "@earendil-works/pi-coding-agent";
 import type { SelectItem } from "@earendil-works/pi-tui";
 
 import { showSelectOverlay } from "../ui/overlay-chrome.ts";
 import {
   getSkillUsage,
+  invalidateSkillCache,
   loadSkillCatalog,
   type SkillEntry,
   type SkillUsage,
@@ -205,6 +207,7 @@ export function skillDoctorRowsToSelectItems(
 /** Overlay table. Enter copies the selected line. */
 export async function runSkillDoctor(ctx: any): Promise<void> {
   const cwd = ctx.cwd ?? process.cwd();
+  invalidateSkillCache();
   const entries = loadSkillCatalog(cwd);
   const usage = getSkillUsage();
   const contents = new Map<string, string>();
@@ -225,5 +228,11 @@ export async function runSkillDoctor(ctx: any): Promise<void> {
     items,
     Math.min(Math.max(items.length, 1), 20),
   );
-  if (picked) ctx.ui.notify(picked.value, "info");
+  if (!picked) return;
+  try {
+    await copyToClipboard(picked.value);
+    ctx.ui.notify("Skill doctor row copied to clipboard", "info");
+  } catch {
+    ctx.ui.notify("Could not copy skill doctor row to clipboard", "warning");
+  }
 }
