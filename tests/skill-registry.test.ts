@@ -100,6 +100,35 @@ test("loadSkillCatalog categorizes global vs loose prompts and dedupes", () => {
   }
 });
 
+test("loadSkillCatalog includes core-rejected skills from diagnostics", () => {
+  const agentDir = mkdtempSync(join(tmpdir(), "wishcraft-reg-reject-"));
+  const skillDir = join(agentDir, "skills", "broken-skill");
+  mkdirSync(skillDir, { recursive: true });
+  writeFileSync(
+    join(skillDir, "SKILL.md"),
+    "---\nname: broken-skill\n---\nbody without description\n",
+  );
+  const cwd = mkdtempSync(join(tmpdir(), "wishcraft-reg-reject-cwd-"));
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  try {
+    const prevCwd = process.cwd();
+    process.chdir(cwd);
+    invalidateSkillCache();
+    const cat = loadSkillCatalog(cwd);
+    const rejected = cat.find((e) => e.name === "broken-skill");
+    assert.ok(rejected, "rejected skill surfaced via diagnostics");
+    assert.equal(rejected.filePath, join(skillDir, "SKILL.md"));
+    assert.equal(rejected.description, "");
+    assert.ok(rejected.warning?.includes("description"));
+    process.chdir(prevCwd);
+  } finally {
+    delete process.env.PI_CODING_AGENT_DIR;
+    invalidateSkillCache();
+    rmSync(agentDir, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 test("usage ledger persists across recordSkillUsage calls", async () => {
   const agentDir = mkdtempSync(join(tmpdir(), "wishcraft-usage-"));
   process.env.PI_CODING_AGENT_DIR = agentDir;
