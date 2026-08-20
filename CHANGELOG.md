@@ -2,11 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+- `/ideas` review overlay: `reviewStatus` (idea / in-progress / done), tags, and Run with skill X. Welcome queue widget shows the next idea plus `/ideas next`.
+
 ## [0.26.0] - 2026-08-20
 
 ### Added
 - `/skills new <name> [template]` writes a SKILL.md from standard, browser-workflow, CLI-workflow, or review-checklist. `ctrl+n` opens the template picker.
-- `/ideas` review overlay: `reviewStatus` (idea / in-progress / done), tags, and Run with skill X. Welcome queue widget shows the next idea plus `/ideas next`.
 
 ## [0.25.0] - 2026-08-20
 
