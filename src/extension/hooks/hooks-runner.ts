@@ -110,12 +110,20 @@ export function runHookCommand(
       finish(null);
     });
     child.on("close", (code) => finish(code));
+    // Hooks that exit before reading stdin (typical `exit 2` deny scripts)
+    // close the pipe; ignore EPIPE so the harness still records the exit code.
+    child.stdin?.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EPIPE") return;
+      stderr += String(error);
+    });
 
     try {
       child.stdin?.write(JSON.stringify(payload));
       child.stdin?.end();
-    } catch {
-      // stdin weg → hook zonder input; laat 'm zelf falen
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EPIPE") {
+        stderr += String(error);
+      }
     }
   });
 }

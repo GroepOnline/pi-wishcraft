@@ -5,7 +5,11 @@ import {
   hookMatchesTool,
   parseHooksSettings,
 } from "../src/extension/hooks/hooks-config.ts";
-import { preToolUseVerdict, type HookOutput } from "../src/extension/hooks/hooks-runner.ts";
+import {
+  preToolUseVerdict,
+  runHookCommand,
+  type HookOutput,
+} from "../src/extension/hooks/hooks-runner.ts";
 import { repairToolInput } from "../src/extension/hooks/repairs.ts";
 
 function out(partial: Partial<HookOutput>): HookOutput {
@@ -78,6 +82,20 @@ test("preToolUseVerdict: exit 2 prefers stdout permissionDecisionReason", () => 
     }),
   );
   assert.deepEqual(v, { deny: true, reason: "policy" });
+});
+
+test("runHookCommand ignores EPIPE when a deny hook exits before reading stdin", async () => {
+  const result = await runHookCommand(
+    { command: "printf 'spawned\\n' >&2; exit 2" },
+    {
+      session_id: "s",
+      cwd: process.cwd(),
+      hook_event_name: "preToolUse",
+      permission_mode: "default",
+    },
+  );
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stderrFirstLine, /spawned/);
 });
 
 test("preToolUseVerdict: allow paths do not deny", () => {
