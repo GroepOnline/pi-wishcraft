@@ -93,6 +93,12 @@ export function resolveReleaseVersion(current, kindArg, subjects) {
   return { kind, next };
 }
 
+export function existingTagAction(currentVersion, next, tagExists) {
+  if (!tagExists) return "cut";
+  if (currentVersion === next) return "already-cut";
+  return "collision";
+}
+
 function main() {
   const { flags, kind: kindArg } = parseArgs(process.argv.slice(2));
   const headSubject = git("git log -1 --pretty=%s");
@@ -115,9 +121,21 @@ function main() {
     return;
   }
 
-  if (refExists(`refs/tags/${tag}`)) {
-    console.log(`Tag ${tag} already exists; skip.`);
+  const tagAction = existingTagAction(
+    pkg.version,
+    next,
+    refExists(`refs/tags/${tag}`),
+  );
+  if (tagAction === "already-cut") {
+    console.log(
+      `Tag ${tag} already exists and package.json is ${next}; skip bump.`,
+    );
     return;
+  }
+  if (tagAction === "collision") {
+    throw new Error(
+      `Tag ${tag} already exists; refusing to bump ${pkg.version} -> ${next}.`,
+    );
   }
 
   pkg.version = next;

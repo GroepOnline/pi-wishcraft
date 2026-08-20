@@ -1,14 +1,102 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   bump,
   chooseBump,
+  existingTagAction,
   parseLatestVersionTag,
   resolveReleaseVersion,
   shouldSkipRelease,
 } from "../scripts/release.mjs";
+
+const root = join(import.meta.dirname, "..");
+
+// A stub `npm` that never touches the network. Behavior is driven by env
+// vars so a single stub script works for every scenario below:
+//   STUB_NPM_VIEW_EXIT    - exit code for `npm view` (0 = "already published")
+//   STUB_NPM_PUBLISH_EXIT - exit code for `npm publish`
+//   STUB_NPM_PUBLISH_MARKER - file path touched when `npm publish` runs
+const STUB_NPM = `#!/bin/sh
+case "$1" in
+  view)
+    if [ "\${STUB_NPM_VIEW_EXIT:-0}" -eq 0 ]; then
+      echo "1.2.3"
+      exit 0
+    fi
+    if [ "\${STUB_NPM_VIEW_KIND:-404}" = "404" ]; then
+      echo "npm error code E404" >&2
+      echo "npm error 404 Not Found - GET https://registry.npmjs.org/missing" >&2
+      exit 1
+    fi
+    echo "npm error code E500" >&2
+    echo "network timeout" >&2
+    exit 1
+    ;;
+  publish)
+    if [ -n "\${STUB_NPM_PUBLISH_MARKER:-}" ]; then
+      : > "$STUB_NPM_PUBLISH_MARKER"
+    fi
+    if [ -n "\${STUB_NPM_PUBLISH_ERR:-}" ]; then
+      printf '%s\n' "$STUB_NPM_PUBLISH_ERR" >&2
+    fi
+    exit "\${STUB_NPM_PUBLISH_EXIT:-0}"
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+`;
+
+function withStubNpmProject(pkgVersion: string) {
+  const projectDir = mkdtempSync(join(tmpdir(), "pi-wishcraft-npm-publish-"));
+  const binDir = mkdtempSync(join(tmpdir(), "pi-wishcraft-npm-publish-bin-"));
+  writeFileSync(
+    join(projectDir, "package.json"),
+    JSON.stringify({
+      name: "@groeponline/pi-wishcraft",
+      version: pkgVersion,
+    }),
+  );
+  const npmStubPath = join(binDir, "npm");
+  writeFileSync(npmStubPath, STUB_NPM);
+  chmodSync(npmStubPath, 0o755);
+  return {
+    projectDir,
+    binDir,
+    cleanup() {
+      rmSync(projectDir, { recursive: true, force: true });
+      rmSync(binDir, { recursive: true, force: true });
+    },
+  };
+}
+
+function runNpmPublishScript(
+  projectDir: string,
+  binDir: string,
+  extraEnv: Record<string, string | undefined> = {},
+) {
+  return spawnSync("sh", [join(root, "scripts/npm-publish.sh")], {
+    cwd: projectDir,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PATH: `${binDir}:${process.env.PATH}`,
+      NODE_AUTH_TOKEN: "fake-token-for-tests",
+      ...extraEnv,
+    },
+  });
+}
 
 test("bump handles patch, minor, major, and explicit versions", () => {
   assert.equal(bump("0.18.0", "patch"), "0.18.1");
@@ -48,14 +136,147 @@ test("resolveReleaseVersion maps auto from subjects onto the current version", (
   });
 });
 
+test("existingTagAction fails closed on a colliding next tag unless this tree is already that release", () => {
+  assert.equal(existingTagAction("0.19.0", "0.19.1", false), "cut");
+  assert.equal(existingTagAction("0.19.1", "0.19.1", true), "already-cut");
+  assert.equal(existingTagAction("0.19.0", "0.19.1", true), "collision");
+});
+
 test("parseLatestVersionTag picks the highest vX.Y.Z tag", () => {
   assert.equal(parseLatestVersionTag([]), null);
   assert.equal(parseLatestVersionTag(["v0.9.0", "v0.18.0", "v0.10.0"]), "v0.18.0");
   assert.equal(parseLatestVersionTag(["upstream-v1", "v0.18.0"]), "v0.18.0");
 });
 
+test("npm-publish.sh fails closed without NODE_AUTH_TOKEN", () => {
+  const env = { ...process.env };
+  delete env.NODE_AUTH_TOKEN;
+  delete env.NPM_TOKEN;
+  const result = spawnSync("sh", ["scripts/npm-publish.sh"], {
+    cwd: root,
+    env,
+    encoding: "utf8",
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /NPM_TOKEN is missing/);
+});
+
+test("npm-publish.sh skips publish and prints the skip message when the version is already on npm", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("1.2.3");
+  try {
+    const marker = join(binDir, "publish-called");
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "0",
+      STUB_NPM_PUBLISH_MARKER: marker,
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /1\.2\.3 is already on npm; skip publish/);
+    assert.equal(existsSync(marker), false, "npm publish should not run");
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh publishes when the version is not yet on npm", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("4.5.6");
+  try {
+    const marker = join(binDir, "publish-called");
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_PUBLISH_MARKER: marker,
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.doesNotMatch(result.stdout, /already on npm/);
+    assert.equal(existsSync(marker), true, "npm publish should run");
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh echoes the Pi catalog URLs after a successful skip or publish", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("7.0.0");
+  try {
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "0",
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /npm: https:\/\/www\.npmjs\.com\/package\/@groeponline\/pi-wishcraft/);
+    assert.match(result.stdout, /pi\.dev: https:\/\/pi\.dev\/packages\/@groeponline\/pi-wishcraft/);
+    assert.match(result.stdout, /search: https:\/\/pi\.dev\/packages\?name=wishcraft/);
+    assert.match(result.stdout, /groeponline: https:\/\/pi\.dev\/packages\?name=groeponline/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh fails closed when npm view errors for any reason other than not-found", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("9.9.9");
+  try {
+    const marker = join(binDir, "publish-called");
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_VIEW_KIND: "error",
+      STUB_NPM_PUBLISH_MARKER: marker,
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /not publishing/);
+    assert.equal(existsSync(marker), false, "npm publish should not run");
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh treats cannot-publish-over-existing as a successful skip", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("3.3.3");
+  try {
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_PUBLISH_EXIT: "1",
+      STUB_NPM_PUBLISH_ERR:
+        "You cannot publish over the previously published versions",
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /3\.3\.3 is already on npm; skip publish/);
+    assert.match(result.stdout, /npm: https:\/\/www\.npmjs\.com\/package\/@groeponline\/pi-wishcraft/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh fails and skips the catalog URLs when npm publish fails", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("8.0.0");
+  try {
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_PUBLISH_EXIT: "1",
+      STUB_NPM_PUBLISH_ERR: "EPERM forbidden",
+    });
+    assert.notEqual(result.status, 0);
+    assert.doesNotMatch(result.stdout, /npm: https:\/\/www\.npmjs\.com/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh reads the package name from package.json", () => {
+  const { projectDir, binDir, cleanup } = withStubNpmProject("1.0.0");
+  try {
+    writeFileSync(
+      join(projectDir, "package.json"),
+      JSON.stringify({ name: "@tmp/widget", version: "1.0.0" }),
+    );
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "0",
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /npm: https:\/\/www\.npmjs\.com\/package\/@tmp\/widget/);
+    assert.doesNotMatch(result.stdout, /@groeponline\/pi-wishcraft/);
+  } finally {
+    cleanup();
+  }
+});
+
 test("release --dry-run auto does not write package.json", () => {
-  const root = join(import.meta.dirname, "..");
   const result = spawnSync(
     process.execPath,
     ["scripts/release.mjs", "auto", "--dry-run"],
@@ -63,4 +284,43 @@ test("release --dry-run auto does not write package.json", () => {
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /Would release \d+\.\d+\.\d+ \((patch|minor|major)\)/);
+});
+
+test(".github/workflows/release.yml publishes via npm-publish.sh from both the bump and tag jobs", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  const publishSteps = workflow.match(/run: sh scripts\/npm-publish\.sh/g) ?? [];
+  assert.equal(publishSteps.length, 2, "expected one publish step per job");
+  assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  // The publish logic (fail-closed check, idempotent skip, catalog echoes)
+  // must live in the script, not be duplicated inline in the workflow.
+  assert.doesNotMatch(workflow, /NPM_TOKEN is missing/);
+});
+
+test(".github/workflows/release.yml does not grant id-token write and configures the npm registry for both jobs", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  assert.doesNotMatch(workflow, /id-token:\s*write/);
+  const registryUrls = workflow.match(/registry-url: "https:\/\/registry\.npmjs\.org"/g) ?? [];
+  assert.equal(registryUrls.length, 2);
+  assert.match(workflow, /group: npm-publish-pi-wishcraft/);
+});
+
+test(".github/workflows/release.yml tests origin/main after reset and before tagging", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  const resetIndex = workflow.indexOf("git reset --hard origin/main");
+  const testIndex = workflow.indexOf("run: npm test");
+  const tagIndex = workflow.indexOf("node scripts/release.mjs auto --push");
+  const publishIndex = workflow.indexOf("run: sh scripts/npm-publish.sh");
+  assert.ok(resetIndex > -1, "expected the bump job to reset to origin/main");
+  assert.ok(testIndex > resetIndex, "tests must run on the origin/main tree");
+  assert.ok(tagIndex > testIndex, "tag step must come after tests");
+  assert.ok(publishIndex > tagIndex, "publish step must come after the tag step");
+});
+
+test("CHANGELOG.md keeps a well-formed Unreleased section for release.mjs to rewrite", () => {
+  const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
+  assert.match(changelog, /^# Changelog\n\n## \[Unreleased\]\n/);
+  assert.match(
+    changelog,
+    /## \[Unreleased\][\s\S]*?### Fixed\n- Release workflow publishes from the bump job/,
+  );
 });

@@ -18,9 +18,13 @@ verify it.
 ## The release flow
 
 **Default:** every merge to `main` is a release. `.github/workflows/release.yml`
-runs `node scripts/release.mjs auto --push` on `main`, then publishes when
-the `v*` tag lands. `auto` reads commit subjects since the last `v*` tag:
-`feat:` → minor, `feat!:` / `BREAKING CHANGE` → major, otherwise patch.
+runs `node scripts/release.mjs auto --push` on `main` and publishes in that
+same job (`scripts/npm-publish.sh`) with the GroepOnline org secret
+`NPM_TOKEN`. A tag pushed with `GITHUB_TOKEN` does **not** start another
+workflow, so publish cannot wait for the tag event. Manual SSH/PAT tag
+pushes still run the tag job. `auto` reads commit subjects since the last
+`v*` tag: `feat:` → minor, `feat!:` / `BREAKING CHANGE` → major, otherwise
+patch.
 
 The first merge after `v0.18.0` therefore becomes **0.19.0** (the 0.19
 `feat:` commits are already on `main`). Later docs/fix merges become
@@ -59,18 +63,21 @@ GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh'
 - SSH host alias: `github.com-groeponline` (defined in `~/.ssh/config-groeponline` with `IdentityFile ~/.ssh/sheesh`, `IdentitiesOnly yes`).
 - Push actor: `chefadmin-netizen` (GroepOnline SSH). API/`gh` actor: `MisterWanted` (FG) via `chef-gh`.
 
-## CI publish (on tag)
+## CI publish
 
-`.github/workflows/release.yml` triggers on `push: tags: ['v*']`:
+`.github/workflows/release.yml` publishes from the **bump job** after tagging,
+and also from a tag push (manual SSH/PAT). `GITHUB_TOKEN` tag pushes do not
+start a second run.
 
-1. `actions/checkout@v4`
+1. `actions/checkout@v4` (`fetch-depth: 0`, `fetch-tags: true`)
 2. `actions/setup-node@v4` (node 24, `registry-url: https://registry.npmjs.org`)
-3. `npm ci --ignore-scripts` (installs devDependencies incl. `typescript`)
-4. `npm run typecheck` (tsc)
-5. `npm test` (node test runner)
-6. `npm run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
-7. `npm publish --access public` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`
-8. Echoes the Pi catalog URLs (npm, pi.dev detail page, `?name=wishcraft`, `?name=groeponline`) for post-publish confirmation
+3. Fetch and `git reset --hard origin/main` (bump job only; tests the tree that will be tagged)
+4. `npm ci --ignore-scripts` (installs devDependencies incl. `typescript`)
+5. `npm run typecheck` (tsc)
+6. `npm test` (node test runner)
+7. `npm run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
+8. `node scripts/release.mjs auto --push` (main only)
+9. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` (fail-closed `npm view`, idempotent skip, then the Pi catalog URLs)
 
 `NPM_TOKEN` is the GroepOnline **org** Actions secret (publish rights to the
 `@groeponline` scope). This repo has no override; Actions inherits the org
@@ -130,7 +137,7 @@ A release is "done" when all four hold: local green, tag on origin, CI
 ## Versioning
 
 Feature PRs **do not bump** `package.json`. They stay on the last published npm
-version (today: `0.18.0`) and append under `## [Unreleased]` in `CHANGELOG.md`.
+version (today: `0.19.0`) and append under `## [Unreleased]` in `CHANGELOG.md`.
 The bump happens on `main` in the release workflow, not in the feature PR.
 
 Never bump in the same PR as the feature work. Never tag from a stacked
