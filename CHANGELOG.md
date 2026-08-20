@@ -2,11 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+- `alt+p` menu is three overlay entries (Navigate, Configure, Status) with a Status drill-down for ports, TPS, and toggle.
+
+### Fixed
+- `theme.json` in the working directory overrides icons, and the theme cache busts when that file changes.
+
+### Changed
+- npm pack includes `banner.png` so the published tarball matches `pi.image`.
+
 ## [0.19.2] - 2026-08-20
 
 ### Added
 - `/powerline` tab-completes built-in presets and `placement above|below|toggle`.
-- `alt+p` menu is three overlay entries (Navigate, Configure, Status) with a Status drill-down for ports, TPS, and toggle.
 
 ## [0.19.1] - 2026-08-20
 

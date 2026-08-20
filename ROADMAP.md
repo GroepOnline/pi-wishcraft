@@ -1,9 +1,9 @@
 # Roadmap — pi-wishcraft
 
-Herschreven 2026-08-18. Vierde pass 2026-08-20: conflict-restant uit
-`19d6cc0` weg. 0.19-code + catalogus staan op main (#12, #11). Overlay-
-submenus en de rest van de repairs blijven 0.20. CHE-40 is follow-up,
-geen 0.19-blocker. `v0.19.0` en `v0.19.1` staan op npm.
+Herschreven 2026-08-18. Vijfde pass 2026-08-20: 0.19.0–0.19.2 staan
+op npm. CHE-40 (`/powerline` tab) is Done via #18. Overlay-submenus
+(CHE-42 / #19) starten 0.20. ROADMAP was achter op de code: hooks,
+repairs-subset en skills-manager v2 UI zitten al op `main`.
 
 Pi core is de engine. Wishcraft is de cockpit. Elke feature dient één van
 drie doelen: **grip** (skills, tokens, config), **prestatie** (repairs,
@@ -84,16 +84,15 @@ Niet de fork. Niet de SaaS-agent.
 
 ## Mijlpalen
 
-- **0.19.0 — "Correctheid"** (deze campagne). Bugs en hygiëne eerst.
-  Kleine config-afmakers. Geen hooks, geen repairs, geen manager-v2-UI,
-  geen overlay-submenus. Done = npm 0.19.0 live, `/skills` filtert,
-  `$test` expandeert geen debris, `npm test` + `npm run typecheck` +
-  `madge --circular` groen op de tag. Als de config-PR uitloopt:
-  tag **0.18.1** met alleen PR A (bugs). Correctheid wacht niet op
-  labels.
-- **0.20.0 — "Harness"**. Hooks + tool-input repairs + skills-manager
-  v2-UI + token-overlays. Done = drie README-hookvoorbeelden werken,
-  repair-teller zichtbaar, `/skills` zoekt op naam+beschrijving+pad.
+- **0.19.0–0.19.2 — "Correctheid"** (geland). Bugs, hygiëne, catalogus,
+  auto-release, `/powerline` tab. Hooks, repairs-subset en skills
+  manager v2 UI gingen mee in #12, eerder dan deze sectie beloofde.
+  Done = npm 0.19.2 live, `/skills` filtert, `$test` expandeert geen
+  debris, verify-trio groen op de tag.
+- **0.20.0 — "Harness"**. Overlay-chrome + CHE-42 drill-down, Configure
+  uit `ctx.ui.select`, token-overlays, rest-repairs, README-hooks die
+  waar zijn. Done = drie README-hookvoorbeelden werken, repair-teller
+  zichtbaar, `alt+p` overlay-boom, `/tps` deelt de ring met het segment.
 - **1.0 — "Cockpit"**. Skills-doctor/install, declaratieve policy,
   preset-editor, idee-review, stabiele ChefGroep-statuskeys,
   documentatie die waar is. Done = README dekt alles wat we shipten,
@@ -173,7 +172,10 @@ GRO-1061 (runner-queue) is ops, geen product-slice.
 
 ## 0.20.0 — Harness
 
-Vier stacked PRs. Pas starten als 0.19 (of 0.18.1) op npm staat.
+Vier stacked PRs. 0.19.2 staat op npm. Hooks, repairs-subset en
+skills-manager v2 UI zijn al op `main` (#12). Wat hier nog openstaat:
+overlay-chrome, CHE-42, Configure-submenu, token-overlays, rest-repairs,
+README-voorbeelden.
 
 Overlay-chrome kit, één keer, daarna hergebruiken: box + ronde hoeken,
 accent-kop, dim metadata, rechts uitgelijnde counts, `→` detail /
@@ -216,15 +218,15 @@ zijn eigen schema's.
 Done: pure `repairToolInput(tool, input)` + table-driven tests voor
 de zes gevallen + de parse-vóór-wrap invariant.
 
-### PR G — overlay-submenus (CHE-42)
+### PR G — overlay-submenus (CHE-42) — in #19
 
 Het `alt+p`-menu krijgt gestapelde `SelectList`-overlays (pijltjes +
 descriptions) in plaats van platte `ctx.ui.select`. Max drie
 top-level ingangen. Pure functie `buildPowerlineMenuItems`
-unit-testen. Sluit CHE-42. CHE-40 (`/powerline <tab>` subcommands)
-blijft open — 0.18 shipped alleen bash token-step, niet deze
-hiërarchie. Landt in 0.19 PR B of een kleine follow-up. CHE-41
-wordt de per-segment detail view in 1.0, geen tweede `alt+i`-pad.
+unit-testen. #19 landt de top-level boom (Navigate / Configure /
+Status). Configure zelf blijft `ctx.ui.select` tot de volgende
+0.20-snede. CHE-40 is Done (#18). CHE-41 is 1.0 per-segment detail,
+geen tweede `alt+i`-pad.
 
 ### PR H — skills manager v2 UI + token-overlays
 
@@ -301,11 +303,11 @@ Pas na 0.20. Geen parallelle 1.0-tak.
 
 | Ticket | Actie |
 |---|---|
-| GRO-1060 fork cleanup | Deels gedaan (tags). Rest = PR A debris + concept-png. CHANGELOG niet inkorten. Versie niet resetten. |
+| GRO-1060 fork cleanup | Done. Release-pad bewezen. CHANGELOG niet inkorten. Versie niet resetten. `banner.png` blijft. |
 | GRO-1061 CI queue | Ops, niet deze roadmap. |
-| CHE-40 `/powerline` tab | In Progress. `/powerline` tab completes presets and placement above, below, or toggle. |
-| CHE-41 alt+i info | Wordt 1.0 detail-view. Ticket hernoemen of GRO-child. |
-| CHE-42 drill-down | In Progress. Three top-level overlay entries plus Status drill-down. |
+| CHE-40 `/powerline` tab | Done (#18 / 0.19.2). |
+| CHE-41 per-segment detail | 1.0. Ticket hernoemd; geen tweede `alt+i`-pad. |
+| CHE-42 drill-down | In Progress. #19 = drie top-level overlays + Status. Configure-overlay volgt. |
 
 Oude `pi-powerline-footer`-projecttickets niet laten staan alsof
 die package nog leeft.
@@ -333,8 +335,8 @@ die package nog leeft.
 - `npm deprecate` van de oude naam faalt tot de scope-owner het
   token verruimt. Gebruikers die `pi-powerline-footer` installeren
   blijven op 0.17.2.
-- Hooks spawnen processen. Default timeout 30s; kill-switch moet
-  in 0.20 vanaf dag één bestaan.
+- Hooks spawnen processen. Default timeout 30s; kill-switch
+  `wishcraft.hooksEnabled` bestaat al op `main`.
 - Repairs op core-tools raken we niet aan. Als DeepSeek-achtige
   modellen daar alsnog op stuklopen, is dat een gesprek met pi
   core, geen stille override.
@@ -369,8 +371,9 @@ die package nog leeft.
       Verify-trio groen. (#12)
 - [x] Gallery-contract gemerged (`chore/pi-dev-gallery`): keywords,
       `publishConfig.access`, `pi.image`, `npm run verify:package`. (#11)
-- [x] PR C: merge to `main` tagged `v0.19.0` then `v0.19.1` and published
-      (`npm view` = `0.19.1`). Same-job bump publish via #16.
-- [ ] README skills-sectie waar; deze ROADMAP in sync.
-- [ ] CHE-40: `/powerline` subcommand-tab landt (deze branch) of blijft een
-      open GRO-child. CHE-41/42 hernoemen.
+- [x] PR C: merge to `main` tagged `v0.19.0` then `v0.19.1` then
+      `v0.19.2` and published (`npm view` = `0.19.2`). Same-job bump
+      publish via #16. CHE-40 tab-complete via #18.
+- [x] README skills-sectie waar; deze ROADMAP in sync met 0.19.2.
+- [x] CHE-40: `/powerline` subcommand-tab geland (#18). CHE-41/42
+      hernoemd naar wishcraft.
