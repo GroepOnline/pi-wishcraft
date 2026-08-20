@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-08-20
+
 ### Added
 - `/powerline` tab-completes built-in presets and `placement above|below|toggle`.
 
