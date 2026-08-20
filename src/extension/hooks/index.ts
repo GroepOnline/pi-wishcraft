@@ -28,12 +28,22 @@ import {
   type HookPayload,
 } from "./hooks-runner.ts";
 import {
+  parsePolicySettings,
+  type PolicyRule,
+} from "./policy-config.ts";
+import {
+  evalPostToolUsePolicy,
+  evalPreToolUsePolicy,
+} from "./policy-engine.ts";
+import {
   recordRepairs,
   repairToolInput,
 } from "./repairs.ts";
 
 let hooksSettings: WishcraftHooksSettings = {};
 let hooksEnabled = false;
+let policyRules: PolicyRule[] = [];
+let policyEnabled = false;
 let repairsEnabled = true;
 let pendingSessionContext: string | null = null;
 
@@ -46,6 +56,9 @@ function refreshSettings(cwd: string): void {
   const parsed = parseHooksSettings(globalWishcraft);
   hooksSettings = parsed.hooks;
   hooksEnabled = parsed.enabled && hasAnyHook(parsed.hooks);
+  const policy = parsePolicySettings(globalWishcraft);
+  policyRules = policy.rules;
+  policyEnabled = policy.enabled;
   repairsEnabled =
     !merged ||
     typeof merged !== "object" ||
@@ -125,6 +138,12 @@ export function setupHooks(
       const result = repairToolInput(toolName, event.input);
       if (result.repairs.length > 0) recordRepairs(result);
     }
+    if (policyEnabled) {
+      const policyVerdict = evalPreToolUsePolicy(policyRules, toolName, event.input);
+      if (policyVerdict.block) {
+        return { block: true, reason: policyVerdict.reason };
+      }
+    }
     if (!hooksEnabled) return;
     const cmds = commandsFor(hooksSettings, "preToolUse", toolName);
     if (cmds.length === 0) return;
@@ -147,27 +166,33 @@ export function setupHooks(
   });
 
   pi.on("tool_result", async (event: any, ctx: any) => {
-    if (!hooksEnabled) return;
-    const cmds = commandsFor(hooksSettings, "postToolUse", event.toolName);
-    if (cmds.length === 0) return;
-    const payload = basePayload("postToolUse", ctx);
-    payload.tool_use_id = event.toolCallId;
-    payload.tool_name = event.toolName;
-    payload.tool_input = event.input;
-    payload.tool_response =
-      typeof event.content === "string"
-        ? event.content
-        : Array.isArray(event.content)
-          ? event.content.map((c: any) => c.text ?? "").join("\n")
-          : "";
-    // parallel: één crashende hook annuleert de rest niet
-    const outs = await Promise.all(cmds.map((c) => runHookCommand(c, payload)));
     let extra = "";
-    for (const out of outs) {
-      const add = out.parsed?.hookSpecificOutput?.additionalContext;
-      if (add) extra += (extra ? "\n" : "") + add;
-      if (out.parsed?.systemMessage && ctx?.ui?.notify) {
-        ctx.ui.notify(out.parsed.systemMessage, "info");
+    if (policyEnabled) {
+      const inject = evalPostToolUsePolicy(policyRules, event.toolName, event.input);
+      if (inject) extra = inject.additionalContext;
+    }
+    if (hooksEnabled) {
+      const cmds = commandsFor(hooksSettings, "postToolUse", event.toolName);
+      if (cmds.length > 0) {
+        const payload = basePayload("postToolUse", ctx);
+        payload.tool_use_id = event.toolCallId;
+        payload.tool_name = event.toolName;
+        payload.tool_input = event.input;
+        payload.tool_response =
+          typeof event.content === "string"
+            ? event.content
+            : Array.isArray(event.content)
+              ? event.content.map((c: any) => c.text ?? "").join("\n")
+              : "";
+        // parallel: één crashende hook annuleert de rest niet
+        const outs = await Promise.all(cmds.map((c) => runHookCommand(c, payload)));
+        for (const out of outs) {
+          const add = out.parsed?.hookSpecificOutput?.additionalContext;
+          if (add) extra += (extra ? "\n" : "") + add;
+          if (out.parsed?.systemMessage && ctx?.ui?.notify) {
+            ctx.ui.notify(out.parsed.systemMessage, "info");
+          }
+        }
       }
     }
     if (extra && Array.isArray(event.content)) {
