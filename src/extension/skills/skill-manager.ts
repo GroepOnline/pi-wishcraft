@@ -23,8 +23,8 @@ import {
   getSkillUsage,
   invalidateSkillCache,
   loadSkillCatalog,
+  insertSkillBody,
   readSkillBody,
-  recordSkillUsage,
   type SkillCategory,
   type SkillEntry,
 } from "./skill-registry.ts";
@@ -160,11 +160,7 @@ export async function showSkillManager(ctx: any): Promise<void> {
       };
 
       const insertBody = (entry: SkillEntry) => {
-        const body = readSkillBody(entry.filePath);
-        const current = ctx.ui.getEditorText?.() ?? "";
-        const separator = current && !current.endsWith("\n") ? "\n\n" : "";
-        ctx.ui.setEditorText(`${current}${separator}${body}\n`);
-        recordSkillUsage(entry.name);
+        insertSkillBody(ctx, entry.name, readSkillBody(entry.filePath));
         ctx.ui.notify("Skill ingevoegd in je prompt", "info");
       };
 

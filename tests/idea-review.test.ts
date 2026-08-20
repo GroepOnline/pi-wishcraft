@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
+import type { SelectItem } from "@earendil-works/pi-tui";
 import type { PowerlineQueueItem } from "../queue/types.ts";
+import { PowerlineQueueStore } from "../queue/store.ts";
+import type { RuntimeState } from "../src/extension/core/types.ts";
 import {
   buildIdeaActionItems,
   buildIdeaPickerItems,
@@ -10,6 +16,8 @@ import {
   composeSkillIdeaInsert,
   formatIdeaReviewLabel,
   ideaReviewStatusOf,
+  insertSkillAndIdea,
+  openIdeasReview,
   pickNextReviewIdea,
   toggleIdeaTag,
 } from "../src/extension/queue/idea-review.ts";
@@ -96,16 +104,19 @@ test("composeSkillIdeaInsert reuses the manager insert path shape", () => {
   assert.equal(composeSkillIdeaInsert("body only", ""), "body only");
 });
 
-test("pickNextReviewIdea skips done items then falls back", () => {
+test("pickNextReviewIdea skips done items and does not fall back", () => {
   const done = idea({ id: "doneidea", text: "old", reviewStatus: "done" });
   const open = idea({ id: "openidea", text: "next", reviewStatus: "idea" });
   assert.equal(pickNextReviewIdea([done, open])?.id, "openidea");
-  assert.equal(pickNextReviewIdea([done])?.id, "doneidea");
+  assert.equal(pickNextReviewIdea([done]), null);
   assert.equal(pickNextReviewIdea([]), null);
 });
 
-test("QueueWidget shows next idea preview and /ideas next, not enter-to-send", () => {
-  const ctx = {
+function widgetCtx(overrides: {
+  width?: number;
+  nextIdeaText?: string;
+}): Parameters<typeof QueueWidget.render>[0] {
+  return {
     data: {
       modelName: "m",
       providerName: "p",
@@ -117,15 +128,93 @@ test("QueueWidget shows next idea preview and /ideas next, not enter-to-send", (
         promptTemplates: 0,
       },
       initialContextTokens: null,
-      nextIdeaText: "file the ports regression",
+      nextIdeaText: overrides.nextIdeaText ?? "file the ports regression",
     },
-    width: 80,
+    width: overrides.width ?? 80,
     dim: (text: string) => text,
     bold: (text: string) => text,
     color: (_semantic: string, text: string) => text,
   };
-  const lines = QueueWidget.render(ctx);
+}
+
+test("QueueWidget shows next idea preview and /ideas next, not enter-to-send", () => {
+  const lines = QueueWidget.render(widgetCtx({}));
   assert.match(lines.join("\n"), /file the ports regression/);
   assert.match(lines.join("\n"), /\/ideas next/);
   assert.doesNotMatch(lines.join("\n"), /enter to send/i);
+});
+
+test("QueueWidget keeps /ideas next visible on a narrow welcome width", () => {
+  const lines = QueueWidget.render(
+    widgetCtx({
+      width: 28,
+      nextIdeaText: "a fairly long captured idea about ports",
+    }),
+  );
+  assert.match(lines.join("\n"), /\/ideas next/);
+});
+
+test("insertSkillAndIdea reports read failure without claiming success", () => {
+  const notifies: Array<{ msg: string; level: string }> = [];
+  let editor = "prefix";
+  insertSkillAndIdea(
+    {
+      ui: {
+        getEditorText: () => editor,
+        setEditorText: (text: string) => {
+          editor = text;
+        },
+        notify: (msg: string, level: string) => {
+          notifies.push({ msg, level });
+        },
+      },
+    },
+    "missing",
+    "/no/such/skill.md",
+    "idea text",
+  );
+  assert.equal(editor, "prefix");
+  assert.equal(notifies.at(-1)?.level, "error");
+  assert.match(notifies.at(-1)!.msg, /Could not read skill/);
+});
+
+test("openIdeasReview persists status and tag mutations", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "wishcraft-ideas-overlay-"));
+  try {
+    const store = new PowerlineQueueStore(
+      join(dir, "inbox.jsonl"),
+      join(dir, "projects.json"),
+      join(dir, "inbox.archive.jsonl"),
+    );
+    const item = store.add({
+      text: "check logs",
+      source: { cwd: dir },
+      target: { kind: "project", cwd: dir },
+      intent: "idea",
+    });
+    const rt = {
+      queueStore: store,
+      lastEditorInputAt: 0,
+      statusRenderScheduler: { schedule() {}, cancel() {} },
+    } as unknown as RuntimeState;
+    const script: SelectItem[] = [
+      { value: item.id, label: item.id },
+      { value: "status", label: "status" },
+      { value: "done", label: "done" },
+      { value: "tags", label: "tags" },
+      { value: "toggle:bug", label: "bug" },
+      { value: "cancel", label: "cancel" },
+    ];
+    await openIdeasReview(
+      {} as never,
+      rt,
+      { cwd: dir, ui: { notify() {} } },
+      async () => script.shift() ?? null,
+    );
+    const updated = store.get(item.id);
+    assert.equal(updated?.reviewStatus, "done");
+    assert.deepEqual(updated?.tags, ["bug"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

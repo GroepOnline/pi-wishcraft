@@ -387,11 +387,7 @@ export function findNextIdea(
   const ideas = rt.queueStore
     .activeItems(getQueueContext(ctx))
     .filter((candidate) => candidate.intent === "idea");
-  return (
-    ideas.find((candidate) => candidate.reviewStatus !== "done") ??
-    null ??
-    null
-  );
+  return ideas.find((candidate) => candidate.reviewStatus !== "done") ?? null;
 }
 
 export function sendIdeaIssueHandoff(
