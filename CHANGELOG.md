@@ -3,8 +3,7 @@
 ## [Unreleased]
 
 ### Changed
-- npm publishes carry signed provenance (`--provenance`, `id-token: write`), matching pi-zai and pi-agent-orchestrator.
-- Release workflow pins `actions/checkout` and `actions/setup-node` to commit SHAs, so the publish lane cannot pick up a moved tag.
+- Release workflow pins `actions/checkout` and `actions/setup-node` to commit SHAs, so the publish lane cannot pick up a moved tag. Publish stays provenance-free by design: the contract test keeps `id-token: write` out of `release.yml`.
 
 ## [1.0.1] - 2026-08-20
 
