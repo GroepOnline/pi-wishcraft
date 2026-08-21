@@ -87,6 +87,11 @@ export function writeConfigPath(
     return false;
   }
   return writeSettingKey(cwd, rootKey, (existing) => {
+    // Single-segment path (e.g. "quietStartup"): the root key holds the value
+    // directly. null removes the key, mirroring nested-path semantics.
+    if (parts.length === 1) {
+      return value === null ? undefined : value;
+    }
     // Shorthand string under powerline (e.g. "chef") is a preset name: keep it.
     const node: Record<string, unknown> = isRecord(existing)
       ? existing

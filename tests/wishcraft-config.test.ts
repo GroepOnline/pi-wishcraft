@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -7,6 +10,7 @@ import {
   isUnsafeConfigKey,
   nextToggleValue,
   readConfigPath,
+  writeConfigPath,
 } from "../src/extension/settings/wishcraft-config.ts";
 import { WELCOME_ART_THEMES } from "../src/welcome/welcome-art.ts";
 import { refreshRuntimeForConfigPath } from "../src/extension/settings/config-live-reload.ts";
@@ -137,4 +141,29 @@ test("live config refresh updates powerline and the mounted welcome art", () => 
   refreshRuntimeForConfigPath(rt, "quietStartup", undefined);
   assert.equal(welcomeRefreshes, 1);
   assert.equal(renders, 1);
+});
+
+test("writeConfigPath persists single-segment paths (quietStartup) and removes on null", () => {
+  const agentDir = mkdtempSync(join(tmpdir(), "wishcraft-agent-"));
+  const projectDir = mkdtempSync(join(tmpdir(), "wishcraft-project-"));
+  const settingsFile = join(agentDir, "settings.json");
+  const prevAgentDir = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  try {
+    assert.equal(writeConfigPath(projectDir, "quietStartup", true), true);
+    const stored = JSON.parse(readFileSync(settingsFile, "utf8"));
+    assert.equal(stored.quietStartup, true);
+    // Nested writes must keep working after a root-level write.
+    assert.equal(writeConfigPath(projectDir, "powerline.preset", "chef"), true);
+    const nested = JSON.parse(readFileSync(settingsFile, "utf8"));
+    assert.equal(nested.quietStartup, true);
+    assert.equal(nested.powerline.preset, "chef");
+    // null removes the key, mirroring nested-path semantics.
+    assert.equal(writeConfigPath(projectDir, "quietStartup", null), true);
+    const after = JSON.parse(readFileSync(settingsFile, "utf8"));
+    assert.ok(!("quietStartup" in after));
+  } finally {
+    if (prevAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = prevAgentDir;
+  }
 });

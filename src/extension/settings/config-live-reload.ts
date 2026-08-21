@@ -8,7 +8,7 @@ export function refreshRuntimeForConfigPath(
   path: string,
   powerlineSettings: unknown,
 ): void {
-  if (path.startsWith("powerline")) {
+  if (path === "powerline" || path.startsWith("powerline.")) {
     setConfig({
       ...stateConfig,
       ...parsePowerlineConfig(powerlineSettings, PRESET_NAMES),

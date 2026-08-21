@@ -149,18 +149,38 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             const artSettings = readWelcomeArtSettings(ctx);
             welcome.setArt(artSettings.art, artSettings.animate);
             tui.requestRender();
+            syncArtTimer(artSettings.animate);
           };
           rt.refreshWelcomeArt = refreshArt;
-          refreshArt();
 
           let countdown = 30;
           let dismissed = false;
           let interval: ReturnType<typeof setInterval> | null = null;
+          // Animated overlay art is time-based; the one-second countdown tick
+          // undersamples it, so animate at its own cadence while enabled.
+          let artInterval: ReturnType<typeof setInterval> | null = null;
+          const stopArtTimer = () => {
+            if (artInterval) {
+              clearInterval(artInterval);
+              artInterval = null;
+            }
+          };
+          const syncArtTimer = (animate: boolean) => {
+            if (dismissed) return;
+            if (animate && artInterval === null) {
+              artInterval = setInterval(() => {
+                if (!dismissed) tui.requestRender();
+              }, 120);
+            } else if (!animate && artInterval !== null) {
+              stopArtTimer();
+            }
+          };
 
           const dismiss = () => {
             if (dismissed) return;
             dismissed = true;
             if (interval) clearInterval(interval);
+            stopArtTimer();
             rt.dismissWelcomeOverlay = null;
             if (rt.refreshWelcomeArt === refreshArt) rt.refreshWelcomeArt = null;
             done();
@@ -173,6 +193,8 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             tui.requestRender();
             if (countdown <= 0) dismiss();
           }, 1000);
+
+          refreshArt();
 
           rt.dismissWelcomeOverlay = dismiss;
 
@@ -189,6 +211,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             dispose: () => {
               dismissed = true;
               if (interval) clearInterval(interval);
+              stopArtTimer();
               if (rt.refreshWelcomeArt === refreshArt) rt.refreshWelcomeArt = null;
             },
           };
