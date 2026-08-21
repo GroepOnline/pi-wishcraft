@@ -98,6 +98,21 @@ test("runHookCommand ignores EPIPE when a deny hook exits before reading stdin",
   assert.match(result.stderrFirstLine, /spawned/);
 });
 
+test("runHookCommand settles when a hook closes stdin before the write", async () => {
+  const result = await runHookCommand(
+    { command: "node -e \"process.stdin.destroy(); setTimeout(() => process.exit(0), 50)\"" },
+    {
+      session_id: "s",
+      cwd: process.cwd(),
+      hook_event_name: "preToolUse",
+      permission_mode: "default",
+    },
+  );
+  // No unhandled EPIPE, no hang: the async stdin close is swallowed and the
+  // hook's exit still settles the promise.
+  assert.equal(result.exitCode, 0);
+});
+
 test("preToolUseVerdict: allow paths do not deny", () => {
   assert.equal(preToolUseVerdict(out({ exitCode: 0 })).deny, false);
   assert.equal(

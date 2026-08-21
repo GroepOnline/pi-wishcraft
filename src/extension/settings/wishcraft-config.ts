@@ -36,6 +36,8 @@ export interface ConfigItem {
   hint?: string;
   /** Detail explanation (optional). */
   description?: string;
+  /** Effective value when the setting is absent (toggles only; defaults to false). */
+  default?: boolean;
 }
 
 export interface ConfigGroup {
@@ -182,7 +184,7 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
       title: "Skills",
       items: [
         { label: "Inline expand /command and $skill", path: "wishcraft.inlineSkills", kind: "toggle", hint: "needs a restart to take effect" },
-        { label: "Read hints", path: "wishcraft.readHints", kind: "toggle", hint: "off = no continuation hint after partial reads" },
+        { label: "Read hints", path: "wishcraft.readHints", kind: "toggle", default: true, hint: "off = no continuation hint after partial reads" },
       ],
     },
     {
@@ -216,10 +218,22 @@ function isPrintable(data: string): boolean {
   return data.length === 1 && data >= " " && data <= "~";
 }
 
-function displayValue(item: ConfigItem, value: ConfigValue): string {
+/** Value shown for a config item given its stored value. */
+export function displayValue(item: ConfigItem, value: ConfigValue): string {
+  // An unset toggle renders as its declared default (read hints default on).
+  if (item.kind === "toggle" && (value === null || value === undefined)) {
+    return (item.default ?? false) ? "on" : "off";
+  }
   if (value === null || value === undefined || value === "") return item.kind === "toggle" ? "off" : "—";
   if (item.kind === "toggle") return value ? "on" : "off";
   return String(value);
+}
+
+/** Next stored boolean after toggling `item` from its current `value`. */
+export function nextToggleValue(item: ConfigItem, value: ConfigValue): boolean {
+  const effective =
+    item.kind === "toggle" && value === null ? (item.default ?? false) : value === true;
+  return !effective;
 }
 
 function coerce(item: ConfigItem, current: ConfigValue, next: string): ConfigValue {
@@ -304,7 +318,7 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
 
       const toggle = (item: ConfigItem) => {
         const cur = readConfigPath(settings, item.path);
-        const ok = writeConfigPath(cwd, item.path, !(cur === true));
+        const ok = writeConfigPath(cwd, item.path, nextToggleValue(item, cur));
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
         ctx.ui.notify(

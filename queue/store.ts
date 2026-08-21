@@ -432,6 +432,10 @@ export class PowerlineQueueStore {
       }
 
       if (archived.length > 0) {
+        // ponytail: commit the inbox (now without the archived items) before
+        // the archive. If the archive write fails, the items stay in the inbox
+        // and are re-archived next run instead of being duplicated.
+        this.writeItems(kept, now);
         mkdirSync(dirname(this.archivePath), { recursive: true });
         const existing = existsSync(this.archivePath)
           ? readFileSync(this.archivePath, "utf-8")
@@ -441,7 +445,6 @@ export class PowerlineQueueStore {
           this.archivePath,
           `${existing.trimEnd() ? `${existing.trimEnd()}\n` : ""}${lines}\n`,
         );
-        this.writeItems(kept, now);
       }
 
       return { archived: archived.length, remainingSent };

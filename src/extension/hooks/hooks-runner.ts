@@ -112,18 +112,24 @@ export function runHookCommand(
     child.on("close", (code) => finish(code));
     // Hooks that exit before reading stdin (typical `exit 2` deny scripts)
     // close the pipe; ignore EPIPE so the harness still records the exit code.
-    child.stdin?.on("error", (error: NodeJS.ErrnoException) => {
+    // One idempotent handler for the async stream event, the write callback,
+    // and the synchronous catch: EPIPE is expected (a hook that exits before
+    // reading stdin) and is ignored so its exit code still settles us; any
+    // other failure is recorded and settles the hook once.
+    const onStdinError = (error: NodeJS.ErrnoException): void => {
       if (error.code === "EPIPE") return;
-      stderr += String(error);
-    });
+      stderr += `wishcraft hook stdin error: ${error.message ?? String(error)}\n`;
+      finish(null);
+    };
 
+    child.stdin?.on("error", onStdinError);
     try {
-      child.stdin?.write(JSON.stringify(payload));
+      child.stdin?.write(JSON.stringify(payload), (err) => {
+        if (err) onStdinError(err as NodeJS.ErrnoException);
+      });
       child.stdin?.end();
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EPIPE") {
-        stderr += String(error);
-      }
+      onStdinError(error as NodeJS.ErrnoException);
     }
   });
 }
