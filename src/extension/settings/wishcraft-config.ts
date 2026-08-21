@@ -14,6 +14,7 @@ import type { RuntimeState } from "../core/types.ts";
 import { readSettings, writeSettingKey } from "../settings/settings-io.ts";
 import { isRecord } from "../settings/settings-io.ts";
 import { config as stateConfig, setConfig, PRESET_NAMES } from "../core/state.ts";
+import { PRESETS } from "../../config/presets.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 import { WELCOME_ART_THEMES } from "../../welcome/welcome-art.ts";
 
@@ -134,6 +135,13 @@ const SEPARATORS = [
 
 /** Build groups from current settings (values shown live). */
 export function buildConfigGroups(settings: Record<string, unknown>): ConfigGroup[] {
+  const powerline = settings.powerline;
+  const presetName = typeof powerline === "string" ? powerline : isRecord(powerline) && typeof powerline.preset === "string" ? powerline.preset : "default";
+  const preset = PRESETS[presetName as keyof typeof PRESETS] ?? PRESETS.default;
+  const options = preset.segmentOptions ?? {};
+  const modelDefaults = isRecord(options.model) ? options.model : {};
+  const gitDefaults = isRecord(options.git) ? options.git : {};
+  const defaultOf = (group: Record<string, unknown>, key: string) => typeof group[key] === "boolean" ? group[key] as boolean : undefined;
   return [
     {
       title: "Status bar",
@@ -162,11 +170,11 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
       title: "Model & git details",
       items: [
         { label: "Model display", path: "powerline.segmentOptions.model.display", kind: "select", choices: ["name", "qualified"], hint: "short name or provider/name" },
-        { label: "Model thinking level", path: "powerline.segmentOptions.model.showThinkingLevel", kind: "toggle", hint: "show think:low/med/high next to the model" },
-        { label: "Git branch", path: "powerline.segmentOptions.git.showBranch", kind: "toggle" },
-        { label: "Git staged count", path: "powerline.segmentOptions.git.showStaged", kind: "toggle" },
-        { label: "Git unstaged count", path: "powerline.segmentOptions.git.showUnstaged", kind: "toggle" },
-        { label: "Git untracked count", path: "powerline.segmentOptions.git.showUntracked", kind: "toggle" },
+        { label: "Model thinking level", path: "powerline.segmentOptions.model.showThinkingLevel", kind: "toggle", default: defaultOf(modelDefaults, "showThinkingLevel"), hint: "show think:low/med/high next to the model" },
+        { label: "Git branch", path: "powerline.segmentOptions.git.showBranch", kind: "toggle", default: defaultOf(gitDefaults, "showBranch") },
+        { label: "Git staged count", path: "powerline.segmentOptions.git.showStaged", kind: "toggle", default: defaultOf(gitDefaults, "showStaged") },
+        { label: "Git unstaged count", path: "powerline.segmentOptions.git.showUnstaged", kind: "toggle", default: defaultOf(gitDefaults, "showUnstaged") },
+        { label: "Git untracked count", path: "powerline.segmentOptions.git.showUntracked", kind: "toggle", default: defaultOf(gitDefaults, "showUntracked") },
         { label: "Git polling", path: "powerline.segmentOptions.git.polling", kind: "select", choices: ["full", "branch", "off"], hint: "full = counts + ahead/behind, branch = name only, off = disable" },
         { label: "Git commit subject max", path: "powerline.segmentOptions.git.maxCommitSubjectLength", kind: "number", hint: "0 = default" },
       ],
@@ -278,7 +286,13 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         return row && row.type === "item" ? row : null;
       };
 
-      const applyEdit = (next: string) => {
+      const refreshPowerline = (item: ConfigItem) => {
+          if (!item.path.startsWith("powerline")) return;
+          setConfig({ ...stateConfig, ...parsePowerlineConfig(settings.powerline, PRESET_NAMES) });
+          rt.tuiRef?.requestRender?.();
+        };
+
+        const applyEdit = (next: string) => {
         const cur = currentItem();
         if (!cur) return;
         const { item } = cur;
