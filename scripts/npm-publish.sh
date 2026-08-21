@@ -29,7 +29,7 @@ if [ "$view_status" -eq 0 ]; then
 else
   if grep -Eqi 'E404|404 Not Found|code E404|is not in this registry' "$view_err" "$view_out"; then
     set +e
-    npm publish --access public 2>"$publish_err"
+    npm publish --access public --provenance 2>"$publish_err"
     publish_status=$?
     set -e
     cat "$publish_err" >&2
