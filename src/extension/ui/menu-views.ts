@@ -1,11 +1,4 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
-import {
-  matchesKey,
-  type SelectItem,
-  SelectList,
-  truncateToWidth,
-} from "@earendil-works/pi-tui";
-import { execSync } from "node:child_process";
+import type { SelectItem } from "@earendil-works/pi-tui";
 
 import type {
   StatusLinePreset,
@@ -14,18 +7,13 @@ import type {
 } from "../../config/types.ts";
 import { getPreset, PRESETS, registerCustomPresets } from "../../config/presets.ts";
 import { SEPARATOR_STYLES } from "../../config/primitives.ts";
-import {
-  countListeningPorts,
-  listOpenPortProcesses,
-  sanitizeSshHost,
-} from "../../segments/system.ts";
+import { countListeningPorts } from "../../segments/system.ts";
 import {
   writePowerlineCustomPresetSetting,
   writePowerlineOptionSetting,
   writePowerlinePresetSetting,
 } from "../settings/settings-io.ts";
 import {
-  buildSegmentContext,
   requestImmediateStatusRender,
   resetLayoutCache,
 } from "../core/segment-context.ts";
@@ -40,65 +28,16 @@ import {
   buildCustomPresetDef,
   buildCustomPresetSegmentIds,
   buildPresetEditorAddItems,
-  buildSegmentDetailLines,
-  buildSegmentItems,
   collectSegmentIds,
   configureItemsToSelectItems,
-  segmentItemsToSelectItems,
   validatePresetName,
 } from "./menu-items.ts";
-import { overlaySelectListTheme, showSelectOverlay } from "./overlay-chrome.ts";
-import { showTpsOverlay } from "./token-overlays.ts";
+import { showSelectOverlay } from "./overlay-chrome.ts";
 import { showWishcraftConfig } from "../settings/wishcraft-config.ts";
 
 export { overlaySelectListTheme, showSelectOverlay } from "./overlay-chrome.ts";
-
-/** Full open-ports list as a scrollable overlay (the Info view). */
-export async function showOpenPortsList(ctx: any): Promise<void> {
-  try {
-    const includeUdp = config.segmentOptions?.openPorts?.includeUdp === true;
-    const host = config.segmentOptions?.openPorts?.host;
-    if (host && !sanitizeSshHost(host)) {
-      ctx.ui.notify(`Invalid open-ports host: ${host}`, "error");
-      return;
-    }
-    const proto = includeUdp ? "-tulnp" : "-tlnp";
-    const command = host
-      ? `ssh -o ConnectTimeout=3 -o BatchMode=yes ${host} "ss ${proto} 2>/dev/null" 2>/dev/null`
-      : `ss ${proto} 2>/dev/null`;
-    const stdout = execSync(command, { encoding: "utf8" });
-    publishPowerlineStatuses(ctx, {
-      ports: formatPortsStatusValue(countListeningPorts(includeUdp, host)),
-    });
-    const lines = stdout
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const start = /^(Proto|Netid|State|Local)/.test(lines[0] ?? "") ? 1 : 0;
-    const rows = lines.slice(start);
-    if (rows.length === 0) {
-      ctx.ui.notify("No listening sockets", "info");
-      return;
-    }
-    const items: SelectItem[] = rows.map((line) => ({
-      label: line,
-      value: line,
-    }));
-    const picked = await showSelectOverlay(
-      ctx,
-      host ? `Open ports · ${host}` : "Open ports",
-      "↑↓ navigate · enter copy · esc close",
-      items,
-      Math.min(items.length, 24),
-    );
-    if (picked) ctx.ui.notify(`Port: ${picked.value}`, "info");
-  } catch (error) {
-    ctx.ui.notify(
-      `Failed to list ports: ${error instanceof Error ? error.message : String(error)}`,
-      "error",
-    );
-  }
-}
+export { showOpenPortsList } from "./open-ports-view.ts";
+export { activateSegment, showSegmentNavigator } from "./segment-navigator.ts";
 
 /** Configure sub-menu: preset, TPS value/label, ports UDP, segment labels. */
 export async function configurePowerline(
@@ -341,229 +280,5 @@ export async function runPresetEditor(
       ? `Preset "${name}" saved and applied`
       : `Preset "${name}" applied (not persisted; check settings.json)`,
     saved ? "info" : "warning",
-  );
-}
-
-/** Activate a segment picked from the navigator (Enter). */
-export async function activateSegment(
-  rt: RuntimeState,
-  ctx: any,
-  picked: { id: string; label: string },
-): Promise<void> {
-  const id = picked.id;
-  if (id === "__none__") return;
-  if (id === "tps") {
-    await showTpsOverlay(rt, ctx);
-    return;
-  }
-  if (id === "open_ports") {
-    await showOpenPortsList(ctx);
-    return;
-  }
-  if (id === "git") {
-    ctx.ui.notify(
-      `git branch: ${rt.footerDataRef?.getGitBranch() ?? "(no repo)"}`,
-      "info",
-    );
-    return;
-  }
-  if (id === "cost") {
-    ctx.ui.notify("Use /cost for the cost breakdown", "info");
-    return;
-  }
-  if (id === "context_pct" || id === "context_total") {
-    ctx.ui.notify("Context window shown in the bar", "info");
-    return;
-  }
-  if (id === "queue") {
-    ctx.ui.notify("Use /ideas to work the queue", "info");
-    return;
-  }
-  const value = picked.label.replace(/^\S+\s+/, "");
-  ctx.ui.notify(`${id}: ${value}`, "info");
-}
-
-/**
- * Navigable overlay that mirrors the live powerline segments. Arrow keys move,
- * Enter activates, and →/tab opens a stacked per-segment detail view (←/esc
- * returns to the list). Pure item/detail building lives in `menu-items.ts`.
- */
-export async function showSegmentNavigator(
-  rt: RuntimeState,
-  ctx: any,
-): Promise<{ id: string; label: string } | null> {
-  return ctx.ui.custom(
-    (
-      tui: any,
-      theme: Theme,
-      _keybindings: any,
-      done: (result: { id: string; label: string } | null) => void,
-    ) => {
-      let segCtx = buildSegmentContext(rt, ctx, theme);
-      let items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
-      let detailId: StatusLineSegmentId | null = null;
-      let detailLines: ReturnType<typeof buildSegmentDetailLines> = [];
-
-      const border = (text: string) => theme.fg("dim", text);
-      const wrapRow = (text: string, innerWidth: number) =>
-        `${border("│")}${truncateToWidth(text, innerWidth, "…", true)}${border("│")}`;
-
-      const snapshot = () => {
-        segCtx = buildSegmentContext(rt, ctx, theme);
-        items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
-      };
-
-      const buildDetail = (id: StatusLineSegmentId) =>
-        id === "open_ports"
-          ? buildSegmentDetailLines(
-              id,
-              segCtx,
-              listOpenPortProcesses(
-                config.segmentOptions?.openPorts?.includeUdp === true,
-                config.segmentOptions?.openPorts?.host,
-              ),
-            )
-          : buildSegmentDetailLines(id, segCtx);
-
-      const openDetail = (id: string) => {
-        if (id === "__none__") return;
-        snapshot();
-        detailId = id as StatusLineSegmentId;
-        detailLines = buildDetail(detailId);
-      };
-
-      const finish = (result: { id: string; label: string } | null) => {
-        done(result);
-      };
-
-      const makeSelectList = () => {
-        const list = new SelectList(
-          items,
-          Math.min(items.length, 20),
-          overlaySelectListTheme(theme),
-        );
-        list.onSelect = (item) =>
-          finish(
-            item.value === "__none__"
-              ? null
-              : { id: item.value, label: item.label },
-          );
-        list.onCancel = () => finish(null);
-        return list;
-      };
-
-      let selectList = makeSelectList();
-
-      const renderList = (innerWidth: number): string[] => {
-        const lines: string[] = [];
-        lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
-        lines.push(
-          wrapRow(
-            theme.fg("accent", theme.bold("Powerline segments")),
-            innerWidth,
-          ),
-        );
-        lines.push(border(`├${"─".repeat(innerWidth)}┤`));
-        for (const line of selectList.render(innerWidth))
-          lines.push(wrapRow(line, innerWidth));
-        lines.push(border(`├${"─".repeat(innerWidth)}┤`));
-        lines.push(
-          wrapRow(
-            theme.fg(
-              "dim",
-              "↑↓ navigate · enter activate · →/tab detail · esc cancel",
-            ),
-            innerWidth,
-          ),
-        );
-        lines.push(border(`╰${"─".repeat(innerWidth)}╯`));
-        return lines;
-      };
-
-      const renderDetail = (innerWidth: number): string[] => {
-        const lines: string[] = [];
-        lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
-        lines.push(
-          wrapRow(
-            theme.fg(
-              "accent",
-              theme.bold(`Segment detail: ${detailId ?? ""}`),
-            ),
-            innerWidth,
-          ),
-        );
-        lines.push(border(`├${"─".repeat(innerWidth)}┤`));
-        const labelWidth = detailLines.reduce(
-          (max, line) => Math.max(max, line.label.length),
-          0,
-        );
-        for (const line of detailLines) {
-          lines.push(
-            wrapRow(
-              `  ${line.label.padEnd(labelWidth)}  ${line.value}`,
-              innerWidth,
-            ),
-          );
-        }
-        lines.push(border(`├${"─".repeat(innerWidth)}┤`));
-        lines.push(
-          wrapRow(
-            theme.fg("dim", "← back · enter copy · esc close"),
-            innerWidth,
-          ),
-        );
-        lines.push(border(`╰${"─".repeat(innerWidth)}╯`));
-        return lines;
-      };
-
-      return {
-        render: (width: number) => {
-          const innerWidth = Math.max(1, width - 2);
-          return detailId
-            ? renderDetail(innerWidth)
-            : renderList(innerWidth);
-        },
-        invalidate: () => selectList.invalidate(),
-        handleInput: (data: string) => {
-          if (detailId !== null) {
-            if (
-              matchesKey(data, "left") ||
-              matchesKey(data, "escape") ||
-              matchesKey(data, "backspace")
-            ) {
-              detailId = null;
-            } else if (matchesKey(data, "enter")) {
-              const summary = detailLines
-                .map((line) => `${line.label}: ${line.value}`)
-                .join("  ·  ");
-              ctx.ui.notify(`${detailId}: ${summary}`, "info");
-              finish(null);
-              return;
-            }
-            tui.requestRender();
-            return;
-          }
-
-          if (matchesKey(data, "right") || matchesKey(data, "tab")) {
-            const selected = selectList.getSelectedItem();
-            if (selected && selected.value !== "__none__") {
-              openDetail(selected.value);
-              tui.requestRender();
-              return;
-            }
-          }
-
-          selectList.handleInput(data);
-          tui.requestRender();
-        },
-      };
-    },
-    {
-      overlay: true,
-      overlayOptions: () => ({
-        verticalAlign: "center",
-        horizontalAlign: "center",
-      }),
-    },
   );
 }

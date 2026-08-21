@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const source = readFileSync(
-  join(import.meta.dirname, "../src/extension/ui/menu-views.ts"),
+  join(import.meta.dirname, "../src/extension/ui/segment-navigator.ts"),
   "utf8",
 );
 
