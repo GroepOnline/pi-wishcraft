@@ -9,6 +9,7 @@ import {
   readConfigPath,
 } from "../src/extension/settings/wishcraft-config.ts";
 import { WELCOME_ART_THEMES } from "../src/welcome/welcome-art.ts";
+import { refreshRuntimeForConfigPath } from "../src/extension/settings/config-live-reload.ts";
 
 function findItem(label: string) {
   for (const group of buildConfigGroups({})) {
@@ -111,4 +112,29 @@ test("assignNestedConfigValue refuses prototype-polluting keys and does not muta
   );
   assert.equal(({} as Record<string, unknown>)[marker], undefined);
   assert.deepEqual(root, {});
+});
+
+
+test("live config refresh updates powerline and the mounted welcome art", () => {
+  let renders = 0;
+  let welcomeRefreshes = 0;
+  const rt = {
+    tuiRef: { requestRender: () => renders++ },
+    refreshWelcomeArt: () => welcomeRefreshes++,
+  } as any;
+
+  refreshRuntimeForConfigPath(rt, "powerline.segmentOptions.git.showBranch", {
+    preset: "default",
+    segmentOptions: { git: { showBranch: false } },
+  });
+  assert.equal(renders, 1);
+  assert.equal(welcomeRefreshes, 0);
+
+  refreshRuntimeForConfigPath(rt, "wishcraft.welcome.art", undefined);
+  assert.equal(welcomeRefreshes, 1);
+  assert.equal(renders, 1);
+
+  refreshRuntimeForConfigPath(rt, "quietStartup", undefined);
+  assert.equal(welcomeRefreshes, 1);
+  assert.equal(renders, 1);
 });

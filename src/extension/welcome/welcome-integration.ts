@@ -12,8 +12,7 @@ import { isRecord, readSettings } from "../settings/settings-io.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { pickNextReviewIdea } from "../queue/idea-review.ts";
-
-const headerTimers = new WeakMap<object, ReturnType<typeof setInterval>>();
+import { setWelcomeHeaderAnimation } from "./welcome-control.ts";
 
 interface WelcomeArtSettings {
   art: WelcomeArtTheme;
@@ -57,9 +56,17 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
     whatsNew,
     nextIdeaText,
   );
-  const artSettings = readWelcomeArtSettings(ctx);
-  header.setArt(artSettings.art, artSettings.animate);
-    if (artSettings.animate) headerTimers.set(rt, setInterval(() => rt.tuiRef?.requestRender?.(), 120));
+  const refreshArt = () => {
+    const artSettings = readWelcomeArtSettings(ctx);
+    header.setArt(artSettings.art, artSettings.animate);
+    setWelcomeHeaderAnimation(
+      rt,
+      artSettings.art === "lantern" && artSettings.animate,
+    );
+    rt.tuiRef?.requestRender?.();
+  };
+  rt.refreshWelcomeArt = refreshArt;
+  refreshArt();
   rt.welcomeHeaderActive = true;
 
   ctx.ui.setHeader(() => {
@@ -138,8 +145,13 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             whatsNew,
             nextIdeaText,
           );
-          const artSettings = readWelcomeArtSettings(ctx);
-          welcome.setArt(artSettings.art, artSettings.animate);
+          const refreshArt = () => {
+            const artSettings = readWelcomeArtSettings(ctx);
+            welcome.setArt(artSettings.art, artSettings.animate);
+            tui.requestRender();
+          };
+          rt.refreshWelcomeArt = refreshArt;
+          refreshArt();
 
           let countdown = 30;
           let dismissed = false;
@@ -150,6 +162,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             dismissed = true;
             if (interval) clearInterval(interval);
             rt.dismissWelcomeOverlay = null;
+            if (rt.refreshWelcomeArt === refreshArt) rt.refreshWelcomeArt = null;
             done();
           };
 
@@ -176,6 +189,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             dispose: () => {
               dismissed = true;
               if (interval) clearInterval(interval);
+              if (rt.refreshWelcomeArt === refreshArt) rt.refreshWelcomeArt = null;
             },
           };
         },

@@ -3,8 +3,25 @@ import type { RuntimeState } from "../core/types.ts";
 // Header animation is intentionally stopped when the header is dismissed.
 const headerTimers = new WeakMap<object, ReturnType<typeof setInterval>>();
 
+export function setWelcomeHeaderAnimation(rt: RuntimeState, enabled: boolean): void {
+  const existing = headerTimers.get(rt);
+  if (existing) {
+    clearInterval(existing);
+    headerTimers.delete(rt);
+  }
+  if (enabled) {
+    headerTimers.set(rt, setInterval(() => rt.tuiRef?.requestRender?.(), 120));
+  }
+}
+
+export function clearWelcomeHeaderAnimation(rt: RuntimeState): void {
+  setWelcomeHeaderAnimation(rt, false);
+}
+
 export function dismissWelcome(rt: RuntimeState, ctx: any) {
   rt.welcomeDismissScheduler.cancel();
+  clearWelcomeHeaderAnimation(rt);
+  rt.refreshWelcomeArt = null;
 
   if (rt.dismissWelcomeOverlay) {
     rt.dismissWelcomeOverlay();

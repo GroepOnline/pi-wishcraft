@@ -232,11 +232,8 @@ export function registerSessionLifecycle(
   pi.on("session_shutdown", async (_event, ctx) => {
     clearSkillsCountPublisher();
     rt.sessionGeneration++;
-    rt.dismissWelcomeOverlay?.();
-    rt.dismissWelcomeOverlay = null;
-    rt.welcomeHeaderActive = false;
+    dismissWelcome(rt, ctx);
     rt.welcomeOverlayShouldDismiss = false;
-    rt.welcomeDismissScheduler.cancel();
     rt.statusRenderScheduler.cancel();
     rt.restoreFooterStatusRepaintHook?.();
     rt.restoreFooterStatusRepaintHook = null;

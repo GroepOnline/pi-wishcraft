@@ -15,6 +15,11 @@ import {
   getRecentSessions,
   WelcomeHeader,
 } from "../src/welcome/index.ts";
+import {
+  clearWelcomeHeaderAnimation,
+  dismissWelcome,
+  setWelcomeHeaderAnimation,
+} from "../src/extension/welcome/welcome-control.ts";
 
 const indexSource = readFileSync(
   new URL("../src/extension/welcome/welcome-integration.ts", import.meta.url),
@@ -255,4 +260,46 @@ test("getRecentSessions reads custom agent sessions and existing legacy sessions
       rmSync(root, { recursive: true, force: true });
     }
   });
+});
+
+
+test("animated welcome header stops rendering when dismissed", async () => {
+  let renders = 0;
+  let schedulerCancels = 0;
+  let headerClears = 0;
+  const rt = {
+    tuiRef: { requestRender: () => renders++ },
+    welcomeDismissScheduler: { cancel: () => schedulerCancels++ },
+    dismissWelcomeOverlay: null,
+    welcomeOverlayShouldDismiss: false,
+    welcomeHeaderActive: true,
+    refreshWelcomeArt: () => {},
+  } as any;
+
+  try {
+    setWelcomeHeaderAnimation(rt, true);
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    assert.ok(renders >= 1, "animation requests at least one render tick");
+
+    dismissWelcome(rt, {
+      ui: {
+        setHeader: (value: unknown) => {
+          assert.equal(value, undefined);
+          headerClears++;
+        },
+      },
+    });
+    const rendersAfterDismiss = renders;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+
+    assert.equal(renders, rendersAfterDismiss);
+    assert.equal(rt.refreshWelcomeArt, null);
+    assert.equal(rt.welcomeHeaderActive, false);
+    assert.equal(schedulerCancels, 1);
+    assert.equal(headerClears, 1);
+    assert.match(indexSource, /rt\.refreshWelcomeArt = refreshArt;/);
+    assert.match(indexSource, /artSettings\.art === "lantern" && artSettings\.animate/);
+  } finally {
+    clearWelcomeHeaderAnimation(rt);
+  }
 });

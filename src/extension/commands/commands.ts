@@ -31,6 +31,7 @@ import { publishPowerlineStatuses } from "../core/status-export.ts";
 import { config, normalizePreset } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getPowerlineArgumentCompletions } from "./powerline-completions.ts";
+import { dismissWelcome } from "../welcome/welcome-control.ts";
 
 export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerCdCommand(pi, () => rt.currentCtx?.cwd ?? process.cwd());
@@ -60,11 +61,8 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
           rt.shellSession = null;
           rt.bashTranscript.clear();
           rt.bashModeActive = false;
-          rt.dismissWelcomeOverlay?.();
-          rt.dismissWelcomeOverlay = null;
-          rt.welcomeHeaderActive = false;
+          dismissWelcome(rt, ctx);
           rt.welcomeOverlayShouldDismiss = false;
-          rt.welcomeDismissScheduler.cancel();
           getPromptHistoryState().savedPromptHistory = [];
           rt.stashedEditorText = null;
           ctx.ui.setStatus("stash", undefined);

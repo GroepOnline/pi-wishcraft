@@ -106,6 +106,7 @@ export function createRuntimeState(
     dismissWelcomeOverlay: null,
     welcomeHeaderActive: false,
     welcomeOverlayShouldDismiss: false,
+    refreshWelcomeArt: null,
     lastUserPrompt: "",
     showLastPrompt: true,
     stashedEditorText: null,

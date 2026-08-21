@@ -57,6 +57,7 @@ export interface RuntimeState {
   dismissWelcomeOverlay: (() => void) | null;
   welcomeHeaderActive: boolean;
   welcomeOverlayShouldDismiss: boolean;
+  refreshWelcomeArt: (() => void) | null;
   lastUserPrompt: string;
   showLastPrompt: boolean;
   stashedEditorText: string | null;
