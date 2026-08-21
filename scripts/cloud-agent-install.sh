@@ -47,7 +47,10 @@ NPM_BIN="$NODE_PREFIX/bin/npm"
 
 # --- 3. pi CLI, pinned to the wishcraft peer range ---------------------------
 PI_CLI="$NODE_PREFIX/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js"
-if [ ! -f "$PI_CLI" ]; then
+PI_PACKAGE="$NODE_PREFIX/lib/node_modules/@earendil-works/pi-coding-agent/package.json"
+PI_VERSION=""
+[ -f "$PI_PACKAGE" ] && PI_VERSION="$($NODE_BIN -e 'const p=require(process.argv[1]); process.stdout.write(p.version)' "$PI_PACKAGE" 2>/dev/null || true)"
+if [ ! -f "$PI_CLI" ] || [ -z "$PI_VERSION" ] || ! "$NODE_BIN" -e 'const v=process.argv[1].split(".").map(Number); process.exit(v[0]===0 && v[1]>=81 && v[1]<85 ? 0 : 1)' "$PI_VERSION"; then
   "$NODE_BIN" "$NPM_BIN" install -g --ignore-scripts --prefix "$NODE_PREFIX" \
     '@earendil-works/pi-coding-agent@>=0.81.0 <0.85.0'
 fi
@@ -56,6 +59,8 @@ fi
 # The npm bin shebang is `env node`, which on this platform resolves to a node
 # older than pi's engine floor. A thin wrapper pins the correct interpreter.
 PI_WRAPPER="$NODE_PREFIX/bin/pi"
+# npm may have created this as a symlink to the CLI; remove it before writing.
+rm -f "$PI_WRAPPER"
 cat > "$PI_WRAPPER" <<EOF
 #!/bin/sh
 exec "$NODE_BIN" "$PI_CLI" "\$@"
