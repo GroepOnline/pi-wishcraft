@@ -1,5 +1,8 @@
 import type { RuntimeState } from "../core/types.ts";
 
+// Header animation is intentionally stopped when the header is dismissed.
+const headerTimers = new WeakMap<object, ReturnType<typeof setInterval>>();
+
 export function dismissWelcome(rt: RuntimeState, ctx: any) {
   rt.welcomeDismissScheduler.cancel();
 

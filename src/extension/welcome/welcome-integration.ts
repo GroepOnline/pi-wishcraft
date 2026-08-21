@@ -13,6 +13,8 @@ import type { RuntimeState } from "../core/types.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { pickNextReviewIdea } from "../queue/idea-review.ts";
 
+const headerTimers = new WeakMap<object, ReturnType<typeof setInterval>>();
+
 interface WelcomeArtSettings {
   art: WelcomeArtTheme;
   animate: boolean;
@@ -57,6 +59,7 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   );
   const artSettings = readWelcomeArtSettings(ctx);
   header.setArt(artSettings.art, artSettings.animate);
+    if (artSettings.animate) headerTimers.set(rt, setInterval(() => rt.tuiRef?.requestRender?.(), 120));
   rt.welcomeHeaderActive = true;
 
   ctx.ui.setHeader(() => {
