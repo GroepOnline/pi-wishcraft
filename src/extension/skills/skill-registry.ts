@@ -401,14 +401,14 @@ export function recordSkillUsage(name: string): void {
 /** Lees de skill-body zonder frontmatter. */
 export function readSkillBody(path: string): string {
   try {
-    return stripFrontmatter(readFileSync(path, "utf8")).trim();
+    return stripFrontmatter(readFileSync(path, "utf8"));
   } catch {
     return "";
   }
 }
 
 export function readSkillBodyStrict(path: string): string {
-  return stripFrontmatter(readFileSync(path, "utf8")).trim();
+  return stripFrontmatter(readFileSync(path, "utf8"));
 }
 
 export function insertSkillBody(
@@ -418,8 +418,8 @@ export function insertSkillBody(
   appendedText = "",
 ): void {
   const chunk = appendedText.trim()
-    ? `${body.trim()}\n\n${appendedText.trim()}`
-    : body.trim();
+    ? `${body}\n\n${appendedText}`
+    : body;
   const current = ctx.ui.getEditorText?.() ?? "";
   const separator = current && !current.endsWith("\n") ? "\n\n" : "";
   ctx.ui.setEditorText(`${current}${separator}${chunk}\n`);

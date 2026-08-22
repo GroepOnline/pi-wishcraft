@@ -151,10 +151,10 @@ export function composeSkillIdeaInsert(
   skillBody: string,
   ideaText: string,
 ): string {
-  const body = skillBody.trim();
-  const idea = ideaText.trim();
-  if (!body) return idea;
-  if (!idea) return body;
+  const body = skillBody;
+  const idea = ideaText;
+  if (!body.trim()) return idea;
+  if (!idea.trim()) return body;
   return `${body}\n\n${idea}`;
 }
 
@@ -176,12 +176,14 @@ export function insertSkillAndIdea(
   skillName: string,
   filePath: string,
   ideaText: string,
-): void {
+): boolean {
   try {
     insertSkillBody(ctx, skillName, readSkillBodyStrict(filePath), ideaText);
     ctx.ui.notify("Skill and idea inserted into the prompt", "info");
+    return true;
   } catch (error) {
     ctx.ui.notify(`Could not read skill: ${error instanceof Error ? error.message : String(error)}`, "error");
+    return false;
   }
 }
 
@@ -208,7 +210,13 @@ async function pickSkillForIdea(
   );
   if (!selected) return;
   const entry = entries.find((candidate) => candidate.filePath === selected.value);
-  if (entry) insertSkillAndIdea(ctx, entry.name, entry.filePath, item.text);
+  if (entry && insertSkillAndIdea(ctx, entry.name, entry.filePath, item.text)) {
+      rt.queueStore.update(item.id, {
+        status: "sent",
+        reviewStatus: "in-progress",
+        error: undefined,
+      });
+    }
 }
 
 async function chooseIdeaReviewAction(
