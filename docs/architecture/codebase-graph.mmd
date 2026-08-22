@@ -1,0 +1,551 @@
+graph LR
+  subgraph SG_root["root"]
+    n10["index"]
+  end
+  subgraph SG_config["config"]
+    n13["custom-items"]
+    n14["extension-statuses"]
+    n15["layout"]
+    n16["parse"]
+    n17["powerline-config"]
+    n18["presets"]
+    n19["primitives"]
+    n20["segment-ids"]
+    n21["segment-options"]
+    n22["settings-patch"]
+    n23["types"]
+  end
+  subgraph SG_segments["segments"]
+    n80["core"]
+    n81["custom"]
+    n82["index"]
+    n83["registry"]
+    n84["shared"]
+    n85["system"]
+    n86["usage"]
+  end
+  subgraph SG_session["extension-session"]
+    n49["activate"]
+    n50["cost-alert"]
+    n51["git-invalidation"]
+    n52["read-hints"]
+    n53["session-lifecycle"]
+    n54["stale-context"]
+  end
+  subgraph SG_ui["extension-ui"]
+    n65["custom-editor"]
+    n66["layout"]
+    n67["menu-items"]
+    n68["menu-views"]
+    n69["overlay-chrome"]
+    n70["powerline-menu-view"]
+    n71["powerline-menu"]
+    n72["powerline-widgets"]
+    n73["status-line-renderers"]
+    n74["token-overlays"]
+  end
+  subgraph SG_skills["extension-skills"]
+    n59["inline-invocation"]
+    n60["skill-doctor"]
+    n61["skill-manager"]
+    n62["skill-registry"]
+    n63["skill-status"]
+    n64["skill-templates"]
+  end
+  subgraph SG_hooks["extension-hooks"]
+    n40["hooks-config"]
+    n41["hooks-runner"]
+    n42["index"]
+    n43["policy-config"]
+    n44["policy-engine"]
+    n45["repairs"]
+  end
+  subgraph SG_usage["usage"]
+    n93["context"]
+    n94["ledger"]
+    n95["rates"]
+    n96["token-budget"]
+    n97["tps-ring"]
+    n98["usage-store"]
+  end
+  subgraph SG_welcome["welcome"]
+    n75["welcome-control"]
+    n76["welcome-integration"]
+    n99["auto-dismiss"]
+    n100["banner"]
+    n101["discover"]
+    n102["format"]
+    n103["index"]
+    n104["layout"]
+    n105["overlay"]
+    n106["renderer"]
+    n107["sessions"]
+    n108["types"]
+    n109["whats-new"]
+    n110["queue-widget"]
+    n111["sessions-widget"]
+    n112["shortcuts-widget"]
+    n113["system-widget"]
+    n114["whats-new-widget"]
+  end
+  subgraph SG_bashmode["bash-mode"]
+    n0["completion-providers"]
+    n1["completion"]
+    n2["editor-ghost"]
+    n3["editor-history"]
+    n4["editor-input"]
+    n5["editor"]
+    n6["history"]
+    n7["shell-session"]
+    n8["transcript"]
+    n9["types"]
+  end
+  subgraph SG_queue["queue"]
+    n11["store"]
+    n12["types"]
+    n46["idea-review"]
+    n47["queue-context"]
+    n48["queue-integration"]
+  end
+  n24["frontmatter"]
+  n25["autocomplete-chain"]
+  n26["bash-mode-actions"]
+  n27["commands"]
+  n28["powerline-completions"]
+  n29["powerline-doctor"]
+  n30["powerline-export"]
+  n31["queue-commands"]
+  n32["vibe-command"]
+  n33["constants"]
+  n34["segment-context"]
+  n35["state"]
+  n36["status-export"]
+  n37["types"]
+  n38["prompt-history"]
+  n39["stash-history"]
+  n55["settings-io"]
+  n56["wishcraft-config"]
+  n57["shortcuts-config"]
+  n58["shortcuts-router"]
+  n77["status"]
+  n78["agent-dirs"]
+  n79["timer"]
+  n87["cd-command"]
+  n88["matching"]
+  n89["colors"]
+  n90["icons"]
+  n91["separators"]
+  n92["theme"]
+  n115["generate"]
+  n116["index"]
+  n117["manager"]
+  n118["provider"]
+  n119["storage"]
+
+  n0 --> n1
+  n0 --> n9
+  n1 --> n6
+  n1 --> n9
+  n2 --> n9
+  n5 --> n1
+  n5 --> n2
+  n5 --> n3
+  n5 --> n4
+  n5 --> n9
+  n5 --> n88
+  n6 --> n78
+  n7 --> n8
+  n7 --> n9
+  n8 --> n9
+  n9 --> n4
+  n10 --> n37
+  n10 --> n49
+  n10 --> n57
+  n11 --> n12
+  n11 --> n78
+  n13 --> n14
+  n13 --> n19
+  n13 --> n20
+  n13 --> n21
+  n13 --> n23
+  n14 --> n23
+  n15 --> n23
+  n16 --> n13
+  n16 --> n19
+  n16 --> n20
+  n16 --> n21
+  n16 --> n23
+  n17 --> n13
+  n17 --> n14
+  n17 --> n15
+  n17 --> n16
+  n17 --> n21
+  n17 --> n22
+  n18 --> n23
+  n18 --> n92
+  n19 --> n23
+  n20 --> n19
+  n20 --> n23
+  n21 --> n19
+  n21 --> n23
+  n21 --> n95
+  n22 --> n16
+  n22 --> n19
+  n22 --> n23
+  n23 --> n95
+  n26 --> n6
+  n26 --> n7
+  n26 --> n34
+  n26 --> n37
+  n27 --> n18
+  n27 --> n23
+  n27 --> n26
+  n27 --> n28
+  n27 --> n29
+  n27 --> n30
+  n27 --> n31
+  n27 --> n32
+  n27 --> n34
+  n27 --> n35
+  n27 --> n36
+  n27 --> n37
+  n27 --> n38
+  n27 --> n42
+  n27 --> n55
+  n27 --> n56
+  n27 --> n58
+  n27 --> n61
+  n27 --> n65
+  n27 --> n68
+  n27 --> n70
+  n27 --> n74
+  n27 --> n87
+  n28 --> n18
+  n29 --> n11
+  n29 --> n18
+  n29 --> n35
+  n29 --> n37
+  n29 --> n55
+  n29 --> n68
+  n29 --> n90
+  n30 --> n17
+  n30 --> n18
+  n30 --> n23
+  n30 --> n35
+  n30 --> n68
+  n31 --> n35
+  n31 --> n37
+  n31 --> n46
+  n31 --> n47
+  n31 --> n48
+  n31 --> n58
+  n32 --> n68
+  n32 --> n116
+  n33 --> n9
+  n33 --> n37
+  n34 --> n17
+  n34 --> n18
+  n34 --> n23
+  n34 --> n33
+  n34 --> n35
+  n34 --> n36
+  n34 --> n37
+  n34 --> n47
+  n34 --> n55
+  n34 --> n77
+  n34 --> n92
+  n34 --> n94
+  n34 --> n96
+  n34 --> n98
+  n35 --> n1
+  n35 --> n7
+  n35 --> n8
+  n35 --> n11
+  n35 --> n17
+  n35 --> n18
+  n35 --> n23
+  n35 --> n33
+  n35 --> n37
+  n35 --> n39
+  n35 --> n57
+  n35 --> n75
+  n35 --> n79
+  n35 --> n93
+  n35 --> n94
+  n35 --> n99
+  n37 --> n1
+  n37 --> n7
+  n37 --> n8
+  n37 --> n9
+  n37 --> n11
+  n37 --> n79
+  n37 --> n93
+  n37 --> n94
+  n37 --> n99
+  n38 --> n33
+  n38 --> n55
+  n38 --> n78
+  n39 --> n33
+  n39 --> n38
+  n39 --> n55
+  n39 --> n78
+  n41 --> n40
+  n42 --> n37
+  n42 --> n40
+  n42 --> n41
+  n42 --> n43
+  n42 --> n44
+  n42 --> n45
+  n42 --> n55
+  n44 --> n43
+  n46 --> n12
+  n46 --> n37
+  n46 --> n39
+  n46 --> n47
+  n46 --> n48
+  n46 --> n62
+  n46 --> n69
+  n47 --> n11
+  n48 --> n11
+  n48 --> n12
+  n48 --> n34
+  n48 --> n35
+  n48 --> n37
+  n48 --> n39
+  n48 --> n47
+  n48 --> n54
+  n48 --> n68
+  n49 --> n17
+  n49 --> n18
+  n49 --> n27
+  n49 --> n35
+  n49 --> n42
+  n49 --> n53
+  n49 --> n55
+  n49 --> n59
+  n49 --> n82
+  n50 --> n95
+  n51 --> n34
+  n51 --> n37
+  n51 --> n77
+  n52 --> n55
+  n53 --> n1
+  n53 --> n8
+  n53 --> n17
+  n53 --> n18
+  n53 --> n33
+  n53 --> n34
+  n53 --> n35
+  n53 --> n37
+  n53 --> n39
+  n53 --> n47
+  n53 --> n48
+  n53 --> n50
+  n53 --> n51
+  n53 --> n52
+  n53 --> n54
+  n53 --> n55
+  n53 --> n57
+  n53 --> n63
+  n53 --> n65
+  n53 --> n66
+  n53 --> n75
+  n53 --> n76
+  n53 --> n77
+  n53 --> n82
+  n53 --> n94
+  n53 --> n96
+  n53 --> n98
+  n53 --> n116
+  n55 --> n17
+  n55 --> n23
+  n55 --> n78
+  n56 --> n17
+  n56 --> n35
+  n56 --> n37
+  n56 --> n55
+  n57 --> n9
+  n57 --> n33
+  n57 --> n37
+  n57 --> n55
+  n57 --> n88
+  n58 --> n26
+  n58 --> n33
+  n58 --> n35
+  n58 --> n37
+  n58 --> n38
+  n58 --> n39
+  n58 --> n48
+  n58 --> n68
+  n58 --> n88
+  n59 --> n24
+  n59 --> n37
+  n59 --> n62
+  n59 --> n101
+  n60 --> n62
+  n60 --> n69
+  n61 --> n37
+  n61 --> n60
+  n61 --> n62
+  n61 --> n64
+  n62 --> n24
+  n62 --> n78
+  n63 --> n36
+  n63 --> n62
+  n64 --> n62
+  n64 --> n69
+  n64 --> n78
+  n65 --> n0
+  n65 --> n1
+  n65 --> n5
+  n65 --> n11
+  n65 --> n25
+  n65 --> n26
+  n65 --> n34
+  n65 --> n35
+  n65 --> n37
+  n65 --> n38
+  n65 --> n48
+  n65 --> n58
+  n65 --> n72
+  n65 --> n75
+  n65 --> n77
+  n65 --> n89
+  n66 --> n17
+  n66 --> n18
+  n66 --> n23
+  n66 --> n35
+  n66 --> n82
+  n66 --> n89
+  n66 --> n91
+  n67 --> n17
+  n67 --> n18
+  n67 --> n23
+  n67 --> n66
+  n67 --> n85
+  n67 --> n95
+  n68 --> n18
+  n68 --> n19
+  n68 --> n23
+  n68 --> n34
+  n68 --> n35
+  n68 --> n36
+  n68 --> n37
+  n68 --> n55
+  n68 --> n67
+  n68 --> n69
+  n68 --> n74
+  n68 --> n85
+  n70 --> n37
+  n70 --> n68
+  n70 --> n71
+  n70 --> n74
+  n72 --> n34
+  n72 --> n35
+  n72 --> n37
+  n72 --> n73
+  n73 --> n17
+  n73 --> n18
+  n73 --> n23
+  n73 --> n33
+  n73 --> n34
+  n73 --> n35
+  n73 --> n37
+  n73 --> n47
+  n73 --> n66
+  n73 --> n89
+  n74 --> n35
+  n74 --> n37
+  n74 --> n55
+  n74 --> n69
+  n74 --> n94
+  n74 --> n96
+  n74 --> n97
+  n74 --> n98
+  n75 --> n37
+  n76 --> n37
+  n76 --> n46
+  n76 --> n47
+  n76 --> n55
+  n76 --> n93
+  n76 --> n103
+  n77 --> n23
+  n80 --> n23
+  n80 --> n77
+  n80 --> n84
+  n80 --> n90
+  n80 --> n92
+  n81 --> n17
+  n81 --> n23
+  n81 --> n90
+  n81 --> n92
+  n82 --> n81
+  n82 --> n83
+  n82 --> n85
+  n83 --> n23
+  n83 --> n80
+  n83 --> n81
+  n83 --> n85
+  n83 --> n86
+  n83 --> n90
+  n84 --> n23
+  n84 --> n92
+  n85 --> n17
+  n85 --> n23
+  n85 --> n84
+  n85 --> n90
+  n85 --> n95
+  n85 --> n97
+  n86 --> n23
+  n86 --> n84
+  n86 --> n90
+  n86 --> n95
+  n86 --> n96
+  n90 --> n92
+  n91 --> n23
+  n91 --> n90
+  n92 --> n23
+  n92 --> n78
+  n95 --> n78
+  n98 --> n78
+  n100 --> n106
+  n100 --> n108
+  n101 --> n78
+  n101 --> n108
+  n103 --> n100
+  n103 --> n101
+  n103 --> n105
+  n103 --> n107
+  n103 --> n108
+  n103 --> n109
+  n103 --> n114
+  n105 --> n106
+  n105 --> n108
+  n106 --> n89
+  n106 --> n104
+  n106 --> n108
+  n106 --> n110
+  n106 --> n111
+  n106 --> n112
+  n106 --> n113
+  n106 --> n114
+  n107 --> n78
+  n107 --> n101
+  n107 --> n102
+  n107 --> n108
+  n109 --> n78
+  n110 --> n108
+  n111 --> n108
+  n112 --> n108
+  n113 --> n102
+  n113 --> n108
+  n114 --> n108
+  n115 --> n118
+  n115 --> n119
+  n116 --> n115
+  n116 --> n117
+  n116 --> n119
+  n117 --> n118
+  n117 --> n119
+  n118 --> n119
+  n119 --> n78
