@@ -3,7 +3,6 @@
  * Rows only — no essay. Overlay chrome matches `/powerline doctor`.
  */
 
-import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { copyToClipboard } from "@earendil-works/pi-coding-agent";
 import type { SelectItem } from "@earendil-works/pi-tui";
@@ -226,16 +225,9 @@ export function collectSkillDoctorInputs(cwd: string = process.cwd()): {
   contents: Map<string, string>;
 } {
   invalidateSkillCache();
-  const entries = loadSkillCatalog(cwd);
-  const usage = getSkillUsage();
   const contents = new Map<string, string>();
-  for (const entry of entries) {
-    try {
-      contents.set(entry.filePath, readFileSync(entry.filePath, "utf8"));
-    } catch {
-      // unreadables already surface as registry warnings
-    }
-  }
+  const entries = loadSkillCatalog(cwd, contents);
+  const usage = getSkillUsage();
   return { entries, usage, contents };
 }
 

@@ -47,6 +47,7 @@ export interface SkillEntry {
 function scanLooseExtraFiles(
   extras: { path: string; category: SkillCategory }[],
   knownPaths: Set<string>,
+  contents?: Map<string, string>,
 ): SkillEntry[] {
   const out: SkillEntry[] = [];
   for (const { path: dir, category } of extras) {
@@ -65,6 +66,7 @@ function scanLooseExtraFiles(
       let mtimeMs = 0;
       try {
         content = readFileSync(filePath, "utf8");
+        contents?.set(filePath, content);
         mtimeMs = statSync(filePath).mtimeMs;
       } catch {
         continue;
@@ -210,6 +212,7 @@ function buildRejectedSkillEntries(
     let mtimeMs = 0;
     try {
       content = readFileSync(filePath, "utf8");
+        contents?.set(filePath, content);
       sizeBytes = Buffer.byteLength(content, "utf8");
       lineCount = content.split("\n").length;
       mtimeMs = statSync(filePath).mtimeMs;
@@ -245,7 +248,10 @@ function buildRejectedSkillEntries(
 }
 
 /** Bouw de volledige skill-catalogus (gecached, TTL 30s). */
-export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
+export function loadSkillCatalog(
+  cwd: string = process.cwd(),
+  contents?: Map<string, string>,
+): SkillEntry[] {
   const now = Date.now();
   if (cachedEntries && cachedCwd === cwd && now - cachedAt < CACHE_TTL_MS) return cachedEntries;
 
@@ -271,6 +277,7 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
     let warning: string | undefined;
     try {
       content = readFileSync(s.filePath, "utf8");
+        contents?.set(s.filePath, content);
       sizeBytes = Buffer.byteLength(content, "utf8");
       lineCount = content.split("\n").length;
       mtimeMs = statSync(s.filePath).mtimeMs;
@@ -318,7 +325,11 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
     ...loose,
     ...rejected,
   ].sort((a, b) => a.name.localeCompare(b.name));
-  cachedPathMap = new Map(cachedEntries.map((e) => [e.name, e.filePath] as const));
+  const expandableEntries = [
+    ...entries.filter((e) => !looseNames.has(e.name)),
+    ...loose,
+  ];
+  cachedPathMap = new Map(expandableEntries.map((e) => [e.name, e.filePath] as const));
   return cachedEntries;
 }
 
