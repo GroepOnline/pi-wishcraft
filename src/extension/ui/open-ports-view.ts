@@ -1,9 +1,9 @@
 import { copyToClipboard } from "@earendil-works/pi-coding-agent";
 import type { SelectItem } from "@earendil-works/pi-tui";
-import { execSync } from "node:child_process";
 
 import {
   countListeningPorts,
+  probeListeningPorts,
   sanitizeSshHost,
 } from "../../segments/system.ts";
 import { config } from "../core/state.ts";
@@ -17,22 +17,25 @@ import { showSelectOverlay } from "./overlay-chrome.ts";
 export async function showOpenPortsList(ctx: any): Promise<void> {
   try {
     const includeUdp = config.segmentOptions?.openPorts?.includeUdp === true;
-    const host = config.segmentOptions?.openPorts?.host;
-    if (host && !sanitizeSshHost(host)) {
-      ctx.ui.notify(`Invalid open-ports host: ${host}`, "error");
-      return;
+    const configuredHost = config.segmentOptions?.openPorts?.host;
+    let host: string | undefined;
+    if (configuredHost) {
+      host = sanitizeSshHost(configuredHost) ?? undefined;
+      if (!host) {
+        ctx.ui.notify(`Invalid open-ports host: ${configuredHost}`, "error");
+        return;
+      }
     }
-    const proto = includeUdp ? "-tulnp" : "-tlnp";
-    const command = host
-      ? `ssh -o ConnectTimeout=3 -o BatchMode=yes -- ${host} "ss ${proto} 2>/dev/null" 2>/dev/null`
-      : `ss ${proto} 2>/dev/null`;
-    // execSync defaults to no timeout; cap it so a stalled ss/ssh probe
-    // cannot block the extension event loop (ConnectTimeout only covers
-    // SSH connection setup).
-    const stdout = execSync(command, { encoding: "utf8", timeout: 3000 });
+    // probeListeningPorts caps each probe at 3s and falls back to netstat when
+    // ss is unavailable; ConnectTimeout only covers SSH connection setup.
+    const stdout = probeListeningPorts(includeUdp, host);
     publishPowerlineStatuses(ctx, {
       ports: formatPortsStatusValue(countListeningPorts(includeUdp, host)),
     });
+    if (stdout === null) {
+      ctx.ui.notify("Could not list ports (ss/netstat unavailable)", "warning");
+      return;
+    }
     const lines = stdout
       .split("\n")
       .map((l) => l.trim())

@@ -149,6 +149,35 @@ function sshCommand(
   return `ssh -o ConnectTimeout=3 -o BatchMode=yes -- ${safe} ${JSON.stringify(remoteCmd)} 2>/dev/null`;
 }
 
+/**
+ * Raw `ss` output for a listening-port probe (`-tulnp`/`-tlnp`), falling back
+ * to `netstat` when `ss` is unavailable. An optional host switches to a
+ * best-effort SSH probe. Returns null when neither tool can produce output.
+ */
+export function probeListeningPorts(
+  includeUdp = false,
+  host?: string,
+): string | null {
+  const run = (cmd: string): string | null => {
+    try {
+      return execSync(cmd, { encoding: "utf8", timeout: 3000 });
+    } catch {
+      return null;
+    }
+  };
+  const remote = (cmd: string): string | null =>
+    host ? sshCommand(host, cmd) : cmd;
+
+  const proto = includeUdp ? "-tulnp" : "-tlnp";
+  const ssCmd = remote(`ss ${proto} 2>/dev/null`);
+  let out = ssCmd === null ? null : run(ssCmd);
+  if (out === null) {
+    const netstatCmd = remote(`netstat ${proto} 2>/dev/null`);
+    if (netstatCmd !== null) out = run(netstatCmd);
+  }
+  return out;
+}
+
 export function countListeningPorts(includeUdp = false, host?: string): number {
   // ponytail: count UNIQUE TCP listening ports (dedupes IPv4/IPv6 dual-stack and
   // repeated multicast binds). UDP is noisy (mDNS/DHCP/ephemeral) so it's opt-in.
@@ -332,26 +361,7 @@ export function listOpenPortProcesses(
   if (cached && now - cached.at < OPEN_PORT_PROCESSES_TTL_MS)
     return cached.entries;
 
-  const run = (cmd: string): string | null => {
-    try {
-      return execSync(cmd, { encoding: "utf8", timeout: 3000 });
-    } catch {
-      return null;
-    }
-  };
-  const remote = (cmd: string): string | null =>
-    host ? sshCommand(host, cmd) : cmd;
-
-  const ssCmd = remote(
-    includeUdp ? "ss -tulnp 2>/dev/null" : "ss -tlnp 2>/dev/null",
-  );
-  let out = ssCmd === null ? null : run(ssCmd);
-  if (out === null) {
-    const netstatCmd = remote(
-      includeUdp ? "netstat -tulnp 2>/dev/null" : "netstat -tlnp 2>/dev/null",
-    );
-    if (netstatCmd !== null) out = run(netstatCmd);
-  }
+  const out = probeListeningPorts(includeUdp, host);
   const entries = out === null ? [] : parseOpenPortProcesses(out);
   openPortProcessesCache.set(key, { at: now, entries });
   return entries;

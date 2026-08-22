@@ -212,13 +212,14 @@ export async function showSegmentNavigator(
               const summary = detailLines
                 .map((line) => `${line.label}: ${line.value}`)
                 .join("  ·  ");
-              try {
-                copyToClipboard(summary);
-                ctx.ui.notify(`${detailId} copied to clipboard`, "info");
-              } catch {
-                ctx.ui.notify(`${detailId}: ${summary}`, "info");
-              }
-              finish(null);
+              copyToClipboard(summary)
+                .then(() => {
+                  ctx.ui.notify(`${detailId} copied to clipboard`, "info");
+                })
+                .catch(() => {
+                  ctx.ui.notify(`${detailId}: ${summary}`, "info");
+                })
+                .finally(() => finish(null));
               return;
             }
             tui.requestRender();
