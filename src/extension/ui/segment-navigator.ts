@@ -84,11 +84,6 @@ export async function showSegmentNavigator(
       const wrapRow = (text: string, innerWidth: number) =>
         `${border("│")}${truncateToWidth(text, innerWidth, "…", true)}${border("│")}`;
 
-      const snapshot = () => {
-        segCtx = buildSegmentContext(rt, ctx, theme);
-        items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
-      };
-
       const buildDetail = (id: StatusLineSegmentId) =>
         id === "open_ports"
           ? buildSegmentDetailLines(
@@ -129,6 +124,19 @@ export async function showSegmentNavigator(
       };
 
       let selectList = makeSelectList();
+
+      const snapshot = () => {
+        const selectedValue = selectList.getSelectedItem()?.value;
+        segCtx = buildSegmentContext(rt, ctx, theme);
+        items = segmentItemsToSelectItems(buildSegmentItems(segCtx, config));
+        selectList = makeSelectList();
+        if (selectedValue) {
+          const selectedIndex = items.findIndex(
+            (item) => item.value === selectedValue,
+          );
+          if (selectedIndex >= 0) selectList.setSelectedIndex(selectedIndex);
+        }
+      };
 
       const renderList = (innerWidth: number): string[] => {
         const lines: string[] = [];
@@ -199,7 +207,10 @@ export async function showSegmentNavigator(
             ? renderDetail(innerWidth)
             : renderList(innerWidth);
         },
-        invalidate: () => selectList.invalidate(),
+        invalidate: () => {
+          snapshot();
+          selectList.invalidate();
+        },
         handleInput: (data: string) => {
           if (detailId !== null) {
             if (
