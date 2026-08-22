@@ -291,8 +291,11 @@ export class PowerlineQueueStore {
 
   summarize(context: QueueContext, compacting: boolean): QueueSummary {
     const active = this.activeItems(context);
-    const queueItems = active.filter((item) => item.intent !== "idea");
-    const ideaItems = active.filter((item) => item.intent === "idea");
+    const ready = active.filter((item) =>
+      item.intent !== "idea" || item.reviewStatus !== "done",
+    );
+    const queueItems = ready.filter((item) => item.intent !== "idea");
+    const ideaItems = ready.filter((item) => item.intent === "idea");
     const blockedItems = active.filter(
       (item) => item.status === "blocked" || item.status === "failed",
     );
