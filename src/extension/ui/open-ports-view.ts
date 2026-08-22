@@ -2,6 +2,7 @@ import { copyToClipboard } from "@earendil-works/pi-coding-agent";
 import type { SelectItem } from "@earendil-works/pi-tui";
 
 import {
+  countListeningPorts,
   parseListeningPortsFromText,
   probeListeningPorts,
   sanitizeSshHost,
