@@ -86,7 +86,8 @@ function shellQuote(value: string): string {
 
 function editorCommand(path: string): string {
   const ed = process.env.EDITOR?.trim() || "nvim";
-  return `!${ed} ${shellQuote(path)}`;
+  const quotedEditor = ed.split(/\s+/).filter(Boolean).map(shellQuote).join(" ");
+  return `!${quotedEditor} ${shellQuote(path)}`;
 }
 
 export async function showSkillManager(ctx: any): Promise<"new" | null> {
@@ -184,7 +185,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
               const emptyMsg =
                 entries.length === 0 && !query
                   ? "No skills installed — ctrl+n to create one"
-                  : `Geen skills voor "${query}"`;
+                  : `No skills found for "${query}"`;
               lines.push(
                 wrapRow(theme.fg("warning", emptyMsg), innerWidth),
               );

@@ -177,7 +177,7 @@ export function writeSkillFromTemplate(
   name: string,
   template: SkillTemplateId,
   skillsRoot: string = getAgentPath("skills"),
-): { filePath: string } {
+): { filePath: string; safeName: string } {
   const safe = sanitizeSkillName(name);
   const dir = join(skillsRoot, safe);
   const filePath = join(dir, "SKILL.md");
@@ -187,7 +187,7 @@ export function writeSkillFromTemplate(
   mkdirSync(dir, { recursive: true });
   writeFileSync(filePath, renderSkillTemplate(template, safe), "utf8");
   invalidateSkillCache();
-  return { filePath };
+  return { filePath, safeName: safe };
 }
 
 export function buildSkillTemplateItems(): SelectItem[] {
@@ -204,7 +204,8 @@ function shellQuote(value: string): string {
 
 export function editorCommandFor(path: string): string {
   const ed = process.env.EDITOR?.trim() || "nvim";
-  return `!${ed} ${shellQuote(path)}`;
+  const quotedEditor = ed.split(/\s+/).filter(Boolean).map(shellQuote).join(" ");
+  return `!${quotedEditor} ${shellQuote(path)}`;
 }
 
 function appendEditorText(ctx: any, text: string): void {
@@ -242,10 +243,15 @@ export async function runSkillsNew(ctx: any, args: string): Promise<void> {
 
   let template = parsed.template;
   let name = parsed.name;
-  if (!name) {
+  const templateOnlyArg = args.trim().replace(/^new\s+/i, "");
+  const hasExplicitTemplate = isSkillTemplateId(templateOnlyArg.toLowerCase());
+  if (!name && template === "standard" && !hasExplicitTemplate) {
     const picked = await pickSkillTemplate(ctx);
     if (!picked) return;
     template = picked;
+  }
+
+  if (!name) {
     appendEditorText(ctx, `/skills new <name> ${template}`);
     ctx.ui.notify(
       `Replace <name> and run to create a ${template} skill.`,
@@ -255,9 +261,9 @@ export async function runSkillsNew(ctx: any, args: string): Promise<void> {
   }
 
   try {
-    const { filePath } = writeSkillFromTemplate(name, template);
+    const { filePath, safeName } = writeSkillFromTemplate(name, template);
     appendEditorText(ctx, editorCommandFor(filePath));
-    ctx.ui.notify(`Created ${name} (${template}). Enter runs the editor.`, "info");
+    ctx.ui.notify(`Created ${safeName} (${template}). Enter runs the editor.`, "info");
   } catch (error) {
     ctx.ui.notify(
       error instanceof Error ? error.message : String(error),
