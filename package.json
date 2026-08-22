@@ -1,7 +1,7 @@
 {
   "name": "@groeponline/pi-wishcraft",
   "version": "1.0.3",
-  "description": "Wishcraft cockpit for the pi coding agent — powerline status, vibes, idea inbox, bash mode, and full customization.",
+  "description": "Operator cockpit for Pi: live powerline status, searchable skills, idea queue, sticky Bash, hooks, policy controls, and session UX.",
   "type": "module",
   "files": [
     "*.ts",
@@ -24,7 +24,13 @@
     "coding-agent",
     "powerline",
     "status-bar",
-    "extension"
+    "extension",
+    "groeponline",
+    "terminal-ui",
+    "developer-tools",
+    "agent-ui",
+    "productivity",
+    "hooks"
   ],
   "publishConfig": {
     "access": "public",

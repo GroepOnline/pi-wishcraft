@@ -2,6 +2,13 @@
   <img src="banner.png" alt="pi-wishcraft" width="1100">
 </p>
 
+<p>
+  <a href="https://www.npmjs.com/package/@groeponline/pi-wishcraft"><img src="https://img.shields.io/npm/v/@groeponline/pi-wishcraft.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@groeponline/pi-wishcraft"><img src="https://img.shields.io/npm/dm/@groeponline/pi-wishcraft.svg?label=downloads" alt="npm downloads"></a>
+  <a href="https://pi.dev/packages/@groeponline/pi-wishcraft"><img src="https://img.shields.io/badge/Pi-package-9b59b6.svg" alt="Pi package"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555.svg" alt="MIT license"></a>
+</p>
+
 # pi-wishcraft
 
 Cockpit and harness for the [pi](https://github.com/badlogic/pi-mono) coding agent: a live status bar, overlay menus, skills, an idea inbox, sticky bash, hooks, and tool-input repairs. Stock pi stays the engine. This package is the operator layer.
