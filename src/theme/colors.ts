@@ -12,6 +12,18 @@ export const ansi: AnsiColors = {
   reset: "\x1b[0m",
 };
 
+// ponytail: NO_COLOR (de-facto standard — present and non-empty) disables all
+// wishcraft color so the status bar stays plain text in no-color terminals
+// and color-blind pipelines. Computed lazily so test env changes take effect.
+let _colorEnabled: boolean | undefined;
+export function colorEnabled(): boolean {
+  if (_colorEnabled === undefined) {
+    const v = process.env.NO_COLOR;
+    _colorEnabled = !(v != null && v !== "");
+  }
+  return _colorEnabled;
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const cleanHex = hex.startsWith("#") ? hex.slice(1) : hex;
   if (!/^[0-9A-Fa-f]{6}$/.test(cleanHex)) {
@@ -51,10 +63,12 @@ for (const key of Object.keys(PALETTE)) {
 }
 
 export function fgOnly(color: ColorName, text: string): string {
+  if (!colorEnabled()) return text;
   const code = ansiCodeCache.get(color as string) ?? "";
   return code ? `${code}${text}` : text;
 }
 
 export function getFgAnsiCode(color: ColorName): string {
+  if (!colorEnabled()) return "";
   return ansiCodeCache.get(color as string) ?? "";
 }
