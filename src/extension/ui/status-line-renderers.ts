@@ -7,7 +7,7 @@ import {
   collectHiddenExtensionStatusKeys,
   getNotificationExtensionStatuses,
 } from "../../config/powerline-config.ts";
-import { ansi, getFgAnsiCode } from "../../theme/colors.ts";
+import { ansi, colorEnabled, getFgAnsiCode } from "../../theme/colors.ts";
 
 import { computeResponsiveLayout } from "./layout.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
@@ -210,7 +210,8 @@ export function renderLastPromptLines(
 ): string[] {
   if (rt.bashModeActive || !rt.showLastPrompt || !rt.lastUserPrompt) return [];
 
-  const prefix = ` ${getFgAnsiCode("sep")}↳${ansi.reset} `;
+  const reset = colorEnabled() ? ansi.reset : "";
+  const prefix = ` ${getFgAnsiCode("sep")}↳${reset} `;
   const availableWidth = width - visibleWidth(prefix);
   if (availableWidth < 10) return [];
 
@@ -219,7 +220,7 @@ export function renderLastPromptLines(
 
   promptText = truncateToWidth(promptText, availableWidth, "…");
 
-  const styledPrompt = `${getFgAnsiCode("sep")}${promptText}${ansi.reset}`;
+  const styledPrompt = `${getFgAnsiCode("sep")}${promptText}${reset}`;
   const line = `${prefix}${styledPrompt}`;
   return [truncateToWidth(line, width, "…")];
 }
