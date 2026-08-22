@@ -8,7 +8,7 @@ Cockpit and harness for the [pi](https://github.com/badlogic/pi-mono) coding age
 
 Kongming lanterns started as battlefield signals and later carried wishes. Wishcraft is that split in a coding session: telemetry on the bar, thoughts you can park without interrupting the run.
 
-Install `@groeponline/pi-wishcraft`. It is listed on the [Pi package catalog](https://pi.dev/packages?name=wishcraft). Grew out of [`nicobailon/pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer). Maintained by [GroepOnline](https://github.com/GroepOnline).
+Install `@groeponline/pi-wishcraft`. It is listed on the [Pi package catalog](https://pi.dev/packages/@groeponline/pi-wishcraft). Grew out of [`nicobailon/pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer). Maintained by [GroepOnline](https://github.com/GroepOnline).
 
 Guides live in [`docs/`](docs/index.md). This page is the contract: what ships, how to install it, and what can fail.
 
@@ -211,7 +211,7 @@ Declarative deny/inject rules in the **global** agent settings file. No shell co
 - No mouse on the live footer. Pi core owns that surface.
 - No second `alt+i` product. Ports stay on `alt+i`; other detail is `→` in the navigator.
 - ChefGroep status keys (`powerline.preset`, `powerline.tps`, `powerline.ports`) exist for other extensions. They are not the public pitch.
-- `npm deprecate` of the old `@groeponline/pi-powerline-footer` name is a scope-owner action. That package stays at 0.17.2 until the token allows it.
+- The legacy `@groeponline/pi-powerline-footer` package is deprecated on npm in favor of `@groeponline/pi-wishcraft`; the GitHub fork relationship is retained for upstream history and attribution.
 - Tags are not rewritten. 0.19.x through current stay on the timeline.
 
 ## Docs
