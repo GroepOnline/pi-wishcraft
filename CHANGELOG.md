@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-22
+
 ### Changed
 - Release workflow pins `actions/checkout` and `actions/setup-node` to commit SHAs, so the publish lane cannot pick up a moved tag. Publish stays provenance-free by design: the contract test keeps `id-token: write` out of `release.yml`.
 
