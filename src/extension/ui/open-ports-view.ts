@@ -1,3 +1,4 @@
+import { copyToClipboard } from "@earendil-works/pi-coding-agent";
 import type { SelectItem } from "@earendil-works/pi-tui";
 import { execSync } from "node:child_process";
 
@@ -23,9 +24,12 @@ export async function showOpenPortsList(ctx: any): Promise<void> {
     }
     const proto = includeUdp ? "-tulnp" : "-tlnp";
     const command = host
-      ? `ssh -o ConnectTimeout=3 -o BatchMode=yes ${host} "ss ${proto} 2>/dev/null" 2>/dev/null`
+      ? `ssh -o ConnectTimeout=3 -o BatchMode=yes -- ${host} "ss ${proto} 2>/dev/null" 2>/dev/null`
       : `ss ${proto} 2>/dev/null`;
-    const stdout = execSync(command, { encoding: "utf8" });
+    // execSync defaults to no timeout; cap it so a stalled ss/ssh probe
+    // cannot block the extension event loop (ConnectTimeout only covers
+    // SSH connection setup).
+    const stdout = execSync(command, { encoding: "utf8", timeout: 3000 });
     publishPowerlineStatuses(ctx, {
       ports: formatPortsStatusValue(countListeningPorts(includeUdp, host)),
     });
@@ -50,7 +54,14 @@ export async function showOpenPortsList(ctx: any): Promise<void> {
       items,
       Math.min(items.length, 24),
     );
-    if (picked) ctx.ui.notify(`Port: ${picked.value}`, "info");
+    if (picked) {
+      try {
+        await copyToClipboard(picked.value);
+        ctx.ui.notify("Port line copied to clipboard", "info");
+      } catch {
+        ctx.ui.notify(`Could not copy: ${picked.value}`, "warning");
+      }
+    }
   } catch (error) {
     ctx.ui.notify(
       `Failed to list ports: ${error instanceof Error ? error.message : String(error)}`,

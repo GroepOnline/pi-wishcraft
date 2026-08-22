@@ -128,7 +128,9 @@ export const extensionStatusesSegment: StatusLineSegment = {
 export function sanitizeSshHost(value: string | undefined): string | null {
   if (typeof value !== "string") return null;
   const host = value.trim();
-  return /^[A-Za-z0-9._@-]+$/.test(host) && host.length > 0 ? host : null;
+  // First character must be alphanumeric so option-like destinations
+  // (e.g. "-oProxyCommand=…") can never pass as a host.
+  return /^[A-Za-z0-9][A-Za-z0-9._@-]*$/.test(host) ? host : null;
 }
 
 /**
@@ -144,7 +146,7 @@ function sshCommand(
   if (!host) return remoteCmd;
   const safe = sanitizeSshHost(host);
   if (!safe) return null;
-  return `ssh -o ConnectTimeout=3 -o BatchMode=yes ${safe} ${JSON.stringify(remoteCmd)} 2>/dev/null`;
+  return `ssh -o ConnectTimeout=3 -o BatchMode=yes -- ${safe} ${JSON.stringify(remoteCmd)} 2>/dev/null`;
 }
 
 export function countListeningPorts(includeUdp = false, host?: string): number {

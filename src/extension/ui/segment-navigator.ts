@@ -1,4 +1,7 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import {
+  copyToClipboard,
+  type Theme,
+} from "@earendil-works/pi-coding-agent";
 import { matchesKey, SelectList, truncateToWidth } from "@earendil-works/pi-tui";
 
 import type { StatusLineSegmentId } from "../../config/types.ts";
@@ -50,7 +53,9 @@ export async function activateSegment(
     ctx.ui.notify("Use /ideas to work the queue", "info");
     return;
   }
-  const value = picked.label.replace(/^\S+\s+/, "");
+  // Strip the status bullet and the segment id so the notification shows
+  // "git: main" instead of "git: git  main".
+  const value = picked.label.replace(/^●\s*/, "").replace(/^\S+\s+/, "");
   ctx.ui.notify(`${id}: ${value}`, "info");
 }
 
@@ -207,7 +212,12 @@ export async function showSegmentNavigator(
               const summary = detailLines
                 .map((line) => `${line.label}: ${line.value}`)
                 .join("  ·  ");
-              ctx.ui.notify(`${detailId}: ${summary}`, "info");
+              try {
+                copyToClipboard(summary);
+                ctx.ui.notify(`${detailId} copied to clipboard`, "info");
+              } catch {
+                ctx.ui.notify(`${detailId}: ${summary}`, "info");
+              }
               finish(null);
               return;
             }
