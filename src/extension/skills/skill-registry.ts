@@ -10,18 +10,17 @@
  */
 
 import { loadSkills } from "@earendil-works/pi-coding-agent";
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import { getAgentDir, getAgentPath } from "../../paths/agent-dirs.ts";
+import { getAgentDir } from "../../paths/agent-dirs.ts";
 import { parseSkillFrontmatter, stripFrontmatter } from "../../core/frontmatter.ts";
 
 /** Category: where the skill came from. */
 export type SkillCategory = "global" | "project" | "prompts" | "extra";
 
-export interface SkillUsage {
-  count: number;
-  lastUsed: number;
-}
+import { getSkillUsage, recordSkillUsage } from "./skill-usage.ts";
+export { getSkillUsage, recordSkillUsage, flushSkillUsage } from "./skill-usage.ts";
+export type { SkillUsage } from "./skill-usage.ts";
 
 export interface SkillEntry {
   name: string;
@@ -101,9 +100,6 @@ let onCacheInvalidated: (() => void) | null = null;
 export function setSkillCacheInvalidationHandler(handler: (() => void) | null): void {
   onCacheInvalidated = handler;
 }
-
-const usageCache = new Map<string, SkillUsage>();
-let usageLoaded = false;
 
 /** Drop the discovery cache (the next read scans again). */
 export function invalidateSkillCache(): void {
@@ -329,74 +325,8 @@ export function getAvailableSkills(): Map<string, string> {
 }
 
 // ---------------------------------------------------------------------------
-// Usage-ledger (~/.pi/agent/skill-usage.json)
+
 // ---------------------------------------------------------------------------
-
-function usageFile(): string {
-  return getAgentPath("skill-usage.json");
-}
-
-function loadUsage(): void {
-  if (usageLoaded) return;
-  usageLoaded = true;
-  try {
-    const raw = readFileSync(usageFile(), "utf8");
-    const parsed = JSON.parse(raw) as Record<string, SkillUsage>;
-    for (const [name, u] of Object.entries(parsed)) {
-      usageCache.set(name, { count: u.count ?? 0, lastUsed: u.lastUsed ?? 0 });
-    }
-  } catch {
-    // missing file or broken JSON → empty ledger
-  }
-}
-
-/** Usage for every skill (name → {count, lastUsed}). */
-export function getSkillUsage(): Map<string, SkillUsage> {
-  loadUsage();
-  return usageCache;
-}
-
-let usageFlushTimer: ReturnType<typeof setTimeout> | null = null;
-let exitFlushRegistered = false;
-
-/** Write the ledger to disk now (best-effort, sync). */
-export function flushSkillUsage(): void {
-  if (usageFlushTimer) {
-    clearTimeout(usageFlushTimer);
-    usageFlushTimer = null;
-  }
-  try {
-    const obj: Record<string, SkillUsage> = {};
-    for (const [k, v] of usageCache) obj[k] = v;
-    mkdirSync(getAgentDir(), { recursive: true });
-    writeFileSync(usageFile(), JSON.stringify(obj, null, 2), "utf8");
-  } catch {
-    // best-effort: tracking must never break the hot path
-  }
-}
-
-/**
- * Log a skill use. The in-memory ledger updates immediately (so
- * getSkillUsage() is correct), but the disk write is debounced so the
- * input hot path does not do a sync writeFileSync per keystroke.
- */
-export function recordSkillUsage(name: string): void {
-  loadUsage();
-  const cur = usageCache.get(name) ?? { count: 0, lastUsed: 0 };
-  usageCache.set(name, { count: cur.count + 1, lastUsed: Date.now() });
-
-  if (!exitFlushRegistered) {
-    exitFlushRegistered = true;
-    process.once("exit", () => flushSkillUsage());
-  }
-  if (!usageFlushTimer) {
-    usageFlushTimer = setTimeout(() => {
-      usageFlushTimer = null;
-      flushSkillUsage();
-    }, 500);
-    usageFlushTimer.unref?.();
-  }
-}
 
 /** Lees de skill-body zonder frontmatter. */
 export function readSkillBody(path: string): string {
