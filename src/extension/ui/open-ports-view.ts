@@ -2,7 +2,7 @@ import { copyToClipboard } from "@earendil-works/pi-coding-agent";
 import type { SelectItem } from "@earendil-works/pi-tui";
 
 import {
-  countListeningPorts,
+  parseListeningPortsFromText,
   probeListeningPorts,
   sanitizeSshHost,
 } from "../../segments/system.ts";
@@ -28,9 +28,14 @@ export async function showOpenPortsList(ctx: any): Promise<void> {
     }
     // probeListeningPorts caps each probe at 3s and falls back to netstat when
     // ss is unavailable; ConnectTimeout only covers SSH connection setup.
+    // Probe once and derive the count from the same output — two sequential
+    // probe sequences could block for up to ~12s combined.
     const stdout = probeListeningPorts(includeUdp, host);
+    const portCount = stdout === null
+      ? (host ? -1 : countListeningPorts(includeUdp, host))
+      : parseListeningPortsFromText(stdout).size;
     publishPowerlineStatuses(ctx, {
-      ports: formatPortsStatusValue(countListeningPorts(includeUdp, host)),
+      ports: formatPortsStatusValue(portCount),
     });
     if (stdout === null) {
       ctx.ui.notify("Could not list ports (ss/netstat unavailable)", "warning");

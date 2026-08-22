@@ -212,12 +212,15 @@ export async function showSegmentNavigator(
               const summary = detailLines
                 .map((line) => `${line.label}: ${line.value}`)
                 .join("  ·  ");
+              // Capture the id before the async chain: the user can return
+              // to the list (detailId -> null) while the copy is in flight.
+              const copiedId = detailId;
               copyToClipboard(summary)
                 .then(() => {
-                  ctx.ui.notify(`${detailId} copied to clipboard`, "info");
+                  ctx.ui.notify(`${copiedId} copied to clipboard`, "info");
                 })
                 .catch(() => {
-                  ctx.ui.notify(`${detailId}: ${summary}`, "info");
+                  ctx.ui.notify(`${copiedId}: ${summary}`, "info");
                 })
                 .finally(() => finish(null));
               return;
