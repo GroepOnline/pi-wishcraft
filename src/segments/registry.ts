@@ -135,6 +135,9 @@ export function applySegmentDecoration(
   return { content, visible: true };
 }
 
+const SEGMENT_ERROR_LOG_INTERVAL_MS = 10_000;
+const lastSegmentErrorLog = new Map<StatusLineSegmentId, number>();
+
 export const SEGMENTS: Record<BuiltinStatusLineSegmentId, StatusLineSegment> = {
   model: modelSegment,
   shell_mode: shellModeSegment,
@@ -177,11 +180,21 @@ export function renderSegment(
       rendered = segment ? segment.render(ctx) : { content: "", visible: false };
     }
     return applySegmentDecoration(id, ctx, rendered);
-  } catch {
-    // ponytail: per-segment fault isolation. A throwing segment (most often a
+  } catch (err) {
+    // Per-segment fault isolation. A throwing segment (most often a
     // user `command` custom segment with a failing script) must not blank the
     // whole footer; surface a visible `!id` marker so the operator sees
-    // which segment broke. No per-render log: the bar repaints ~30/s.
-    return { content: `!${id}`, visible: true };
+    // which segment broke. Errors are logged at most once every 10 seconds per segment.
+    const now = Date.now();
+      const lastLogged = lastSegmentErrorLog.get(id) ?? 0;
+      if (now - lastLogged >= SEGMENT_ERROR_LOG_INTERVAL_MS) {
+        lastSegmentErrorLog.set(id, now);
+        const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+        console.warn(`[wishcraft] segment "${id}" failed: ${detail}`);
+      }
+      return applySegmentDecoration(id, ctx, {
+        content: `!${id}`,
+        visible: true,
+      });
   }
 }
