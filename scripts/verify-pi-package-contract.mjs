@@ -64,8 +64,8 @@ for (const [key, raw] of resources) {
   if (typeof raw !== "string" || !raw.trim()) { fail(`pi.${key} contains an invalid resource path`); continue; }
   if (raw.startsWith("!")) continue;
   const clean = normalize(raw);
-  if (clean.startsWith("../")) { fail(`pi.${key} resource escapes package root: ${raw}`); continue; }
-  if (!/[?*{}[\]]/.test(clean) && !fs.existsSync(path.join(packageRoot, clean))) fail(`pi.${key} resource does not exist after build: ${raw}`);
+  if (!path.resolve(packageRoot, clean).startsWith(packageRoot + path.sep)) { fail(`pi.${key} resource escapes package root: ${raw}`); continue; }
+  if (!fs.existsSync(path.join(packageRoot, clean))) fail(`pi.${key} resource does not exist after build: ${raw}`);
 }
 
 const core = [
@@ -82,7 +82,7 @@ for (const dep of core) {
   if ((pkg.bundledDependencies || pkg.bundleDependencies || []).includes(dep)) fail(`Pi core package ${dep} must not be bundled`);
 }
 
-const skipDirs = new Set([".git", "node_modules", "dist", "target", "coverage", ".next", "build"]);
+const skipDirs = new Set([".git", "node_modules", "dist", "target", "coverage", ".next", "build", "tests", "scripts"]);
 const codeExt = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 const sourceFiles = [];
 function walk(dir) {
@@ -115,9 +115,13 @@ if (packed) {
   for (const [key, raw] of resources) {
     if (raw.startsWith("!")) continue;
     const clean = normalize(raw);
-    if (/[?*{}[\]]/.test(clean)) continue;
+    const resolved = path.resolve(packageRoot, clean);
+    if (resolved !== packageRoot && !resolved.startsWith(packageRoot + path.sep)) {
+      fail(`pi.${key} resource escapes package root: ${raw}`);
+      continue;
+    }
     const local = path.join(packageRoot, clean);
-    if (!fs.existsSync(local)) continue;
+    if (!fs.existsSync(local)) fail(`pi.${key} resource does not exist after build: ${raw}`);
     const stat = fs.statSync(local);
     const included = stat.isDirectory() ? [...packedFiles].some((f) => f.startsWith(clean.replace(/\/$/, "") + "/")) : packedFiles.has(clean);
     if (!included) fail(`pi.${key} resource is not present in npm tarball: ${raw}`);
