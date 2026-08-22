@@ -295,8 +295,9 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
     pi.registerShortcut(rt.resolvedShortcuts.menu as KeyId, {
       description: "Powerline menu (navigate / configure / info)",
       handler: async (ctx) => {
-        if (!rt.enabled || !(ctx as any).hasUI) {
-          ctx.ui.notify("Powerline UI is disabled — enable with /powerline", "info");
+        if (!ctx.hasUI) return;
+        if (!rt.enabled) {
+          ctx.ui.notify("Powerline is disabled", "info");
           return;
         }
         await showPowerlineMainMenu(rt, ctx);

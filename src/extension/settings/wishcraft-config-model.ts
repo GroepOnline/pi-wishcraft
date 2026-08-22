@@ -170,7 +170,7 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
         { label: "Welcome overlay", path: "powerline.welcome", kind: "toggle", hint: "on = overlay at startup, off = no welcome" },
         { label: "Welcome art", path: "wishcraft.welcome.art", kind: "select", choices: [...WELCOME_ART_THEMES], hint: "lantern = Kongming sky lantern, balloon = wish balloon, normal = pi mark" },
         { label: "Animate wishcraft lantern", path: "wishcraft.welcome.animateLantern", kind: "toggle", hint: "flicker on the lantern flame" },
-        { label: "Persistent header (quiet startup)", path: "quietStartup", kind: "toggle", hint: "on = header that dismisses on first input, off = centered overlay" },
+        { label: "Persistent header (quiet startup)", path: "quietStartup", kind: "toggle", hint: "on = header that dismisses on first input, off = centered overlay; needs a restart to take effect" },
       ],
     },
     {

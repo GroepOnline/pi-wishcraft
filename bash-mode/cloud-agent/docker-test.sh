@@ -7,8 +7,9 @@
 # its own .git), so any number of runs are safe in parallel — useful for
 # reproducing CI in isolation or fanning out variations at once.
 #
-# node_modules is shared read-only from the host checkout to keep startup fast;
-# nothing writes to it.
+# Dependencies are installed inside each container with npm ci (from the copied
+# package-lock.json). Host node_modules is never mounted — host ABI/OS packages
+# must not leak into node:24.
 #
 # Usage:
 #   scripts/docker-test.sh              # 1 container, full suite
@@ -24,7 +25,7 @@ PARALLEL=1
 while [ $# -gt 0 ]; do
   case "$1" in
     -n|--parallel) PARALLEL="${2:?-n needs a count}"; shift 2 ;;
-    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -49,13 +50,13 @@ if ! $DOCKER info >/dev/null 2>&1; then
   exit 1
 fi
 
-# Isolate each run: copy the tree (minus node_modules) into a writable dir, with
-# the host's node_modules bind-mounted read-only at /app/node_modules so Node
-# resolves modules normally while writes stay isolated per container.
+# Isolate each run: copy the tree (minus node_modules) into a writable dir, then
+# install deps inside the container so they match the image's Node ABI/OS.
 SUITE='set -e
 (cd /src && tar -cf - --exclude=./node_modules .) | (mkdir -p /app && cd /app && tar -xf -)
 cd /app
 git config --global --add safe.directory /app
+npm ci
 npm run typecheck
 npm test
 npm run circular'
@@ -65,7 +66,6 @@ run_one() {
   $DOCKER run --rm --name "wc-test-${id}-$$" \
     -e HOME=/tmp \
     -v "$REPO_ROOT":/src:ro \
-    -v "$REPO_ROOT/node_modules":/app/node_modules:ro \
     "$IMAGE" bash -c "$SUITE"
 }
 
