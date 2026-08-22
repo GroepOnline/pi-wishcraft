@@ -9,7 +9,7 @@ import { getPreset } from "../../config/presets.ts";
 import { mergeSegmentsWithCustomItems } from "../../config/powerline-config.ts";
 import { getSeparator } from "../../theme/separators.ts";
 import { renderSegment } from "../../segments/index.ts";
-import { ansi, getFgAnsiCode } from "../../theme/colors.ts";
+import { ansi, colorEnabled, getFgAnsiCode } from "../../theme/colors.ts";
 import { config } from "../core/state.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -41,7 +41,8 @@ export function buildContentFromParts(
   const separatorDef = getSeparator(separatorStyle);
   const sepAnsi = getFgAnsiCode("sep");
   const sep = separatorDef.left;
-  return " " + parts.join(` ${sepAnsi}${sep}${ansi.reset} `) + ansi.reset + " ";
+  const reset = colorEnabled() ? ansi.reset : "";
+  return " " + parts.join(` ${sepAnsi}${sep}${reset} `) + reset + " ";
 }
 
 /**

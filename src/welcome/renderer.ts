@@ -1,5 +1,5 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { ansi, fgOnly, getFgAnsiCode } from "../theme/colors.ts";
+import { ansi, colorEnabled, fgOnly, getFgAnsiCode } from "../theme/colors.ts";
 import { centerText, fitToWidth, getBoxLayout } from "./layout.ts";
 import type { WelcomeData, WelcomeWidget, WidgetRenderContext } from "./types.ts";
 
@@ -32,7 +32,7 @@ function bold(text: string): string {
 }
 
 export function dim(text: string): string {
-  return getFgAnsiCode("sep") + text + ansi.reset;
+  return getFgAnsiCode("sep") + text + (colorEnabled() ? ansi.reset : "");
 }
 
 function gradientLine(line: string): string {
