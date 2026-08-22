@@ -8,7 +8,7 @@
  *     "policyEnabled": true,
  *     "policy": [
  *       { "action": "deny", "tool": "bash", "match": "sudo\\s+rm", "reason": "…" },
- *       { "action": "inject", "tool": "read", "pathMatch": "\\.env", "context": "…" }
+ *       { "action": "inject", "tool": "read", "match": "\\.env", "context": "…" }
  *     ]
  *   }
  *
@@ -63,13 +63,14 @@ function parseDenyRule(v: unknown): DenyPolicyRule | null {
 function parseInjectRule(v: unknown): InjectPolicyRule | null {
   if (!isRecord(v) || v.action !== "inject") return null;
   if (typeof v.tool !== "string" || !v.tool.trim()) return null;
-  if (typeof v.pathMatch !== "string" || !v.pathMatch.trim()) return null;
+  if (typeof v.match !== "string" || !v.match.trim()) return null;
   if (typeof v.context !== "string" || !v.context.trim()) return null;
-  if (!validRegex(v.pathMatch)) return null;
+  if (!validRegex(v.match)) return null;
   return {
     action: "inject",
     tool: v.tool,
-    pathMatch: v.pathMatch,
+    match: v.match,
+      _re: new RegExp(v.match),
     context: v.context,
   };
 }

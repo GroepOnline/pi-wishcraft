@@ -69,7 +69,7 @@ export function evalPostToolUsePolicy(
   for (const rule of rules) {
     if (rule.action !== "inject" || rule.tool !== toolName) continue;
     try {
-      if (new RegExp(rule.pathMatch).test(path)) {
+      if ((rule._re ?? new RegExp(rule.match)).test(path)) {
         extra += (extra ? "\n" : "") + rule.context;
       }
     } catch {
