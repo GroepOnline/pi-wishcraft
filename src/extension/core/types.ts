@@ -13,6 +13,8 @@ import type {
 import type { CoreContextUsageCache } from "../../usage/context.ts";
 import type { WelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
 import type { RenderScheduler } from "../../render/timer.ts";
+import type { MotionPolicy, MotionScheduler } from "../../motion/index.ts";
+import type { SignalRuntime } from "../../signal/controller.ts";
 
 export type ShortcutBinding = string | null;
 
@@ -98,4 +100,9 @@ export interface RuntimeState {
 
   welcomeDismissScheduler: WelcomeDismissScheduler<any>;
   statusRenderScheduler: RenderScheduler;
+  /** The single shared clock for every Wishcraft animation surface. */
+  motionScheduler: MotionScheduler;
+  motionPolicy: MotionPolicy;
+  /** Live Signal event, motion frame, and activity label. */
+  signal: SignalRuntime;
 }

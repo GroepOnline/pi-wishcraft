@@ -76,6 +76,10 @@ import {
   clearSkillsCountPublisher,
 } from "../skills/skill-status.ts";
 import { maybeAppendReadHint } from "./read-hints.ts";
+import {
+  dispatchSignalEvent,
+  settleSignal,
+} from "../../signal/integration.ts";
 
 /**
  * Fire the configured `powerline.costAlert` warning at most once per session.
@@ -162,6 +166,7 @@ export function registerSessionLifecycle(
 ): void {
   // Track session start
   pi.on("session_start", async (event, ctx) => {
+    settleSignal(rt);
     clearSkillsCountPublisher();
     rt.shellSession?.dispose();
     rt.shellSession = null;
@@ -238,6 +243,7 @@ export function registerSessionLifecycle(
     rt.welcomeOverlayShouldDismiss = false;
     rt.welcomeDismissScheduler.cancel();
     rt.statusRenderScheduler.cancel();
+    rt.motionScheduler.dispose();
     rt.restoreFooterStatusRepaintHook?.();
     rt.restoreFooterStatusRepaintHook = null;
     rt.stashShortcutInputUnsubscribe?.();
@@ -320,6 +326,7 @@ export function registerSessionLifecycle(
     onVibeAgentStart();
     dismissWelcome(rt, ctx);
     rt.currentCtx = ctx;
+    dispatchSignalEvent(rt, config.appearance, "thinking");
   });
 
   pi.on("message_update", async (event, ctx) => {
@@ -333,6 +340,9 @@ export function registerSessionLifecycle(
       rt.currentCtx = ctx;
       rt.layoutDirty = true;
       rt.statusRenderScheduler.schedule(CONTEXT_STATUS_RENDER_MS);
+      if (rt.signal.event !== "streaming") {
+        dispatchSignalEvent(rt, config.appearance, "streaming");
+      }
     }
   });
 
@@ -374,6 +384,7 @@ export function registerSessionLifecycle(
     rt.powerlineCompacting = true;
     rt.currentCtx = ctx;
     requestQueueRender(rt);
+    dispatchSignalEvent(rt, config.appearance, "compact");
   });
 
   pi.on("session_compact", async (event, ctx) => {
@@ -406,6 +417,12 @@ export function registerSessionLifecycle(
   // Also dismiss on tool calls (agent is working) + refresh vibe if rate limit allows
   pi.on("tool_call", async (event, ctx) => {
     dismissWelcome(rt, ctx);
+    dispatchSignalEvent(
+      rt,
+      config.appearance,
+      "tool.start",
+      `tool ${event.toolName}`,
+    );
     if (ctx.hasUI) {
       // Extract recent agent context from session for richer vibe generation
       const agentContext = getRecentAgentContext(ctx);
@@ -422,6 +439,7 @@ export function registerSessionLifecycle(
     rt.isStreaming = false;
     rt.liveAssistantUsage = null;
     rt.coreContextUsageCache.reset();
+    dispatchSignalEvent(rt, config.appearance, "success");
 
     let hasUI = false;
     try {
