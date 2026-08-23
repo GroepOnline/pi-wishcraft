@@ -16,6 +16,9 @@ import { getAgentPath } from "../paths/agent-dirs.ts";
 
 const MAX_WHATSNEW_LINES = 8;
 const WHATS_NEW_STATE_FILE = "whats-new.json";
+// First GroepOnline release. On a first run (no stored version) the welcome
+// panel shows history from here forward, never the pre-1.0 `0.x` prehistory.
+const FIRST_OWN_RELEASE = "1.0.0";
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -39,36 +42,51 @@ function isVersionNewer(version: string, lastSeen: string | null): boolean {
 
 /**
  * Extract the bullet lines from released changelog sections whose version is
- * strictly newer than `lastSeenVersion` (null = first run, so the newest
- * sections win). Markdown bold markers are stripped; backticks are kept so
- * commands like `/powerline doctor` stay readable in the terminal.
+ * strictly newer than `lastSeenVersion`. On a first run (`lastSeenVersion` is
+ * null) `floorVersion` becomes the lower bound, so the panel shows history from
+ * the first own release forward and skips the pre-1.0 prehistory. Sections are
+ * returned oldest-first (chronological "since your last version") and capped at
+ * `maxLines`. Markdown bold markers are stripped; backticks are kept so commands
+ * like `/powerline doctor` stay readable in the terminal.
  */
 export function parseChangelogDelta(
   changelog: string,
   lastSeenVersion: string | null,
   maxLines: number = MAX_WHATSNEW_LINES,
+  floorVersion: string | null = FIRST_OWN_RELEASE,
 ): string[] {
-  const entries: string[] = [];
-  let includeSection = false;
+  // The changelog is newest-first; collect per section, then reverse to read
+  // oldest-first before capping.
+  const sections: string[][] = [];
+  let current: string[] | null = null;
+  const lowerBound = lastSeenVersion ?? floorVersion;
 
   for (const rawLine of changelog.split("\n")) {
     const line = rawLine.trimEnd();
     const versionMatch = line.match(/^##\s+\[([^\]]+)\]/);
     if (versionMatch) {
       const version = versionMatch[1].trim();
-      includeSection =
-        version !== "Unreleased" && isVersionNewer(version, lastSeenVersion);
+      const include =
+        version !== "Unreleased" && isVersionNewer(version, lowerBound);
+      current = include ? [] : null;
+      if (current) sections.push(current);
       continue;
     }
-    if (!includeSection) continue;
+    if (!current) continue;
     if (!line.startsWith("- ")) continue;
 
     const cleaned = line.slice(2).trim().replace(/\*\*/g, "").trim();
     if (!cleaned) continue;
-    entries.push(cleaned);
-    if (entries.length >= maxLines) break;
+    current.push(cleaned);
   }
 
+  const entries: string[] = [];
+  for (const section of sections.reverse()) {
+    for (const entry of section) {
+      entries.push(entry);
+      if (entries.length >= maxLines) return entries;
+    }
+  }
   return entries;
 }
 

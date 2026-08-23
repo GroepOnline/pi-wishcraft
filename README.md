@@ -1,5 +1,5 @@
 <p>
-  <img src="banner.png" alt="pi-wishcraft" width="1100">
+  <img src="https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/banner.png" alt="pi-wishcraft" width="1100">
 </p>
 
 <p>
