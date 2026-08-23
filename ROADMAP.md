@@ -97,11 +97,18 @@ Niet de fork. Niet de SaaS-agent.
   preset-editor, idee-review, stabiele ChefGroep-statuskeys,
   documentatie die waar is. Done = README dekt alles wat we shipten,
   geen kapotte footer-belofte.
-- **vNext — "Operator Layer"** (in planning). Stacked PRs PR0–PR8:
+- **vNext — "Operator Layer"** (in uitvoering). Stacked PRs PR0–PR8:
   Deck control surface (`ctx.ui.custom`), animated Signal powerline,
   zero-overhead Motion Engine (0 FPS idle), 10 signature structural presets,
   semantische tokens, en first-class accessibility (`NO_COLOR`, reduced motion).
   Zie [docs/design/vnext-release-plan.md](docs/design/vnext-release-plan.md).
+  - PR0 design corpus — geland (`docs/design/`).
+  - PR1 motion engine — geland (`src/motion/`): één scheduler op de bestaande
+    coalescing timer, semantische events, 6 channels, 0 FPS zonder consumers.
+  - PR2 semantic tokens — geland (`src/config/tokens.ts`): `PresetDef.tokens`
+    is optioneel en `DEFAULT_TOKENS` reproduceert `getDefaultColors()`.
+  - PR3–PR8 — open: preset-contract, animated Signal, Deck, Appearance,
+    accessibility, Craft + docs.
 
 ## Top-15 track: remaining maturity gaps
 
@@ -141,7 +148,8 @@ P1 — differentiation and quality:
    useful features. *Fix: sensible defaults + first-run setup overlay.*
 3. **Perf budget / low-power mode.** Status renders every ~33ms; heavy
    segments (bash-history, git) can hit the hot path. *Fix: configurable
-   refresh + lite mode / repeating scheduler with 0 FPS idle.*
+   refresh + lite mode / repeating scheduler with 0 FPS idle. Scheduler landed
+   in PR1 (`src/motion/scheduler.ts`); the segment hot path is still open.*
 4. **Accessibility (no-color / reduced-motion).** Truecolor + animations
    (vibes, rainbow think) break on terminals without truecolor. *Fix:
    `NO_COLOR`/8-color + reduced-motion respect (PR7).*
