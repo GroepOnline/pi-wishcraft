@@ -11,8 +11,6 @@ import type { RuntimeState } from "../../core/types.ts";
 import type { DeckContext, DeckRoute, DeckRouteDef } from "./types.ts";
 import { renderHomeRoute } from "./routes/home.ts";
 import { renderAppearanceRoute } from "./routes/appearance.ts";
-import { getGlobalMotionScheduler } from "../../../motion/scheduler.ts";
-
 export const DECK_ROUTES: DeckRouteDef[] = [
   { id: "home", label: "Home", glyph: "◉", shortcut: "g h", description: "Session overview and next intent" },
   { id: "signal", label: "Signal", glyph: "◆", shortcut: "g p", description: "Animated 3-lane powerline" },
@@ -47,24 +45,9 @@ export async function openWishcraftDeck(
     },
   };
 
-  const scheduler = getGlobalMotionScheduler();
-
   await ctx.ui.custom((_tui: any, theme: Theme, keyboard: any, done: () => void) => {
-    let unregConsumer: (() => void) | null = null;
-
-    // Register consumer with motion scheduler
-    unregConsumer = scheduler.registerConsumer({
-      id: "deck-overlay",
-      channel: "deckTransient",
-      cadenceMs: 80,
-      onFrame: (frame) => {
-        deckCtx.activeMotionGlyph = frame.glyph;
-      },
-    });
-
     const handleInput = (data: string) => {
       if (matchesKey(data, "escape")) {
-        unregConsumer?.();
         done();
         return;
       }
@@ -169,9 +152,7 @@ export async function openWishcraftDeck(
     return {
       render,
       handleInput,
-      dispose() {
-        unregConsumer?.();
-      },
+      dispose() {},
     };
   });
 }

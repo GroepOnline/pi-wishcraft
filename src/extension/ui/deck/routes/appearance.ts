@@ -8,7 +8,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { DeckContext } from "../types.ts";
 import { PRESETS } from "../../../../config/presets.ts";
-import { listMotionDefinitions } from "../../../../motion/catalog.ts";
+import { MOTION_CATALOG } from "../../../../motion/catalog.ts";
 
 export function renderAppearanceRoute(theme: Theme, ctx: DeckContext, width: number): string[] {
   const lines: string[] = [];
@@ -23,7 +23,7 @@ export function renderAppearanceRoute(theme: Theme, ctx: DeckContext, width: num
   lines.push("");
 
   lines.push(`  ${theme.bold(text("MOTION GALLERY & COMPOSER"))}`);
-  const motions = listMotionDefinitions().slice(0, 6);
+  const motions = MOTION_CATALOG.slice(0, 6);
   for (const m of motions) {
     lines.push(`  ${accent(m.fallbackGlyph)} ${text(m.name.padEnd(18))} ${dim(`Category: ${m.category.padEnd(12)} Channels: ${m.channels.join(", ")}`)}`);
   }
