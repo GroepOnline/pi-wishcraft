@@ -18,7 +18,7 @@ import {
 } from "../settings/settings-io.ts";
 import { showOpenPortsList, showSelectOverlay } from "../ui/menu-views.ts";
 import { showTpsOverlay, showUsageOverlay } from "../ui/token-overlays.ts";
-import { showPowerlineMainMenu } from "../ui/powerline-menu-view.ts";
+import { openWishcraftDeck } from "../ui/deck/index.ts";
 import { openStashHistory } from "../shortcuts/shortcuts-router.ts";
 import { ensureShellSession, setBashModeActive } from "./bash-mode-actions.ts";
 import { setupCustomEditor } from "../ui/custom-editor.ts";
@@ -95,6 +95,10 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       }
 
       const normalizedArgs = args.trim().toLowerCase();
+      if (normalizedArgs === "deck") {
+        await openWishcraftDeck(rt, ctx, "signal");
+        return;
+      }
       if (normalizedArgs === "doctor") {
         await runPowerlineDoctor(rt, ctx);
         return;
@@ -257,8 +261,12 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
 
   pi.registerCommand("usage", {
     description: "Show session / today / week token usage overlay",
-    handler: async (_args, ctx) => {
+    handler: async (args, ctx) => {
       rt.currentCtx = ctx;
+      if (args?.trim().toLowerCase() === "deck") {
+        await openWishcraftDeck(rt, ctx, "usage");
+        return;
+      }
       await showUsageOverlay(rt, ctx);
     },
   });
@@ -302,9 +310,10 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   // Configurable powerline shortcuts (re-bound on /reload via settings.powerlineShortcuts).
   if (rt.resolvedShortcuts.menu) {
     pi.registerShortcut(rt.resolvedShortcuts.menu as KeyId, {
-      description: "Powerline menu (navigate / configure / info)",
+      description: "Wishcraft Deck (operator control surface)",
       handler: async (ctx) => {
-        await showPowerlineMainMenu(rt, ctx);
+        rt.currentCtx = ctx;
+        await openWishcraftDeck(rt, ctx, "home");
       },
     });
   }

@@ -56,7 +56,7 @@ async function activatePowerlineMenuAction(
   }
 }
 
-import { openWishcraftDeck } from "./deck/deck-host.ts";
+import { openWishcraftDeck } from "./deck/index.ts";
 
 /** Main powerline / Wishcraft Deck menu: opens the Deck on Alt+P */
 export async function showPowerlineMainMenu(

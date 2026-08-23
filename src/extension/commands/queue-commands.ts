@@ -15,6 +15,7 @@ import { getCurrentEditorText } from "../shortcuts/shortcuts-router.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
+import { openWishcraftDeck } from "../ui/deck/index.ts";
 
 export function registerQueueCommands(
   pi: ExtensionAPI,
@@ -67,6 +68,11 @@ export function registerQueueCommands(
 
       if (!action) {
         await openIdeasReview(pi, rt, ctx);
+        return;
+      }
+
+      if (action === "deck") {
+        await openWishcraftDeck(rt, ctx, "ideas");
         return;
       }
 

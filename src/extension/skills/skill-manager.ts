@@ -17,6 +17,7 @@ import { realpathSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "../../paths/agent-dirs.ts";
+import { openWishcraftDeck } from "../ui/deck/index.ts";
 import type { RuntimeState } from "../core/types.ts";
 import {
   applySkillFilter,
@@ -528,6 +529,10 @@ export function registerSkillManagerCommand(
         return;
       }
       const sub = args?.trim().split(/\s+/)[0]?.toLowerCase();
+      if (sub === "deck") {
+        await openWishcraftDeck(rt, ctx, "skills");
+        return;
+      }
       if (sub === "doctor") {
         await runDoctor(ctx);
         return;

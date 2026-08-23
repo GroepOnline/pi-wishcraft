@@ -134,10 +134,10 @@ graph LR
 
 ---
 
-### PR 5 — The Wishcraft Deck (Unified Control Surface)
+### PR 5 — The Wishcraft Deck (Unified Control Surface) — landed
 
 - **Branch**: `vnext/05-deck`
-- **Impacted Paths**: `src/extension/ui/deck/*`, `src/extension/ui/overlay-chrome.ts`, `src/extension/ui/powerline-menu.ts`, `tests/deck/*`
+- **Impacted Paths**: `src/extension/ui/deck/*`, `src/extension/commands/commands.ts`, `src/extension/settings/wishcraft-config.ts`, `tests/deck.test.ts`
 - **Scope & Deliverables**:
   1. Build the unified Deck overlay engine (`src/extension/ui/deck/`) using `ctx.ui.custom`.
   2. Bind `Alt+P` and `/wishcraft` to `openWishcraftDeck("home")`.
