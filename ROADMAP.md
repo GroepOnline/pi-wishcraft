@@ -107,8 +107,11 @@ Niet de fork. Niet de SaaS-agent.
     coalescing timer, semantische events, 6 channels, 0 FPS zonder consumers.
   - PR2 semantic tokens — geland (`src/config/tokens.ts`): `PresetDef.tokens`
     is optioneel en `DEFAULT_TOKENS` reproduceert `getDefaultColors()`.
-  - PR3–PR8 — open: preset-contract, animated Signal, Deck, Appearance,
-    accessibility, Craft + docs.
+  - PR3 structural presets — geland (`src/config/structural-presets.ts`,
+    `src/config/appearance.ts`): 10 signature presets, mixable layers, Nerd/ASCII
+    glyph fallbacks; legacy layout presets ongewijzigd.
+  - PR4–PR8 — open: animated Signal, Deck, Appearance, accessibility,
+    Craft + docs.
 
 ## Top-15 track: remaining maturity gaps
 
