@@ -137,7 +137,7 @@ export function sanitizeSshHost(value: string | undefined): string | null {
  * inner `2>/dev/null`; `BatchMode` fails fast (no password prompt) on hosts
  * that require interactive auth or an unknown host key.
  */
-function sshCommand(
+export function sshCommand(
   host: string | undefined,
   remoteCmd: string,
 ): string | null {

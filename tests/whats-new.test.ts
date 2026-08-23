@@ -19,16 +19,42 @@ test("parseChangelogDelta skips Unreleased and reads released versions newer tha
     "- older change",
   ].join("\n");
 
+  // First run returns oldest-first, from the floor version forward.
   assert.deepEqual(parseChangelogDelta(changelog, null), [
+    "older change",
     "added live refresh",
     "added `bash init`",
-    "older change",
   ]);
   assert.deepEqual(parseChangelogDelta(changelog, "1.2.0"), [
     "added live refresh",
     "added `bash init`",
   ]);
   assert.deepEqual(parseChangelogDelta(changelog, "1.3.0"), []);
+});
+
+test("parseChangelogDelta on first run floors at the first own release", () => {
+  const changelog = [
+    "## [1.1.0]",
+    "- own release feature",
+    "",
+    "## [1.0.0]",
+    "- first own release",
+    "",
+    "## [0.27.0]",
+    "- prehistory change",
+  ].join("\n");
+
+  // No stored version: skip the pre-1.0 `0.x` prehistory, oldest-first.
+  assert.deepEqual(parseChangelogDelta(changelog, null), [
+    "first own release",
+    "own release feature",
+  ]);
+  // An explicit lastSeen overrides the floor and can reach older sections.
+  assert.deepEqual(parseChangelogDelta(changelog, "0.26.0"), [
+    "prehistory change",
+    "first own release",
+    "own release feature",
+  ]);
 });
 
 test("parseChangelogDelta ignores non-bullet lines and caps at maxLines", () => {

@@ -1,5 +1,12 @@
 <p>
-  <img src="banner.png" alt="pi-wishcraft" width="1100">
+  <img src="https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/banner.png" alt="pi-wishcraft" width="1100">
+</p>
+
+<p>
+  <a href="https://www.npmjs.com/package/@groeponline/pi-wishcraft"><img src="https://img.shields.io/npm/v/@groeponline/pi-wishcraft.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@groeponline/pi-wishcraft"><img src="https://img.shields.io/npm/dm/@groeponline/pi-wishcraft.svg?label=downloads" alt="npm downloads"></a>
+  <a href="https://pi.dev/packages/@groeponline/pi-wishcraft"><img src="https://img.shields.io/badge/Pi-package-9b59b6.svg" alt="Pi package"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555.svg" alt="MIT license"></a>
 </p>
 
 # pi-wishcraft
@@ -26,7 +33,7 @@ Ephemeral VMs / CI:
 curl -fsSL https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/scripts/install.sh | bash
 ```
 
-Then restart pi or `/reload`. Peer range is `@earendil-works/pi-coding-agent` `>=0.81.0 <0.85.0`.
+Then restart pi or `/reload`. Pi host packages are declared as `peerDependencies: "*"`, matching the Pi package contract.
 
 ## What you get
 
