@@ -33,7 +33,7 @@ Ephemeral VMs / CI:
 curl -fsSL https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/scripts/install.sh | bash
 ```
 
-Then restart pi or `/reload`. Peer range is `@earendil-works/pi-coding-agent` `>=0.81.0 <0.85.0`.
+Then restart pi or `/reload`. Pi host packages are declared as `peerDependencies: "*"`, matching the Pi package contract.
 
 ## What you get
 
