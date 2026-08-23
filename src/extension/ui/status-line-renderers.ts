@@ -20,7 +20,7 @@ import {
 } from "../core/constants.ts";
 import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
-import { prefersAsciiGlyphs } from "../../motion/index.ts";
+import { prefersAsciiGlyphs, shouldUseColor } from "../../motion/index.ts";
 import { renderSignal } from "../../signal/render.ts";
 
 /**
@@ -84,6 +84,8 @@ export function getResponsiveLayout(
       separatorStyle: config.separator ?? presetDef.separator,
       signal: appearance.signal,
       ascii: prefersAsciiGlyphs(rt.motionPolicy, hasNerdFonts()),
+      policy: rt.motionPolicy,
+      color: shouldUseColor(rt.motionPolicy, colorEnabled()),
       layout: config.layout,
       disabledSegments: config.disabledSegments,
     },

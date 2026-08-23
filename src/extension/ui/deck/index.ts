@@ -4,9 +4,12 @@ import type { DeckRoute } from "./types.ts";
 
 export type { DeckRoute } from "./types.ts";
 export { DECK_ROUTES } from "./types.ts";
-export { parseDeckRouteArg, deckRouteByJump } from "./routes.ts";
-export { renderDeckFrame, filterDeckRoutes } from "./render.ts";
+export { parseDeckRouteArg, deckRouteByJump, filterDeckRoutes } from "./routes.ts";
+export { renderDeckFrame } from "./render.ts";
 export { buildDeckSessionSnapshot } from "./session-snapshot.ts";
+export { applyDeckInput } from "./input.ts";
+export { createDeckNavState } from "./component.ts";
+export { searchAppearanceConfig, applyAppearanceHit } from "./appearance.ts";
 
 /** Open the unified Wishcraft Deck at the requested route. */
 export async function openWishcraftDeck(

@@ -2,7 +2,11 @@
 
 ## Usage
 
-Activates automatically. Toggle with `/powerline`, switch presets with `/powerline <name>`, and move the primary row with `/powerline placement above|below|toggle`.
+Activates automatically. Toggle with `/signal` (`/powerline` is a compatibility alias), switch presets with `/signal <name>`, and move the primary row with `/signal placement above|below|toggle`. `/signal deck` opens the Signal route of the Wishcraft Deck.
+
+The **Wishcraft Deck** is the operator control surface: `alt+p` or `/wishcraft` opens eleven routes (Home, Signal, Skills, Ideas, Guardrails, Shell, Usage, Appearance, Motion, Shortcuts, Diagnostics) in one continuous overlay. `g h` / `g s` / `g i` jump; `/` searches routes and appearance settings; `Esc` closes. `/wishcraft config` is the legacy settings editor.
+
+The **Skills workbench** lives at `/skills` and on the Deck Skills route: list, metadata, health, usage sparkline, and preview. `n` or `ctrl+n` opens the inline new-skill wizard.
 
 Use `/cd <path>` to continue the current conversation from another working directory. It supports relative paths, absolute paths, `~`, `~/...`, and directory completions. With no argument, `/cd` prints the current Pi session directory. The command switches into a cwd-updated session file so Pi tools and the footer path segment agree after the change.
 
@@ -99,9 +103,9 @@ Pi core renders the footer as static text, so live click is not possible; action
 - `/tps`: overlay of the live 1s window (same ring as the segment). `/tps <value>` sets `POWERLINE_TPS`
 - `/usage`: session / today / week overlay from `~/.pi/agent/wishcraft-usage.json`
 - `/open-ports`: list listening ports and pick one
-- `/powerline doctor`: diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, and queue file health
-- `/powerline export`: export the current preset + effective layout + labels as a JSON snippet (Enter copies it to the clipboard)
-- `alt+p`: **powerline menu**: navigate the live segments (`↑`/`↓` + `enter`, `→`/`tab` opens a per-segment detail panel captured at open), configure (preset / TPS / UDP / segment visibility / labels / build custom preset), or open the full ports list
+- `/signal doctor` (`/powerline doctor`): diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, and queue file health
+- `/signal export`: export the current preset + effective layout + labels as a JSON snippet (Enter copies it to the clipboard)
+- `alt+p` / `/wishcraft`: **Wishcraft Deck** — eleven routes, jump keys, search palette, Appearance gallery/composer, Skills workbench
 - `alt+i`: **powerline info**: full open-ports list
 
 Both `alt+p` and `alt+i` are rebindable (see Keybinds below); changes apply after `/reload`.

@@ -9,7 +9,9 @@ import {
   setSignalEvent,
   stopSignal,
 } from "../src/signal/controller.ts";
-import { renderActivity, renderSignal } from "../src/signal/render.ts";
+import { renderActivity, renderSignal, renderSignalScreenReader } from "../src/signal/render.ts";
+import { renderRailSweep, SIGNAL_RAIL_WIDTH, railHeadIndex } from "../src/signal/rail.ts";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { getStructuralPreset } from "../src/config/structural-presets.ts";
 import { PRESETS } from "../src/config/presets.ts";
 import type { SegmentContext } from "../src/config/types.ts";
@@ -142,6 +144,108 @@ test("appearance config accepts independent structural layers", () => {
     signalLayout: "threadbound",
     motion: { streaming: "lunar-breathe" },
   });
+});
+
+test("travelling rail advances the head on each tick and stays still when idle", () => {
+  const idle = renderRailSweep({ tick: 3, width: 8, animating: false });
+  assert.equal(idle, "━━━━━━━━");
+  assert.equal(railHeadIndex(3, 8, false), -1);
+
+  const t0 = renderRailSweep({ tick: 0, width: 8, animating: true });
+  const t1 = renderRailSweep({ tick: 1, width: 8, animating: true });
+  assert.notEqual(t0, t1);
+  assert.equal(t0.length, 8);
+  assert.equal(t1.length, 8);
+  assert.equal(railHeadIndex(0, 8, true), 0);
+  assert.equal(railHeadIndex(1, 8, true), 1);
+});
+
+test("ASCII rail uses star head and dash track", () => {
+  const rail = renderRailSweep({ tick: 0, width: 6, animating: true, ascii: true });
+  assert.equal(rail[0], "*");
+  assert.match(rail, /-/);
+  assert.equal(rail.length, 6);
+  const still = renderRailSweep({ tick: 2, width: 6, animating: false, ascii: true });
+  assert.equal(still, "------");
+});
+
+test("Signal activity paints a travelling rail plus the motion glyph", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "ember-relay";
+  signal.activity = "streaming";
+  signal.active = true;
+  signal.tick = 2;
+  const spec = getStructuralPreset("lanternwake").signal;
+  const text = stripAnsi(renderActivity(signal, spec, false));
+  assert.match(text, /◆/);
+  assert.match(text, /streaming/);
+  assert.ok(text.includes("█") || text.includes("━"));
+});
+
+test("reduced motion Signal keeps a still rail and a stable marker", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.activity = "streaming";
+  signal.active = true;
+  signal.tick = 4;
+  const spec = getStructuralPreset("lanternwake").signal;
+  const policy = { ...DEFAULT_MOTION_POLICY, level: "reduced" as const };
+  const a = stripAnsi(renderActivity(signal, spec, true, policy));
+  const b = stripAnsi(
+    renderActivity({ ...signal, tick: 5 }, spec, true, policy),
+  );
+  assert.equal(a.replace(/streaming/, ""), b.replace(/streaming/, ""));
+  assert.match(a, /\[/);
+});
+
+test("NO_COLOR Signal output contains no ANSI", () => {
+  const signal = createSignalRuntime(0);
+  signal.activity = "ready";
+  const result = renderSignal(segmentContext(), PRESETS.minimal, signal, 80, {
+    separatorStyle: "slash",
+    signal: getStructuralPreset("lanternwake").signal,
+    ascii: true,
+    policy: { ...DEFAULT_MOTION_POLICY, noColor: true },
+    color: false,
+  });
+  assert.equal(result.topContent.includes("\x1b["), false);
+});
+
+test("screen-reader Signal is stable semantic text", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.activity = "streaming";
+  const ctx = segmentContext();
+  const text = renderSignalScreenReader(ctx, signal);
+  assert.equal(text, "Model: GPT-5.6 | Git: none | State: streaming | Context: 47%");
+  const rendered = renderSignal(ctx, PRESETS.minimal, signal, 80, {
+    separatorStyle: "slash",
+    signal: getStructuralPreset("lanternwake").signal,
+    policy: { ...DEFAULT_MOTION_POLICY, screenReader: true },
+  });
+  assert.equal(rendered.topContent, text);
+  assert.equal(rendered.secondaryContent, "");
+});
+
+test("Signal top line never exceeds the available width", () => {
+  const signal = createSignalRuntime(0);
+  signal.activity = "streaming";
+  signal.active = true;
+  signal.event = "streaming";
+  for (const width of [20, 40, 60, 80, 120]) {
+    const result = renderSignal(segmentContext(), PRESETS.minimal, signal, width, {
+      separatorStyle: "slash",
+      signal: getStructuralPreset("lanternwake").signal,
+      ascii: true,
+      color: false,
+      railWidth: SIGNAL_RAIL_WIDTH,
+    });
+    assert.ok(
+      visibleWidth(result.topContent) <= width,
+      `width ${width} got ${visibleWidth(result.topContent)}`,
+    );
+  }
 });
 
 test("/signal is primary and /powerline remains a compatibility alias", () => {

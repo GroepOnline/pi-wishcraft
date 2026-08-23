@@ -4,11 +4,11 @@ The README is the public landing page (`banner.png` only). Everything below live
 
 ## Guides
 
-- [Commands & interactivity](./commands.md) — `/powerline`, `/tps`, `/usage`, `/queue`, `/idea`, placement, presets, keybinds, and the navigable overlay.
+- [Commands & interactivity](./commands.md) — `/signal` (`/powerline` alias), Deck (`/wishcraft`, `alt+p`), `/tps`, `/usage`, `/queue`, `/idea`, placement, presets, and keybinds.
 - [Configuration](./configuration.md) — custom items, hooks, repairs, token budget, labels, templates, layout, cost alert, and display formats.
 - [Bash mode](./bash-mode.md) — sticky shell, ghost suggestions, and shell config.
 - [Stash & shortcuts](./stash-and-shortcuts.md) — editor stash, prompt history, clipboard/navigation shortcuts, and shortcut config.
-- [Skill manager](./skill-manager.md) — browsing, inserting, `/skills doctor`, and `/skills new` templates.
+- [Skill manager](./skill-manager.md) — workbench, inline wizard, `/skills doctor`, and `/skills new` templates.
 - [Working vibes](./working-vibes.md) — themed loading messages, modes, and configuration.
 - [Segments & theming](./segments.md) — segment reference, separators, thinking/path/git options, and theme overrides.
 

@@ -8,8 +8,9 @@
  */
 
 import type { MotionChannel, MotionDef, MotionEvent } from "./types.ts";
+import { GALLERY_EXTRA_MOTIONS } from "./gallery-catalog.ts";
 
-export const MOTION_CATALOG: readonly MotionDef[] = [
+const CORE_MOTIONS: readonly MotionDef[] = [
   {
     id: "ember-relay",
     name: "Ember Relay",
@@ -250,6 +251,11 @@ export const MOTION_CATALOG: readonly MotionDef[] = [
     frames: ["●", "•", "·", "•"],
     description: "Small local bounce.",
   },
+];
+
+export const MOTION_CATALOG: readonly MotionDef[] = [
+  ...CORE_MOTIONS,
+  ...GALLERY_EXTRA_MOTIONS,
 ];
 
 /**

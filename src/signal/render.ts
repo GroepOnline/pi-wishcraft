@@ -18,8 +18,17 @@ import { mergeSegmentsWithCustomItems } from "../config/powerline-config.ts";
 import { renderSegment } from "../segments/index.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
 import { getSeparator } from "../theme/separators.ts";
-import { frameAt, getMotion } from "../motion/index.ts";
+import { getMotion } from "../motion/catalog.ts";
+import { frameAt } from "../motion/frames.ts";
+import { DEFAULT_MOTION_POLICY, type MotionPolicy } from "../motion/types.ts";
+import {
+  screenReaderStatus,
+  shouldAnimateSignal,
+  shouldUseColor,
+  stableStateMarker,
+} from "../motion/accessibility.ts";
 import type { SignalRuntime } from "./controller.ts";
+import { renderRailSweep, SIGNAL_RAIL_WIDTH } from "./rail.ts";
 
 export interface SignalRenderOptions {
   separatorStyle: StatusLineSeparatorStyle;
@@ -27,6 +36,9 @@ export interface SignalRenderOptions {
   ascii?: boolean;
   layout?: import("../config/types.ts").StatusLineLayout | null;
   disabledSegments?: StatusLineSegmentId[];
+  policy?: MotionPolicy;
+  color?: boolean;
+  railWidth?: number;
 }
 
 interface Module {
@@ -41,6 +53,15 @@ export function renderSignal(
   availableWidth: number,
   options: SignalRenderOptions,
 ): { topContent: string; secondaryContent: string } {
+  const policy = options.policy ?? DEFAULT_MOTION_POLICY;
+  if (policy.screenReader) {
+    const text = renderSignalScreenReader(ctx, runtime);
+    return {
+      topContent: truncatePlain(text, Math.max(0, availableWidth)),
+      secondaryContent: "",
+    };
+  }
+
   const merged = mergeSegmentsWithCustomItems(
     preset,
     ctx.effectiveCustomItems,
@@ -49,28 +70,57 @@ export function renderSignal(
       disabledSegments: options.disabledSegments ?? [],
     },
   );
-  const left = renderModules(merged.leftSegments, ctx);
-  const right = renderModules(merged.rightSegments, ctx);
-  const secondary = renderModules(merged.secondarySegments, ctx);
   const separator = getSeparator(options.separatorStyle).left;
+  const useColor = options.color ?? shouldUseColor(policy, colorEnabled());
+  const left = renderModules(merged.leftSegments, ctx, useColor);
+  const right = renderModules(merged.rightSegments, ctx, useColor);
+  const secondary = renderModules(merged.secondarySegments, ctx, useColor);
 
-  const center = renderActivity(runtime, options.signal, options.ascii);
-  const top = fitLanes(left, center, right, separator, availableWidth);
+  const center = renderActivity(runtime, options.signal, options.ascii, policy, {
+    color: useColor,
+    railWidth: options.railWidth,
+  });
+  const top = fitLanes(left, center, right, separator, availableWidth, useColor);
   return {
     topContent: top,
-    secondaryContent: joinModules(secondary, separator, availableWidth),
+    secondaryContent: joinModules(secondary, separator, availableWidth, useColor),
   };
 }
 
-function renderModules(ids: readonly StatusLineSegmentId[], ctx: SegmentContext): Module[] {
+export function renderSignalScreenReader(
+  ctx: SegmentContext,
+  runtime: SignalRuntime,
+): string {
+  const model = ctx.model?.name ?? ctx.model?.id ?? "unknown";
+  const dirty =
+    (ctx.git.staged ?? 0) + (ctx.git.unstaged ?? 0) + (ctx.git.untracked ?? 0) > 0;
+  const git = ctx.git.branch
+    ? `${ctx.git.branch}${dirty ? " (dirty)" : " (clean)"}`
+    : "none";
+  return screenReaderStatus({
+    model,
+    git,
+    event: runtime.event,
+    activity: runtime.activity,
+    contextPercent: Math.round(ctx.contextPercent ?? 0),
+  });
+}
+
+function renderModules(
+  ids: readonly StatusLineSegmentId[],
+  ctx: SegmentContext,
+  useColor: boolean,
+): Module[] {
   const modules: Module[] = [];
   for (const id of ids) {
-    // renderSegment is the established per-module error boundary.
     const rendered = renderSegment(id, ctx);
     if (!rendered.visible || !rendered.content) continue;
+    const content = useColor
+      ? rendered.content
+      : rendered.content.replace(/\x1b\[[0-9;]*m/g, "");
     modules.push({
-      content: rendered.content,
-      width: visibleWidth(rendered.content),
+      content,
+      width: visibleWidth(content),
     });
   }
   return modules;
@@ -80,22 +130,37 @@ export function renderActivity(
   runtime: SignalRuntime,
   spec: SignalSpec,
   ascii = false,
+  policy: MotionPolicy = DEFAULT_MOTION_POLICY,
+  options: { color?: boolean; railWidth?: number } = {},
 ): string {
+  const useColor = options.color ?? shouldUseColor(policy, colorEnabled());
+  const useAscii = ascii || policy.lowColor;
   const def = getMotion(runtime.motionId) ?? getMotion(spec.animation);
   const glyph = def
-    ? frameAt(def, runtime.tick, ascii)
-    : ascii
+    ? frameAt(def, runtime.tick, useAscii)
+    : useAscii
       ? "*"
       : "◆";
   const label = runtime.activity || "ready";
   const open = spec.caps.leftOpen ?? "";
   const close = spec.caps.leftClose ?? "";
-  const dim = getFgAnsiCode("sep");
-  const reset = colorEnabled() ? ansi.reset : "";
-  const rail = runtime.active
-    ? `${spec.separators.left}${glyph}${spec.separators.right}`
-    : `${spec.separators.left}${spec.separators.right}`;
-  return `${dim}${open}${rail}${close}${reset} ${label}`;
+  const dim = useColor ? getFgAnsiCode("sep") : "";
+  const reset = useColor ? ansi.reset : "";
+  const animating = runtime.active && shouldAnimateSignal(runtime.event, policy);
+  const railWidth = options.railWidth ?? SIGNAL_RAIL_WIDTH;
+  const rail = renderRailSweep({
+    tick: runtime.tick,
+    width: railWidth,
+    animating,
+    ascii: useAscii,
+    trail: def?.generator?.trail ?? 3,
+    direction: def?.generator?.direction ?? "forward",
+  });
+  const marker =
+    !animating && policy.level !== "full"
+      ? ` ${stableStateMarker(runtime.event, useAscii)}`
+      : "";
+  return `${dim}${open}${rail}${close}${reset} ${glyph}${marker} ${label}`;
 }
 
 function fitLanes(
@@ -104,11 +169,12 @@ function fitLanes(
   rightInput: Module[],
   separator: string,
   availableWidth: number,
+  useColor: boolean,
 ): string {
   if (availableWidth <= 0) return "";
   const left = [...leftInput];
   const right = [...rightInput];
-  const sep = styledSeparator(separator);
+  const sep = styledSeparator(separator, useColor);
   const centerWidth = visibleWidth(center);
 
   const lane = (modules: Module[]) => modules.map((module) => module.content).join(sep);
@@ -124,8 +190,6 @@ function fitLanes(
     );
   };
 
-  // Preserve the model/git side first, then context/queue. Remove the least
-  // important outer modules until all three lanes fit.
   while (totalWidth() + 2 > availableWidth && right.length > 1) right.shift();
   while (totalWidth() + 2 > availableWidth && left.length > 1) left.pop();
   while (totalWidth() + 2 > availableWidth && right.length > 0) right.shift();
@@ -146,13 +210,17 @@ function fitLanes(
   const flexible = Math.max(0, availableWidth - 2 - contentWidth);
   const before = leftText ? "  " : "";
   const after = rightText ? "  " : "";
-  // Extra space lives between center and right, keeping state metrics pinned.
   return ` ${leftText}${before}${center}${after}${" ".repeat(flexible)}${rightText} `;
 }
 
-function joinModules(modules: Module[], separator: string, width: number): string {
+function joinModules(
+  modules: Module[],
+  separator: string,
+  width: number,
+  useColor: boolean,
+): string {
   if (modules.length === 0) return "";
-  const sep = styledSeparator(separator);
+  const sep = styledSeparator(separator, useColor);
   const fitted: Module[] = [];
   let used = 2;
   for (const module of modules) {
@@ -164,15 +232,14 @@ function joinModules(modules: Module[], separator: string, width: number): strin
   return fitted.length ? ` ${fitted.map((module) => module.content).join(sep)} ` : "";
 }
 
-function styledSeparator(separator: string): string {
-  const color = getFgAnsiCode("sep");
-  const reset = colorEnabled() ? ansi.reset : "";
+function styledSeparator(separator: string, useColor: boolean): string {
+  const color = useColor ? getFgAnsiCode("sep") : "";
+  const reset = useColor ? ansi.reset : "";
   return ` ${color}${separator}${reset} `;
 }
 
 function truncatePlain(text: string, width: number): string {
   if (width <= 0) return "";
-  // Activity labels are ASCII; strip ANSI before this emergency narrow path.
   const plain = text.replace(/\x1b\[[0-9;]*m/g, "");
   return plain.length <= width ? plain : plain.slice(0, Math.max(0, width - 1)) + "…";
 }

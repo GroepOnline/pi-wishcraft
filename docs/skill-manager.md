@@ -1,9 +1,10 @@
 # Skill manager
 
-Browse and insert your installed skills (`SKILL.md` files and `*.md`/`*.txt` prompts) from an interactive TUI overlay:
+Browse and insert your installed skills (`SKILL.md` files and `*.md`/`*.txt` prompts) from the skill workbench:
 
-- **`/skills`** — open the skill manager. Filter with plain typing, `↑↓` to move, `enter` to open a skill's detail body, `↑↓` in the detail to scroll, `enter`/`tab` to insert the skill content into your prompt, `esc` to go back/close.
+- **`/skills`** — open the skill manager overlay. Filter with plain typing, `↑↓` to move, `enter` to open a skill's detail body, `↑↓` in the detail to scroll, `enter`/`tab` to insert the skill content into your prompt, `esc` to go back/close.
+- **Deck Skills route** (`/wishcraft skills` or `g k` from the Deck) — split pane: list + metadata + health + usage sparkline + content preview, plus a workflow line (`discover → health → usage → insert`).
+- **`n` / `ctrl+n`** — inline new-skill wizard (name, description, template, triggers, confirm). `/skills new <name> [template]` still writes `~/.pi/agent/skills/<name>/SKILL.md` from a template (`standard`, `browser-workflow`, `CLI-workflow`, `review-checklist`). Names reject empty values, `..`, and path separators. No GitHub/npm install.
 - **`/skills doctor`** — health table (not an essay): broken or missing frontmatter, descriptions over 240 characters, the same name in global and project, unused skills (usage ledger count 0). `↑↓` navigate, `enter` copies a row, `esc` closes.
-- **`/skills new <name> [template]`** — write `~/.pi/agent/skills/<name>/SKILL.md` from a template (`standard`, `browser-workflow`, `CLI-workflow`, `review-checklist`), then drop an `$EDITOR` command in the prompt. `/skills new` or `ctrl+n` in the manager opens the template picker. Names reject empty values, `..`, and path separators. No GitHub/npm install.
 
-The manager reuses the same skill discovery as inline `/command`/`$skill` triggers, so anything you can inline you can also browse and insert manually.
+The workbench reuses the same skill discovery as inline `/command`/`$skill` triggers, so anything you can inline you can also browse and insert manually. The bundled `skills/wishcraft-tui` skill documents Deck, Signal, motion, and accessibility contracts.

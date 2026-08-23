@@ -307,3 +307,29 @@ Opt-in; defaults match the historical rendering.
   }
 }
 ```
+
+## Appearance mix and motion levels
+
+Structural presets (Lanternwake, Threadbound, Scryglass, Runebloom, Moonwell, Hexforge, Vellum, Wisp, Starweave, Crucible) can be mixed independently:
+
+```json
+{
+  "powerline": {
+    "appearance": {
+      "base": "lanternwake",
+      "palette": "scryglass",
+      "signalLayout": "threadbound",
+      "motion": { "streaming": "ember-relay" }
+    }
+  },
+  "wishcraft": {
+    "motion": {
+      "level": "full",
+      "screenReader": false,
+      "reducedMotion": false
+    }
+  }
+}
+```
+
+Motion levels: `full` (sweeps and spinners), `reduced` (discrete state glyphs, no travelling rail), `functional` (task indicators only), `off` (0 FPS). `NO_COLOR` strips ANSI. `TERM=dumb` and 8-color terminals force ASCII. `WISHCRAFT_SCREEN_READER=1` renders Signal and the Deck as stable text. `WISHCRAFT_REDUCED_MOTION=1` downgrades full motion. Search any of these from the Deck Appearance route (`/`).

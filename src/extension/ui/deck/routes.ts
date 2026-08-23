@@ -34,3 +34,12 @@ export function deckRouteByJump(key: string): DeckRoute | null {
 export function deckRouteIndex(route: DeckRoute): number {
   return DECK_ROUTE_DEFS.findIndex((entry) => entry.id === route);
 }
+
+export function filterDeckRoutes(query: string): DeckRoute[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return DECK_ROUTE_DEFS.map((route) => route.id);
+  return DECK_ROUTE_DEFS.filter((route) => {
+    const hay = `${route.label} ${route.id} ${route.description}`.toLowerCase();
+    return hay.includes(q);
+  }).map((route) => route.id);
+}

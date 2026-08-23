@@ -182,6 +182,16 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
       ],
     },
     {
+      title: "Appearance & motion",
+      items: [
+        { label: "Structural base", path: "powerline.appearance.base", kind: "select", choices: ["lanternwake", "threadbound", "scryglass", "runebloom", "moonwell", "hexforge", "vellum", "wisp", "starweave", "crucible"] },
+        { label: "Palette layer", path: "powerline.appearance.palette", kind: "select", choices: ["lanternwake", "threadbound", "scryglass", "runebloom", "moonwell", "hexforge", "vellum", "wisp", "starweave", "crucible"] },
+        { label: "Motion level", path: "wishcraft.motion.level", kind: "select", choices: ["full", "reduced", "functional", "off"], hint: "Full / Reduced / Functional / Off" },
+        { label: "Screen reader mode", path: "wishcraft.motion.screenReader", kind: "toggle", hint: "stable text, 0 FPS" },
+        { label: "Reduced motion", path: "wishcraft.motion.reducedMotion", kind: "toggle", hint: "discrete state changes, no sweeps" },
+      ],
+    },
+    {
       title: "Shortcuts",
       items: [
         { label: "Menu", path: "powerlineShortcuts.menu", kind: "text", hint: "e.g. alt+p" },

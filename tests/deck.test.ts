@@ -13,6 +13,7 @@ import {
 } from "../src/extension/ui/deck/render.ts";
 import type { DeckNavState, DeckSessionSnapshot } from "../src/extension/ui/deck/types.ts";
 import { DEFAULT_SHORTCUTS } from "../src/extension/core/constants.ts";
+import { visibleWidth } from "@earendil-works/pi-tui";
 
 const snapshot: DeckSessionSnapshot = {
   modelLabel: "GPT-5.6",
@@ -88,4 +89,72 @@ test("home route shows context bar without raw cost counters", () => {
   const body = lines.join("\n");
   assert.match(body, /47%/);
   assert.doesNotMatch(body, /\$[0-9]/);
+});
+
+test("appearance route lists panes instead of a PR stub", () => {
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "appearance" },
+    DEFAULT_SHORTCUTS,
+  );
+  const body = lines.join("\n");
+  assert.match(body, /APPEARANCE/);
+  assert.doesNotMatch(body, /PR6/);
+});
+
+test("motion route renders the gallery catalog", () => {
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "motion" },
+    DEFAULT_SHORTCUTS,
+  );
+  assert.match(lines.join("\n"), /MOTION GALLERY/);
+});
+
+test("screen-reader deck drops the outer frame for stable text", () => {
+  const lines = renderDeckFrame(theme as never, 96, snapshot, navState, DEFAULT_SHORTCUTS, {
+    level: "full",
+    toggles: {
+      ambient: true,
+      state: true,
+      transitions: true,
+      signal: true,
+      cursor: false,
+    },
+    noColor: false,
+    lowColor: false,
+    screenReader: true,
+    reducedMotion: false,
+  });
+  assert.equal(lines.length, 1);
+  assert.match(lines[0] ?? "", /Wishcraft Deck/);
+  assert.doesNotMatch(lines[0] ?? "", /╭/);
+});
+
+test("deck frame width is invariant across routes", () => {
+  const width = 88;
+  const plainTheme = {
+    fg: (_color: string, text: string) => text,
+    bold: (text: string) => text,
+  };
+  for (const route of DECK_ROUTES) {
+    const lines = renderDeckFrame(
+      plainTheme as never,
+      width,
+      snapshot,
+      { ...navState, route },
+      DEFAULT_SHORTCUTS,
+    );
+    const widths = lines.map((line) => visibleWidth(line));
+    assert.ok(
+      widths.every((lineWidth) => lineWidth === width),
+      `${route} ragged frame ${[...new Set(widths)]}`,
+    );
+    assert.ok(lines[0]?.includes("╭"));
+    assert.ok(lines.at(-1)?.includes("╯"));
+  }
 });

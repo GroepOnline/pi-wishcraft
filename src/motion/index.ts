@@ -53,3 +53,47 @@ export {
 
 export { MotionScheduler } from "./scheduler.ts";
 export type { MotionConsumer, MotionSchedulerOptions } from "./scheduler.ts";
+
+export {
+  detectNoColor,
+  detectTerminalCapabilities,
+} from "../theme/detect.ts";
+export type { TerminalCapabilities } from "../theme/detect.ts";
+
+export {
+  cycleMotionLevel,
+  describeMotionLevel,
+  effectiveFps,
+  isMotionLevel,
+  motionPolicyFromEnvironment,
+  parseMotionSettings,
+  screenReaderStatus,
+  shouldAnimateSignal,
+  shouldUseAscii,
+  shouldUseColor,
+  stableStateMarker,
+} from "./accessibility.ts";
+
+export {
+  GALLERY_GROUPS,
+  groupMotions,
+  motionsInGroup,
+  previewMotionFrames,
+  previewMotionRail,
+  searchMotions,
+  toggleFavorite,
+} from "./gallery.ts";
+export type { GalleryGroup } from "./gallery.ts";
+
+export {
+  composerTimeline,
+  composerToMotion,
+  cycleEase,
+  cycleGeometry,
+  draftFromId,
+  draftFromMotion,
+  patchComposerDraft,
+  previewComposerFrames,
+  toggleComposerChannel,
+} from "./composer.ts";
+export type { ComposerDraft } from "./composer.ts";

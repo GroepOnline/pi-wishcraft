@@ -8,6 +8,8 @@ import { loadSkillCatalog } from "../../skills/skill-registry.ts";
 import { collectSkillDoctorInputs, diagnoseSkills } from "../../skills/skill-doctor.ts";
 import { parsePolicySettings } from "../../hooks/policy-config.ts";
 import { readSettings } from "../../settings/settings-io.ts";
+import { detectTerminalCapabilities } from "../../../theme/detect.ts";
+import { getSkillUsage } from "../../skills/skill-registry.ts";
 import type { DeckSessionSnapshot } from "./types.ts";
 
 export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessionSnapshot {
@@ -35,6 +37,8 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
   const settings = readSettings(cwd);
   const policy = parsePolicySettings(settings.wishcraft);
   const appearance = resolveAppearanceMix(config.appearance);
+  const caps = detectTerminalCapabilities();
+  const usage = getSkillUsage();
 
   const model = segmentCtx?.model;
   const modelLabel = model?.name ?? model?.id ?? "no model";
@@ -71,5 +75,21 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
     appearanceBase: appearance.base,
     recentActivity: recentActivity.slice(0, 5),
     nextIntent: queue.leadingText,
+    skillSummaries: skills.slice(0, 24).map((entry) => ({
+      name: entry.name,
+      description: entry.description,
+      category: entry.category,
+      warning: entry.warning,
+      usageCount: usage.get(entry.name)?.count ?? 0,
+    })),
+    terminal: {
+      term: caps.term,
+      noColor: caps.noColor || rt.motionPolicy.noColor,
+      truecolor: caps.truecolor,
+      lowColor: caps.lowColor || rt.motionPolicy.lowColor,
+      screenReader: caps.screenReader || rt.motionPolicy.screenReader,
+      reducedMotion: caps.reducedMotion || rt.motionPolicy.reducedMotion,
+      motionLevel: rt.motionPolicy.level,
+    },
   };
 }

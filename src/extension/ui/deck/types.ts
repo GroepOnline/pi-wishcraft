@@ -1,24 +1,7 @@
-<<<<<<< HEAD
 /**
- * src/extension/ui/deck/types.ts
- * ---------------------------------------------------------------------------
- * Types for the Wishcraft Deck Control Surface.
- * ---------------------------------------------------------------------------
+ * Types for the Wishcraft Deck control surface.
  */
 
-export type DeckRoute =
-  | "home"
-  | "signal"
-  | "skills"
-  | "ideas"
-  | "guardrails"
-  | "shell"
-  | "usage"
-  | "appearance"
-  | "motion"
-  | "shortcuts"
-  | "diagnostics";
-=======
 export const DECK_ROUTES = [
   "home",
   "signal",
@@ -34,31 +17,33 @@ export const DECK_ROUTES = [
 ] as const;
 
 export type DeckRoute = (typeof DECK_ROUTES)[number];
->>>>>>> a8c8687 (feat(deck): add unified Wishcraft Deck overlay with eleven routes (PR5))
+
+export type AppearancePane =
+  | "presets"
+  | "palette"
+  | "signal"
+  | "motion"
+  | "glyphs"
+  | "layout"
+  | "accessibility";
+
+export const APPEARANCE_PANES: readonly AppearancePane[] = [
+  "presets",
+  "palette",
+  "signal",
+  "motion",
+  "glyphs",
+  "layout",
+  "accessibility",
+];
 
 export interface DeckRouteDef {
   id: DeckRoute;
   label: string;
-<<<<<<< HEAD
-  glyph: string;
-  shortcut?: string;
-  description: string;
-}
-
-export interface DeckContext {
-  activeRoute: DeckRoute;
-  searchQuery: string;
-  isSearching: boolean;
-  activeMotionGlyph: string;
-  sessionState: {
-    model: string;
-    branch: string;
-    contextPct: number;
-    activityStatus: string;
-  };
-=======
   jumpKey: string;
   description: string;
+  glyph?: string;
+  shortcut?: string;
 }
 
 export interface DeckSessionSnapshot {
@@ -80,6 +65,43 @@ export interface DeckSessionSnapshot {
   appearanceBase: string;
   recentActivity: string[];
   nextIntent: string | null;
+  skillSummaries?: DeckSkillSummary[];
+  terminal?: DeckTerminalSnapshot;
+}
+
+export interface DeckSkillSummary {
+  name: string;
+  description: string;
+  category: string;
+  warning?: string;
+  usageCount: number;
+}
+
+export interface DeckTerminalSnapshot {
+  term: string;
+  noColor: boolean;
+  truecolor: boolean;
+  lowColor: boolean;
+  screenReader: boolean;
+  reducedMotion: boolean;
+  motionLevel: string;
+}
+
+export interface DeckAppearanceState {
+  pane: AppearancePane;
+  selected: number;
+  query: string;
+  composerOpen: boolean;
+  previewTick: number;
+  playing: boolean;
+  favorites: string[];
+}
+
+export interface DeckSkillsState {
+  selected: number;
+  wizardOpen: boolean;
+  previewScroll: number;
+  wizard?: import("../../skills/workbench.ts").SkillWizardState;
 }
 
 export interface DeckNavState {
@@ -88,5 +110,34 @@ export interface DeckNavState {
   searchOpen: boolean;
   searchQuery: string;
   pendingJump: string | null;
->>>>>>> a8c8687 (feat(deck): add unified Wishcraft Deck overlay with eleven routes (PR5))
+  appearance?: DeckAppearanceState;
+  skills?: DeckSkillsState;
+}
+
+export function defaultAppearanceState(): DeckAppearanceState {
+  return {
+    pane: "presets",
+    selected: 0,
+    query: "",
+    composerOpen: false,
+    previewTick: 0,
+    playing: false,
+    favorites: [],
+  };
+}
+
+export function defaultSkillsState(): DeckSkillsState {
+  return {
+    selected: 0,
+    wizardOpen: false,
+    previewScroll: 0,
+  };
+}
+
+export function normalizeDeckNavState(state: DeckNavState): Required<DeckNavState> {
+  return {
+    ...state,
+    appearance: state.appearance ?? defaultAppearanceState(),
+    skills: state.skills ?? defaultSkillsState(),
+  };
 }

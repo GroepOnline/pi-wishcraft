@@ -1,14 +1,16 @@
-import { matchesKey } from "@earendil-works/pi-tui";
-import {
-  applyOverlayQueryKey,
-  isOverlayPrintable,
-} from "../overlay-chrome.ts";
+import { sanitizeSkillName, writeSkillFromTemplate } from "../../skills/skill-templates.ts";
 import type { RuntimeState } from "../../core/types.ts";
+import { config } from "../../core/state.ts";
 import { buildDeckSessionSnapshot } from "./session-snapshot.ts";
-import { deckRouteByJump, deckRouteIndex } from "./routes.ts";
-import { filterDeckRoutes, renderDeckFrame } from "./render.ts";
-import { DECK_ROUTE_DEFS } from "./routes.ts";
-import type { DeckNavState, DeckRoute } from "./types.ts";
+import { applyDeckInput } from "./input.ts";
+import { renderDeckFrame } from "./render.ts";
+import { deckRouteIndex } from "./routes.ts";
+import {
+  defaultAppearanceState,
+  defaultSkillsState,
+  type DeckNavState,
+  type DeckRoute,
+} from "./types.ts";
 
 export function createDeckNavState(route: DeckRoute): DeckNavState {
   return {
@@ -17,6 +19,8 @@ export function createDeckNavState(route: DeckRoute): DeckNavState {
     searchOpen: false,
     searchQuery: "",
     pendingJump: null,
+    appearance: defaultAppearanceState(),
+    skills: defaultSkillsState(),
   };
 }
 
@@ -41,93 +45,36 @@ export function createDeckComponent(
         refreshSnapshot(),
         state,
         rt.resolvedShortcuts,
+        rt.motionPolicy,
       );
     },
     handleInput(data: string) {
-      if (matchesKey(data, "escape")) {
-        if (state.searchOpen) {
-          state = { ...state, searchOpen: false, searchQuery: "" };
-          return;
-        }
+      const result = applyDeckInput(state, data, config.appearance);
+      state = result.state;
+      if (result.action.type === "close") {
         done();
         return;
       }
-
-      if (data === "/") {
-        state = { ...state, searchOpen: true };
-        return;
+      if (result.action.type === "appearance") {
+        config.appearance = result.action.mix;
+        rt.lastLayoutResult = null;
+        rt.tuiRef?.requestRender();
       }
-
-      if (state.searchOpen) {
-        const next = applyOverlayQueryKey(state.searchQuery, data);
-        if (next !== null) {
-          state = { ...state, searchQuery: next };
-          const matches = filterDeckRoutes(next);
-          if (matches.length === 1) {
-            state = {
-              ...state,
-              route: matches[0]!,
-              selectedNav: deckRouteIndex(matches[0]!),
-              searchOpen: false,
-              searchQuery: "",
-            };
-          }
-          return;
+      if (result.action.type === "policy") {
+        rt.motionPolicy = { ...rt.motionPolicy, level: result.action.level };
+        rt.lastLayoutResult = null;
+      }
+      if (result.action.type === "wizard-complete") {
+        try {
+          const name = sanitizeSkillName(result.action.wizard.name);
+          writeSkillFromTemplate(name, result.action.wizard.template);
+          ctx.ui.notify(`Created skill ${name}`, "info");
+        } catch (error) {
+          ctx.ui.notify(
+            error instanceof Error ? error.message : String(error),
+            "error",
+          );
         }
-        if (matchesKey(data, "enter")) {
-          const matches = filterDeckRoutes(state.searchQuery);
-          if (matches[0]) {
-            state = {
-              ...state,
-              route: matches[0],
-              selectedNav: deckRouteIndex(matches[0]),
-              searchOpen: false,
-              searchQuery: "",
-            };
-          }
-        }
-        return;
-      }
-
-      if (data === "g") {
-        state = { ...state, pendingJump: "g" };
-        return;
-      }
-
-      if (state.pendingJump === "g" && data.length === 1 && isOverlayPrintable(data)) {
-        const route = deckRouteByJump(data);
-        state = {
-          ...state,
-          pendingJump: null,
-          route: route ?? state.route,
-          selectedNav: route ? deckRouteIndex(route) : state.selectedNav,
-        };
-        return;
-      }
-
-      state = { ...state, pendingJump: null };
-
-      if (matchesKey(data, "up")) {
-        const next = Math.max(0, state.selectedNav - 1);
-        state = {
-          ...state,
-          selectedNav: next,
-          route: DECK_ROUTE_DEFS[next]?.id ?? state.route,
-        };
-        return;
-      }
-      if (matchesKey(data, "down")) {
-        const next = Math.min(DECK_ROUTE_DEFS.length - 1, state.selectedNav + 1);
-        state = {
-          ...state,
-          selectedNav: next,
-          route: DECK_ROUTE_DEFS[next]?.id ?? state.route,
-        };
-        return;
-      }
-
-      if (data === "?") {
-        state = { ...state, route: "shortcuts", selectedNav: deckRouteIndex("shortcuts") };
       }
     },
     dispose() {},

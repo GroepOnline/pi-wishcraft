@@ -110,11 +110,17 @@ Niet de fork. Niet de SaaS-agent.
   - PR3 structural presets — geland (`src/config/structural-presets.ts`,
     `src/config/appearance.ts`): 10 signature presets, mixable layers, Nerd/ASCII
     glyph fallbacks; legacy layout presets ongewijzigd.
-  - PR4 animated Signal — geland (`src/signal/`): drie lanes, lifecycle-driven
-    motion op één gedeelde scheduler, `/signal` primair en 0 FPS in rust.
+  - PR4 animated Signal — geland (`src/signal/`): drie lanes, travelling rail
+    sweep, lifecycle-driven motion, `/signal` primair en 0 FPS in rust.
   - PR5 Deck — geland (`src/extension/ui/deck/`): unified overlay via
     `ctx.ui.custom`, Alt+P en `/wishcraft`, elf routes, jump/search navigatie.
-  - PR6–PR8 — open: Appearance gallery, accessibility, Craft + docs.
+  - PR6 Appearance — geland: gallery (50+), composer, search-first Appearance
+    route (`src/motion/gallery.ts`, `src/motion/composer.ts`).
+  - PR7 Accessibility — geland: Full/Reduced/Functional/Off, `NO_COLOR`,
+    screen reader, low-color/ASCII fallbacks change render output
+    (`src/motion/accessibility.ts`, `src/theme/detect.ts`).
+  - PR8 Craft + docs — geland: skill workbench, inline wizard, workflow viz,
+    bundled `skills/wishcraft-tui`.
 
 ## Top-15 track: remaining maturity gaps
 
@@ -156,9 +162,9 @@ P1 — differentiation and quality:
    segments (bash-history, git) can hit the hot path. *Fix: configurable
    refresh + lite mode / repeating scheduler with 0 FPS idle. Scheduler landed
    in PR1 (`src/motion/scheduler.ts`); the segment hot path is still open.*
-4. **Accessibility (no-color / reduced-motion).** Truecolor + animations
-   (vibes, rainbow think) break on terminals without truecolor. *Fix:
-   `NO_COLOR`/8-color + reduced-motion respect (PR7).*
+4. **Accessibility (no-color / reduced-motion).** Closed in PR7:
+   `NO_COLOR`, `TERM=dumb`, motion levels, screen-reader text, ASCII
+   fallbacks. Remaining: host `prefers-reduced-motion` outside env flags.
 
 P2 — full product, post-1.0:
 5. **Preset editor in-menu** — custom JSON-only today (addressed in PR3 & PR6).

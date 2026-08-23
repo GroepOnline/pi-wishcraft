@@ -17,9 +17,17 @@
     "segments": {},
     "presets": {},
     "segmentLabels": {},
-    "segmentOptions": {}
+    "segmentOptions": {},
+    "appearance": {
+      "base": "lanternwake"
+    }
   },
   "wishcraft": {
+    "motion": {
+      "level": "full",
+      "screenReader": false,
+      "reducedMotion": false
+    },
     "hooksEnabled": true,
     "repairsEnabled": true,
     "readHints": true,

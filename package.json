@@ -12,7 +12,8 @@
     "src/**/*.ts",
     "src/**/*.txt",
     "bash-mode/**/*.ts",
-    "queue/**/*.ts"
+    "queue/**/*.ts",
+    "skills/**/*.md"
   ],
   "keywords": [
     "pi-package",

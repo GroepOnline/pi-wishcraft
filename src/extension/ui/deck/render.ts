@@ -5,8 +5,21 @@ import { STRUCTURAL_PRESET_NAMES } from "../../../config/types.ts";
 import { PRESETS } from "../../../config/presets.ts";
 import { config } from "../../core/state.ts";
 import type { PowerlineShortcuts } from "../../core/types.ts";
-import { DECK_ROUTE_DEFS } from "./routes.ts";
-import type { DeckNavState, DeckRoute, DeckSessionSnapshot } from "./types.ts";
+import { DEFAULT_MOTION_POLICY, type MotionPolicy } from "../../../motion/types.ts";
+import { detectTerminalCapabilities } from "../../../theme/detect.ts";
+import { DECK_ROUTE_DEFS, filterDeckRoutes } from "./routes.ts";
+import { renderAppearanceBody, renderMotionGalleryBody } from "./appearance.ts";
+import { renderSkillWorkbench, type WorkbenchSkill } from "../../skills/workbench.ts";
+import {
+  defaultAppearanceState,
+  defaultSkillsState,
+  normalizeDeckNavState,
+  type DeckNavState,
+  type DeckRoute,
+  type DeckSessionSnapshot,
+} from "./types.ts";
+
+export { filterDeckRoutes };
 
 function bar(percent: number, width: number): string {
   const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * width);
@@ -23,7 +36,14 @@ export function renderDeckFrame(
   snapshot: DeckSessionSnapshot,
   state: DeckNavState,
   shortcuts: PowerlineShortcuts,
+  policy: MotionPolicy = DEFAULT_MOTION_POLICY,
 ): string[] {
+  const nav = normalizeDeckNavState(state);
+  if (policy.screenReader) {
+    return [
+      `Wishcraft Deck. Route: ${routeTitle(nav.route)}. Model ${snapshot.modelLabel}. Branch ${snapshot.branchLabel}. Context ${snapshot.contextPercent} percent. Activity ${snapshot.signalActivity}.`,
+    ];
+  }
   const inner = Math.max(40, width - 2);
   const border = (text: string) => theme.fg("dim", text);
   const wrap = (text: string) =>
@@ -39,21 +59,21 @@ export function renderDeckFrame(
   lines.push(wrap(theme.fg("accent", theme.bold(truncateToWidth(header, inner, "…", true)))));
   lines.push(border(`├${"─".repeat(inner)}┤`));
 
-  const nav = navLines(snapshot, state, theme, leftW);
-  const center = centerRouteBody(snapshot, state, theme, centerW, shortcuts);
+  const rail = navLines(snapshot, nav, theme, leftW);
+  const center = centerRouteBody(snapshot, nav, theme, centerW, shortcuts);
   const right = rightRail(snapshot, theme, rightW);
 
-  const rowCount = Math.max(nav.length, center.length, right.length, 8);
+  const rowCount = Math.max(rail.length, center.length, right.length, 8);
   for (let i = 0; i < rowCount; i++) {
-    const left = padCol(nav[i] ?? "", leftW);
+    const left = padCol(rail[i] ?? "", leftW);
     const mid = padCol(center[i] ?? "", centerW);
     const rightCol = padCol(right[i] ?? "", rightW);
     lines.push(wrap(`${left} ${mid} ${rightCol}`));
   }
 
   lines.push(border(`├${"─".repeat(inner)}┤`));
-  const footer = state.searchOpen
-    ? `/ ${state.searchQuery}_`
+  const footer = nav.searchOpen
+    ? `/ ${nav.searchQuery}_`
     : `/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close`;
   lines.push(wrap(theme.fg("dim", truncateToWidth(footer, inner, "…", true))));
   lines.push(border(`╰${"─".repeat(inner)}╯`));
@@ -122,11 +142,27 @@ function centerRouteBody(
       body.push(`Activity: ${snapshot.signalActivity}`);
       body.push("Use /signal preset · placement · doctor");
       break;
-    case "skills":
-      body.push(`${snapshot.skillsTotal} skills loaded`);
-      body.push(`${snapshot.skillsWarnings} warnings in doctor`);
-      body.push("Open /skills doctor for full table");
+    case "skills": {
+      const skills: WorkbenchSkill[] = (snapshot.skillSummaries ?? []).map((entry) => ({
+        name: entry.name,
+        description: entry.description,
+        category: entry.category,
+        warning: entry.warning,
+        usageCount: entry.usageCount,
+        health: entry.warning ? "warn" : "ok",
+      }));
+      const skillsState = state.skills ?? defaultSkillsState();
+      body.push(
+        ...renderSkillWorkbench(
+          theme,
+          width,
+          skills,
+          skillsState.selected,
+          skillsState.wizardOpen ? skillsState.wizard ?? null : null,
+        ),
+      );
       break;
+    }
     case "ideas":
       body.push(`${snapshot.ideaCount} ideas · ${snapshot.queueCount} queued`);
       body.push("Capture with queue sigil or /ideas");
@@ -149,14 +185,23 @@ function centerRouteBody(
       body.push("Open /usage for detailed overlay");
       break;
     case "appearance":
-      body.push(`Structural base: ${snapshot.appearanceBase}`);
-      body.push(`Layout preset: ${config.preset}`);
-      body.push(`Structural presets: ${STRUCTURAL_PRESET_NAMES.length}`);
+      body.push(
+        ...renderAppearanceBody(
+          theme,
+          width,
+          state.appearance ?? defaultAppearanceState(),
+          config.appearance,
+        ),
+      );
       break;
     case "motion":
-      body.push(`Live motion: ${snapshot.signalMotion}`);
-      body.push(`Catalog: ${MOTION_CATALOG.length} definitions`);
-      body.push("Gallery ships in Appearance route (PR6)");
+      body.push(
+        ...renderMotionGalleryBody(
+          theme,
+          width,
+          state.appearance ?? defaultAppearanceState(),
+        ),
+      );
       break;
     case "shortcuts":
       body.push(`Menu: ${shortcuts.menu ?? "alt+p"}`);
@@ -164,11 +209,23 @@ function centerRouteBody(
       body.push(`Info: ${shortcuts.info ?? "alt+i"}`);
       body.push("g <key> jumps inside the Deck");
       break;
-    case "diagnostics":
-      body.push("Run /signal doctor for full environment report");
-      body.push("Check doctor output for nerd font support");
-      body.push(`Preset: ${config.preset}`);
+    case "diagnostics": {
+      const caps = snapshot.terminal ?? {
+        term: detectTerminalCapabilities().term || "unknown",
+        noColor: false,
+        truecolor: false,
+        lowColor: false,
+        screenReader: false,
+        reducedMotion: false,
+        motionLevel: "full",
+      };
+      body.push(`TERM ${caps.term || "unset"}`);
+      body.push(`truecolor ${caps.truecolor ? "yes" : "no"} ·  NO_COLOR ${caps.noColor ? "yes" : "no"}`);
+      body.push(`low-color ${caps.lowColor ? "yes" : "no"} · screen reader ${caps.screenReader ? "yes" : "no"}`);
+      body.push(`reduced-motion ${caps.reducedMotion ? "yes" : "no"} · level ${caps.motionLevel}`);
+      body.push(`Catalog ${MOTION_CATALOG.length} · presets ${STRUCTURAL_PRESET_NAMES.length}`);
       break;
+    }
   }
   return body.map((line) => truncateToWidth(line, width, "…", true));
 }
@@ -202,9 +259,7 @@ function rightRail(snapshot: DeckSessionSnapshot, theme: Theme, width: number): 
 }
 
 function padCol(text: string, width: number): string {
-  const plain = stripAnsi(text);
-  if (plain.length >= width) return truncateToWidth(text, width, "…", true);
-  return text + " ".repeat(width - plain.length);
+  return truncateToWidth(text, width, "…", true);
 }
 
 function stripAnsi(text: string): string {
@@ -214,15 +269,6 @@ function stripAnsi(text: string): string {
 function formatK(value: number): string {
   if (value >= 1000) return `${Math.round(value / 1000)}k`;
   return String(value);
-}
-
-export function filterDeckRoutes(query: string): DeckRoute[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return DECK_ROUTE_DEFS.map((route) => route.id);
-  return DECK_ROUTE_DEFS.filter((route) => {
-    const hay = `${route.label} ${route.id} ${route.description}`.toLowerCase();
-    return hay.includes(q);
-  }).map((route) => route.id);
 }
 
 export function layoutPresetNames(): string[] {

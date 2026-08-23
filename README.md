@@ -40,10 +40,10 @@ Then restart pi or `/reload`. Pi host packages are declared as `peerDependencies
 | Surface | What it does |
 | --- | --- |
 | Signal | Motion-aware three-lane operator status: model/Git, live activity/tool state, and context/queue. Default placement is the editor top border; `/signal placement below` moves it. |
-| `alt+p` | Three overlays: Navigate, Configure, Status. In Navigate, `→` / `tab` opens per-segment detail (ports, git, cost, context). `alt+i` is the ports list. |
+| `alt+p` | Wishcraft Deck: eleven routes, `g`-jumps, `/` search. Appearance gallery and Skills workbench live here. `alt+i` is the ports list. |
 | `# <idea>` | File-backed inbox. Does not send the prompt. `/ideas` reviews status, tags, and skill insert. `/ideas next` feeds the oldest active idea into the session. |
 | `alt+s` | Stash the draft, ask something else, get it back when the run finishes. |
-| `/skills` | Overlay search on name, description, and path. Enter inserts. `/skills doctor` is the health table. `/skills new` writes a SKILL.md from a template. |
+| `/skills` | Workbench: search, health, usage sparkline, preview. `n` opens the new-skill wizard. `/skills doctor` is the health table. |
 | `!cmd` / bash mode | Managed shell with ghost suggestions from project history. No shell-native completion probes. |
 | Hooks + repairs | Command hooks on pi events. Custom-tool input repairs before execution. Kill-switch: `wishcraft.hooksEnabled`. |
 | Read hints | Appends a one-line continuation hint after a partial `read`, so the model knows the next offset. Opt-out: `wishcraft.readHints: false`. |
@@ -66,7 +66,7 @@ Activates on load. `/signal` toggles it. `/signal <preset>` switches the informa
 /skills doctor        health table (broken frontmatter, dupes, unused, budget)
 /skills new [name]    write a SKILL.md from a template
 /ideas                idea review overlay (status, tags, skill insert)
-/wishcraft            settings TUI
+/wishcraft            Deck (eleven routes). `/wishcraft config` for the settings TUI
 /open-ports           listening sockets
 /cd <path>            continue this conversation in another directory
 /bash-mode            sticky shell  (also ctrl+shift+b)
@@ -221,12 +221,9 @@ Declarative deny/inject rules in the **global** agent settings file. No shell co
 - The legacy `@groeponline/pi-powerline-footer` package is deprecated on npm in favor of `@groeponline/pi-wishcraft`; the GitHub fork relationship is retained for upstream history and attribution.
 - Tags are not rewritten. 0.19.x through current stay on the timeline.
 
-## vNext Direction
+## Operator layer
 
-Wishcraft is evolving into Pi's animated operator layer — intent, skills, ideas, guardrails, and session state made visible and controllable without turning Pi into an IDE.
-
-- **[vNext Stacked PR Release Plan](docs/design/vnext-release-plan.md)**: Specifications for PR0 through PR8.
-- **[Design Corpus](docs/index.md#design-system--vnext-specifications)**: Deck layout, Signal powerline, Motion engine, and the 10 structural presets.
+vNext has shipped: Deck (`alt+p` / `/wishcraft`), animated Signal (`/signal`, `/powerline` alias), 50+ motion gallery + composer, ten structural presets, and accessibility (`NO_COLOR`, reduced motion, screen reader, ASCII). Design notes live in [docs/index.md](docs/index.md).
 
 ## Docs
 

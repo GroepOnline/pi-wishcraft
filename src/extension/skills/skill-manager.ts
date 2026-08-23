@@ -440,8 +440,8 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 close();
                 return;
               }
-            } else if (data === "\x0e") {
-              // ctrl+n = new skill from a template
+            } else if (data === "\x0e" || (query === "" && data === "N")) {
+              // ctrl+n or N (empty filter) opens the new-skill wizard
               done("new");
               return;
             } else if (data === "\x04") {
