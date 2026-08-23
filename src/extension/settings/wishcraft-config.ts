@@ -18,6 +18,7 @@ import { isRecord } from "../settings/settings-io.ts";
 import { config as stateConfig, setConfig, PRESET_NAMES } from "../core/state.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 import { STRUCTURAL_PRESET_NAMES } from "../../config/types.ts";
+import { MOTION_LEVELS, policyFromEnvironment } from "../../motion/accessibility.ts";
 import {
   requestImmediateStatusRender,
   resetLayoutCache,
@@ -151,6 +152,13 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
           kind: "select",
           choices: [...STRUCTURAL_PRESET_NAMES],
           hint: "colors and motion for Signal; layout preset stays separate",
+        },
+        {
+          label: "Motion level",
+          path: "powerline.motionLevel",
+          kind: "select",
+          choices: [...MOTION_LEVELS],
+          hint: "full · reduced · functional · off",
         },
         { label: "Separator", path: "powerline.separator", kind: "select", choices: SEPARATORS },
         { label: "Placement", path: "powerline.placement", kind: "select", choices: ["above", "below"] },
@@ -457,6 +465,7 @@ function applyPowerline(rt: RuntimeState, settings: Record<string, unknown>): vo
     ...stateConfig,
     ...parsePowerlineConfig(settings.powerline, PRESET_NAMES),
   });
+  rt.motionPolicy = policyFromEnvironment(process.env, stateConfig.motionLevel);
   resetLayoutCache(rt);
   requestImmediateStatusRender(rt);
 }

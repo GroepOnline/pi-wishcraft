@@ -33,6 +33,14 @@ const snapshot: DeckSessionSnapshot = {
   appearanceBase: "lanternwake",
   recentActivity: ["read_file", "grep_pattern"],
   nextIntent: "Improve Signal motion engine",
+  motionLevel: "full",
+  policySummary: "motion full",
+  skills: [
+    { name: "wishcraft-tui", category: "project", status: "ok", description: "TUI design skill", usage: 4 },
+    { name: "review", category: "global", status: "warn", description: "Review checklist", usage: 0 },
+  ],
+  ideas: [{ text: "Ship the Motion Gallery", reviewStatus: "in-progress" }],
+  guardrailRules: [{ action: "deny", tool: "bash", reason: "destructive rm" }],
 };
 
 const navState: DeckNavState = {
@@ -42,6 +50,14 @@ const navState: DeckNavState = {
   searchQuery: "",
   pendingJump: null,
   selectedAppearance: 0,
+  selectedMotion: 0,
+  selectedSkill: 0,
+  selectedIdea: 0,
+  composerOpen: false,
+  composerField: 0,
+  assignEvent: "streaming",
+  skillCreate: false,
+  skillCreateName: "",
 };
 
 const theme = {
@@ -91,6 +107,46 @@ test("home route shows context bar without raw cost counters", () => {
   const body = lines.join("\n");
   assert.match(body, /47%/);
   assert.doesNotMatch(body, /\$[0-9]/);
+});
+
+test("motion route lists the gallery with a live preview strip", () => {
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "motion", selectedNav: 8, selectedMotion: 0 },
+    DEFAULT_SHORTCUTS,
+  );
+  const body = lines.join("\n");
+  assert.match(body, /Ember Relay|ember-relay|Wishcraft/i);
+  assert.match(body, /composer/i);
+  assert.match(body, /assign streaming/);
+});
+
+test("skills create mode shows the inline name wizard", () => {
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "skills", skillCreate: true, skillCreateName: "lantern" },
+    DEFAULT_SHORTCUTS,
+  );
+  const body = lines.join("\n");
+  assert.match(body, /NEW SKILL/);
+  assert.match(body, /lantern/);
+});
+
+test("skills route renders the workbench list", () => {
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "skills", selectedNav: 2 },
+    DEFAULT_SHORTCUTS,
+  );
+  const body = lines.join("\n");
+  assert.match(body, /WORKBENCH/);
+  assert.match(body, /wishcraft-tui/);
 });
 
 test("appearance route lists structural bases with a cursor", () => {

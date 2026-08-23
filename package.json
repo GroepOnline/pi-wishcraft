@@ -53,6 +53,7 @@
     "prepublishOnly": "tsc --noEmit && node scripts/verify-package.mjs && npm run verify:pi-package",
     "verify:package": "node scripts/verify-package.mjs && node scripts/verify-pi-package-contract.mjs",
     "circular": "madge --circular src index.ts bash-mode queue",
+    "preview": "node --experimental-strip-types scripts/preview.mjs",
     "verify:pi-package": "node scripts/verify-pi-package-contract.mjs"
   },
   "peerDependencies": {

@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
+import { policyFromEnvironment } from "../../motion/accessibility.ts";
 import { registerCustomSegments } from "../../segments/index.ts";
 import { registerCustomPresets } from "../../config/presets.ts";
 import { invalidateGitStatus } from "../../git/status.ts";
@@ -188,6 +189,7 @@ export function registerSessionLifecycle(
     rt.bashModeSettings = parseBashModeSettings(settings, rt.resolvedShortcuts);
     rt.showLastPrompt = settings.showLastPrompt !== false;
     setConfig(parsePowerlineConfig(settings.powerline, PRESET_NAMES));
+    rt.motionPolicy = policyFromEnvironment(process.env, config.motionLevel);
     rt.queueStore.setSentRetentionMs(
       config.queue.retentionHours * 60 * 60 * 1000,
     );

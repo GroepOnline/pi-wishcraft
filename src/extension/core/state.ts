@@ -12,7 +12,7 @@ import {
 import { CoreContextUsageCache } from "../../usage/context.ts";
 import { createWelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
 import { createRenderScheduler } from "../../render/timer.ts";
-import { DEFAULT_MOTION_POLICY, MotionScheduler } from "../../motion/index.ts";
+import { MotionScheduler, policyFromEnvironment } from "../../motion/index.ts";
 import { createSignalRuntime } from "../../signal/controller.ts";
 import {
   resolveShortcutConfig,
@@ -50,6 +50,7 @@ export let config: PowerlineConfig = {
   presets: {},
   segmentLabels: {},
   appearance: {},
+  motionLevel: "full",
 };
 
 export function setConfig(next: PowerlineConfig): void {
@@ -138,10 +139,7 @@ export function createRuntimeState(
 
     resolvedShortcuts,
     bashModeSettings,
-    motionPolicy: {
-      ...DEFAULT_MOTION_POLICY,
-      toggles: { ...DEFAULT_MOTION_POLICY.toggles },
-    },
+    motionPolicy: policyFromEnvironment(process.env, config.motionLevel),
     signal: createSignalRuntime(),
   } as RuntimeState;
 

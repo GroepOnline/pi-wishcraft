@@ -209,6 +209,8 @@ Bases: `lanternwake`, `threadbound`, `scryglass`, `runebloom`, `moonwell`, `hexf
 
 Until `appearance` is set, Signal keeps the layout preset colors. If `preset` itself is a structural name and `appearance` is empty, that name is treated as the base.
 
+`powerline.motionLevel` is `full`, `reduced`, `functional`, or `off`. Host flags still win: `NO_COLOR`, `WISHCRAFT_MOTION`, `WISHCRAFT_SCREEN_READER`, and `PREFER_REDUCED_MOTION`. Deck Motion → Enter writes `powerline.appearance.motion.<event>`.
+
 ## Status bridge for other extensions
 
 Powerline publishes its own state under a stable key set so ChefBar and other extensions can read it without depending on powerline internals:

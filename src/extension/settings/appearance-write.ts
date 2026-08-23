@@ -6,7 +6,17 @@
  */
 
 import type { StructuralPresetName } from "../../config/types.ts";
+import type { MotionEvent } from "../../motion/types.ts";
 import { isStructuralPresetName } from "../../config/structural-presets.ts";
+import {
+  effectiveAppearanceMix,
+  resolveAppearanceMix,
+} from "../../config/appearance.ts";
+import {
+  isMotionLevel,
+  policyFromEnvironment,
+  type MotionLevel,
+} from "../../motion/accessibility.ts";
 import { isRecord, writePowerlineSetting } from "./settings-io.ts";
 import { config } from "../core/state.ts";
 import {
@@ -53,4 +63,58 @@ export function syncAppearanceForLayoutPreset(
 ): void {
   if (!isStructuralPresetName(preset)) return;
   applyAppearanceBase(rt, cwd, preset);
+}
+
+export function applyPersistedMotionPolicy(rt: RuntimeState): void {
+  rt.motionPolicy = policyFromEnvironment(process.env, config.motionLevel);
+}
+
+export function applyMotionLevel(
+  rt: RuntimeState,
+  cwd: string,
+  level: MotionLevel,
+): boolean {
+  if (!isMotionLevel(level)) return false;
+  config.motionLevel = level;
+  applyPersistedMotionPolicy(rt);
+  const ok = writePowerlineSetting(cwd, (existing) => {
+    const node: Record<string, unknown> = isRecord(existing)
+      ? { ...existing }
+      : typeof existing === "string"
+        ? { preset: existing }
+        : {};
+    node.motionLevel = level;
+    return node;
+  });
+  resetLayoutCache(rt);
+  requestImmediateStatusRender(rt);
+  return ok;
+}
+
+export function applyMotionAssignment(
+  rt: RuntimeState,
+  cwd: string,
+  event: MotionEvent,
+  motionId: string,
+): boolean {
+  const current = {
+    ...resolveAppearanceMix(effectiveAppearanceMix(config.appearance, config.preset))
+      .motion,
+    [event]: motionId,
+  };
+  config.appearance = { ...config.appearance, motion: current };
+  const ok = writePowerlineSetting(cwd, (existing) => {
+    const node: Record<string, unknown> = isRecord(existing)
+      ? { ...existing }
+      : typeof existing === "string"
+        ? { preset: existing }
+        : {};
+    const appearance = isRecord(node.appearance) ? { ...node.appearance } : {};
+    appearance.motion = current;
+    node.appearance = appearance;
+    return node;
+  });
+  resetLayoutCache(rt);
+  requestImmediateStatusRender(rt);
+  return ok;
 }

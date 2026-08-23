@@ -1,12 +1,19 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { MOTION_CATALOG } from "../../../motion/catalog.ts";
-import { STRUCTURAL_PRESET_NAMES } from "../../../config/types.ts";
 import { PRESETS } from "../../../config/presets.ts";
 import { config } from "../../core/state.ts";
 import type { PowerlineShortcuts } from "../../core/types.ts";
+import type { ComposerDraft } from "../../../motion/composer.ts";
 import { DECK_ROUTE_DEFS } from "./routes.ts";
 import type { DeckNavState, DeckRoute, DeckSessionSnapshot } from "./types.ts";
+import {
+  appearanceLines,
+  guardrailLines,
+  ideasLines,
+  motionGalleryLines,
+  skillsWorkbenchLines,
+} from "./route-bodies.ts";
 
 function bar(percent: number, width: number): string {
   const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * width);
@@ -23,6 +30,7 @@ export function renderDeckFrame(
   snapshot: DeckSessionSnapshot,
   state: DeckNavState,
   shortcuts: PowerlineShortcuts,
+  composer: ComposerDraft | null = null,
 ): string[] {
   const inner = Math.max(40, width - 2);
   const border = (text: string) => theme.fg("dim", text);
@@ -40,7 +48,7 @@ export function renderDeckFrame(
   lines.push(border(`├${"─".repeat(inner)}┤`));
 
   const nav = navLines(snapshot, state, theme, leftW);
-  const center = centerRouteBody(snapshot, state, theme, centerW, shortcuts);
+  const center = centerRouteBody(snapshot, state, theme, centerW, shortcuts, composer);
   const right = rightRail(snapshot, theme, rightW);
 
   const rowCount = Math.max(nav.length, center.length, right.length, 8);
@@ -56,7 +64,11 @@ export function renderDeckFrame(
     ? `/ ${state.searchQuery}_`
     : state.route === "appearance"
       ? `↑↓ select base · enter apply · / Search · g h Home · Esc Close`
-      : `/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close`;
+      : state.route === "motion"
+        ? `↑↓ motion · t event · e composer · enter apply · Esc Close`
+        : state.route === "skills"
+          ? `↑↓ skill · enter insert · / filter · Esc Close`
+          : `/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close`;
   lines.push(wrap(theme.fg("dim", truncateToWidth(footer, inner, "…", true))));
   lines.push(border(`╰${"─".repeat(inner)}╯`));
   return lines;
@@ -91,6 +103,7 @@ function centerRouteBody(
   theme: Theme,
   width: number,
   shortcuts: PowerlineShortcuts,
+  composer: ComposerDraft | null = null,
 ): string[] {
   const title = theme.fg("accent", `ACTIVE ROUTE: ${routeTitle(state.route).toUpperCase()}`);
   const body: string[] = [title, ""];
@@ -125,19 +138,13 @@ function centerRouteBody(
       body.push("Use /signal preset · placement · doctor");
       break;
     case "skills":
-      body.push(`${snapshot.skillsTotal} skills loaded`);
-      body.push(`${snapshot.skillsWarnings} warnings in doctor`);
-      body.push("Open /skills doctor for full table");
+      body.push(...skillsWorkbenchLines(snapshot, state, width));
       break;
     case "ideas":
-      body.push(`${snapshot.ideaCount} ideas · ${snapshot.queueCount} queued`);
-      body.push("Capture with queue sigil or /ideas");
+      body.push(...ideasLines(snapshot, state));
       break;
     case "guardrails":
-      body.push(
-        `Policy: ${snapshot.policyEnabled ? "ENABLED" : "OFF"} (${snapshot.policyRuleCount} rules)`,
-      );
-      body.push("Edit rules under wishcraft.policy in settings");
+      body.push(...guardrailLines(snapshot));
       break;
     case "shell":
       body.push(`Bash mode: ${snapshot.bashModeActive ? "on" : "off"}`);
@@ -150,23 +157,11 @@ function centerRouteBody(
       );
       body.push("Open /usage for detailed overlay");
       break;
-    case "appearance": {
-      body.push(`Active base: ${snapshot.appearanceBase}`);
-      body.push(`Layout preset: ${config.preset}`);
-      body.push("Enter writes powerline.appearance.base and repaints Signal.");
-      const cursor = state.selectedAppearance;
-      for (let i = 0; i < STRUCTURAL_PRESET_NAMES.length; i++) {
-        const name = STRUCTURAL_PRESET_NAMES[i]!;
-        const marker = i === cursor ? "→" : " ";
-        const star = name === snapshot.appearanceBase ? "*" : " ";
-        body.push(`${marker}${star} ${name}`);
-      }
+    case "appearance":
+      body.push(...appearanceLines(snapshot, state, width));
       break;
-    }
     case "motion":
-      body.push(`Live motion: ${snapshot.signalMotion}`);
-      body.push(`Catalog: ${MOTION_CATALOG.length} definitions`);
-      body.push("Gallery ships in Appearance route (PR6)");
+      body.push(...motionGalleryLines(snapshot, state, width, composer));
       break;
     case "shortcuts":
       body.push(`Menu: ${shortcuts.menu ?? "alt+p"}`);
@@ -175,9 +170,10 @@ function centerRouteBody(
       body.push("g <key> jumps inside the Deck");
       break;
     case "diagnostics":
-      body.push("Run /signal doctor for full environment report");
-      body.push("Check doctor output for nerd font support");
-      body.push(`Preset: ${config.preset}`);
+      body.push("Run /signal doctor for the full environment report");
+      body.push(snapshot.policySummary);
+      body.push(`Preset: ${config.preset} · base ${snapshot.appearanceBase}`);
+      body.push(`Catalog: ${MOTION_CATALOG.length} motions`);
       break;
   }
   return body.map((line) => truncateToWidth(line, width, "…", true));

@@ -228,7 +228,7 @@ Declarative deny/inject rules in the **global** agent settings file. No shell co
 Wishcraft is evolving into Pi's animated operator layer — intent, skills, ideas, guardrails, and session state made visible and controllable without turning Pi into an IDE.
 
 - **[vNext Stacked PR Release Plan](docs/design/vnext-release-plan.md)**: Specifications for PR0 through PR8.
-- **[Design Corpus](docs/index.md#design-system--vnext-specifications)**: Deck layout, Signal powerline, Motion engine, and the 10 structural presets.
+- **[Design Corpus](docs/index.md#design-system--vnext-specifications)**: Deck, Signal, Motion Gallery, tokens, and the 10 structural presets. `npm run preview` renders the Deck frames.
 
 ## Docs
 

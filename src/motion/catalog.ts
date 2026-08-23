@@ -8,8 +8,9 @@
  */
 
 import type { MotionChannel, MotionDef, MotionEvent } from "./types.ts";
+import { EXTRA_MOTIONS } from "./catalog-extra.ts";
 
-export const MOTION_CATALOG: readonly MotionDef[] = [
+const CORE_MOTIONS: readonly MotionDef[] = [
   {
     id: "ember-relay",
     name: "Ember Relay",
@@ -251,6 +252,8 @@ export const MOTION_CATALOG: readonly MotionDef[] = [
     description: "Small local bounce.",
   },
 ];
+
+export const MOTION_CATALOG: readonly MotionDef[] = [...CORE_MOTIONS, ...EXTRA_MOTIONS];
 
 /**
  * Which channels an event may light up. Deliberately sparse: idle must not

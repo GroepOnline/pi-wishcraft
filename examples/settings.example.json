@@ -20,7 +20,8 @@
     "segmentOptions": {},
     "appearance": {
       "base": "lanternwake"
-    }
+    },
+    "motionLevel": "full"
   },
   "wishcraft": {
     "hooksEnabled": true,

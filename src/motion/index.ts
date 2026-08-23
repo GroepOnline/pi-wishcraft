@@ -53,3 +53,26 @@ export {
 
 export { MotionScheduler } from "./scheduler.ts";
 export type { MotionConsumer, MotionSchedulerOptions } from "./scheduler.ts";
+
+export {
+  filterMotions,
+  groupMotions,
+  previewStrip,
+  GALLERY_CATEGORIES,
+} from "./gallery.ts";
+export {
+  draftFromMotion,
+  motionFromDraft,
+  nudgeComposer,
+  composerPreview,
+  COMPOSER_FIELDS,
+  COMPOSER_EVENTS,
+} from "./composer.ts";
+export type { ComposerDraft, ComposerField } from "./composer.ts";
+export {
+  policyFromEnvironment,
+  isMotionLevel,
+  MOTION_LEVELS,
+  describePolicy,
+  idleFps,
+} from "./accessibility.ts";
