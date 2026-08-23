@@ -249,7 +249,24 @@ export type StatusLineSeparatorStyle =
 export type PowerlinePlacement = "above" | "below";
 
 export type StatusLinePreset =
-  "default" | "minimal" | "compact" | "full" | "nerd" | "ascii" | "chef";
+  | "default"
+  | "minimal"
+  | "compact"
+  | "full"
+  | "nerd"
+  | "ascii"
+  | "chef"
+  // vNext Structural Signature Presets
+  | "lanternwake"
+  | "threadbound"
+  | "scryglass"
+  | "runebloom"
+  | "moonwell"
+  | "hexforge"
+  | "vellum"
+  | "wisp"
+  | "starweave"
+  | "crucible";
 
 // Optional `{value}` template override shared by all segment option groups.
 // Replaces `{value}` in the rendered value text (e.g. "{value} tok/s").
@@ -324,7 +341,7 @@ export interface CustomStatusItem {
   excludeFromExtensionStatuses: boolean;
 }
 
-// Preset definition
+
 export interface PresetDef {
   leftSegments: StatusLineSegmentId[];
   rightSegments: StatusLineSegmentId[];

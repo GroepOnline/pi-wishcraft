@@ -56,26 +56,13 @@ async function activatePowerlineMenuAction(
   }
 }
 
-/** Main powerline menu: three top-level overlays, Status drills down. */
+import { openWishcraftDeck } from "./deck/deck-host.ts";
+
+/** Main powerline / Wishcraft Deck menu: opens the Deck on Alt+P */
 export async function showPowerlineMainMenu(
   rt: RuntimeState,
   ctx: any,
 ): Promise<void> {
   rt.currentCtx = ctx;
-  while (true) {
-    const top = await pickPowerlineMenuNode(
-      ctx,
-      "Powerline",
-      assertPowerlineMenuBounds(),
-    );
-    if (!top) return;
-    if (top.children?.length) {
-      const child = await pickPowerlineMenuNode(ctx, top.label, top.children);
-      if (!child) continue;
-      await activatePowerlineMenuAction(rt, ctx, child.id);
-      continue;
-    }
-    await activatePowerlineMenuAction(rt, ctx, top.id);
-    return;
-  }
+  await openWishcraftDeck(rt, ctx, "home");
 }
