@@ -11,6 +11,8 @@
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { RuntimeState } from "../core/types.ts";
+import { openWishcraftDeck } from "../ui/deck/index.ts";
+import { parseDeckRouteArg } from "../ui/deck/routes.ts";
 import { readSettings, writeSettingKey } from "../settings/settings-io.ts";
 import { isRecord } from "../settings/settings-io.ts";
 import { config as stateConfig, setConfig, PRESET_NAMES } from "../core/state.ts";
@@ -437,17 +439,22 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
   );
 }
 
-/** Register /wishcraft. */
+/** Register /wishcraft — opens the Deck; `config` opens the legacy settings editor. */
 export function registerWishcraftConfigCommand(pi: ExtensionAPI, rt: RuntimeState): void {
   pi.registerCommand("wishcraft", {
-    description: "Configure all wishcraft settings in one overlay (status bar, welcome, hooks, shortcuts)",
-    handler: async (_args: string, ctx: any) => {
+    description: "Open the Wishcraft Deck (operator control surface)",
+    handler: async (args: string, ctx: any) => {
       if (!rt.enabled || !ctx.hasUI) {
-        ctx.ui.notify("Powerline UI is disabled", "info");
+        ctx.ui.notify("Signal UI is disabled", "info");
         return;
       }
       rt.currentCtx = ctx;
-      await showWishcraftConfig(rt, ctx);
+      const trimmed = args?.trim() ?? "";
+      if (trimmed === "config") {
+        await showWishcraftConfig(rt, ctx);
+        return;
+      }
+      await openWishcraftDeck(rt, ctx, parseDeckRouteArg(trimmed));
     },
   });
 }

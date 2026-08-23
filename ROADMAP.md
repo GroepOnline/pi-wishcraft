@@ -112,7 +112,9 @@ Niet de fork. Niet de SaaS-agent.
     glyph fallbacks; legacy layout presets ongewijzigd.
   - PR4 animated Signal — geland (`src/signal/`): drie lanes, lifecycle-driven
     motion op één gedeelde scheduler, `/signal` primair en 0 FPS in rust.
-  - PR5–PR8 — open: Deck, Appearance, accessibility, Craft + docs.
+  - PR5 Deck — geland (`src/extension/ui/deck/`): unified overlay via
+    `ctx.ui.custom`, Alt+P en `/wishcraft`, elf routes, jump/search navigatie.
+  - PR6–PR8 — open: Appearance gallery, accessibility, Craft + docs.
 
 ## Top-15 track: remaining maturity gaps
 
