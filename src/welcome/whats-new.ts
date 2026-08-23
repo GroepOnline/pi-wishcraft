@@ -40,6 +40,17 @@ function isVersionNewer(version: string, lastSeen: string | null): boolean {
   return false;
 }
 
+function isVersionAtOrNewer(version: string, floor: string): boolean {
+  const next = parseVersion(version);
+  const min = parseVersion(floor);
+  if (!next || !min) return false;
+  for (let i = 0; i < 3; i++) {
+    if (next[i] > min[i]) return true;
+    if (next[i] < min[i]) return false;
+  }
+  return true;
+}
+
 /**
  * Extract the bullet lines from released changelog sections whose version is
  * strictly newer than `lastSeenVersion`. On a first run (`lastSeenVersion` is
@@ -59,15 +70,22 @@ export function parseChangelogDelta(
   // oldest-first before capping.
   const sections: string[][] = [];
   let current: string[] | null = null;
-  const lowerBound = lastSeenVersion ?? floorVersion;
+  // A stored last-seen version is a strict lower bound (only strictly newer
+  // sections). On a first run the floor is inclusive, so the first own release
+  // itself is shown while the pre-1.0 prehistory is skipped.
+  const matchesBound =
+    lastSeenVersion !== null
+      ? (version: string) => isVersionNewer(version, lastSeenVersion)
+      : floorVersion !== null
+        ? (version: string) => isVersionAtOrNewer(version, floorVersion)
+        : () => true;
 
   for (const rawLine of changelog.split("\n")) {
     const line = rawLine.trimEnd();
     const versionMatch = line.match(/^##\s+\[([^\]]+)\]/);
     if (versionMatch) {
       const version = versionMatch[1].trim();
-      const include =
-        version !== "Unreleased" && isVersionNewer(version, lowerBound);
+      const include = version !== "Unreleased" && matchesBound(version);
       current = include ? [] : null;
       if (current) sections.push(current);
       continue;
