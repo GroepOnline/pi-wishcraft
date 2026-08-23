@@ -239,7 +239,7 @@ test("parseOpenPortProcesses handles macOS netstat dot-separated ports", () => {
 
 test("renderSegment isolates a failing command segment instead of blanking the footer", () => {
   registerCustomSegments({
-    boom: { type: "command", command: 'node -e "process.exit(1)"' },
+    boom: { type: "command", command: "node -e \"process.exit(1)\"" },
   });
   try {
     const out = renderSegment("custom:boom", createSegmentContext());
@@ -247,6 +247,28 @@ test("renderSegment isolates a failing command segment instead of blanking the f
     assert.equal(out.content, "!custom:boom");
   } finally {
     customComputedSegments.clear();
+  }
+});
+
+test("renderSegment isolates a throwing computed segment", () => {
+  customComputedSegments.set("throwing", {
+    id: "custom:throwing",
+    render: () => {
+      throw new Error("boom");
+    },
+  });
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const out = renderSegment("custom:throwing", createSegmentContext());
+    assert.equal(out.visible, true);
+    assert.equal(out.content, "!custom:throwing");
+  } finally {
+    console.warn = originalWarn;
+    customComputedSegments.delete("throwing");
+  }
+});
+
   }
 });
 
