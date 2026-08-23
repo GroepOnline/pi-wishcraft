@@ -15,6 +15,8 @@ test("operator UI modules do not ship Dutch overlay copy", () => {
     read("src/extension/skills/skill-registry.ts"),
     read("src/extension/ui/overlay-chrome.ts"),
     read("src/extension/settings/wishcraft-config.ts"),
+    read("src/extension/ui/deck/render.ts"),
+    read("src/extension/ui/deck/component.ts"),
   ].join("\n");
 
   assert.doesNotMatch(sources, /geen skills voor/i);
@@ -26,4 +28,5 @@ test("operator UI modules do not ship Dutch overlay copy", () => {
   assert.doesNotMatch(sources, /Nederlands/i);
   assert.match(sources, /No skills for/);
   assert.match(sources, /no match for/);
+  assert.match(sources, /Wishcraft Deck|ACTIVE ROUTE|Appearance/);
 });

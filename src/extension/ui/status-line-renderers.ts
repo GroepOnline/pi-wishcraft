@@ -3,7 +3,7 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import type { SegmentContext } from "../../config/types.ts";
 import { getPreset } from "../../config/presets.ts";
-import { resolveAppearanceMix } from "../../config/appearance.ts";
+import { effectiveAppearanceMix, resolveAppearanceMix } from "../../config/appearance.ts";
 import {
   collectHiddenExtensionStatusKeys,
   getNotificationExtensionStatuses,
@@ -74,7 +74,9 @@ export function getResponsiveLayout(
   }
 
   rt.lastLayoutWidth = width;
-  const appearance = resolveAppearanceMix(config.appearance);
+  const appearance = resolveAppearanceMix(
+    effectiveAppearanceMix(config.appearance, config.preset),
+  );
   rt.lastLayoutResult = renderSignal(
     segmentCtx,
     presetDef,

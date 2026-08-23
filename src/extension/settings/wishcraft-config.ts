@@ -17,6 +17,11 @@ import { readSettings, writeSettingKey } from "../settings/settings-io.ts";
 import { isRecord } from "../settings/settings-io.ts";
 import { config as stateConfig, setConfig, PRESET_NAMES } from "../core/state.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
+import { STRUCTURAL_PRESET_NAMES } from "../../config/types.ts";
+import {
+  requestImmediateStatusRender,
+  resetLayoutCache,
+} from "../core/segment-context.ts";
 
 // ---------------------------------------------------------------------------
 // Config-item declaraties
@@ -140,6 +145,13 @@ export function buildConfigGroups(settings: Record<string, unknown>): ConfigGrou
       title: "Status bar",
       items: [
         { label: "Preset", path: "powerline.preset", kind: "select", choices: ["default", "minimal", "compact", "full", "nerd", "ascii", "chef"] },
+        {
+          label: "Structural base",
+          path: "powerline.appearance.base",
+          kind: "select",
+          choices: [...STRUCTURAL_PRESET_NAMES],
+          hint: "colors and motion for Signal; layout preset stays separate",
+        },
         { label: "Separator", path: "powerline.separator", kind: "select", choices: SEPARATORS },
         { label: "Placement", path: "powerline.placement", kind: "select", choices: ["above", "below"] },
         { label: "Path mode", path: "powerline.segmentOptions.path.mode", kind: "select", choices: ["basename", "abbreviated", "full"] },
@@ -274,13 +286,8 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const ok = writeConfigPath(cwd, item.path, value);
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
-        // live-reload powerline config + status bar
         if (item.path.startsWith("powerline")) {
-          setConfig({
-            ...stateConfig,
-            ...parsePowerlineConfig(settings.powerline, PRESET_NAMES),
-          });
-          rt.tuiRef?.requestRender?.();
+          applyPowerline(rt, settings);
         }
         ctx.ui.notify(
           ok ? `${item.label}: ${displayValue(item, value)} (saved)` : `${item.label} not saved (settings.json?)`,
@@ -296,6 +303,9 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const ok = writeConfigPath(cwd, item.path, next);
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
+        if (item.path.startsWith("powerline")) {
+          applyPowerline(rt, settings);
+        }
         ctx.ui.notify(
           ok ? `${item.label}: ${next} (saved)` : `${item.label} not saved`,
           ok ? "info" : "warning",
@@ -307,6 +317,9 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const ok = writeConfigPath(cwd, item.path, nextToggleValue(item, cur));
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
+        if (item.path.startsWith("powerline")) {
+          applyPowerline(rt, settings);
+        }
         ctx.ui.notify(
           ok ? `${item.label}: ${!(cur === true) ? "on" : "off"} (saved)` : `${item.label} not saved`,
           ok ? "info" : "warning",
@@ -439,10 +452,19 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
   );
 }
 
-/** Register /wishcraft — opens the Deck; `config` opens the legacy settings editor. */
+function applyPowerline(rt: RuntimeState, settings: Record<string, unknown>): void {
+  setConfig({
+    ...stateConfig,
+    ...parsePowerlineConfig(settings.powerline, PRESET_NAMES),
+  });
+  resetLayoutCache(rt);
+  requestImmediateStatusRender(rt);
+}
+
+/** Register /wishcraft — opens the Deck; `settings`/`config` open the flat list. */
 export function registerWishcraftConfigCommand(pi: ExtensionAPI, rt: RuntimeState): void {
   pi.registerCommand("wishcraft", {
-    description: "Open the Wishcraft Deck (operator control surface)",
+    description: "Open the Wishcraft Deck, or settings/config for the flat list",
     handler: async (args: string, ctx: any) => {
       if (!rt.enabled || !ctx.hasUI) {
         ctx.ui.notify("Signal UI is disabled", "info");
@@ -450,7 +472,7 @@ export function registerWishcraftConfigCommand(pi: ExtensionAPI, rt: RuntimeStat
       }
       rt.currentCtx = ctx;
       const trimmed = args?.trim() ?? "";
-      if (trimmed === "config") {
+      if (trimmed === "config" || trimmed === "settings") {
         await showWishcraftConfig(rt, ctx);
         return;
       }

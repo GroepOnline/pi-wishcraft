@@ -40,7 +40,7 @@ Then restart pi or `/reload`. Pi host packages are declared as `peerDependencies
 | Surface | What it does |
 | --- | --- |
 | Signal | Motion-aware three-lane operator status: model/Git, live activity/tool state, and context/queue. Default placement is the editor top border; `/signal placement below` moves it. |
-| `alt+p` | Three overlays: Navigate, Configure, Status. In Navigate, `→` / `tab` opens per-segment detail (ports, git, cost, context). `alt+i` is the ports list. |
+| `alt+p` | Wishcraft Deck: session, Signal, skills, ideas, guardrails, appearance. `g` + jump. `/wishcraft settings` is the flat list. `/signal menu` is Navigate / Configure / Status. |
 | `# <idea>` | File-backed inbox. Does not send the prompt. `/ideas` reviews status, tags, and skill insert. `/ideas next` feeds the oldest active idea into the session. |
 | `alt+s` | Stash the draft, ask something else, get it back when the run finishes. |
 | `/skills` | Overlay search on name, description, and path. Enter inserts. `/skills doctor` is the health table. `/skills new` writes a SKILL.md from a template. |
@@ -53,7 +53,7 @@ Pi owns the footer chrome, feed scrolling, and input. Wishcraft supplies widgets
 
 ## Daily commands
 
-Activates on load. `/signal` toggles it. `/signal <preset>` switches the information layout. Tab completes presets and `placement above|below|toggle`. `/powerline` remains a compatibility alias.
+Activates on load. `/signal` toggles it. `/signal <preset>` switches the information layout. `/signal menu` opens Navigate / Configure / Status. `/wishcraft` opens the Deck. Tab completes presets and `placement above|below|toggle`. `/powerline` remains a compatibility alias.
 
 ```text
 /signal doctor        settings, queue, git, bash, fonts
@@ -66,7 +66,8 @@ Activates on load. `/signal` toggles it. `/signal <preset>` switches the informa
 /skills doctor        health table (broken frontmatter, dupes, unused, budget)
 /skills new [name]    write a SKILL.md from a template
 /ideas                idea review overlay (status, tags, skill insert)
-/wishcraft            settings TUI
+/wishcraft            Deck overlay (operator surface)
+/wishcraft settings   flat settings TUI
 /open-ports           listening sockets
 /cd <path>            continue this conversation in another directory
 /bash-mode            sticky shell  (also ctrl+shift+b)
@@ -99,7 +100,8 @@ Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
   "powerline": {
     "preset": "chef",
     "placement": "above",
-    "welcome": true
+    "welcome": true,
+    "appearance": { "base": "lanternwake" }
   }
 }
 ```

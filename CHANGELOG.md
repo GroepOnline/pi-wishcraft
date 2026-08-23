@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- Wishcraft Deck (`alt+p` / `/wishcraft`) is the operator overlay: eleven routes, `g`-prefix jumps, and a live session snapshot. `/wishcraft settings` (or `config`) opens the flat settings list.
+- `/signal` is the primary status command (`/powerline` remains an alias). No-args still toggles. `/signal menu` opens Navigate / Configure / Status.
+- Ten structural appearance bases (`lanternwake`…`crucible`) apply live Signal colors via `powerline.appearance.base`. Deck Appearance + Enter writes the base. `/signal hexforge` syncs appearance when the layout name is structural.
+
 ## [1.1.0] - 2026-08-23
 
 ### Security

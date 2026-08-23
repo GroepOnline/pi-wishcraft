@@ -66,3 +66,20 @@ export async function showPowerlineMainMenu(
   rt.currentCtx = ctx;
   await openWishcraftDeck(rt, ctx, "home");
 }
+
+/** Classic Navigate / Configure / Status overlays (`/signal menu`). */
+export async function showPowerlineClassicMenu(
+  rt: RuntimeState,
+  ctx: any,
+): Promise<void> {
+  rt.currentCtx = ctx;
+  const nodes = assertPowerlineMenuBounds();
+  const picked = await pickPowerlineMenuNode(ctx, "Signal", nodes);
+  if (!picked) return;
+  if (picked.children?.length) {
+    const child = await pickPowerlineMenuNode(ctx, picked.label, picked.children);
+    if (child) await activatePowerlineMenuAction(rt, ctx, child.id);
+    return;
+  }
+  await activatePowerlineMenuAction(rt, ctx, picked.id);
+}

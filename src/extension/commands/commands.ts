@@ -19,6 +19,8 @@ import {
 import { showOpenPortsList, showSelectOverlay } from "../ui/menu-views.ts";
 import { showTpsOverlay, showUsageOverlay } from "../ui/token-overlays.ts";
 import { openWishcraftDeck } from "../ui/deck/index.ts";
+import { showPowerlineClassicMenu } from "../ui/powerline-menu-view.ts";
+import { syncAppearanceForLayoutPreset } from "../settings/appearance-write.ts";
 import { openStashHistory } from "../shortcuts/shortcuts-router.ts";
 import { ensureShellSession, setBashModeActive } from "./bash-mode-actions.ts";
 import { setupCustomEditor } from "../ui/custom-editor.ts";
@@ -95,6 +97,10 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       }
 
       const normalizedArgs = args.trim().toLowerCase();
+      if (normalizedArgs === "menu") {
+        await showPowerlineClassicMenu(rt, ctx);
+        return;
+      }
       if (normalizedArgs === "deck") {
         await openWishcraftDeck(rt, ctx, "signal");
         return;
@@ -150,7 +156,9 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
           setupCustomEditor(pi, rt, ctx);
         }
 
-        if (writePowerlinePresetSetting(preset, ctx.cwd)) {
+        const persisted = writePowerlinePresetSetting(preset, ctx.cwd);
+        syncAppearanceForLayoutPreset(rt, ctx.cwd, preset);
+        if (persisted) {
           ctx.ui.notify(`Preset set to: ${preset}`, "info");
         } else {
           ctx.ui.notify(

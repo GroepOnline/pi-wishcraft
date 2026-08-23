@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  effectiveAppearanceMix,
   glyphsPreferNerd,
+  liveColorScheme,
   resolveAppearanceMix,
   resolveGlyphOrnament,
   validateAppearanceMotions,
@@ -143,4 +145,23 @@ test("completeMotionMap fills gaps from catalog defaults", () => {
   assert.equal(partial.streaming, "ember-relay");
   assert.equal(partial.idle, "wisp");
   assert.equal(partial.compact, "bar");
+});
+
+test("liveColorScheme keeps layout colors until appearance is in effect", () => {
+  const chef = PRESETS.chef;
+  const live = liveColorScheme(chef, {}, "chef", getDefaultColors);
+  assert.deepEqual(live, presetColorScheme(chef, getDefaultColors));
+});
+
+test("liveColorScheme uses structural tokens when appearance.base is set", () => {
+  const chef = PRESETS.chef;
+  const live = liveColorScheme(chef, { base: "hexforge" }, "chef", getDefaultColors);
+  const mix = resolveAppearanceMix({ base: "hexforge" });
+  assert.equal(live.model, mix.tokens.primary);
+});
+
+test("effectiveAppearanceMix treats a structural layout name as the base", () => {
+  assert.deepEqual(effectiveAppearanceMix({}, "hexforge"), { base: "hexforge" });
+  assert.deepEqual(effectiveAppearanceMix({ base: "wisp" }, "hexforge"), { base: "wisp" });
+  assert.deepEqual(effectiveAppearanceMix({}, "chef"), {});
 });

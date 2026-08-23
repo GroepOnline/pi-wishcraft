@@ -41,6 +41,7 @@ const navState: DeckNavState = {
   searchOpen: false,
   searchQuery: "",
   pendingJump: null,
+  selectedAppearance: 0,
 };
 
 const theme = {
@@ -58,6 +59,8 @@ test("parseDeckRouteArg resolves named routes", () => {
   assert.equal(parseDeckRouteArg("skills"), "skills");
   assert.equal(parseDeckRouteArg("motion gallery"), "motion");
   assert.equal(parseDeckRouteArg("unknown"), "home");
+  assert.equal(parseDeckRouteArg("settings"), "appearance");
+  assert.equal(parseDeckRouteArg("config"), "appearance");
 });
 
 test("jump keys follow posting-style g-prefix ergonomics", () => {
@@ -88,4 +91,19 @@ test("home route shows context bar without raw cost counters", () => {
   const body = lines.join("\n");
   assert.match(body, /47%/);
   assert.doesNotMatch(body, /\$[0-9]/);
+});
+
+test("appearance route lists structural bases with a cursor", () => {
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "appearance", selectedNav: 7, selectedAppearance: 5 },
+    DEFAULT_SHORTCUTS,
+  );
+  const body = lines.join("\n");
+  assert.match(body, /hexforge/);
+  assert.match(body, /lanternwake/);
+  assert.match(body, /enter apply/i);
+  assert.match(body, /→/);
 });
