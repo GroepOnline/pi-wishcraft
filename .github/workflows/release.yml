@@ -24,8 +24,7 @@ jobs:
       && github.event_name == 'push'
       && !startsWith(github.event.head_commit.message, 'chore: release')
       && !contains(github.event.head_commit.message, '[skip release]')
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: write
@@ -68,8 +67,7 @@ jobs:
   publish:
     name: test + publish
     if: startsWith(github.ref, 'refs/tags/v')
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: write

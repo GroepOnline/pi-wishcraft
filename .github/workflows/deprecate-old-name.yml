@@ -9,8 +9,7 @@ on:
 jobs:
   deprecate:
     name: npm deprecate @groeponline/pi-powerline-footer
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
