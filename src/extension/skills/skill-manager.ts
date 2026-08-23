@@ -93,7 +93,7 @@ function shellQuote(value: string): string {
  * repo could point outside the expected trees. Returns false when the path
  * cannot be resolved (e.g. already removed) so callers fail closed.
  */
-function isContainedInSkillRoots(target: string, cwd: string): boolean {
+export function isContainedInSkillRoots(target: string, cwd: string): boolean {
   const roots = [
     join(getAgentDir(), "skills"),
     join(cwd, ".pi", "skills"),
@@ -122,7 +122,7 @@ function isContainedInSkillRoots(target: string, cwd: string): boolean {
  * metacharacters) so a hostile `EDITOR` value cannot inject into the `!` flow.
  * Falls back to `nvim` when the value is unusable.
  */
-function safeEditor(): string {
+export function safeEditor(): string {
   const ed = process.env.EDITOR?.trim();
   return ed && /^[\w./-]+$/.test(ed) ? ed : "nvim";
 }
