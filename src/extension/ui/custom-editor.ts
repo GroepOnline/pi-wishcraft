@@ -21,7 +21,7 @@ import {
   passAutocompleteProviderThroughPreviousEditor,
 } from "../../editor/autocomplete-chain.ts";
 import { subscribeGitUpdates } from "../../git/status.ts";
-import { ansi, getFgAnsiCode } from "../../theme/colors.ts";
+import { ansi, colorEnabled, getFgAnsiCode } from "../../theme/colors.ts";
 import {
   restorePromptHistory,
   snapshotPromptHistory,
@@ -320,7 +320,8 @@ export function setupCustomEditor(
         return originalRender(width);
       }
 
-      const bc = (s: string) => `${getFgAnsiCode("sep")}${s}${ansi.reset}`;
+      const bc = (s: string) =>
+          `${getFgAnsiCode("sep")}${s}${colorEnabled() ? ansi.reset : ""}`;
       const captureDraft =
         !rt.bashModeActive && isSigilIdeaDraft(editor.getExpandedText());
       const promptGlyph = rt.bashModeActive
@@ -330,8 +331,10 @@ export function setupCustomEditor(
           : ">";
       const promptColor = captureDraft
         ? getFgAnsiCode("queue")
-        : ansi.getFgAnsi(200, 200, 200);
-      const prompt = `${promptColor}${promptGlyph}${ansi.reset}`;
+        : colorEnabled()
+          ? ansi.getFgAnsi(200, 200, 200)
+          : "";
+      const prompt = `${promptColor}${promptGlyph}${colorEnabled() ? ansi.reset : ""}`;
       const promptPrefix = ` ${prompt} `;
       const contPrefix = "   ";
       const contentWidth = Math.max(1, width - 3);
