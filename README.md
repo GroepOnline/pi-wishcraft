@@ -221,6 +221,13 @@ Declarative deny/inject rules in the **global** agent settings file. No shell co
 - The legacy `@groeponline/pi-powerline-footer` package is deprecated on npm in favor of `@groeponline/pi-wishcraft`; the GitHub fork relationship is retained for upstream history and attribution.
 - Tags are not rewritten. 0.19.x through current stay on the timeline.
 
+## vNext Direction
+
+Wishcraft is evolving into Pi's animated operator layer — intent, skills, ideas, guardrails, and session state made visible and controllable without turning Pi into an IDE.
+
+- **[vNext Stacked PR Release Plan](docs/design/vnext-release-plan.md)**: Specifications for PR0 through PR8.
+- **[Design Corpus](docs/index.md#design-system--vnext-specifications)**: Deck layout, Signal powerline, Motion engine, and the 10 structural presets.
+
 ## Docs
 
 - [Commands](docs/commands.md)
