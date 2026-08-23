@@ -2,9 +2,6 @@
 
 ## [Unreleased]
 
-### Fixed
-- Release workflow creates a GitHub Release for each tag so the Releases page Latest matches npm.
-
 ## [1.0.5] - 2026-08-23
 
 ## [1.0.4] - 2026-08-23
@@ -67,6 +64,7 @@
 - Test workflow pins `GITHUB_TOKEN` to `contents: read`.
 
 ## [0.23.2] - 2026-08-20
+
 ### Fixed
 - Release workflow creates a GitHub Release for each tag so the Releases page Latest matches npm.
 

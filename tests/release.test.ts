@@ -20,7 +20,7 @@ import {
   resolveReleaseVersion,
   rewriteUnreleasedHeading,
   shouldSkipRelease,
-} from "../scripts/release.ts";
+} from "../scripts/release.mjs";
 
 const root = join(import.meta.dirname, "..");
 const pkgVersion = JSON.parse(
