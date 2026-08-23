@@ -380,19 +380,11 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "powerline",
     colors: deriveColorSchemeFromTokens(LANTERNWAKE_TOKENS),
     tokens: LANTERNWAKE_TOKENS,
-    chrome: { frame: "rounded", density: "medium" },
-    signal: {
-      layout: "standard",
-      motionId: "ember-relay",
-      leftLane: ["model", "git"],
-      centerLane: ["thinking", "shell_mode"],
-      rightLane: ["context_pct", "queue"],
-    },
     motion: {
       streaming: "ember-relay",
       thinking: "ember-relay",
-      "tool.start": "heat-propagate",
-      success: "sigil-bloom",
+      "tool.start": "hex-relay",
+      success: "rune-bloom",
     },
   },
 
@@ -402,14 +394,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "powerline-thin",
     colors: deriveColorSchemeFromTokens(THREADBOUND_TOKENS),
     tokens: THREADBOUND_TOKENS,
-    chrome: { frame: "minimal", density: "compact" },
-    signal: {
-      layout: "woven",
-      motionId: "helix-phase",
-      leftLane: ["model", "git"],
-      centerLane: ["thinking"],
-      rightLane: ["context_pct"],
-    },
   },
 
   scryglass: {
@@ -418,11 +402,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "chevron",
     colors: deriveColorSchemeFromTokens(SCRYGLASS_TOKENS),
     tokens: SCRYGLASS_TOKENS,
-    chrome: { frame: "rounded", density: "spacious" },
-    signal: {
-      layout: "capsule",
-      motionId: "orbital-spin",
-    },
   },
 
   runebloom: {
@@ -431,11 +410,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "dot",
     colors: deriveColorSchemeFromTokens(RUNEBLOOM_TOKENS),
     tokens: RUNEBLOOM_TOKENS,
-    chrome: { frame: "borderless", density: "compact" },
-    signal: {
-      layout: "sparse",
-      motionId: "sigil-bloom",
-    },
   },
 
   moonwell: {
@@ -444,11 +418,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "slash",
     colors: deriveColorSchemeFromTokens(MOONWELL_TOKENS),
     tokens: MOONWELL_TOKENS,
-    chrome: { frame: "rounded", density: "medium" },
-    signal: {
-      layout: "standard",
-      motionId: "lunar-breathe",
-    },
   },
 
   hexforge: {
@@ -457,11 +426,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "block",
     colors: deriveColorSchemeFromTokens(HEXFORGE_TOKENS),
     tokens: HEXFORGE_TOKENS,
-    chrome: { frame: "square", density: "compact" },
-    signal: {
-      layout: "block",
-      motionId: "heat-propagate",
-    },
   },
 
   vellum: {
@@ -470,11 +434,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "none",
     colors: deriveColorSchemeFromTokens(VELLUM_TOKENS),
     tokens: VELLUM_TOKENS,
-    chrome: { frame: "borderless", density: "medium" },
-    signal: {
-      layout: "sparse",
-      motionId: "bar-fill",
-    },
   },
 
   wisp: {
@@ -483,11 +442,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "none",
     colors: deriveColorSchemeFromTokens(WISP_TOKENS),
     tokens: WISP_TOKENS,
-    chrome: { frame: "minimal", density: "spacious" },
-    signal: {
-      layout: "sparse",
-      motionId: "wisp-drift",
-    },
   },
 
   starweave: {
@@ -496,11 +450,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "star",
     colors: deriveColorSchemeFromTokens(STARWEAVE_TOKENS),
     tokens: STARWEAVE_TOKENS,
-    chrome: { frame: "double", density: "medium" },
-    signal: {
-      layout: "woven",
-      motionId: "lemniscate-pulse",
-    },
   },
 
   crucible: {
@@ -509,11 +458,6 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "block",
     colors: deriveColorSchemeFromTokens(CRUCIBLE_TOKENS),
     tokens: CRUCIBLE_TOKENS,
-    chrome: { frame: "square", density: "medium" },
-    signal: {
-      layout: "block",
-      motionId: "heat-propagate",
-    },
   },
 };
 

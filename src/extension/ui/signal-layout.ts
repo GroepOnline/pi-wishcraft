@@ -11,7 +11,6 @@ import type { PresetDef, SegmentContext } from "../../config/types.ts";
 import { renderSegmentWithWidth } from "./layout.ts";
 import { getSeparator } from "../../theme/separators.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../../theme/colors.ts";
-import { getGlobalMotionScheduler } from "../../motion/scheduler.ts";
 
 export interface SignalRenderResult {
   content: string;
@@ -36,7 +35,7 @@ export function computeSignal3LaneLayout(
   const reset = colorEnabled() ? ansi.reset : "";
 
   // 1. Left Lane: Identity (model, git, path)
-  const leftIds = presetDef.signal?.leftLane ?? ["model", "path", "git"];
+  const leftIds: any[] = presetDef.leftSegments ?? ["model", "path", "git"];
   const leftParts: string[] = [];
   for (const id of leftIds) {
     const { content, visible } = renderSegmentWithWidth(id, ctx);
@@ -44,7 +43,7 @@ export function computeSignal3LaneLayout(
   }
 
   // 2. Center Lane: Live Activity & Motion Conduit
-  const centerIds = presetDef.signal?.centerLane ?? ["thinking", "shell_mode", "subagents"];
+  const centerIds: any[] = ["thinking", "shell_mode", "subagents"];
   const centerParts: string[] = [];
   for (const id of centerIds) {
     const { content, visible } = renderSegmentWithWidth(id, ctx);
@@ -52,7 +51,7 @@ export function computeSignal3LaneLayout(
   }
 
   // 3. Right Lane: Metrics & Context (context_pct, queue, cost, tps)
-  const rightIds = presetDef.signal?.rightLane ?? ["cost", "context_pct", "queue"];
+  const rightIds: any[] = presetDef.rightSegments ?? ["cost", "context_pct", "queue"];
   const rightParts: string[] = [];
   for (const id of rightIds) {
     const { content, visible } = renderSegmentWithWidth(id, ctx);
