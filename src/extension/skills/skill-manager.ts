@@ -13,8 +13,10 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { rmSync } from "node:fs";
+import { realpathSync, rmSync } from "node:fs";
+import { join, relative } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "../../paths/agent-dirs.ts";
 import type { RuntimeState } from "../core/types.ts";
 import {
   applySkillFilter,
@@ -84,9 +86,49 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
+/**
+ * Resolve `target` through symlinks and confirm it stays within one of the
+ * canonical skill roots (agent skills dir, `<cwd>/.pi/skills`, `<cwd>/skills`).
+ * Guards the recursive delete against catalog paths that a cloned/untrusted
+ * repo could point outside the expected trees. Returns false when the path
+ * cannot be resolved (e.g. already removed) so callers fail closed.
+ */
+function isContainedInSkillRoots(target: string, cwd: string): boolean {
+  const roots = [
+    join(getAgentDir(), "skills"),
+    join(cwd, ".pi", "skills"),
+    join(cwd, "skills"),
+  ];
+  let real: string;
+  try {
+    real = realpathSync(target);
+  } catch {
+    return false;
+  }
+  return roots.some((root) => {
+    let realRoot: string;
+    try {
+      realRoot = realpathSync(root);
+    } catch {
+      return false;
+    }
+    const rel = relative(realRoot, real);
+    return rel !== "" && !rel.startsWith("..") && !rel.startsWith("/");
+  });
+}
+
+/**
+ * Only allow a bare, path-like editor invocation (no arguments, no shell
+ * metacharacters) so a hostile `EDITOR` value cannot inject into the `!` flow.
+ * Falls back to `nvim` when the value is unusable.
+ */
+function safeEditor(): string {
+  const ed = process.env.EDITOR?.trim();
+  return ed && /^[\w./-]+$/.test(ed) ? ed : "nvim";
+}
+
 function editorCommand(path: string): string {
-  const ed = process.env.EDITOR?.trim() || "nvim";
-  return `!${ed} ${shellQuote(path)}`;
+  return `!${safeEditor()} ${shellQuote(path)}`;
 }
 
 export async function showSkillManager(ctx: any): Promise<"new" | null> {
@@ -137,11 +179,18 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
       const close = () => done(null);
 
       const doDelete = (entry: SkillEntry) => {
+        const cwd = ctx.cwd ?? process.cwd();
         try {
           if (entry.isDirectorySkill && entry.filePath.endsWith("SKILL.md") &&
               (entry.category === "global" || entry.category === "project")) {
+            if (!isContainedInSkillRoots(entry.baseDir, cwd)) {
+              throw new Error(`refusing to delete outside skill roots: ${entry.baseDir}`);
+            }
             rmSync(entry.baseDir, { recursive: true, force: true });
           } else {
+            if (!isContainedInSkillRoots(entry.filePath, cwd)) {
+              throw new Error(`refusing to delete outside skill roots: ${entry.filePath}`);
+            }
             rmSync(entry.filePath, { force: true });
           }
           ctx.ui.notify(`Skill deleted: ${entry.name}`, "info");

@@ -18,6 +18,7 @@ import {
   countListeningPorts,
   listOpenPortProcesses,
   sanitizeSshHost,
+  sshCommand,
 } from "../../segments/system.ts";
 import {
   writePowerlineCustomPresetSetting,
@@ -63,8 +64,12 @@ export async function showOpenPortsList(ctx: any): Promise<void> {
     }
     const proto = includeUdp ? "-tulnp" : "-tlnp";
     const command = host
-      ? `ssh -o ConnectTimeout=3 -o BatchMode=yes ${host} "ss ${proto} 2>/dev/null" 2>/dev/null`
+      ? sshCommand(host, `ss ${proto} 2>/dev/null`)
       : `ss ${proto} 2>/dev/null`;
+    if (!command) {
+      ctx.ui.notify(`Invalid open-ports host: ${host}`, "error");
+      return;
+    }
     const stdout = execSync(command, { encoding: "utf8" });
     publishPowerlineStatuses(ctx, {
       ports: formatPortsStatusValue(countListeningPorts(includeUdp, host)),
