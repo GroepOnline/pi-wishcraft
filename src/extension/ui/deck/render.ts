@@ -54,7 +54,9 @@ export function renderDeckFrame(
   lines.push(border(`├${"─".repeat(inner)}┤`));
   const footer = state.searchOpen
     ? `/ ${state.searchQuery}_`
-    : `/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close`;
+    : state.route === "appearance"
+      ? `↑↓ select base · enter apply · / Search · g h Home · Esc Close`
+      : `/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close`;
   lines.push(wrap(theme.fg("dim", truncateToWidth(footer, inner, "…", true))));
   lines.push(border(`╰${"─".repeat(inner)}╯`));
   return lines;
@@ -148,11 +150,19 @@ function centerRouteBody(
       );
       body.push("Open /usage for detailed overlay");
       break;
-    case "appearance":
-      body.push(`Structural base: ${snapshot.appearanceBase}`);
+    case "appearance": {
+      body.push(`Active base: ${snapshot.appearanceBase}`);
       body.push(`Layout preset: ${config.preset}`);
-      body.push(`Structural presets: ${STRUCTURAL_PRESET_NAMES.length}`);
+      body.push("Enter writes powerline.appearance.base and repaints Signal.");
+      const cursor = state.selectedAppearance;
+      for (let i = 0; i < STRUCTURAL_PRESET_NAMES.length; i++) {
+        const name = STRUCTURAL_PRESET_NAMES[i]!;
+        const marker = i === cursor ? "→" : " ";
+        const star = name === snapshot.appearanceBase ? "*" : " ";
+        body.push(`${marker}${star} ${name}`);
+      }
       break;
+    }
     case "motion":
       body.push(`Live motion: ${snapshot.signalMotion}`);
       body.push(`Catalog: ${MOTION_CATALOG.length} definitions`);

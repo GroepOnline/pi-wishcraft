@@ -1,6 +1,7 @@
 import type { MotionEvent } from "../motion/index.ts";
-import { resolveAppearanceMix } from "../config/appearance.ts";
+import { effectiveAppearanceMix, resolveAppearanceMix } from "../config/appearance.ts";
 import type { AppearanceMixConfig } from "../config/types.ts";
+import { config } from "../extension/core/state.ts";
 import type { RuntimeState } from "../extension/core/types.ts";
 import { setSignalEvent, stopSignal } from "./controller.ts";
 
@@ -10,7 +11,9 @@ export function dispatchSignalEvent(
   event: MotionEvent,
   activity?: string,
 ): void {
-  const resolved = resolveAppearanceMix(appearance);
+  const resolved = resolveAppearanceMix(
+    effectiveAppearanceMix(appearance, config.preset),
+  );
   setSignalEvent(rt.signal, rt.motionScheduler, rt.motionPolicy, event, {
     activity,
     motionId: resolved.motion[event] ?? resolved.signal.animation,

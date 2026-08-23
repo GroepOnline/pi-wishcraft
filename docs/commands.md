@@ -2,7 +2,7 @@
 
 ## Usage
 
-Activates automatically. Toggle with `/powerline`, switch presets with `/powerline <name>`, and move the primary row with `/powerline placement above|below|toggle`.
+Activates automatically. Toggle with `/signal` (alias `/powerline`). Switch layouts with `/signal <name>`. `/signal menu` opens Navigate / Configure / Status. `/wishcraft` opens the Deck; `/wishcraft settings` is the flat list. Move the primary row with `/signal placement above|below|toggle`.
 
 Use `/cd <path>` to continue the current conversation from another working directory. It supports relative paths, absolute paths, `~`, `~/...`, and directory completions. With no argument, `/cd` prints the current Pi session directory. The command switches into a cwd-updated session file so Pi tools and the footer path segment agree after the change.
 
@@ -101,8 +101,10 @@ Pi core renders the footer as static text, so live click is not possible; action
 - `/open-ports`: list listening ports and pick one
 - `/powerline doctor`: diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, and queue file health
 - `/powerline export`: export the current preset + effective layout + labels as a JSON snippet (Enter copies it to the clipboard)
-- `alt+p`: **powerline menu**: navigate the live segments (`↑`/`↓` + `enter`, `→`/`tab` opens a per-segment detail panel captured at open), configure (preset / TPS / UDP / segment visibility / labels / build custom preset), or open the full ports list
+- `alt+p`: **Wishcraft Deck** — operator overlay (Home, Signal, Skills, Ideas, Guardrails, Appearance, …). `g` then a jump key (`h` home, `s` signal, `a` appearance). Escape closes. `/signal menu` still opens Navigate / Configure / Status.
 - `alt+i`: **powerline info**: full open-ports list
+- `/wishcraft [route]`: open the Deck at a named route (`appearance`, `skills`, …)
+- `/wishcraft settings`: flat settings TUI, including `powerline.appearance.base`
 
 Both `alt+p` and `alt+i` are rebindable (see Keybinds below); changes apply after `/reload`.
 

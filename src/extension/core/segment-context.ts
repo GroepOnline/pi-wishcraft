@@ -5,13 +5,13 @@ import type {
 
 import type { SegmentContext, ColorScheme } from "../../config/types.ts";
 import { getPreset } from "../../config/presets.ts";
+import { liveColorScheme } from "../../config/appearance.ts";
 import {
   collectHiddenExtensionStatusKeys,
   deriveAutoCustomItems,
   mergeSegmentOptions,
 } from "../../config/powerline-config.ts";
 import { getDefaultColors } from "../../theme/theme.ts";
-import { presetColorScheme } from "../../config/tokens.ts";
 import { getGitStatus } from "../../git/status.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { getUsageTokenTotal } from "../../usage/ledger.ts";
@@ -126,7 +126,12 @@ export function buildSegmentContext(
   theme: Theme,
 ): SegmentContext {
   const presetDef = getPreset(config.preset);
-  const colors: ColorScheme = presetColorScheme(presetDef, getDefaultColors);
+  const colors: ColorScheme = liveColorScheme(
+    presetDef,
+    config.appearance,
+    config.preset,
+    getDefaultColors,
+  );
 
   // Build usage stats and get thinking level from session (cached; the full
   // event list is only re-scanned when events are appended or the trailing

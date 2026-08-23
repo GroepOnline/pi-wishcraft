@@ -14,6 +14,8 @@ test("empty /powerline prefix completes subcommands and every built-in preset", 
   const values = items.map((item) => item.value);
   assert.ok(values.includes("doctor"));
   assert.ok(values.includes("export"));
+  assert.ok(values.includes("menu"));
+  assert.ok(!values.includes("deck"));
   assert.deepEqual(
     values.filter((value) => value === "placement"),
     ["placement"],

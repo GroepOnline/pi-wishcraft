@@ -190,6 +190,25 @@ Make `open_ports` probe a named SSH host instead of the laptop:
 
 See [Segments & theming](./segments.md) for the probe's best-effort behavior and requirements.
 
+## Appearance
+
+`powerline.appearance` is independent of the information layout (`powerline.preset`). The structural base paints Signal colors and motion. Layout presets (`default`, `minimal`, `compact`, `full`, `nerd`, `ascii`, `chef`) keep their segment lists until you change `preset`.
+
+```json
+{
+  "powerline": {
+    "preset": "chef",
+    "appearance": {
+      "base": "lanternwake"
+    }
+  }
+}
+```
+
+Bases: `lanternwake`, `threadbound`, `scryglass`, `runebloom`, `moonwell`, `hexforge`, `vellum`, `wisp`, `starweave`, `crucible`. Apply from Deck → Appearance → Enter, `/wishcraft settings`, or `/signal hexforge` (a structural layout name also writes `appearance.base`). Optional mix keys: `palette`, `signalLayout`, `chrome`, `glyphs`, `deck`, `welcome`, `motion`.
+
+Until `appearance` is set, Signal keeps the layout preset colors. If `preset` itself is a structural name and `appearance` is empty, that name is treated as the base.
+
 ## Status bridge for other extensions
 
 Powerline publishes its own state under a stable key set so ChefBar and other extensions can read it without depending on powerline internals:

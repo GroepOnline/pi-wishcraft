@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { resolveAppearanceMix } from "../../../config/appearance.ts";
+import { effectiveAppearanceMix, resolveAppearanceMix } from "../../../config/appearance.ts";
 import { config } from "../../core/state.ts";
 import type { RuntimeState } from "../../core/types.ts";
 import { buildSegmentContext } from "../../core/segment-context.ts";
@@ -34,7 +34,9 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
   const warnings = doctor.filter((row) => row.status !== "ok").length;
   const settings = readSettings(cwd);
   const policy = parsePolicySettings(settings.wishcraft);
-  const appearance = resolveAppearanceMix(config.appearance);
+  const appearance = resolveAppearanceMix(
+    effectiveAppearanceMix(config.appearance, config.preset),
+  );
 
   const model = segmentCtx?.model;
   const modelLabel = model?.name ?? model?.id ?? "no model";

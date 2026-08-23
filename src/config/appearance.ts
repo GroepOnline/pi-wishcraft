@@ -10,9 +10,11 @@
 import type {
   AppearanceMixConfig,
   ChromeSpec,
+  ColorScheme,
   DeckSpec,
   GlyphSet,
   MotionRef,
+  PresetDef,
   ResolvedAppearance,
   SignalSpec,
   StructuralPresetName,
@@ -21,8 +23,12 @@ import type {
 } from "./types.ts";
 import type { MotionEvent } from "../motion/types.ts";
 import { getMotion } from "../motion/catalog.ts";
-import { resolveTokens } from "./tokens.ts";
-import { STRUCTURAL_PRESETS, getStructuralPreset } from "./structural-presets.ts";
+import { colorSchemeFromTokens, presetColorScheme, resolveTokens } from "./tokens.ts";
+import {
+  STRUCTURAL_PRESETS,
+  getStructuralPreset,
+  isStructuralPresetName,
+} from "./structural-presets.ts";
 
 function layerPreset(
   config: AppearanceMixConfig,
@@ -77,6 +83,54 @@ export function resolveAppearanceMix(
     deck: cloneDeck(getStructuralPreset(deckName).deck),
     welcome: cloneWelcome(getStructuralPreset(welcomeName).welcome),
     glyphs: cloneGlyphs(getStructuralPreset(glyphName).glyphs),
+  };
+}
+
+/** True when the user (or a structural layout name) has set any appearance layer. */
+export function appearanceHasExplicitLayers(mix: AppearanceMixConfig): boolean {
+  return Boolean(
+    mix.base ||
+      mix.palette ||
+      mix.signalLayout ||
+      mix.chrome ||
+      mix.glyphs ||
+      mix.deck ||
+      mix.welcome ||
+      mix.motion,
+  );
+}
+
+/**
+ * Layout colors stay until appearance is in effect. If `powerline.preset` is a
+ * structural name and appearance is empty, treat that name as `base`.
+ */
+export function effectiveAppearanceMix(
+  appearance: AppearanceMixConfig = {},
+  layoutPreset?: string,
+): AppearanceMixConfig {
+  if (appearanceHasExplicitLayers(appearance)) return appearance;
+  if (layoutPreset && isStructuralPresetName(layoutPreset)) {
+    return { base: layoutPreset };
+  }
+  return appearance;
+}
+
+/**
+ * Colors the live Signal should paint with. Layout preset colors win until an
+ * appearance mix is in effect; then structural tokens override segment colors.
+ */
+export function liveColorScheme(
+  layoutPreset: Pick<PresetDef, "colors" | "tokens">,
+  appearance: AppearanceMixConfig,
+  layoutPresetName: string | undefined,
+  defaults: () => Required<ColorScheme>,
+): ColorScheme {
+  const mix = effectiveAppearanceMix(appearance, layoutPresetName);
+  const layoutColors = presetColorScheme(layoutPreset, defaults);
+  if (!appearanceHasExplicitLayers(mix)) return layoutColors;
+  return {
+    ...layoutColors,
+    ...colorSchemeFromTokens(resolveAppearanceMix(mix).tokens),
   };
 }
 

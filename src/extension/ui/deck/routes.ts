@@ -22,6 +22,7 @@ export function isDeckRoute(value: string): value is DeckRoute {
 export function parseDeckRouteArg(args: string | undefined): DeckRoute {
   const token = args?.trim().toLowerCase().split(/\s+/)[0] ?? "";
   if (!token || token === "home" || token === "deck") return "home";
+  if (token === "settings" || token === "config") return "appearance";
   if (isDeckRoute(token)) return token;
   return "home";
 }
