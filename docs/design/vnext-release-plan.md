@@ -55,10 +55,11 @@ graph LR
 
 ---
 
-### PR 1 — Motion Engine (Core Foundation)
+### PR 1 — Motion Engine (Core Foundation) — landed
 
 - **Branch**: `vnext/01-motion-engine`
-- **Impacted Paths**: `src/motion/*`, `src/render/timer.ts`, `tests/motion/*`
+- **Shipped as**: `src/motion/{types,catalog,policy,frames,scheduler,index}.ts`, `tests/motion-engine.test.ts` (25 tests)
+- **Note**: `MotionScheduler` takes an injectable timer factory (defaulting to `createCoalescingTimer`) and an injectable clock, which is how the 0 FPS lifecycle is asserted without real timers. The router is `channelsForEvent` / `allowedChannels` rather than a separate class.
 - **Scope & Deliverables**:
   1. Create `src/motion/` subsystem.
   2. Implement `MotionScheduler`: generalises single-shot coalescing timers into a unified repeating loop supporting per-consumer cadences:
@@ -76,10 +77,11 @@ graph LR
 
 ---
 
-### PR 2 — Semantic Design Tokens (Crush Pattern)
+### PR 2 — Semantic Design Tokens (Crush Pattern) — landed
 
 - **Branch**: `vnext/02-tokens`
-- **Impacted Paths**: `src/config/types.ts`, `src/theme/tokens.ts`, `src/theme/colors.ts`, `tests/theme/*`
+- **Shipped as**: `WishcraftTokens` in `src/config/types.ts`, mapping and resolution in `src/config/tokens.ts`, wired through `src/extension/core/segment-context.ts`, `tests/tokens.test.ts` (10 tests)
+- **Notes**: the token file lives under `src/config/` rather than `src/theme/` so it sits beside `PresetDef` and keeps `madge --circular` clean. Pi's four `thinking*` colors pass through untokenised; they belong to Pi's thinking levels, not the Wishcraft palette. `DEFAULT_TOKENS` reproduce `getDefaultColors()` exactly, which is asserted by test.
 - **Scope & Deliverables**:
   1. Introduce `WishcraftTokens` structure:
      - Surfaces: `surface`, `surfaceRaised`
