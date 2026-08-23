@@ -1,4 +1,5 @@
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
+import type { MotionEvent } from "../motion/types.ts";
 import type { CostCurrencyCode } from "../usage/rates.ts";
 
 // Theme color - either a pi theme color name or a custom hex color
@@ -59,6 +60,144 @@ export interface WishcraftTokens {
 }
 
 export type TokenRole = keyof WishcraftTokens;
+
+/** Motion catalog id, e.g. `ember-relay`. */
+export type MotionRef = string;
+
+export type StructuralPresetName =
+  | "lanternwake"
+  | "threadbound"
+  | "scryglass"
+  | "runebloom"
+  | "moonwell"
+  | "hexforge"
+  | "vellum"
+  | "wisp"
+  | "starweave"
+  | "crucible";
+
+export const STRUCTURAL_PRESET_NAMES = [
+  "lanternwake",
+  "threadbound",
+  "scryglass",
+  "runebloom",
+  "moonwell",
+  "hexforge",
+  "vellum",
+  "wisp",
+  "starweave",
+  "crucible",
+] as const satisfies readonly StructuralPresetName[];
+
+export type ChromeFrame = "rounded" | "square" | "double" | "minimal" | "borderless";
+export type ChromeDensity = "compact" | "medium" | "spacious";
+
+export interface ChromeSpec {
+  frame: ChromeFrame;
+  corners: { tl: string; tr: string; bl: string; br: string };
+  dividers: { horizontal: string; vertical: string; cross: string };
+  density: ChromeDensity;
+}
+
+export type SignalLayout =
+  | "standard"
+  | "capsule"
+  | "woven"
+  | "sparse"
+  | "block"
+  | "arc"
+  | "editorial"
+  | "fluid"
+  | "constellation"
+  | "cell";
+
+export interface SignalSpec {
+  layout: SignalLayout;
+  separators: {
+    left: string;
+    right: string;
+    subLeft?: string;
+    subRight?: string;
+  };
+  caps: {
+    leftOpen?: string;
+    leftClose?: string;
+    rightOpen?: string;
+    rightClose?: string;
+  };
+  /** Signature lane animation from the motion catalog. */
+  animation: MotionRef;
+}
+
+export type DeckNavigation = "tabs" | "rail" | "minimal";
+export type DeckPanelStyle = "framed" | "borderless" | "inset";
+export type DeckActivityStyle = "pulse" | "bar" | "none";
+
+export interface DeckSpec {
+  navigation: DeckNavigation;
+  panelStyle: DeckPanelStyle;
+  activityStyle: DeckActivityStyle;
+}
+
+export interface WelcomeSpec {
+  lantern: boolean;
+  ambient: boolean;
+  motionId?: MotionRef;
+}
+
+export type GlyphMode = "nerd" | "ascii" | "auto";
+
+export interface GlyphSet {
+  mode: GlyphMode;
+  /** Leading ornament for the model segment (Nerd). */
+  model?: string;
+  /** ASCII fallback for the model ornament. */
+  modelAscii?: string;
+  /** Default segment marker (Nerd). */
+  segment?: string;
+  /** ASCII fallback for segment markers. */
+  segmentAscii?: string;
+}
+
+/** vNext structural personality: tokens, chrome, signal grammar, motion, deck, welcome, glyphs. */
+export interface StructuralPresetDef {
+  name: StructuralPresetName;
+  displayName: string;
+  description: string;
+  tokens: Partial<WishcraftTokens>;
+  chrome: ChromeSpec;
+  signal: SignalSpec;
+  motion: Partial<Record<MotionEvent, MotionRef>>;
+  deck: DeckSpec;
+  welcome: WelcomeSpec;
+  glyphs: GlyphSet;
+}
+
+/**
+ * Decoupled appearance layers. Each field can point at a different structural
+ * preset so palette, signal layout, chrome, and motion stay independent.
+ */
+export interface AppearanceMixConfig {
+  base?: StructuralPresetName;
+  palette?: StructuralPresetName;
+  signalLayout?: StructuralPresetName;
+  chrome?: StructuralPresetName;
+  glyphs?: StructuralPresetName;
+  deck?: StructuralPresetName;
+  welcome?: StructuralPresetName;
+  motion?: StructuralPresetName | Partial<Record<MotionEvent, MotionRef>>;
+}
+
+export interface ResolvedAppearance {
+  base: StructuralPresetName;
+  tokens: WishcraftTokens;
+  chrome: ChromeSpec;
+  signal: SignalSpec;
+  motion: Partial<Record<MotionEvent, MotionRef>>;
+  deck: DeckSpec;
+  welcome: WelcomeSpec;
+  glyphs: GlyphSet;
+}
 
 // Built-in segment identifiers
 export const BUILTIN_STATUS_LINE_SEGMENT_IDS = [
@@ -201,6 +340,18 @@ export interface PresetDef {
    * predate tokens keep rendering exactly as before.
    */
   tokens?: Partial<WishcraftTokens>;
+  /** Deck and overlay frame geometry (vNext). */
+  chrome?: ChromeSpec;
+  /** Signal lane grammar and separators (vNext). */
+  signal?: SignalSpec;
+  /** Per-event motion overrides (vNext). */
+  motion?: Partial<Record<MotionEvent, MotionRef>>;
+  /** Deck navigation and panel chrome (vNext). */
+  deck?: DeckSpec;
+  /** Welcome screen lantern and ambient motion (vNext). */
+  welcome?: WelcomeSpec;
+  /** Nerd / ASCII glyph grammar (vNext). */
+  glyphs?: GlyphSet;
 }
 
 // Separator definition
