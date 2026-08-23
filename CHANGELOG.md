@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Security
+- Skills manager refuses to delete skill files or directories that resolve (through symlinks) outside the canonical skill roots.
+- Skills editor command validates `EDITOR` before use, falling back to `nvim` for unsafe values.
+- Open-ports overlay reuses the shared `sshCommand` helper and fails explicitly on an invalid host instead of falling back to a local probe.
+
 ## [1.0.3] - 2026-08-22
 
 ## [1.0.2] - 2026-08-22
