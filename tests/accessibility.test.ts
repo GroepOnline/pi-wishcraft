@@ -21,6 +21,9 @@ import { allowedChannels, targetFps, DEFAULT_MOTION_POLICY } from "../src/motion
 import { renderDeckFrame } from "../src/extension/ui/deck/render.ts";
 import { DEFAULT_SHORTCUTS } from "../src/extension/core/constants.ts";
 import type { DeckNavState, DeckSessionSnapshot } from "../src/extension/ui/deck/types.ts";
+import { createSignalRuntime } from "../src/signal/controller.ts";
+import { renderActivity } from "../src/signal/render.ts";
+import { getStructuralPreset } from "../src/config/structural-presets.ts";
 
 test("NO_COLOR and TERM=dumb change detected capabilities", () => {
   assert.equal(detectNoColor({ NO_COLOR: "1" }), true);
@@ -100,6 +103,30 @@ test("screen-reader status is stable high-contrast text", () => {
     }),
     "Model: GPT-5.6 | Git: main (clean) | State: streaming | Context: 47%",
   );
+});
+
+test("signal toggle off keeps a still rail while full motion travels", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.activity = "streaming";
+  signal.active = true;
+  signal.motionId = "ember-relay";
+  const spec = getStructuralPreset("lanternwake").signal;
+  const strip = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
+
+  const full = { ...DEFAULT_MOTION_POLICY };
+  const a = strip(renderActivity({ ...signal, tick: 2 }, spec, true, full));
+  const b = strip(renderActivity({ ...signal, tick: 5 }, spec, true, full));
+  assert.notEqual(a, b);
+
+  const toggled = {
+    ...DEFAULT_MOTION_POLICY,
+    toggles: { ...DEFAULT_MOTION_POLICY.toggles, signal: false },
+  };
+  const c = strip(renderActivity({ ...signal, tick: 2 }, spec, true, toggled));
+  const d = strip(renderActivity({ ...signal, tick: 5 }, spec, true, toggled));
+  assert.equal(c, d);
+  assert.match(c, /------/);
 });
 
 test("Deck render output changes under screen-reader and stays framed otherwise", () => {

@@ -6,6 +6,7 @@ import { buildSegmentContext } from "../../core/segment-context.ts";
 import { getQueueContext } from "../../queue/queue-context.ts";
 import { loadSkillCatalog } from "../../skills/skill-registry.ts";
 import { collectSkillDoctorInputs, diagnoseSkills } from "../../skills/skill-doctor.ts";
+import { doctorRowsBySkill, workbenchSkillFromEntry } from "../../skills/workbench-catalog.ts";
 import { parsePolicySettings } from "../../hooks/policy-config.ts";
 import { readSettings } from "../../settings/settings-io.ts";
 import { detectTerminalCapabilities } from "../../../theme/detect.ts";
@@ -75,13 +76,9 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
     appearanceBase: appearance.base,
     recentActivity: recentActivity.slice(0, 5),
     nextIntent: queue.leadingText,
-    skillSummaries: skills.slice(0, 24).map((entry) => ({
-      name: entry.name,
-      description: entry.description,
-      category: entry.category,
-      warning: entry.warning,
-      usageCount: usage.get(entry.name)?.count ?? 0,
-    })),
+    skillSummaries: skills.slice(0, 24).map((entry) =>
+      workbenchSkillFromEntry(entry, usage, doctorRowsBySkill(doctor)),
+    ),
     terminal: {
       term: caps.term,
       noColor: caps.noColor || rt.motionPolicy.noColor,

@@ -140,6 +140,8 @@ test("usage ledger persists across recordSkillUsage calls", async () => {
     const file = readFileSync(join(agentDir, "skill-usage.json"), "utf8");
     const parsed = JSON.parse(file);
     assert.equal(parsed["my-skill"].count, 2);
+    assert.deepEqual(parsed["my-skill"].series, [1, 1]);
+    assert.deepEqual(mod.usageSeriesOf(parsed["my-skill"]), [1, 1]);
   } finally {
     delete process.env.PI_CODING_AGENT_DIR;
     rmSync(agentDir, { recursive: true, force: true });

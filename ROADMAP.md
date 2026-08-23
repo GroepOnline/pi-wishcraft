@@ -97,7 +97,7 @@ Niet de fork. Niet de SaaS-agent.
   preset-editor, idee-review, stabiele ChefGroep-statuskeys,
   documentatie die waar is. Done = README dekt alles wat we shipten,
   geen kapotte footer-belofte.
-- **vNext — "Operator Layer"** (in uitvoering). Stacked PRs PR0–PR8:
+- **vNext — "Operator Layer"** (geland). Stacked PRs PR0–PR8:
   Deck control surface (`ctx.ui.custom`), animated Signal powerline,
   zero-overhead Motion Engine (0 FPS idle), 10 signature structural presets,
   semantische tokens, en first-class accessibility (`NO_COLOR`, reduced motion).

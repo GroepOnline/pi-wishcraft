@@ -177,6 +177,7 @@ export function writeSkillFromTemplate(
   name: string,
   template: SkillTemplateId,
   skillsRoot: string = getAgentPath("skills"),
+  contents?: string,
 ): { filePath: string } {
   const safe = sanitizeSkillName(name);
   const dir = join(skillsRoot, safe);
@@ -185,7 +186,7 @@ export function writeSkillFromTemplate(
     throw new SkillNameError(`Skill already exists: ${safe}`);
   }
   mkdirSync(dir, { recursive: true });
-  writeFileSync(filePath, renderSkillTemplate(template, safe), "utf8");
+  writeFileSync(filePath, contents ?? renderSkillTemplate(template, safe), "utf8");
   invalidateSkillCache();
   return { filePath };
 }

@@ -1,18 +1,16 @@
 /**
  * skill-manager.ts
  * ---------------------------------------------------------------------------
- * Skills Manager v2 — list ⇄ detail overlay:
- *   - search that actually filters (type=filter, ctrl+u clears)
- *   - category headers (global/project/prompts/extra) + tab category filter
- *   - sort by name or usage (s), usage counts from the ledger
- *   - detail panel: metadata, frontmatter, body with scroll
- *   - e=edit (edit command in the editor via pi's ! flow),
- *     n=new skill, d=delete with confirm
+ * Skill workbench overlay:
+ *   - split pane: list + metadata + health + sparkline + preview
+ *   - type-to-filter, tab category, ctrl+s sort
+ *   - n / ctrl+n inline or command wizard, enter inserts
+ *   - → detail body, ctrl+e edit, ctrl+d delete
  * ---------------------------------------------------------------------------
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { realpathSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -29,8 +27,24 @@ import {
   type SkillCategory,
   type SkillEntry,
 } from "./skill-registry.ts";
-import { runSkillDoctor } from "./skill-doctor.ts";
-import { runSkillsNew } from "./skill-templates.ts";
+import {
+  collectSkillDoctorInputs,
+  diagnoseSkills,
+  runSkillDoctor,
+  type SkillDoctorRow,
+} from "./skill-doctor.ts";
+import { runSkillsNew, sanitizeSkillName, writeSkillFromTemplate } from "./skill-templates.ts";
+import {
+  applyWizardInput,
+  composeWizardSkill,
+  createSkillWizard,
+  cycleWizardTemplate,
+  renderSkillWorkbench,
+  retreatWizard,
+  wizardIsComplete,
+  type SkillWizardState,
+} from "./workbench.ts";
+import { workbenchSkillFromEntry } from "./workbench-catalog.ts";
 
 const CATEGORY_LABELS: Record<SkillCategory | "all", string> = {
   all: "all",
@@ -48,7 +62,6 @@ const CATEGORY_ORDER: (SkillCategory | "all")[] = [
   "extra",
 ];
 
-const LIST_ROWS = 14;
 const DETAIL_ROWS = 18;
 
 function isPrintable(data: string): boolean {
@@ -160,6 +173,19 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
       let bodyLines: string[] = [];
       let scroll = 0;
       let confirmDelete = false;
+      let wizard: SkillWizardState | null = null;
+      let doctorByName = new Map<string, SkillDoctorRow>();
+
+      const refreshDoctor = () => {
+        const inputs = collectSkillDoctorInputs(ctx.cwd ?? process.cwd());
+        doctorByName = new Map(
+          diagnoseSkills(inputs.entries, inputs.usage, inputs.contents).map((row) => [
+            row.skill,
+            row,
+          ]),
+        );
+      };
+      refreshDoctor();
 
       const filtered = (): SkillEntry[] =>
         applySkillFilter(entries, query, category, sort, usage);
@@ -203,6 +229,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
         }
         invalidateSkillCache();
         entries = loadSkillCatalog(ctx.cwd ?? process.cwd());
+        refreshDoctor();
         mode = "list";
         confirmDelete = false;
         selected = Math.min(selected, Math.max(0, filtered().length - 1));
@@ -219,67 +246,31 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
           const lines: string[] = [];
           lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
 
-          if (mode === "list") {
+          if (wizard) {
+            const workbench = renderSkillWorkbench(theme, innerWidth, [], 0, wizard);
+            for (const line of workbench) lines.push(wrapRow(line, innerWidth));
+          } else if (mode === "list") {
             const f = filtered();
-            // Header: total + sort + live filter
             const head = `Skills · ${f.length}/${entries.length} · ${sort === "name" ? "name" : "usage"} · ${CATEGORY_LABELS[category]}${query ? ` · search "${query}"` : ""}`;
             lines.push(wrapRow(theme.fg("accent", theme.bold(head)), innerWidth));
             lines.push(border(`├${"─".repeat(innerWidth)}┤`));
 
-            if (f.length === 0) {
-              const emptyMsg =
-                entries.length === 0 && !query
-                  ? "No skills installed — ctrl+n to create one"
-                  : `No skills for "${query}"`;
+            const skills = f.map((entry) =>
+              workbenchSkillFromEntry(entry, usage, doctorByName),
+            );
+            if (f.length === 0 && query) {
               lines.push(
-                wrapRow(theme.fg("warning", emptyMsg), innerWidth),
+                wrapRow(theme.fg("warning", `No skills for "${query}"`), innerWidth),
               );
             } else {
-              // scroll window around the selection
-              const start = Math.max(
-                0,
-                Math.min(selected - Math.floor(LIST_ROWS / 2), f.length - LIST_ROWS),
+              const workbench = renderSkillWorkbench(
+                theme,
+                innerWidth,
+                skills,
+                selected,
+                null,
               );
-              const end = Math.min(start + LIST_ROWS, f.length);
-              let prevCat: SkillCategory | null = null;
-              for (let i = start; i < end; i++) {
-                const e = f[i]!;
-                if (e.category !== prevCat) {
-                  prevCat = e.category;
-                  const inCat = f.filter((x) => x.category === e.category).length;
-                  lines.push(
-                    wrapRow(
-                      theme.fg(
-                        "dim",
-                        `── ${CATEGORY_LABELS[e.category]} · ${inCat} ──`,
-                      ),
-                      innerWidth,
-                    ),
-                  );
-                }
-                const isSel = i === selected;
-                const u = usage.get(e.name);
-                const usageTag = u && u.count > 0 ? `${u.count}× ` : "";
-                const name = isSel
-                  ? theme.fg("accent", `→ ${e.name}`)
-                  : theme.fg("text", `  ${e.name}`);
-                const warn = e.warning ? theme.fg("warning", " ⚠") : "";
-                const desc = e.description
-                  ? theme.fg("muted", `  ${truncateToWidth(e.description, Math.max(8, innerWidth - visibleWidth(e.name) - 10), "…", true)}`)
-                  : "";
-                const badge = theme.fg("dim", usageTag);
-                lines.push(
-                  wrapRow(`${name}${warn}  ${badge}${desc}`, innerWidth),
-                );
-              }
-              if (start > 0 || end < f.length) {
-                lines.push(
-                  wrapRow(
-                    theme.fg("dim", `(${selected + 1}/${f.length})`),
-                    innerWidth,
-                  ),
-                );
-              }
+              for (const line of workbench) lines.push(wrapRow(line, innerWidth));
             }
 
             lines.push(border(`├${"─".repeat(innerWidth)}┤`));
@@ -298,7 +289,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 wrapRow(
                   theme.fg(
                     "dim",
-                    "type=filter · ↑↓ · →/enter=detail · tab=category · ctrl+s=sort",
+                    "type=filter · tab=category · ctrl+s=sort · →=detail",
                   ),
                   innerWidth,
                 ),
@@ -307,7 +298,7 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 wrapRow(
                   theme.fg(
                     "dim",
-                    "ctrl+e=edit · ctrl+n=new · ctrl+d=delete · esc=close",
+                    "n/ctrl+n=new · enter=insert · ctrl+e=edit · ctrl+d=delete · esc=close",
                   ),
                   innerWidth,
                 ),
@@ -403,6 +394,47 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
           const up = matchesKey(data, "up");
           const down = matchesKey(data, "down");
 
+          if (wizard) {
+            const open = wizard;
+            if (escape || data === "\x03") {
+              wizard = null;
+              tui.requestRender();
+              return;
+            }
+            if ((matchesKey(data, "enter") || data === "enter") && wizardIsComplete(open)) {
+              try {
+                const name = sanitizeSkillName(open.name);
+                writeSkillFromTemplate(
+                  name,
+                  open.template,
+                  undefined,
+                  composeWizardSkill(open),
+                );
+                ctx.ui.notify(`Created skill ${name}`, "info");
+                wizard = null;
+                invalidateSkillCache();
+                entries = loadSkillCatalog(ctx.cwd ?? process.cwd());
+                refreshDoctor();
+              } catch (error) {
+                wizard = {
+                  ...open,
+                  error: error instanceof Error ? error.message : String(error),
+                };
+              }
+              tui.requestRender();
+              return;
+            }
+            if (up) wizard = cycleWizardTemplate(open, -1);
+            else if (down) wizard = cycleWizardTemplate(open, 1);
+            else if (data === "left" || matchesKey(data, "left")) {
+              wizard = retreatWizard(open);
+            } else {
+              wizard = applyWizardInput(open, data);
+            }
+            tui.requestRender();
+            return;
+          }
+
           if (mode === "list") {
             const f = filtered();
             if (confirmDelete) {
@@ -440,14 +472,23 @@ export async function showSkillManager(ctx: any): Promise<"new" | null> {
                 close();
                 return;
               }
-            } else if (data === "\x0e" || (query === "" && data === "N")) {
-              // ctrl+n or N (empty filter) opens the new-skill wizard
+            } else if (data === "\x0e") {
+              // ctrl+n keeps the command-line `/skills new` flow
               done("new");
               return;
+            } else if (query === "" && (data === "n" || data === "N")) {
+              wizard = createSkillWizard();
             } else if (data === "\x04") {
               // ctrl+d = delete (with confirm)
               if (selectedEntry()) confirmDelete = true;
-            } else if (matchesKey(data, "enter") || matchesKey(data, "right")) {
+            } else if (matchesKey(data, "enter")) {
+              const entry = selectedEntry();
+              if (entry) {
+                insertBody(entry);
+                close();
+                return;
+              }
+            } else if (matchesKey(data, "right")) {
               const entry = selectedEntry();
               if (entry) openDetail(entry);
             } else if (

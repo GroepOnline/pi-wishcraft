@@ -86,7 +86,27 @@ test("showSkillManager keeps the overlay open when the catalog is empty", () => 
     source,
     /if \(entries\.length === 0\)\s*\{\s*ctx\.ui\.notify\("No skills found", "info"\);\s*return null;/,
   );
-  assert.match(source, /No skills installed — ctrl\+n to create one/);
+  assert.match(source, /renderSkillWorkbench/);
+});
+
+test("showSkillManager list renders the workbench split pane", async () => {
+  const tui = { requestRender: () => {} };
+  let lines: string[] = [];
+  const ctx = {
+    cwd: process.cwd(),
+    ui: {
+      notify: () => {},
+      custom: (renderFn: any) => {
+        const component = renderFn(tui, stubTheme(), {}, () => {});
+        lines = component.render(96);
+        return Promise.resolve(null);
+      },
+    },
+  };
+  await showSkillManager(ctx);
+  const body = lines.join("\n");
+  assert.match(body, /SKILLS|No skills installed/);
+  assert.match(body, /METADATA|n or ctrl\+n/);
 });
 
 test("skill-manager.ts routes ctrl+n into runSkillsNew", () => {

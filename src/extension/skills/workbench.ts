@@ -24,6 +24,7 @@ export interface WorkbenchSkill {
   health?: SkillDoctorStatus;
   bodyPreview?: string;
   triggers?: string[];
+  filePath?: string;
 }
 
 export const WIZARD_STEPS = [
@@ -143,6 +144,18 @@ export function wizardIsComplete(state: SkillWizardState): boolean {
   return state.step === "confirm" && !state.error && Boolean(state.name);
 }
 
+export function parseSkillTriggers(name: string, body: string): string[] {
+  const listed: string[] = [];
+  const heading = body.match(/## Triggers\s*\n+([\s\S]*?)(?=\n## |\s*$)/i);
+  if (heading) {
+    for (const line of heading[1].split("\n")) {
+      const item = line.replace(/^\s*[-*]\s+/, "").trim();
+      if (item) listed.push(item);
+    }
+  }
+  return listed.length > 0 ? listed : [name, `$${name}`];
+}
+
 export function composeWizardSkill(state: SkillWizardState): string {
   const name = sanitizeSkillName(state.name);
   const body = renderSkillTemplate(state.template, name);
@@ -219,7 +232,7 @@ export function renderSkillWorkbench(
   if (skills.length === 0) {
     return [
       theme.fg("warning", "No skills installed"),
-      "Press n to open the new-skill wizard",
+      "Press n or ctrl+n to open the new-skill wizard",
     ].map((line) => truncateToWidth(line, width, "…", true));
   }
 
@@ -228,11 +241,21 @@ export function renderSkillWorkbench(
   const leftW = Math.max(12, Math.floor(width * 0.32));
   const midW = Math.max(16, Math.floor(width * 0.36));
   const rightW = Math.max(12, width - leftW - midW - 2);
+  const windowSize = 8;
+  const start = Math.max(
+    0,
+    Math.min(index - Math.floor(windowSize / 2), Math.max(0, skills.length - windowSize)),
+  );
+  const visible = skills.slice(start, start + windowSize);
 
   const list = [
-    theme.fg("accent", "SKILLS"),
-    ...skills.slice(0, 8).map((entry, i) => {
-      const marker = i === index ? "→" : " ";
+    theme.fg(
+      "accent",
+      skills.length > windowSize ? `SKILLS ${index + 1}/${skills.length}` : "SKILLS",
+    ),
+    ...visible.map((entry, i) => {
+      const actual = start + i;
+      const marker = actual === index ? "→" : " ";
       const warn = entry.warning ? " !" : "";
       return `${marker} ${entry.name}${warn}`;
     }),

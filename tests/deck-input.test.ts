@@ -38,6 +38,21 @@ test("n on the skills route opens the inline wizard", () => {
   assert.equal(result.state.skills?.wizard?.step, "name");
 });
 
+test("enter on the skills route inserts the selected skill", () => {
+  const result = applyDeckInput(createDeckNavState("skills"), "enter", {}, 3);
+  assert.equal(result.action.type, "insert-skill");
+  if (result.action.type === "insert-skill") {
+    assert.equal(result.action.index, 0);
+  }
+});
+
+test("skills down arrow clamps to the catalog length", () => {
+  let result = applyDeckInput(createDeckNavState("skills"), "down", {}, 2);
+  result = applyDeckInput(result.state, "down", {}, 2);
+  result = applyDeckInput(result.state, "down", {}, 2);
+  assert.equal(result.state.skills?.selected, 1);
+});
+
 test("appearance enter applies a structural base", () => {
   const result = applyDeckInput(createDeckNavState("appearance"), "enter");
   assert.equal(result.action.type, "appearance");

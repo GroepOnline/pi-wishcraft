@@ -149,7 +149,11 @@ function centerRouteBody(
         category: entry.category,
         warning: entry.warning,
         usageCount: entry.usageCount,
-        health: entry.warning ? "warn" : "ok",
+        usageSeries: entry.usageSeries,
+        health: entry.health ?? (entry.warning ? "warn" : "ok"),
+        bodyPreview: entry.bodyPreview,
+        triggers: entry.triggers,
+        filePath: entry.filePath,
       }));
       const skillsState = state.skills ?? defaultSkillsState();
       body.push(

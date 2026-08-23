@@ -6,7 +6,7 @@ Activates automatically. Toggle with `/signal` (`/powerline` is a compatibility 
 
 The **Wishcraft Deck** is the operator control surface: `alt+p` or `/wishcraft` opens eleven routes (Home, Signal, Skills, Ideas, Guardrails, Shell, Usage, Appearance, Motion, Shortcuts, Diagnostics) in one continuous overlay. `g h` / `g s` / `g i` jump; `/` searches routes and appearance settings; `Esc` closes. `/wishcraft config` is the legacy settings editor.
 
-The **Skills workbench** lives at `/skills` and on the Deck Skills route: list, metadata, health, usage sparkline, and preview. `n` or `ctrl+n` opens the inline new-skill wizard.
+The **Skills workbench** lives at `/skills` and on the Deck Skills route: list, metadata, health, usage sparkline, and preview. `n` opens the inline new-skill wizard (empty filter on `/skills`; always on the Deck). `ctrl+n` on `/skills` still runs `/skills new`.
 
 Use `/cd <path>` to continue the current conversation from another working directory. It supports relative paths, absolute paths, `~`, `~/...`, and directory completions. With no argument, `/cd` prints the current Pi session directory. The command switches into a cwd-updated session file so Pi tools and the footer path segment agree after the change.
 

@@ -8,6 +8,7 @@ import {
   composeWizardSkill,
   createSkillWizard,
   cycleWizardTemplate,
+  parseSkillTriggers,
   renderSkillWorkbench,
   renderSkillWorkflow,
   renderUsageSparkline,
@@ -80,7 +81,7 @@ test("wizard rejects an empty name and stays on the name step", () => {
 test("workbench split pane lists metadata, sparkline, preview, and empty state", () => {
   const empty = renderSkillWorkbench(theme as never, 80, [], 0, null);
   assert.match(empty.join("\n"), /No skills installed/);
-  assert.match(empty.join("\n"), /n to open/);
+  assert.match(empty.join("\n"), /n or ctrl\+n to open/);
 
   const lines = renderSkillWorkbench(
     theme as never,
@@ -126,6 +127,31 @@ test("wishcraft-tui skill ships SKILL.md and the design reference catalog", () =
     assert.equal(existsSync(path), true, ref);
     assert.ok(readFileSync(path, "utf8").length > 40, ref);
   }
+});
+
+test("parseSkillTriggers reads a Triggers heading or falls back to name/$name", () => {
+  assert.deepEqual(parseSkillTriggers("review", ""), ["review", "$review"]);
+  assert.deepEqual(
+    parseSkillTriggers(
+      "review",
+      "# review\n\n## Triggers\n\n- $review\n- /review\n\n## Steps\n\n1. Go\n",
+    ),
+    ["$review", "/review"],
+  );
+});
+
+test("workbench list windows around a selection past the first eight skills", () => {
+  const skills = Array.from({ length: 12 }, (_, i) => ({
+    name: `skill-${String(i + 1).padStart(2, "0")}`,
+    description: "d",
+    category: "project",
+    usageCount: i,
+  }));
+  const lines = renderSkillWorkbench(theme as never, 80, skills, 10, null);
+  const body = lines.join("\n");
+  assert.match(body, /SKILLS 11\/12/);
+  assert.match(body, /skill-11/);
+  assert.doesNotMatch(body, /skill-01/);
 });
 
 test("workbench renders the inline wizard when open", () => {

@@ -75,6 +75,11 @@ export interface DeckSkillSummary {
   category: string;
   warning?: string;
   usageCount: number;
+  usageSeries?: number[];
+  bodyPreview?: string;
+  filePath?: string;
+  health?: "ok" | "warn" | "fail";
+  triggers?: string[];
 }
 
 export interface DeckTerminalSnapshot {

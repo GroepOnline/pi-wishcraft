@@ -38,12 +38,14 @@ export type DeckAction =
   | { type: "close" }
   | { type: "appearance"; mix: AppearanceMixConfig }
   | { type: "policy"; level: MotionLevel }
-  | { type: "wizard-complete"; wizard: SkillWizardState };
+  | { type: "wizard-complete"; wizard: SkillWizardState }
+  | { type: "insert-skill"; index: number };
 
 export function applyDeckInput(
   state: DeckNavState,
   data: string,
   mix: AppearanceMixConfig = {},
+  skillCount = Number.POSITIVE_INFINITY,
 ): { state: DeckNavState; action: DeckAction } {
   const nav = normalizeDeckNavState(state);
   const appearance = { ...nav.appearance };
@@ -188,7 +190,8 @@ export function applyDeckInput(
       return { state: { ...nextState, appearance }, action: { type: "none" } };
     }
     if (nextState.route === "skills") {
-      skills.selected += 1;
+      const max = Number.isFinite(skillCount) ? Math.max(0, skillCount - 1) : skills.selected + 1;
+      skills.selected = Math.min(max, skills.selected + 1);
       return { state: { ...nextState, skills }, action: { type: "none" } };
     }
     const selected = Math.min(DECK_ROUTE_DEFS.length - 1, nextState.selectedNav + 1);
@@ -206,6 +209,17 @@ export function applyDeckInput(
     return {
       state: { ...nextState, skills: { ...skills, wizardOpen: true, wizard: createSkillWizard() } },
       action: { type: "none" },
+    };
+  }
+
+  if (
+    nextState.route === "skills" &&
+    (matchesKey(data, "enter") || data === "enter") &&
+    skillCount > 0
+  ) {
+    return {
+      state: nextState,
+      action: { type: "insert-skill", index: skills.selected },
     };
   }
 

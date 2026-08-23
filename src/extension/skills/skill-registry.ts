@@ -21,6 +21,8 @@ export type SkillCategory = "global" | "project" | "prompts" | "extra";
 export interface SkillUsage {
   count: number;
   lastUsed: number;
+  /** Last 12 recorded uses (1 per insert) for workbench sparklines. */
+  series?: number[];
 }
 
 export interface SkillEntry {
@@ -343,17 +345,33 @@ function loadUsage(): void {
     const raw = readFileSync(usageFile(), "utf8");
     const parsed = JSON.parse(raw) as Record<string, SkillUsage>;
     for (const [name, u] of Object.entries(parsed)) {
-      usageCache.set(name, { count: u.count ?? 0, lastUsed: u.lastUsed ?? 0 });
+      const series = Array.isArray(u.series)
+        ? u.series.filter((n): n is number => typeof n === "number").slice(-12)
+        : undefined;
+      usageCache.set(name, {
+        count: u.count ?? 0,
+        lastUsed: u.lastUsed ?? 0,
+        series,
+      });
     }
   } catch {
     // missing file or broken JSON → empty ledger
   }
 }
 
-/** Usage for every skill (name → {count, lastUsed}). */
+/** Usage for every skill (name → {count, lastUsed, series}). */
 export function getSkillUsage(): Map<string, SkillUsage> {
   loadUsage();
   return usageCache;
+}
+
+/** Sparkline series from the ledger, or a single bucket from the total count. */
+export function usageSeriesOf(usage?: SkillUsage | null): number[] {
+  if (!usage) return [];
+  if (usage.series && usage.series.length > 0) {
+    return usage.series.filter((n) => Number.isFinite(n)).slice(-12);
+  }
+  return usage.count > 0 ? [usage.count] : [];
 }
 
 let usageFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -382,8 +400,12 @@ export function flushSkillUsage(): void {
  */
 export function recordSkillUsage(name: string): void {
   loadUsage();
-  const cur = usageCache.get(name) ?? { count: 0, lastUsed: 0 };
-  usageCache.set(name, { count: cur.count + 1, lastUsed: Date.now() });
+  const cur = usageCache.get(name) ?? { count: 0, lastUsed: 0, series: [] };
+  usageCache.set(name, {
+    count: cur.count + 1,
+    lastUsed: Date.now(),
+    series: [...(cur.series ?? []), 1].slice(-12),
+  });
 
   if (!exitFlushRegistered) {
     exitFlushRegistered = true;

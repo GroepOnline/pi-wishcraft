@@ -91,6 +91,13 @@ test("writeSkillFromTemplate writes SKILL.md and refuses overwrite and traversal
       () => writeSkillFromTemplate("..", "standard", root),
       /traversal/,
     );
+    const composed = writeSkillFromTemplate(
+      "composed-skill",
+      "standard",
+      root,
+      "---\nname: composed-skill\ndescription: From the wizard\n---\n\n# composed-skill\n",
+    );
+    assert.match(readFileSync(composed.filePath, "utf8"), /From the wizard/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
