@@ -118,10 +118,10 @@ graph LR
 
 ---
 
-### PR 4 — Animated Signal (Powerline vNext)
+### PR 4 — Animated Signal (Powerline vNext) — landed
 
 - **Branch**: `vnext/04-signal`
-- **Impacted Paths**: `src/segments/*`, `src/render/powerline.ts`, `src/extension/commands/commands.ts`, `tests/signal/*`
+- **Impacted Paths**: `src/signal/*`, `src/extension/ui/status-line-renderers.ts`, `src/extension/session/session-lifecycle.ts`, `src/extension/commands/commands.ts`, `tests/signal.test.ts`
 - **Scope & Deliverables**:
   1. Re-architect the powerline renderer into **Signal**: a motion-aware, 3-lane powerline:
      - **Left Lane**: Model & Git status

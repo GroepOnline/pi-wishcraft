@@ -39,7 +39,7 @@ Then restart pi or `/reload`. Pi host packages are declared as `peerDependencies
 
 | Surface | What it does |
 | --- | --- |
-| Status bar | Git, TPS (1s window over a 5s ring), context, cost, ports, queue. Default placement is the editor top border; `/powerline placement below` moves it. |
+| Signal | Motion-aware three-lane operator status: model/Git, live activity/tool state, and context/queue. Default placement is the editor top border; `/signal placement below` moves it. |
 | `alt+p` | Three overlays: Navigate, Configure, Status. In Navigate, `→` / `tab` opens per-segment detail (ports, git, cost, context). `alt+i` is the ports list. |
 | `# <idea>` | File-backed inbox. Does not send the prompt. `/ideas` reviews status, tags, and skill insert. `/ideas next` feeds the oldest active idea into the session. |
 | `alt+s` | Stash the draft, ask something else, get it back when the run finishes. |
@@ -53,11 +53,11 @@ Pi owns the footer chrome, feed scrolling, and input. Wishcraft supplies widgets
 
 ## Daily commands
 
-Activates on load. `/powerline` toggles it. `/powerline <preset>` switches look. Tab completes presets and `placement above|below|toggle`.
+Activates on load. `/signal` toggles it. `/signal <preset>` switches the information layout. Tab completes presets and `placement above|below|toggle`. `/powerline` remains a compatibility alias.
 
 ```text
-/powerline doctor     settings, queue, git, bash, fonts
-/powerline export     current preset + layout as JSON
+/signal doctor        settings, queue, git, bash, fonts
+/signal export        current preset + layout as JSON
 /tps                  live in/out overlay (same ring as the segment)
 /tps 40               override POWERLINE_TPS
 /usage                session / today / week from ~/.pi/agent/wishcraft-usage.json

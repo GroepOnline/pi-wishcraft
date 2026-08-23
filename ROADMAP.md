@@ -110,8 +110,9 @@ Niet de fork. Niet de SaaS-agent.
   - PR3 structural presets — geland (`src/config/structural-presets.ts`,
     `src/config/appearance.ts`): 10 signature presets, mixable layers, Nerd/ASCII
     glyph fallbacks; legacy layout presets ongewijzigd.
-  - PR4–PR8 — open: animated Signal, Deck, Appearance, accessibility,
-    Craft + docs.
+  - PR4 animated Signal — geland (`src/signal/`): drie lanes, lifecycle-driven
+    motion op één gedeelde scheduler, `/signal` primair en 0 FPS in rust.
+  - PR5–PR8 — open: Deck, Appearance, accessibility, Craft + docs.
 
 ## Top-15 track: remaining maturity gaps
 
