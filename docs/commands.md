@@ -104,7 +104,9 @@ Pi core renders the footer as static text, so live click is not possible; action
 - `alt+p`: **Wishcraft Deck** — operator overlay (Home, Signal, Skills, Ideas, Guardrails, Appearance, …). `g` then a jump key (`h` home, `s` signal, `a` appearance). Escape closes. `/signal menu` still opens Navigate / Configure / Status.
 - `alt+i`: **powerline info**: full open-ports list
 - `/wishcraft [route]`: open the Deck at a named route (`appearance`, `skills`, …)
-- `/wishcraft settings`: flat settings TUI, including `powerline.appearance.base`
+- `/wishcraft settings`: flat settings TUI, including `powerline.appearance.base` and `powerline.motionLevel`
+- Deck **Motion**: gallery + composer. `t` picks the event, Enter applies, `e` opens the composer
+- Deck **Skills**: workbench list with health; Enter inserts the skill body
 
 Both `alt+p` and `alt+i` are rebindable (see Keybinds below); changes apply after `/reload`.
 

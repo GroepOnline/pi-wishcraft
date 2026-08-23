@@ -47,6 +47,30 @@ export interface DeckSessionSnapshot {
   appearanceBase: string;
   recentActivity: string[];
   nextIntent: string | null;
+  motionLevel: string;
+  policySummary: string;
+  skills: DeckSkillRow[];
+  ideas: DeckIdeaRow[];
+  guardrailRules: DeckGuardrailRow[];
+}
+
+export interface DeckSkillRow {
+  name: string;
+  category: string;
+  status: string;
+  description: string;
+  usage: number;
+}
+
+export interface DeckIdeaRow {
+  text: string;
+  reviewStatus: string;
+}
+
+export interface DeckGuardrailRow {
+  action: string;
+  tool: string;
+  reason: string;
 }
 
 export interface DeckNavState {
@@ -57,4 +81,12 @@ export interface DeckNavState {
   pendingJump: string | null;
   /** Cursor into STRUCTURAL_PRESET_NAMES on the Appearance route. */
   selectedAppearance: number;
+  selectedMotion: number;
+  selectedSkill: number;
+  selectedIdea: number;
+  composerOpen: boolean;
+  composerField: number;
+  assignEvent: import("../../../motion/types.ts").MotionEvent;
+  skillCreate: boolean;
+  skillCreateName: string;
 }

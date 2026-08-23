@@ -8,6 +8,7 @@ import { loadSkillCatalog } from "../../skills/skill-registry.ts";
 import { collectSkillDoctorInputs, diagnoseSkills } from "../../skills/skill-doctor.ts";
 import { parsePolicySettings } from "../../hooks/policy-config.ts";
 import { readSettings } from "../../settings/settings-io.ts";
+import { describePolicy } from "../../../motion/accessibility.ts";
 import type { DeckSessionSnapshot } from "./types.ts";
 
 export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessionSnapshot {
@@ -73,5 +74,31 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
     appearanceBase: appearance.base,
     recentActivity: recentActivity.slice(0, 5),
     nextIntent: queue.leadingText,
+    motionLevel: config.motionLevel,
+    policySummary: describePolicy(rt.motionPolicy),
+    skills: skills.slice(0, 24).map((skill) => {
+      const row = doctor.find((entry) => entry.skill === skill.name);
+      const usage = doctorInputs.usage.get(skill.name);
+      return {
+        name: skill.name,
+        category: skill.category,
+        status: row?.status ?? (skill.warning ? "warn" : "ok"),
+        description: skill.description.slice(0, 72),
+        usage: usage?.count ?? 0,
+      };
+    }),
+    ideas: rt.queueStore
+      .list()
+      .filter((item) => item.intent === "idea")
+      .slice(0, 12)
+      .map((item) => ({
+        text: item.text.slice(0, 64),
+        reviewStatus: item.reviewStatus ?? "idea",
+      })),
+    guardrailRules: policy.rules.slice(0, 8).map((rule) => ({
+      action: rule.action,
+      tool: rule.tool,
+      reason: rule.action === "deny" ? rule.reason : rule.context.slice(0, 48),
+    })),
   };
 }

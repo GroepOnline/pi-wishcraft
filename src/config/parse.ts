@@ -28,6 +28,7 @@ import type {
   StatusLineSeparatorStyle,
 } from "./types.ts";
 import { isStructuralPresetName } from "./structural-presets.ts";
+import { isMotionLevel, type MotionLevel } from "../motion/accessibility.ts";
 
 export interface PowerlineConfig {
   preset: StatusLinePreset;
@@ -55,6 +56,8 @@ export interface PowerlineConfig {
   segmentLabels: Record<string, string>;
   /** Independently mixable vNext structural appearance layers. */
   appearance: AppearanceMixConfig;
+  /** Persisted motion sensitivity. Environment can still force off. */
+  motionLevel: MotionLevel;
 }
 
 export function parsePowerlineConfig(
@@ -81,6 +84,7 @@ export function parsePowerlineConfig(
     presets: {},
     segmentLabels: {},
     appearance: {},
+    motionLevel: "full",
   };
 
   const directPreset = normalizePreset(value, presets);
@@ -145,6 +149,7 @@ export function parsePowerlineConfig(
     presets: customPresetDefs,
     segmentLabels: normalizeSegmentLabels(value.segmentLabels),
     appearance: normalizeAppearance(value.appearance),
+    motionLevel: isMotionLevel(value.motionLevel) ? value.motionLevel : "full",
   };
 }
 

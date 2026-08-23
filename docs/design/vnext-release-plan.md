@@ -159,7 +159,7 @@ graph LR
 
 ---
 
-### PR 6 — Appearance Route, Motion Gallery & Composer
+### PR 6 — Appearance Route, Motion Gallery & Composer — landed
 
 - **Branch**: `vnext/06-appearance`
 - **Impacted Paths**: `src/extension/ui/deck/routes/appearance.ts`, `src/extension/settings/wishcraft-config.ts`, `src/motion/gallery/*`, `tests/appearance/*`
@@ -178,7 +178,7 @@ graph LR
 
 ---
 
-### PR 7 — First-Class Accessibility & Fallbacks
+### PR 7 — First-Class Accessibility & Fallbacks — landed
 
 - **Branch**: `vnext/07-accessibility`
 - **Impacted Paths**: `src/motion/accessibility.ts`, `src/theme/detect.ts`, `src/theme/icons.ts`, `tests/accessibility/*`
@@ -197,7 +197,7 @@ graph LR
 
 ---
 
-### PR 8 — Skill Workbench, wishcraft-tui Skill & Complete Docs
+### PR 8 — Skill Workbench, wishcraft-tui Skill & Complete Docs — landed
 
 - **Branch**: `vnext/08-craft-docs`
 - **Impacted Paths**: `src/extension/skills/*`, `skills/wishcraft-tui/*`, `README.md`, `docs/*`, `ROADMAP.md`

@@ -114,7 +114,12 @@ Niet de fork. Niet de SaaS-agent.
     motion op één gedeelde scheduler, `/signal` primair en 0 FPS in rust.
   - PR5 Deck — geland (`src/extension/ui/deck/`): unified overlay via
     `ctx.ui.custom`, Alt+P en `/wishcraft`, elf routes, jump/search navigatie.
-  - PR6–PR8 — open: Appearance gallery, accessibility, Craft + docs.
+  - PR6 Appearance / Gallery — geland: Deck Motion gallery + composer,
+    50+ catalog defs, Enter assigns `powerline.appearance.motion`.
+  - PR7 accessibility — geland: `src/theme/detect.ts`,
+    `src/motion/accessibility.ts`, `powerline.motionLevel`.
+  - PR8 Craft + docs — geland: Deck Skill Workbench, idea/guardrail panes,
+    `skills/wishcraft-tui/references/*`, project subagents.
 
 ## Top-15 track: remaining maturity gaps
 
