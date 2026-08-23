@@ -28,6 +28,38 @@ export type SemanticColor =
 // Color scheme mapping semantic names to actual colors
 export type ColorScheme = Partial<Record<SemanticColor, ColorValue>>;
 
+/**
+ * Semantic design tokens (vNext). Presets fill abstract roles; the segment
+ * colors above are derived from them. See src/config/tokens.ts for the mapping
+ * and the default palette.
+ */
+export interface WishcraftTokens {
+  /** Deck background. */
+  surface: ColorValue;
+  /** Raised areas: headers, footers, selected rows. */
+  surfaceRaised: ColorValue;
+  text: ColorValue;
+  textMuted: ColorValue;
+  primary: ColorValue;
+  secondary: ColorValue;
+  accent: ColorValue;
+  success: ColorValue;
+  warning: ColorValue;
+  error: ColorValue;
+  /** Focused control or active route. */
+  focus: ColorValue;
+  /** Selected row background. */
+  selection: ColorValue;
+  /** Resting motion, e.g. a still rail. */
+  motionDim: ColorValue;
+  /** The travelling head of a sweep. */
+  motionHot: ColorValue;
+  /** Cells just behind the head. */
+  motionTrail: ColorValue;
+}
+
+export type TokenRole = keyof WishcraftTokens;
+
 // Built-in segment identifiers
 export const BUILTIN_STATUS_LINE_SEGMENT_IDS = [
   "model",
@@ -163,6 +195,12 @@ export interface PresetDef {
   segmentOptions?: StatusLineSegmentOptions;
   /** Color scheme for this preset */
   colors?: ColorScheme;
+  /**
+   * Semantic design tokens (vNext). When present, `colors` is derived from these
+   * and any explicit `colors` entry still wins. Optional, so the presets that
+   * predate tokens keep rendering exactly as before.
+   */
+  tokens?: Partial<WishcraftTokens>;
 }
 
 // Separator definition
@@ -311,4 +349,6 @@ export interface CustomPresetConfig {
   separator?: StatusLineSeparatorStyle;
   colors?: ColorScheme;
   segmentOptions?: StatusLineSegmentOptions;
+  /** Semantic design tokens; `colors` entries still win over derived values. */
+  tokens?: Partial<WishcraftTokens>;
 }
