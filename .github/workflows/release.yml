@@ -48,7 +48,7 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
-      - name: Catalog contract
+      - name: Pi package release gate
         run: npm run verify:package
       - name: Cut release tag
         run: |
@@ -84,7 +84,7 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
-      - name: Catalog contract
+      - name: Pi package release gate
         run: npm run verify:package
       - name: Publish to npm
         env:

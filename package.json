@@ -1,7 +1,7 @@
 {
   "name": "@groeponline/pi-wishcraft",
   "version": "1.0.5",
-  "description": "Wishcraft cockpit for the pi coding agent — powerline status, vibes, idea inbox, bash mode, and full customization.",
+  "description": "Operator cockpit for Pi: live powerline status, searchable skills, idea queue, sticky Bash, hooks, policy controls, and session UX."
   "type": "module",
   "files": [
     "*.ts",
@@ -25,7 +25,12 @@
     "powerline",
     "status-bar",
     "extension",
-    "groeponline"
+    "groeponline",
+    "terminal-ui",
+    "developer-tools",
+    "agent-ui",
+    "productivity",
+    "hooks"
   ],
   "publishConfig": {
     "access": "public",
@@ -45,14 +50,15 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/**/*.test.ts",
     "release": "node scripts/release.mjs",
-    "prepublishOnly": "tsc --noEmit && node scripts/verify-package.mjs",
-    "verify:package": "node scripts/verify-package.mjs",
-    "circular": "madge --circular src index.ts bash-mode queue"
+    "prepublishOnly": "tsc --noEmit && node scripts/verify-package.mjs && npm run verify:pi-package",
+    "verify:package": "node scripts/verify-package.mjs && node scripts/verify-pi-package-contract.mjs",
+    "circular": "madge --circular src index.ts bash-mode queue",
+    "verify:pi-package": "node scripts/verify-pi-package-contract.mjs"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": ">=0.81.0 <0.85.0",
-    "@earendil-works/pi-coding-agent": ">=0.81.0 <0.85.0",
-    "@earendil-works/pi-tui": ">=0.81.0 <0.85.0"
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "^0.84.0",
