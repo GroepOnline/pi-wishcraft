@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-23
+
 ### Security
 - Skills manager refuses to delete skill files or directories that resolve (through symlinks) outside the canonical skill roots.
 - Skills editor command validates `EDITOR` before use, falling back to `nvim` for unsafe values.
