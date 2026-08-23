@@ -17,6 +17,7 @@ import {
 import { normalizeDisabledSegments, normalizeLayout } from "./segment-ids.ts";
 import { normalizeSegmentOptions } from "./segment-options.ts";
 import type {
+  AppearanceMixConfig,
   CustomSegmentConfig,
   CustomStatusItem,
   PowerlinePlacement,
@@ -26,6 +27,7 @@ import type {
   StatusLineSegmentOptions,
   StatusLineSeparatorStyle,
 } from "./types.ts";
+import { isStructuralPresetName } from "./structural-presets.ts";
 
 export interface PowerlineConfig {
   preset: StatusLinePreset;
@@ -51,6 +53,8 @@ export interface PowerlineConfig {
   presets: Record<string, import("./types.ts").CustomPresetConfig>;
   /** Per-segment custom text label shown before the value (e.g. tps -> "speed"). */
   segmentLabels: Record<string, string>;
+  /** Independently mixable vNext structural appearance layers. */
+  appearance: AppearanceMixConfig;
 }
 
 export function parsePowerlineConfig(
@@ -76,6 +80,7 @@ export function parsePowerlineConfig(
     segments: {},
     presets: {},
     segmentLabels: {},
+    appearance: {},
   };
 
   const directPreset = normalizePreset(value, presets);
@@ -139,5 +144,36 @@ export function parsePowerlineConfig(
     segments: customSegments,
     presets: customPresetDefs,
     segmentLabels: normalizeSegmentLabels(value.segmentLabels),
+    appearance: normalizeAppearance(value.appearance),
   };
+}
+
+function normalizeAppearance(value: unknown): AppearanceMixConfig {
+  if (!isRecord(value)) return {};
+  const result: AppearanceMixConfig = {};
+  const presetKeys = [
+    "base",
+    "palette",
+    "signalLayout",
+    "chrome",
+    "glyphs",
+    "deck",
+    "welcome",
+  ] as const;
+  for (const key of presetKeys) {
+    const candidate = value[key];
+    if (typeof candidate === "string" && isStructuralPresetName(candidate)) {
+      result[key] = candidate;
+    }
+  }
+  if (typeof value.motion === "string" && isStructuralPresetName(value.motion)) {
+    result.motion = value.motion;
+  } else if (isRecord(value.motion)) {
+    const refs: Record<string, string> = {};
+    for (const [event, ref] of Object.entries(value.motion)) {
+      if (typeof ref === "string" && ref.trim()) refs[event] = ref.trim();
+    }
+    result.motion = refs as AppearanceMixConfig["motion"];
+  }
+  return result;
 }

@@ -31,6 +31,7 @@ import { publishPowerlineStatuses } from "../core/status-export.ts";
 import { config, normalizePreset } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getPowerlineArgumentCompletions } from "./powerline-completions.ts";
+import { settleSignal } from "../../signal/integration.ts";
 
 export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerCdCommand(pi, () => rt.currentCtx?.cwd ?? process.cwd());
@@ -39,9 +40,9 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerSkillManagerCommand(pi, rt);
   registerWishcraftConfigCommand(pi, rt);
 
-  // Command to toggle/configure
-  pi.registerCommand("powerline", {
-    description: "Configure powerline status (toggle, preset, placement)",
+  // `/signal` is the vNext command; `/powerline` remains a transparent alias.
+  const signalCommand: Parameters<ExtensionAPI["registerCommand"]>[1] = {
+    description: "Configure Signal status (toggle, preset, placement)",
     getArgumentCompletions(argumentPrefix) {
       return getPowerlineArgumentCompletions(argumentPrefix);
     },
@@ -54,8 +55,9 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
         rt.enabled = !rt.enabled;
         if (rt.enabled) {
           setupCustomEditor(pi, rt, ctx);
-          ctx.ui.notify("Powerline enabled", "info");
+          ctx.ui.notify("Signal enabled", "info");
         } else {
+          settleSignal(rt);
           rt.shellSession?.dispose();
           rt.shellSession = null;
           rt.bashTranscript.clear();
@@ -87,7 +89,7 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
           rt.currentEditor = null;
           rt.statusRenderScheduler.cancel();
           resetLayoutCache(rt);
-          ctx.ui.notify("Powerline disabled", "info");
+          ctx.ui.notify("Signal disabled", "info");
         }
         return;
       }
@@ -123,12 +125,12 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
           )
         ) {
           ctx.ui.notify(
-            `Powerline placement set to: ${config.placement}`,
+            `Signal placement set to: ${config.placement}`,
             "info",
           );
         } else {
           ctx.ui.notify(
-            `Powerline placement set to: ${config.placement} (not persisted; check settings.json)`,
+            `Signal placement set to: ${config.placement} (not persisted; check settings.json)`,
             "warning",
           );
         }
@@ -159,6 +161,11 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       const presetList = Object.keys(PRESETS).join(", ");
       ctx.ui.notify(`Available presets: ${presetList}`, "info");
     },
+  };
+  pi.registerCommand("signal", signalCommand);
+  pi.registerCommand("powerline", {
+    ...signalCommand,
+    description: "Compatibility alias for /signal",
   });
 
   pi.registerCommand("stash-history", {
