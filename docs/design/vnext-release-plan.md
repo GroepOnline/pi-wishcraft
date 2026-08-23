@@ -96,10 +96,10 @@ graph LR
 
 ---
 
-### PR 3 — Structural Preset Contract & 10 Signature Presets
+### PR 3 — Structural Preset Contract & 10 Signature Presets — landed
 
 - **Branch**: `vnext/03-preset-contract`
-- **Impacted Paths**: `src/config/types.ts`, `src/config/presets.ts`, `src/theme/presets/*`, `tests/presets/*`
+- **Impacted Paths**: `src/config/types.ts`, `src/config/structural-presets.ts`, `src/config/appearance.ts`, `tests/structural-presets.test.ts`
 - **Scope & Deliverables**:
   1. Extend `PresetDef` with optional structural specifications: `tokens`, `chrome`, `signal`, `motion`, `deck`, `welcome`, `glyphs`.
   2. Implement the **10 Structural Presets**:
