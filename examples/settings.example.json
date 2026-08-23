@@ -1,0 +1,54 @@
+{
+  "powerline": {
+    "preset": "default",
+    "separator": null,
+    "placement": "above",
+    "welcome": true,
+    "stashSharpSShortcut": false,
+    "costAlert": null,
+    "customItemsAuto": false,
+    "queue": {
+      "captureSigil": "#",
+      "retentionHours": 24
+    },
+    "disabledSegments": [],
+    "layout": null,
+    "customItems": [],
+    "segments": {},
+    "presets": {},
+    "segmentLabels": {},
+    "segmentOptions": {}
+  },
+  "wishcraft": {
+    "hooksEnabled": true,
+    "repairsEnabled": true,
+    "readHints": true,
+    "inlineSkills": false,
+    "policyEnabled": true,
+    "policy": [],
+    "welcome": {
+      "animateLantern": true
+    },
+    "tokenBudget": {
+      "daily": 0
+    },
+    "hooks": {}
+  },
+  "powerlineShortcuts": {
+    "menu": "alt+p",
+    "info": "alt+i",
+    "stashHistory": "ctrl+alt+h",
+    "copyEditor": "ctrl+alt+c",
+    "cutEditor": "ctrl+alt+x",
+    "ideaCapture": null,
+    "queueOpen": "ctrl+alt+q",
+    "editorStart": "super+shift+up",
+    "editorEnd": "super+shift+down"
+  },
+  "bashMode": {
+    "toggleShortcut": "ctrl+shift+b",
+    "transcriptMaxLines": 2000,
+    "transcriptMaxBytes": 524288,
+    "initScript": null
+  }
+}

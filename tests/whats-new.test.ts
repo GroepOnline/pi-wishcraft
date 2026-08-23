@@ -1,0 +1,128 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { parseChangelogDelta, WhatsNewWidget } from "../src/welcome/index.ts";
+
+const dim = (text: string) => text;
+const bold = (text: string) => text;
+const color = (_semantic: string, text: string) => text;
+
+test("parseChangelogDelta skips Unreleased and reads released versions newer than lastSeen", () => {
+  const changelog = [
+    "## [Unreleased]",
+    "- ship-not-yet",
+    "",
+    "## [1.3.0]",
+    "- added **live refresh**",
+    "- added `bash init`",
+    "",
+    "## [1.2.0]",
+    "- older change",
+  ].join("\n");
+
+  // First run returns oldest-first, from the floor version forward.
+  assert.deepEqual(parseChangelogDelta(changelog, null), [
+    "older change",
+    "added live refresh",
+    "added `bash init`",
+  ]);
+  assert.deepEqual(parseChangelogDelta(changelog, "1.2.0"), [
+    "added live refresh",
+    "added `bash init`",
+  ]);
+  assert.deepEqual(parseChangelogDelta(changelog, "1.3.0"), []);
+});
+
+test("parseChangelogDelta on first run floors at the first own release", () => {
+  const changelog = [
+    "## [1.1.0]",
+    "- own release feature",
+    "",
+    "## [1.0.0]",
+    "- first own release",
+    "",
+    "## [0.27.0]",
+    "- prehistory change",
+  ].join("\n");
+
+  // No stored version: skip the pre-1.0 `0.x` prehistory, oldest-first.
+  assert.deepEqual(parseChangelogDelta(changelog, null), [
+    "first own release",
+    "own release feature",
+  ]);
+  // An explicit lastSeen overrides the floor and can reach older sections.
+  assert.deepEqual(parseChangelogDelta(changelog, "0.26.0"), [
+    "prehistory change",
+    "first own release",
+    "own release feature",
+  ]);
+});
+
+test("parseChangelogDelta ignores non-bullet lines and caps at maxLines", () => {
+  const changelog = [
+    "## [2.0.0]",
+    "intro paragraph",
+    "- first",
+    "plain text",
+    "- second",
+    "- third",
+    "- fourth",
+  ].join("\n");
+
+  assert.deepEqual(parseChangelogDelta(changelog, null, 2), ["first", "second"]);
+});
+
+test("parseChangelogDelta handles v-prefixed versions and strips bold markers", () => {
+  const changelog = [
+    "## [v1.0.0]",
+    "- **bold** feature",
+    "- plain feature",
+  ].join("\n");
+
+  assert.deepEqual(parseChangelogDelta(changelog, "0.9.0"), [
+    "bold feature",
+    "plain feature",
+  ]);
+});
+
+test("WhatsNewWidget renders bullets when present and empty otherwise", () => {
+  const base = { width: 80, dim, bold, color } as const;
+
+  const withData = WhatsNewWidget.render({
+    ...base,
+    data: {
+      modelName: "m",
+      providerName: "p",
+      recentSessions: [],
+      loadedCounts: {
+        contextFiles: 0,
+        extensions: 0,
+        skills: 0,
+        promptTemplates: 0,
+      },
+      initialContextTokens: null,
+      whatsNew: ["added doctor", "added export"],
+    },
+  });
+  assert.deepEqual(withData, [
+    " What's new",
+    " • added doctor",
+    " • added export",
+  ]);
+
+  const withoutData = WhatsNewWidget.render({
+    ...base,
+    data: {
+      modelName: "m",
+      providerName: "p",
+      recentSessions: [],
+      loadedCounts: {
+        contextFiles: 0,
+        extensions: 0,
+        skills: 0,
+        promptTemplates: 0,
+      },
+      initialContextTokens: null,
+    },
+  });
+  assert.deepEqual(withoutData, []);
+});

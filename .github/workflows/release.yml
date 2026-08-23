@@ -1,0 +1,96 @@
+name: Release
+
+# Merge to main always cuts a tag AND publishes in the same job. A GITHUB_TOKEN
+# tag push does not start a second workflow, so publish cannot wait for the
+# tag event. Manual `git push` of a v* tag still runs the tag job. Put
+# [skip release] in the merge commit to opt out.
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+
+# One lock for main bump and tag publish so they cannot both pass the
+# "version missing" check and then collide on npm's immutable versions.
+concurrency:
+  group: npm-publish-pi-wishcraft
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: bump + tag + publish
+    if: >-
+      github.ref == 'refs/heads/main'
+      && github.event_name == 'push'
+      && !startsWith(github.event.head_commit.message, 'chore: release')
+      && !contains(github.event.head_commit.message, '[skip release]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+      - name: Sync to origin/main
+        run: |
+          git fetch origin main --tags --force
+          git reset --hard origin/main
+      - name: Install devDependencies
+        run: npm ci --ignore-scripts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Pi package release gate
+        run: npm run verify:package
+      - name: Cut release tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node scripts/release.mjs auto --push
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: sh scripts/npm-publish.sh
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: sh scripts/github-release.sh
+
+  publish:
+    name: test + publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+      - name: Install devDependencies
+        run: npm ci --ignore-scripts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Pi package release gate
+        run: npm run verify:package
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: sh scripts/npm-publish.sh
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: sh scripts/github-release.sh "${GITHUB_REF_NAME}"
