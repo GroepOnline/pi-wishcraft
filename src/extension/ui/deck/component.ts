@@ -24,7 +24,8 @@ import {
   isOverlayPrintable,
 } from "../overlay-chrome.ts";
 import type { RuntimeState } from "../../core/types.ts";
-import { selectedGalleryMotion } from "./route-bodies.ts";
+import { appearanceDisplayName } from "../../../config/structural-presets.ts";
+import { filterSkillRows, selectedGalleryMotion } from "./route-bodies.ts";
 import { buildDeckSessionSnapshot } from "./session-snapshot.ts";
 import { deckRouteByJump, deckRouteIndex } from "./routes.ts";
 import { filterDeckRoutes, renderDeckFrame } from "./render.ts";
@@ -103,6 +104,7 @@ export function createDeckComponent(
         state,
         rt.resolvedShortcuts,
         composer,
+        Date.now(),
       );
     },
     handleInput(data: string) {
@@ -159,7 +161,8 @@ export function createDeckComponent(
           const name = STRUCTURAL_PRESET_NAMES[state.selectedAppearance];
           if (name) {
             const ok = applyAppearanceBase(rt, ctx.cwd ?? process.cwd(), name);
-            notify(ok, `Appearance: ${name}`, `Appearance: ${name} (not persisted)`);
+            const label = appearanceDisplayName(name);
+            notify(ok, `Appearance: ${label}`, `Appearance: ${label} (not persisted)`);
           }
           return;
         }
@@ -231,13 +234,7 @@ export function createDeckComponent(
           return;
         }
         const snapshot = refreshSnapshot();
-        const query = state.searchQuery.trim().toLowerCase();
-        const rows = snapshot.skills.filter((skill) => {
-          if (!query) return true;
-          return `${skill.name} ${skill.category} ${skill.description}`
-            .toLowerCase()
-            .includes(query);
-        });
+        const rows = filterSkillRows(snapshot.skills, state.searchQuery);
         if (handleList(data, "selectedSkill", rows.length)) return;
         if (matchesKey(data, "enter")) {
           const selected = rows[state.selectedSkill];

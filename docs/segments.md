@@ -9,7 +9,7 @@
 
 ### Open-port process owners
 
-Open the segment detail view (`alt+p` → Navigate → `open_ports` → `→`) to see **which process owns each listening port**. It best-effort parses `ss -tulnp` (falling back to `netstat -tulnp`), so the row list shows `tcp:3000 → node (12345)` per port; a port without a visible owner is marked `(unknown)`. The result is cached for 2 seconds so opening detail stays cheap. The full `alt+i` ports list shows the raw `ss -p` process column as well.
+`alt+p` opens the Wishcraft Deck. The classic Navigate / Configure / Status menu is `/signal menu`. Open the segment detail view (`/signal menu` → Navigate → `open_ports` → `→`) to see **which process owns each listening port**. It best-effort parses `ss -tulnp` (falling back to `netstat -tulnp`), so the row list shows `tcp:3000 → node (12345)` per port; a port without a visible owner is marked `(unknown)`. The result is cached for 2 seconds so opening detail stays cheap. The full `alt+i` ports list shows the raw `ss -p` process column as well.
 
 ### Fleet open-ports (SSH probe)
 

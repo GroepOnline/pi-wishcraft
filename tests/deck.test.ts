@@ -8,9 +8,11 @@ import {
 } from "../src/extension/ui/deck/routes.ts";
 import { DECK_ROUTES } from "../src/extension/ui/deck/types.ts";
 import {
+  deckFooter,
   filterDeckRoutes,
   renderDeckFrame,
 } from "../src/extension/ui/deck/render.ts";
+import { filterSkillRows } from "../src/extension/ui/deck/route-bodies.ts";
 import type { DeckNavState, DeckSessionSnapshot } from "../src/extension/ui/deck/types.ts";
 import { DEFAULT_SHORTCUTS } from "../src/extension/core/constants.ts";
 
@@ -107,6 +109,38 @@ test("home route shows context bar without raw cost counters", () => {
   const body = lines.join("\n");
   assert.match(body, /47%/);
   assert.doesNotMatch(body, /\$[0-9]/);
+  assert.match(body, /Lanternwake · ember-relay · full/);
+});
+
+test("signal route names the three lanes", () => {
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "signal", selectedNav: 1 },
+    DEFAULT_SHORTCUTS,
+  );
+  const body = lines.join("\n");
+  assert.match(body, /THREE LANES/);
+  assert.match(body, /Identity · Activity · Context/);
+  assert.match(body, /Lanternwake/);
+});
+
+test("deckFooter is route-specific", () => {
+  assert.match(deckFooter({ ...navState, route: "appearance" }), /select base/);
+  assert.match(deckFooter({ ...navState, route: "motion" }), /composer/);
+  assert.match(deckFooter({ ...navState, route: "skills" }), /n new/);
+  assert.match(deckFooter({ ...navState, route: "ideas" }), /idea/);
+  assert.match(deckFooter({ ...navState, composerOpen: true }), /nudge/);
+  assert.match(deckFooter({ ...navState, skillCreate: true }), /create/);
+  assert.match(deckFooter({ ...navState, searchOpen: true, searchQuery: "hex" }), /\/ hex_/);
+});
+
+test("filterSkillRows matches name, category, and description", () => {
+  assert.equal(filterSkillRows(snapshot.skills, "").length, 2);
+  assert.equal(filterSkillRows(snapshot.skills, "tui").length, 1);
+  assert.equal(filterSkillRows(snapshot.skills, "global").length, 1);
+  assert.equal(filterSkillRows(snapshot.skills, "no-such-skill").length, 0);
 });
 
 test("motion route lists the gallery with a live preview strip", () => {
@@ -121,6 +155,29 @@ test("motion route lists the gallery with a live preview strip", () => {
   assert.match(body, /Ember Relay|ember-relay|Wishcraft/i);
   assert.match(body, /composer/i);
   assert.match(body, /assign streaming/);
+  assert.match(body, /wishcraft \d+/);
+});
+
+test("motion gallery tick is injectable", () => {
+  const a = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "motion", selectedNav: 8 },
+    DEFAULT_SHORTCUTS,
+    null,
+    0,
+  ).join("\n");
+  const b = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "motion", selectedNav: 8 },
+    DEFAULT_SHORTCUTS,
+    null,
+    0,
+  ).join("\n");
+  assert.equal(a, b);
 });
 
 test("skills create mode shows the inline name wizard", () => {
@@ -160,6 +217,8 @@ test("appearance route lists structural bases with a cursor", () => {
   const body = lines.join("\n");
   assert.match(body, /hexforge/);
   assert.match(body, /lanternwake/);
+  assert.match(body, /Hexforge/);
+  assert.match(body, /Lanternwake/);
   assert.match(body, /enter apply/i);
   assert.match(body, /→/);
 });

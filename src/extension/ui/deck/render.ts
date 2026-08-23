@@ -1,6 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { MOTION_CATALOG } from "../../../motion/catalog.ts";
+import { appearanceDisplayName } from "../../../config/structural-presets.ts";
 import { PRESETS } from "../../../config/presets.ts";
 import { config } from "../../core/state.ts";
 import type { PowerlineShortcuts } from "../../core/types.ts";
@@ -24,6 +25,24 @@ function routeTitle(route: DeckRoute): string {
   return DECK_ROUTE_DEFS.find((entry) => entry.id === route)?.label ?? "Home";
 }
 
+export function deckFooter(state: DeckNavState): string {
+  if (state.searchOpen) return `/ ${state.searchQuery}_`;
+  if (state.composerOpen) return "←→ nudge · ↑↓ field · enter apply · esc back";
+  if (state.skillCreate) return "type a name · enter create · esc cancel";
+  switch (state.route) {
+    case "appearance":
+      return "↑↓ select base · enter apply · / Search · g h Home · Esc Close";
+    case "motion":
+      return "↑↓ motion · t event · e composer · enter apply · Esc Close";
+    case "skills":
+      return "↑↓ skill · enter insert · n new · / filter · Esc Close";
+    case "ideas":
+      return "↑↓ idea · / Search · g h Home · Esc Close";
+    default:
+      return "/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close";
+  }
+}
+
 export function renderDeckFrame(
   theme: Theme,
   width: number,
@@ -31,6 +50,7 @@ export function renderDeckFrame(
   state: DeckNavState,
   shortcuts: PowerlineShortcuts,
   composer: ComposerDraft | null = null,
+  tick = Date.now(),
 ): string[] {
   const inner = Math.max(40, width - 2);
   const border = (text: string) => theme.fg("dim", text);
@@ -48,7 +68,7 @@ export function renderDeckFrame(
   lines.push(border(`├${"─".repeat(inner)}┤`));
 
   const nav = navLines(snapshot, state, theme, leftW);
-  const center = centerRouteBody(snapshot, state, theme, centerW, shortcuts, composer);
+  const center = centerRouteBody(snapshot, state, theme, centerW, shortcuts, composer, tick);
   const right = rightRail(snapshot, theme, rightW);
 
   const rowCount = Math.max(nav.length, center.length, right.length, 8);
@@ -60,15 +80,7 @@ export function renderDeckFrame(
   }
 
   lines.push(border(`├${"─".repeat(inner)}┤`));
-  const footer = state.searchOpen
-    ? `/ ${state.searchQuery}_`
-    : state.route === "appearance"
-      ? `↑↓ select base · enter apply · / Search · g h Home · Esc Close`
-      : state.route === "motion"
-        ? `↑↓ motion · t event · e composer · enter apply · Esc Close`
-        : state.route === "skills"
-          ? `↑↓ skill · enter insert · / filter · Esc Close`
-          : `/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close`;
+  const footer = deckFooter(state);
   lines.push(wrap(theme.fg("dim", truncateToWidth(footer, inner, "…", true))));
   lines.push(border(`╰${"─".repeat(inner)}╯`));
   return lines;
@@ -104,6 +116,7 @@ function centerRouteBody(
   width: number,
   shortcuts: PowerlineShortcuts,
   composer: ComposerDraft | null = null,
+  tick = Date.now(),
 ): string[] {
   const title = theme.fg("accent", `ACTIVE ROUTE: ${routeTitle(state.route).toUpperCase()}`);
   const body: string[] = [title, ""];
@@ -124,6 +137,14 @@ function centerRouteBody(
           true,
         ),
       );
+      body.push(
+        truncateToWidth(
+          `${appearanceDisplayName(snapshot.appearanceBase)} · ${snapshot.signalMotion} · ${snapshot.motionLevel}`,
+          width,
+          "…",
+          true,
+        ),
+      );
       body.push("");
       body.push(theme.fg("text", "NEXT INTENT"));
       body.push(
@@ -131,10 +152,13 @@ function centerRouteBody(
       );
       break;
     case "signal":
-      body.push(`Preset layout: ${config.preset}`);
-      body.push(`Placement: ${config.placement}`);
-      body.push(`Motion: ${snapshot.signalMotion}`);
-      body.push(`Activity: ${snapshot.signalActivity}`);
+      body.push("THREE LANES");
+      body.push("Identity · Activity · Context");
+      body.push(`Layout ${config.preset} · placement ${config.placement}`);
+      body.push(
+        `Base ${appearanceDisplayName(snapshot.appearanceBase)} · motion ${snapshot.signalMotion}`,
+      );
+      body.push(`Level ${snapshot.motionLevel} · activity ${snapshot.signalActivity}`);
       body.push("Use /signal preset · placement · doctor");
       break;
     case "skills":
@@ -158,10 +182,10 @@ function centerRouteBody(
       body.push("Open /usage for detailed overlay");
       break;
     case "appearance":
-      body.push(...appearanceLines(snapshot, state, width));
+      body.push(...appearanceLines(snapshot, state));
       break;
     case "motion":
-      body.push(...motionGalleryLines(snapshot, state, width, composer));
+      body.push(...motionGalleryLines(snapshot, state, width, composer, tick));
       break;
     case "shortcuts":
       body.push(`Menu: ${shortcuts.menu ?? "alt+p"}`);

@@ -5,7 +5,7 @@ import type { DeckRoute } from "./types.ts";
 export type { DeckRoute } from "./types.ts";
 export { DECK_ROUTES } from "./types.ts";
 export { parseDeckRouteArg, deckRouteByJump } from "./routes.ts";
-export { renderDeckFrame, filterDeckRoutes } from "./render.ts";
+export { renderDeckFrame, filterDeckRoutes, deckFooter } from "./render.ts";
 export { buildDeckSessionSnapshot } from "./session-snapshot.ts";
 
 /** Open the unified Wishcraft Deck at the requested route. */

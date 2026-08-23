@@ -64,7 +64,7 @@ const theme = {
   bold: (text) => text,
 };
 
-function frame(route, extras = {}) {
+function frame(route, extras = {}, tick = Date.now()) {
   const state = {
     ...nav,
     route,
@@ -73,20 +73,23 @@ function frame(route, extras = {}) {
   };
   const ember = MOTION_CATALOG.find((motion) => motion.id === "ember-relay");
   const composer = extras.composerOpen && ember ? draftFromMotion(ember, "streaming") : null;
-  return renderDeckFrame(theme, 100, snapshot, state, DEFAULT_SHORTCUTS, composer).join("\n");
+  return renderDeckFrame(theme, 100, snapshot, state, DEFAULT_SHORTCUTS, composer, tick).join("\n");
 }
 
-function htmlPage() {
+function htmlPage(tick) {
   const routes = DECK_ROUTES.map((route) => {
-    const body = escapeHtml(frame(route));
+    const body = escapeHtml(frame(route, {}, tick));
     return `<section id="${route}"><h2>${route}</h2><pre>${body}</pre></section>`;
   }).join("\n");
-  const gallery = escapeHtml(previewStrip(MOTION_CATALOG[0], 4, 36));
-  const composer = escapeHtml(composerPreview(draftFromMotion(MOTION_CATALOG[0]), 6, 36));
+  const gallery = escapeHtml(previewStrip(MOTION_CATALOG[0], Math.floor(tick / 90), 36));
+  const composer = escapeHtml(composerPreview(draftFromMotion(MOTION_CATALOG[0]), Math.floor(tick / 90), 36));
+  const composerDeck = escapeHtml(frame("motion", { composerOpen: true }, tick));
+  const skillCreate = escapeHtml(frame("skills", { skillCreate: true, skillCreateName: "lantern" }, tick));
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="refresh" content="1" />
   <title>Wishcraft Deck preview</title>
   <style>
     :root { color-scheme: dark; }
@@ -107,12 +110,14 @@ function htmlPage() {
     <nav>${DECK_ROUTES.map((route) => `<a href="#${route}">${route}</a>`).join("")}</nav>
   </header>
   <div class="meta">
-    <div>Catalog: ${MOTION_CATALOG.length} motions</div>
+    <div>Catalog: ${MOTION_CATALOG.length} motions · tick ${tick}</div>
     <div>Gallery strip: ${gallery}</div>
     <div>Composer: ${composer}</div>
   </div>
   <main>
     ${routes}
+    <section id="composer"><h2>composer</h2><pre>${composerDeck}</pre></section>
+    <section id="skill-create"><h2>skill create</h2><pre>${skillCreate}</pre></section>
   </main>
 </body>
 </html>`;
@@ -133,7 +138,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  res.end(htmlPage());
+  res.end(htmlPage(Date.now()));
 });
 
 server.listen(PORT, "127.0.0.1", () => {

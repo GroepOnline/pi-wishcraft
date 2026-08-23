@@ -13,6 +13,7 @@ import { PRESETS } from "../src/config/presets.ts";
 import {
   STRUCTURAL_PRESET_NAMES,
   STRUCTURAL_PRESETS,
+  appearanceDisplayName,
   completeMotionMap,
   getStructuralPreset,
   isStructuralPresetName,
@@ -31,6 +32,8 @@ test("ten structural presets are registered", () => {
     assert.ok(preset.displayName.length > 0);
     assert.ok(preset.description.length > 0);
   }
+  assert.equal(appearanceDisplayName("lanternwake"), "Lanternwake");
+  assert.equal(appearanceDisplayName("chef"), "chef");
 });
 
 test("every structural preset has a full personality stack", () => {

@@ -31,6 +31,13 @@ test("filterMotions is fuzzy over id, name, and category", () => {
   assert.equal(filterMotions("").length, MOTION_CATALOG.length);
 });
 
+test("clock motion uses ASCII-safe frames", () => {
+  const clock = getMotion("clock");
+  assert.ok(clock);
+  assert.deepEqual(clock.frames, ["o", "O", "0", "O"]);
+  assert.ok(!(clock.frames ?? []).some((frame) => /[\u{1F300}-\u{1FAFF}]/u.test(frame)));
+});
+
 test("previewStrip paints a travelling head", () => {
   const ember = getMotion("ember-relay");
   assert.ok(ember);

@@ -387,8 +387,8 @@ export const EXTRA_MOTIONS: readonly MotionDef[] = [
     colorRole: "textMuted",
     fallbackGlyph: "o",
     loop: "while-active",
-    frames: ["🕛", "🕒", "🕕", "🕘"],
-    description: "Quarter-hour clock faces.",
+    frames: ["o", "O", "0", "O"],
+    description: "Phase clock in ASCII-safe glyphs.",
   },
   {
     id: "triangle",

@@ -516,6 +516,11 @@ export function getStructuralPreset(name: StructuralPresetName): StructuralPrese
   return STRUCTURAL_PRESETS[name];
 }
 
+/** Display name for a stored base, or the raw value when it is not structural. */
+export function appearanceDisplayName(name: string): string {
+  return isStructuralPresetName(name) ? getStructuralPreset(name).displayName : name;
+}
+
 /** Signature motion id for a structural preset (streaming / thinking lane). */
 export function signatureMotionFor(name: StructuralPresetName): MotionRef {
   return STRUCTURAL_PRESETS[name].signal.animation;

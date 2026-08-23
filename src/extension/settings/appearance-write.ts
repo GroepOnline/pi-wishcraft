@@ -17,8 +17,9 @@ import {
   policyFromEnvironment,
   type MotionLevel,
 } from "../../motion/accessibility.ts";
+import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 import { isRecord, writePowerlineSetting } from "./settings-io.ts";
-import { config } from "../core/state.ts";
+import { config, PRESET_NAMES, setConfig } from "../core/state.ts";
 import {
   requestImmediateStatusRender,
   resetLayoutCache,
@@ -67,6 +68,20 @@ export function syncAppearanceForLayoutPreset(
 
 export function applyPersistedMotionPolicy(rt: RuntimeState): void {
   rt.motionPolicy = policyFromEnvironment(process.env, config.motionLevel);
+}
+
+/** Re-parse `settings.powerline` into session config and repaint Signal. */
+export function reloadPowerlineFromSettings(
+  rt: RuntimeState,
+  settings: Record<string, unknown>,
+): void {
+  setConfig({
+    ...config,
+    ...parsePowerlineConfig(settings.powerline, PRESET_NAMES),
+  });
+  applyPersistedMotionPolicy(rt);
+  resetLayoutCache(rt);
+  requestImmediateStatusRender(rt);
 }
 
 export function applyMotionLevel(

@@ -8,29 +8,42 @@ import {
   composerPreview,
   type ComposerDraft,
 } from "../../../motion/composer.ts";
-import { filterMotions, previewStrip } from "../../../motion/gallery.ts";
+import { filterMotions, GALLERY_CATEGORIES, previewStrip } from "../../../motion/gallery.ts";
 import { getMotion } from "../../../motion/catalog.ts";
 import { STRUCTURAL_PRESET_NAMES } from "../../../config/types.ts";
+import {
+  appearanceDisplayName,
+  getStructuralPreset,
+} from "../../../config/structural-presets.ts";
 import { config } from "../../core/state.ts";
-import type { DeckNavState, DeckSessionSnapshot } from "./types.ts";
+import type { DeckNavState, DeckSessionSnapshot, DeckSkillRow } from "./types.ts";
+
+export function filterSkillRows(skills: readonly DeckSkillRow[], query: string): DeckSkillRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...skills];
+  return skills.filter((skill) =>
+    `${skill.name} ${skill.category} ${skill.description}`.toLowerCase().includes(q),
+  );
+}
 
 export function appearanceLines(
   snapshot: DeckSessionSnapshot,
   state: DeckNavState,
-  width: number,
 ): string[] {
+  const selected = STRUCTURAL_PRESET_NAMES[state.selectedAppearance];
+  const selectedDef = selected ? getStructuralPreset(selected) : null;
   const lines = [
-    `Active base: ${snapshot.appearanceBase}`,
-    `Layout preset: ${config.preset}`,
-    `Motion level: ${snapshot.motionLevel}`,
-    "Enter writes powerline.appearance.base and repaints Signal.",
+    `Active: ${appearanceDisplayName(snapshot.appearanceBase)}`,
+    `Layout ${config.preset} · motion ${snapshot.motionLevel}`,
+    selectedDef ? selectedDef.description : "Enter applies the structural base to Signal.",
   ];
   const cursor = state.selectedAppearance;
   for (let i = 0; i < STRUCTURAL_PRESET_NAMES.length; i++) {
     const name = STRUCTURAL_PRESET_NAMES[i]!;
+    const preset = getStructuralPreset(name);
     const marker = i === cursor ? "→" : " ";
     const star = name === snapshot.appearanceBase ? "*" : " ";
-    lines.push(`${marker}${star} ${name}`);
+    lines.push(`${marker}${star} ${preset.displayName.padEnd(14)} ${name}`);
   }
   return lines;
 }
@@ -40,19 +53,25 @@ export function motionGalleryLines(
   state: DeckNavState,
   width: number,
   composer: ComposerDraft | null,
+  tick = Date.now(),
 ): string[] {
   if (state.composerOpen && composer) {
-    return composerLines(composer, state, width);
+    return composerLines(composer, state, width, tick);
   }
   const query = state.route === "motion" ? state.searchQuery : "";
   const motions = filterMotions(query);
   const cursor = Math.min(state.selectedMotion, Math.max(0, motions.length - 1));
   const selected = motions[cursor];
-  const tick = Math.floor(Date.now() / (selected ? (selected.generator?.intervalMs ?? 100) : 100));
+  const counts = GALLERY_CATEGORIES.map((category) => {
+    const n = motions.filter((entry) => entry.category === category).length;
+    return n > 0 ? `${category} ${n}` : "";
+  }).filter(Boolean);
+  const frameTick = Math.floor(tick / (selected ? (selected.generator?.intervalMs ?? 100) : 100));
   const lines = [
-    `${motions.length} motions · assign ${state.assignEvent} · live ${snapshot.signalMotion}`,
+    `${motions.length} motions · ${counts.join(" · ")}`,
+    `assign ${state.assignEvent} · live ${snapshot.signalMotion}`,
     selected
-      ? previewStrip(selected, tick, Math.min(28, width - 2))
+      ? previewStrip(selected, frameTick, Math.min(28, width - 2))
       : "No motions match",
     "↑↓ select · t event · e composer · enter apply",
   ];
@@ -75,12 +94,13 @@ function composerLines(
   draft: ComposerDraft,
   state: DeckNavState,
   width: number,
+  tick = Date.now(),
 ): string[] {
-  const tick = Math.floor(Date.now() / draft.intervalMs);
+  const frameTick = Math.floor(tick / draft.intervalMs);
   const field = COMPOSER_FIELDS[state.composerField] ?? "intervalMs";
   const lines = [
     `COMPOSER · ${draft.name}`,
-    composerPreview(draft, tick, Math.min(28, width - 2)),
+    composerPreview(draft, frameTick, Math.min(28, width - 2)),
     `Assign to ${draft.assignEvent}`,
     "←→ nudge · ↑↓ field · enter apply · esc back",
   ];
@@ -108,11 +128,8 @@ export function skillsWorkbenchLines(
   state: DeckNavState,
   width: number,
 ): string[] {
-  const query = state.route === "skills" ? state.searchQuery.trim().toLowerCase() : "";
-  const rows = snapshot.skills.filter((skill) => {
-    if (!query) return true;
-    return `${skill.name} ${skill.category} ${skill.description}`.toLowerCase().includes(query);
-  });
+  const query = state.route === "skills" ? state.searchQuery : "";
+  const rows = filterSkillRows(snapshot.skills, query);
   const cursor = Math.min(state.selectedSkill, Math.max(0, rows.length - 1));
   const selected = rows[cursor];
   if (state.skillCreate) {
@@ -186,10 +203,7 @@ export function selectedGalleryMotion(state: DeckNavState) {
 }
 
 export function filteredSkillCount(snapshot: DeckSessionSnapshot, state: DeckNavState): number {
-  const query = state.searchQuery.trim().toLowerCase();
-  if (state.route !== "skills" || !query) return snapshot.skills.length;
-  return snapshot.skills.filter((skill) =>
-    `${skill.name} ${skill.category} ${skill.description}`.toLowerCase().includes(query),
-  ).length;
+  if (state.route !== "skills") return snapshot.skills.length;
+  return filterSkillRows(snapshot.skills, state.searchQuery).length;
 }
 

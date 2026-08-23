@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Deck polish: structural display names (Lanternwake, Hexforge, …), injectable gallery tick, route-specific footers, and Signal three-lane copy. Clock frames stay ASCII-safe. Flat `/wishcraft settings` reloads Signal through `reloadPowerlineFromSettings`.
+
 ### Added
 - Wishcraft Deck (`alt+p` / `/wishcraft`) is the operator overlay: eleven routes, `g`-prefix jumps, and a live session snapshot. `/wishcraft settings` (or `config`) opens the flat settings list.
 - `/signal` is the primary status command (`/powerline` remains an alias). No-args still toggles. `/signal menu` opens Navigate / Configure / Status.
