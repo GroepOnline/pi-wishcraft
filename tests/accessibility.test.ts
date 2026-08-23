@@ -105,6 +105,32 @@ test("screen-reader status is stable high-contrast text", () => {
   );
 });
 
+test("low-color and functional policies change the painted Signal, not only flags", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.activity = "streaming";
+  signal.active = true;
+  signal.motionId = "ember-relay";
+  signal.tick = 0;
+  const spec = getStructuralPreset("lanternwake").signal;
+  const strip = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
+  const rich = strip(renderActivity(signal, spec, false, DEFAULT_MOTION_POLICY));
+  const low = strip(
+    renderActivity(signal, spec, false, { ...DEFAULT_MOTION_POLICY, lowColor: true }),
+  );
+  assert.match(rich, /[█━]/);
+  assert.doesNotMatch(low, /[█━]/);
+  assert.match(low, /\*/);
+
+  const functional = {
+    ...DEFAULT_MOTION_POLICY,
+    level: "functional" as const,
+  };
+  const a = strip(renderActivity({ ...signal, tick: 2 }, spec, true, functional));
+  const b = strip(renderActivity({ ...signal, tick: 6 }, spec, true, functional));
+  assert.equal(a, b);
+});
+
 test("signal toggle off keeps a still rail while full motion travels", () => {
   const signal = createSignalRuntime(0);
   signal.event = "streaming";
