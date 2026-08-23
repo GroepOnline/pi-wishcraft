@@ -298,6 +298,7 @@ export function registerCustomPresets(
       separator: def.separator ?? "slash",
       segmentOptions: def.segmentOptions,
       colors: def.colors,
+      tokens: def.tokens,
     };
     customPresets.set(name, presetDef);
   }
