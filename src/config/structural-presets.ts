@@ -21,12 +21,9 @@ import { STRUCTURAL_PRESETS } from "./structural-preset-table.ts";
 
 export { STRUCTURAL_PRESETS };
 
-const _UNUSED_PRESETS: Record<StructuralPresetName, StructuralPresetDef> = {
-  lanternwake: {
-    name: "lanternwake",
-    displayName: "Lanternwake",
-    description: "Warm amber embers in a dark room — Wishcraft's signature lantern identity.",
-    tokens: tokens({
+const _REMOVED_DEAD_PRESETS = {
+    _placeholder: {
+    tokens: (() => ({}))({
       surface: "#0f172a",
       surfaceRaised: "#1e293b",
       text: "#f8fafc",
