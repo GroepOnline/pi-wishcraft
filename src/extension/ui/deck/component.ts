@@ -91,7 +91,14 @@ export function createDeckComponent(
 ) {
   let state = createDeckNavState(initialRoute);
 
-  const refreshSnapshot = () => buildDeckSessionSnapshot(rt, ctx);
+  // Building the snapshot invalidates the shared skill cache and re-reads every
+  // skill file, so it must not run per render/keystroke. Cache it and refresh
+  // only after actions that change the underlying data.
+  let snapshot = buildDeckSessionSnapshot(rt, ctx);
+  const refreshSnapshot = () => {
+    snapshot = buildDeckSessionSnapshot(rt, ctx);
+    return snapshot;
+  };
 
   return {
     focused: true,
@@ -100,14 +107,13 @@ export function createDeckComponent(
       return renderDeckFrame(
         theme,
         width,
-        refreshSnapshot(),
+        snapshot,
         state,
         rt.resolvedShortcuts,
         rt.motionPolicy,
       );
     },
     handleInput(data: string) {
-      const snapshot = refreshSnapshot();
       const result = applyDeckInput(
         state,
         data,
@@ -115,7 +121,11 @@ export function createDeckComponent(
         snapshot.skillSummaries?.length ?? 0,
       );
       state = result.state;
-      if (performDeckAction(result.action, rt, ctx, snapshot) === "close") {
+      const outcome = performDeckAction(result.action, rt, ctx, snapshot);
+      // A completed wizard writes a new skill to disk; refresh so the list and
+      // health reflect it.
+      if (result.action.type === "wizard-complete") refreshSnapshot();
+      if (outcome === "close") {
         done();
       }
     },
