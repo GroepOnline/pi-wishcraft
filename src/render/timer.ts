@@ -31,6 +31,7 @@ export function createCoalescingTimer(render: () => void, defaultDelayMs: number
           render();
         }
       }, delayMs);
+      activeTimer.unref?.();
     },
     cancel() {
       if (activeTimer !== null) {

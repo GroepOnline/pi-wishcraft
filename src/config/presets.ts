@@ -1,6 +1,7 @@
 import type { ColorScheme, PresetDef, StatusLinePreset } from "./types.ts";
 import { getDefaultColors } from "../theme/theme.ts";
 import type { CustomPresetConfig } from "./types.ts";
+import { createTokens, deriveColorSchemeFromTokens } from "../theme/tokens/mapping.ts";
 
 // Get base colors from theme.ts (single source of truth)
 const DEFAULT_COLORS: ColorScheme = getDefaultColors();
@@ -29,6 +30,100 @@ const CHEF_COLORS: ColorScheme = {
   gitClean: "dim",
   queue: "dim",
 };
+
+// ---------------------------------------------------------------------------
+// 10 vNext Structural Signature Presets
+// ---------------------------------------------------------------------------
+
+const LANTERNWAKE_TOKENS = createTokens({
+  primary: "#f59e0b",
+  accent: "#ea580c",
+  surface: "#0f172a",
+  surfaceRaised: "#1e293b",
+  motionHot: "#fbbf24",
+  motionTrail: "#78350f",
+});
+
+const THREADBOUND_TOKENS = createTokens({
+  primary: "#6366f1",
+  secondary: "#818cf8",
+  accent: "#ec4899",
+  surface: "#18181b",
+  surfaceRaised: "#27272a",
+  motionHot: "#a855f7",
+});
+
+const SCRYGLASS_TOKENS = createTokens({
+  primary: "#06b6d4",
+  secondary: "#38bdf8",
+  accent: "#8b5cf6",
+  surface: "#090d16",
+  surfaceRaised: "#161e2e",
+  motionHot: "#22d3ee",
+});
+
+const RUNEBLOOM_TOKENS = createTokens({
+  primary: "#10b981",
+  secondary: "#34d399",
+  accent: "#eab308",
+  surface: "#0c140f",
+  surfaceRaised: "#19261e",
+  motionHot: "#facc15",
+});
+
+const MOONWELL_TOKENS = createTokens({
+  primary: "#94a3b8",
+  secondary: "#cbd5e1",
+  accent: "#38bdf8",
+  surface: "#020617",
+  surfaceRaised: "#0f172a",
+  motionHot: "#e2e8f0",
+});
+
+const HEXFORGE_TOKENS = createTokens({
+  primary: "#f97316",
+  secondary: "#fb923c",
+  accent: "#ef4444",
+  surface: "#1c1917",
+  surfaceRaised: "#292524",
+  motionHot: "#ffedd5",
+});
+
+const VELLUM_TOKENS = createTokens({
+  primary: "#d97706",
+  secondary: "#b45309",
+  accent: "#a16207",
+  surface: "#1a1815",
+  surfaceRaised: "#292520",
+  motionHot: "#f59e0b",
+});
+
+const WISP_TOKENS = createTokens({
+  primary: "#cbd5e1",
+  secondary: "#94a3b8",
+  accent: "#38bdf8",
+  surface: "#0b0f19",
+  surfaceRaised: "#111827",
+  motionHot: "#67e8f9",
+});
+
+const STARWEAVE_TOKENS = createTokens({
+  primary: "#a855f7",
+  secondary: "#c084fc",
+  accent: "#38bdf8",
+  surface: "#050515",
+  surfaceRaised: "#13112c",
+  motionHot: "#f472b6",
+});
+
+const CRUCIBLE_TOKENS = createTokens({
+  primary: "#ec4899",
+  secondary: "#f43f5e",
+  accent: "#fb7185",
+  surface: "#110b11",
+  surfaceRaised: "#241424",
+  motionHot: "#fda4af",
+});
 
 export const PRESETS: Record<StatusLinePreset, PresetDef> = {
   // v2 preset lineup — an explicit information ladder:
@@ -276,6 +371,94 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
       openPorts: { includeUdp: false },
     },
   },
+
+  // 10 vNext Structural Presets
+  lanternwake: {
+    leftSegments: ["model", "thinking", "shell_mode", "path", "git", "session", "queue"],
+    rightSegments: ["token_in", "token_out", "cost", "context_pct", "time_spent"],
+    secondarySegments: ["extension_statuses"],
+    separator: "powerline",
+    colors: deriveColorSchemeFromTokens(LANTERNWAKE_TOKENS),
+    tokens: LANTERNWAKE_TOKENS,
+    motion: {
+      streaming: "ember-relay",
+      thinking: "ember-relay",
+      "tool.start": "hex-relay",
+      success: "rune-bloom",
+    },
+  },
+
+  threadbound: {
+    leftSegments: ["model", "path", "git", "queue"],
+    rightSegments: ["tps", "cost", "context_pct"],
+    separator: "powerline-thin",
+    colors: deriveColorSchemeFromTokens(THREADBOUND_TOKENS),
+    tokens: THREADBOUND_TOKENS,
+  },
+
+  scryglass: {
+    leftSegments: ["model", "path", "git"],
+    rightSegments: ["token_total", "cost", "context_pct"],
+    separator: "chevron",
+    colors: deriveColorSchemeFromTokens(SCRYGLASS_TOKENS),
+    tokens: SCRYGLASS_TOKENS,
+  },
+
+  runebloom: {
+    leftSegments: ["model", "git", "queue"],
+    rightSegments: ["context_pct", "time_spent"],
+    separator: "dot",
+    colors: deriveColorSchemeFromTokens(RUNEBLOOM_TOKENS),
+    tokens: RUNEBLOOM_TOKENS,
+  },
+
+  moonwell: {
+    leftSegments: ["model", "thinking", "git"],
+    rightSegments: ["context_pct", "time"],
+    separator: "slash",
+    colors: deriveColorSchemeFromTokens(MOONWELL_TOKENS),
+    tokens: MOONWELL_TOKENS,
+  },
+
+  hexforge: {
+    leftSegments: ["hostname", "model", "shell_mode", "git", "queue"],
+    rightSegments: ["tps", "open_ports", "cost", "context_pct"],
+    separator: "block",
+    colors: deriveColorSchemeFromTokens(HEXFORGE_TOKENS),
+    tokens: HEXFORGE_TOKENS,
+  },
+
+  vellum: {
+    leftSegments: ["model", "path", "git"],
+    rightSegments: ["cost", "context_pct"],
+    separator: "none",
+    colors: deriveColorSchemeFromTokens(VELLUM_TOKENS),
+    tokens: VELLUM_TOKENS,
+  },
+
+  wisp: {
+    leftSegments: ["model", "git"],
+    rightSegments: ["context_pct"],
+    separator: "none",
+    colors: deriveColorSchemeFromTokens(WISP_TOKENS),
+    tokens: WISP_TOKENS,
+  },
+
+  starweave: {
+    leftSegments: ["model", "path", "git", "subagents"],
+    rightSegments: ["token_in", "token_out", "context_pct"],
+    separator: "star",
+    colors: deriveColorSchemeFromTokens(STARWEAVE_TOKENS),
+    tokens: STARWEAVE_TOKENS,
+  },
+
+  crucible: {
+    leftSegments: ["model", "thinking", "shell_mode", "git"],
+    rightSegments: ["tps", "cost", "context_pct"],
+    separator: "block",
+    colors: deriveColorSchemeFromTokens(CRUCIBLE_TOKENS),
+    tokens: CRUCIBLE_TOKENS,
+  },
 };
 
 export function getPreset(name: string): PresetDef {
@@ -298,6 +481,7 @@ export function registerCustomPresets(
       separator: def.separator ?? "slash",
       segmentOptions: def.segmentOptions,
       colors: def.colors,
+      tokens: def.tokens,
     };
     customPresets.set(name, presetDef);
   }

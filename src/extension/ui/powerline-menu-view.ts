@@ -56,26 +56,30 @@ async function activatePowerlineMenuAction(
   }
 }
 
-/** Main powerline menu: three top-level overlays, Status drills down. */
+import { openWishcraftDeck } from "./deck/index.ts";
+
+/** Main powerline / Wishcraft Deck menu: opens the Deck on Alt+P */
 export async function showPowerlineMainMenu(
   rt: RuntimeState,
   ctx: any,
 ): Promise<void> {
   rt.currentCtx = ctx;
-  while (true) {
-    const top = await pickPowerlineMenuNode(
-      ctx,
-      "Powerline",
-      assertPowerlineMenuBounds(),
-    );
-    if (!top) return;
-    if (top.children?.length) {
-      const child = await pickPowerlineMenuNode(ctx, top.label, top.children);
-      if (!child) continue;
-      await activatePowerlineMenuAction(rt, ctx, child.id);
-      continue;
-    }
-    await activatePowerlineMenuAction(rt, ctx, top.id);
+  await openWishcraftDeck(rt, ctx, "home");
+}
+
+/** Classic Navigate / Configure / Status overlays (`/signal menu`). */
+export async function showPowerlineClassicMenu(
+  rt: RuntimeState,
+  ctx: any,
+): Promise<void> {
+  rt.currentCtx = ctx;
+  const nodes = assertPowerlineMenuBounds();
+  const picked = await pickPowerlineMenuNode(ctx, "Signal", nodes);
+  if (!picked) return;
+  if (picked.children?.length) {
+    const child = await pickPowerlineMenuNode(ctx, picked.label, picked.children);
+    if (child) await activatePowerlineMenuAction(rt, ctx, child.id);
     return;
   }
+  await activatePowerlineMenuAction(rt, ctx, picked.id);
 }

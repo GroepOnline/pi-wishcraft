@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+- Deck polish: structural display names (Lanternwake, Hexforge, …), injectable gallery tick, route-specific footers, and Signal three-lane copy. Clock frames stay ASCII-safe. Flat `/wishcraft settings` reloads Signal through `reloadPowerlineFromSettings`.
+
+### Added
+- Wishcraft Deck (`alt+p` / `/wishcraft`) is the operator overlay: eleven routes, `g`-prefix jumps, and a live session snapshot. `/wishcraft settings` (or `config`) opens the flat settings list.
+- `/signal` is the primary status command (`/powerline` remains an alias). No-args still toggles. `/signal menu` opens Navigate / Configure / Status.
+- Ten structural appearance bases (`lanternwake`…`crucible`) apply live Signal colors via `powerline.appearance.base`. Deck Appearance + Enter writes the base. `/signal hexforge` syncs appearance when the layout name is structural.
+- Motion Gallery and Composer on the Deck Motion route. Catalog is 50+ definitions. Enter assigns a motion to a semantic event (`powerline.appearance.motion`).
+- Skill Workbench, idea list, and guardrail rules render inside the Deck Craft routes.
+- First-class motion levels (`full|reduced|functional|off`) via `powerline.motionLevel`, `NO_COLOR`, and screen-reader / reduced-motion host flags.
+
 ## [1.1.0] - 2026-08-23
 
 ### Security

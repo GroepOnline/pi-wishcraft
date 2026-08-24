@@ -5,6 +5,7 @@ import type {
 
 import type { SegmentContext, ColorScheme } from "../../config/types.ts";
 import { getPreset } from "../../config/presets.ts";
+import { liveColorScheme } from "../../config/appearance.ts";
 import {
   collectHiddenExtensionStatusKeys,
   deriveAutoCustomItems,
@@ -125,7 +126,12 @@ export function buildSegmentContext(
   theme: Theme,
 ): SegmentContext {
   const presetDef = getPreset(config.preset);
-  const colors: ColorScheme = presetDef.colors ?? getDefaultColors();
+  const colors: ColorScheme = liveColorScheme(
+    presetDef,
+    config.appearance,
+    config.preset,
+    getDefaultColors,
+  );
 
   // Build usage stats and get thinking level from session (cached; the full
   // event list is only re-scanned when events are appended or the trailing

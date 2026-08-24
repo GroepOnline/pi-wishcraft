@@ -3,13 +3,14 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import type { SegmentContext } from "../../config/types.ts";
 import { getPreset } from "../../config/presets.ts";
+import { effectiveAppearanceMix, resolveAppearanceMix } from "../../config/appearance.ts";
 import {
   collectHiddenExtensionStatusKeys,
   getNotificationExtensionStatuses,
 } from "../../config/powerline-config.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../../theme/colors.ts";
+import { hasNerdFonts } from "../../theme/icons.ts";
 
-import { computeResponsiveLayout } from "./layout.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { buildSegmentContext } from "../core/segment-context.ts";
 import {
@@ -19,6 +20,8 @@ import {
 } from "../core/constants.ts";
 import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
+import { prefersAsciiGlyphs } from "../../motion/index.ts";
+import { renderSignal } from "../../signal/render.ts";
 
 /**
  * Get cached responsive layout or compute fresh one.
@@ -71,7 +74,22 @@ export function getResponsiveLayout(
   }
 
   rt.lastLayoutWidth = width;
-  rt.lastLayoutResult = computeResponsiveLayout(segmentCtx, presetDef, width);
+  const appearance = resolveAppearanceMix(
+    effectiveAppearanceMix(config.appearance, config.preset),
+  );
+  rt.lastLayoutResult = renderSignal(
+    segmentCtx,
+    presetDef,
+    rt.signal,
+    width,
+    {
+      separatorStyle: config.separator ?? presetDef.separator,
+      signal: appearance.signal,
+      ascii: prefersAsciiGlyphs(rt.motionPolicy, hasNerdFonts()),
+      layout: config.layout,
+      disabledSegments: config.disabledSegments,
+    },
+  );
   rt.lastLayoutTimestamp = now;
   rt.layoutDirty = false;
   rt.forceNextLayoutRecompute = false;

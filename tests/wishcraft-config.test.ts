@@ -29,6 +29,21 @@ test("read hints toggle defaults on and the first toggle disables it", () => {
   assert.equal(nextToggleValue(item, false), true);
 });
 
+test("motion level is a select in the flat settings list", () => {
+  const item = findItem("Motion level");
+  assert.equal(item.path, "powerline.motionLevel");
+  assert.deepEqual(item.choices, ["full", "reduced", "functional", "off"]);
+});
+
+test("structural appearance base is a select in the flat settings list", () => {
+  const item = findItem("Structural base");
+  assert.equal(item.path, "powerline.appearance.base");
+  assert.equal(item.kind, "select");
+  assert.ok(item.choices?.includes("lanternwake"));
+  assert.ok(item.choices?.includes("hexforge"));
+  assert.equal(item.choices?.length, 10);
+});
+
 test("a normal toggle defaults off and the first toggle enables it", () => {
   const item = findItem("Hooks enabled");
   assert.notEqual(item.default, true);

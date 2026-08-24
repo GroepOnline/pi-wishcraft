@@ -12,6 +12,8 @@ import {
 import { CoreContextUsageCache } from "../../usage/context.ts";
 import { createWelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
 import { createRenderScheduler } from "../../render/timer.ts";
+import { MotionScheduler, policyFromEnvironment } from "../../motion/index.ts";
+import { createSignalRuntime } from "../../signal/controller.ts";
 import {
   resolveShortcutConfig,
   parseBashModeSettings,
@@ -47,6 +49,8 @@ export let config: PowerlineConfig = {
   segments: {},
   presets: {},
   segmentLabels: {},
+  appearance: {},
+  motionLevel: "full",
 };
 
 export function setConfig(next: PowerlineConfig): void {
@@ -135,6 +139,8 @@ export function createRuntimeState(
 
     resolvedShortcuts,
     bashModeSettings,
+    motionPolicy: policyFromEnvironment(process.env, config.motionLevel),
+    signal: createSignalRuntime(),
   } as RuntimeState;
 
   rt.welcomeDismissScheduler = createWelcomeDismissScheduler({
@@ -158,6 +164,14 @@ export function createRuntimeState(
 
     rt.tuiRef?.requestRender();
   }, STATUS_RENDER_DEBOUNCE_MS);
+
+  rt.motionScheduler = new MotionScheduler({
+    requestRender: () => {
+      // Motion only changes the Signal rail; segment data remains cached.
+      rt.lastLayoutResult = null;
+      rt.tuiRef?.requestRender();
+    },
+  });
 
   return rt;
 }

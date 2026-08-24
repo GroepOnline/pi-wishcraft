@@ -18,7 +18,9 @@ import {
 } from "../settings/settings-io.ts";
 import { showOpenPortsList, showSelectOverlay } from "../ui/menu-views.ts";
 import { showTpsOverlay, showUsageOverlay } from "../ui/token-overlays.ts";
-import { showPowerlineMainMenu } from "../ui/powerline-menu-view.ts";
+import { openWishcraftDeck } from "../ui/deck/index.ts";
+import { showPowerlineClassicMenu } from "../ui/powerline-menu-view.ts";
+import { syncAppearanceForLayoutPreset } from "../settings/appearance-write.ts";
 import { openStashHistory } from "../shortcuts/shortcuts-router.ts";
 import { ensureShellSession, setBashModeActive } from "./bash-mode-actions.ts";
 import { setupCustomEditor } from "../ui/custom-editor.ts";
@@ -31,6 +33,7 @@ import { publishPowerlineStatuses } from "../core/status-export.ts";
 import { config, normalizePreset } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getPowerlineArgumentCompletions } from "./powerline-completions.ts";
+import { settleSignal } from "../../signal/integration.ts";
 
 export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerCdCommand(pi, () => rt.currentCtx?.cwd ?? process.cwd());
@@ -39,9 +42,9 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerSkillManagerCommand(pi, rt);
   registerWishcraftConfigCommand(pi, rt);
 
-  // Command to toggle/configure
-  pi.registerCommand("powerline", {
-    description: "Configure powerline status (toggle, preset, placement)",
+  // `/signal` is the vNext command; `/powerline` remains a transparent alias.
+  const signalCommand: Parameters<ExtensionAPI["registerCommand"]>[1] = {
+    description: "Configure Signal status (toggle, preset, placement)",
     getArgumentCompletions(argumentPrefix) {
       return getPowerlineArgumentCompletions(argumentPrefix);
     },
@@ -54,8 +57,9 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
         rt.enabled = !rt.enabled;
         if (rt.enabled) {
           setupCustomEditor(pi, rt, ctx);
-          ctx.ui.notify("Powerline enabled", "info");
+          ctx.ui.notify("Signal enabled", "info");
         } else {
+          settleSignal(rt);
           rt.shellSession?.dispose();
           rt.shellSession = null;
           rt.bashTranscript.clear();
@@ -87,12 +91,20 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
           rt.currentEditor = null;
           rt.statusRenderScheduler.cancel();
           resetLayoutCache(rt);
-          ctx.ui.notify("Powerline disabled", "info");
+          ctx.ui.notify("Signal disabled", "info");
         }
         return;
       }
 
       const normalizedArgs = args.trim().toLowerCase();
+      if (normalizedArgs === "menu") {
+        await showPowerlineClassicMenu(rt, ctx);
+        return;
+      }
+      if (normalizedArgs === "deck") {
+        await openWishcraftDeck(rt, ctx, "signal");
+        return;
+      }
       if (normalizedArgs === "doctor") {
         await runPowerlineDoctor(rt, ctx);
         return;
@@ -123,12 +135,12 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
           )
         ) {
           ctx.ui.notify(
-            `Powerline placement set to: ${config.placement}`,
+            `Signal placement set to: ${config.placement}`,
             "info",
           );
         } else {
           ctx.ui.notify(
-            `Powerline placement set to: ${config.placement} (not persisted; check settings.json)`,
+            `Signal placement set to: ${config.placement} (not persisted; check settings.json)`,
             "warning",
           );
         }
@@ -144,7 +156,9 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
           setupCustomEditor(pi, rt, ctx);
         }
 
-        if (writePowerlinePresetSetting(preset, ctx.cwd)) {
+        const persisted = writePowerlinePresetSetting(preset, ctx.cwd);
+        syncAppearanceForLayoutPreset(rt, ctx.cwd, preset);
+        if (persisted) {
           ctx.ui.notify(`Preset set to: ${preset}`, "info");
         } else {
           ctx.ui.notify(
@@ -159,6 +173,11 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       const presetList = Object.keys(PRESETS).join(", ");
       ctx.ui.notify(`Available presets: ${presetList}`, "info");
     },
+  };
+  pi.registerCommand("signal", signalCommand);
+  pi.registerCommand("powerline", {
+    ...signalCommand,
+    description: "Compatibility alias for /signal",
   });
 
   pi.registerCommand("stash-history", {
@@ -250,8 +269,12 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
 
   pi.registerCommand("usage", {
     description: "Show session / today / week token usage overlay",
-    handler: async (_args, ctx) => {
+    handler: async (args, ctx) => {
       rt.currentCtx = ctx;
+      if (args?.trim().toLowerCase() === "deck") {
+        await openWishcraftDeck(rt, ctx, "usage");
+        return;
+      }
       await showUsageOverlay(rt, ctx);
     },
   });
@@ -295,9 +318,10 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   // Configurable powerline shortcuts (re-bound on /reload via settings.powerlineShortcuts).
   if (rt.resolvedShortcuts.menu) {
     pi.registerShortcut(rt.resolvedShortcuts.menu as KeyId, {
-      description: "Powerline menu (navigate / configure / info)",
+      description: "Wishcraft Deck (operator control surface)",
       handler: async (ctx) => {
-        await showPowerlineMainMenu(rt, ctx);
+        rt.currentCtx = ctx;
+        await openWishcraftDeck(rt, ctx, "home");
       },
     });
   }

@@ -19,6 +19,10 @@ export const POWERLINE_SUBCOMMANDS: ReadonlyArray<{
     value: "placement",
     description: "Move the primary row above or below the editor",
   },
+  {
+    value: "menu",
+    description: "Open Navigate / Configure / Status",
+  },
 ];
 
 const PLACEMENT_DESCRIPTIONS: Record<(typeof POWERLINE_PLACEMENT_VALUES)[number], string> = {

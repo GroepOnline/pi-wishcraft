@@ -1,0 +1,4 @@
+{
+  "name": "pi-wishcraft",
+  "install": "npm ci"
+}

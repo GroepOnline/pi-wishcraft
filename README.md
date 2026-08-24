@@ -39,8 +39,8 @@ Then restart pi or `/reload`. Pi host packages are declared as `peerDependencies
 
 | Surface | What it does |
 | --- | --- |
-| Status bar | Git, TPS (1s window over a 5s ring), context, cost, ports, queue. Default placement is the editor top border; `/powerline placement below` moves it. |
-| `alt+p` | Three overlays: Navigate, Configure, Status. In Navigate, `→` / `tab` opens per-segment detail (ports, git, cost, context). `alt+i` is the ports list. |
+| Signal | Motion-aware three-lane operator status: model/Git, live activity/tool state, and context/queue. Default placement is the editor top border; `/signal placement below` moves it. |
+| `alt+p` | Wishcraft Deck: session, Signal, skills, ideas, guardrails, appearance. `g` + jump. `/wishcraft settings` is the flat list. `/signal menu` is Navigate / Configure / Status. |
 | `# <idea>` | File-backed inbox. Does not send the prompt. `/ideas` reviews status, tags, and skill insert. `/ideas next` feeds the oldest active idea into the session. |
 | `alt+s` | Stash the draft, ask something else, get it back when the run finishes. |
 | `/skills` | Overlay search on name, description, and path. Enter inserts. `/skills doctor` is the health table. `/skills new` writes a SKILL.md from a template. |
@@ -53,11 +53,11 @@ Pi owns the footer chrome, feed scrolling, and input. Wishcraft supplies widgets
 
 ## Daily commands
 
-Activates on load. `/powerline` toggles it. `/powerline <preset>` switches look. Tab completes presets and `placement above|below|toggle`.
+Activates on load. `/signal` toggles it. `/signal <preset>` switches the information layout. `/signal menu` opens Navigate / Configure / Status. `/wishcraft` opens the Deck. Tab completes presets and `placement above|below|toggle`. `/powerline` remains a compatibility alias.
 
 ```text
-/powerline doctor     settings, queue, git, bash, fonts
-/powerline export     current preset + layout as JSON
+/signal doctor        settings, queue, git, bash, fonts
+/signal export        current preset + layout as JSON
 /tps                  live in/out overlay (same ring as the segment)
 /tps 40               override POWERLINE_TPS
 /usage                session / today / week from ~/.pi/agent/wishcraft-usage.json
@@ -66,7 +66,8 @@ Activates on load. `/powerline` toggles it. `/powerline <preset>` switches look.
 /skills doctor        health table (broken frontmatter, dupes, unused, budget)
 /skills new [name]    write a SKILL.md from a template
 /ideas                idea review overlay (status, tags, skill insert)
-/wishcraft            settings TUI
+/wishcraft            Deck overlay (operator surface)
+/wishcraft settings   flat settings TUI
 /open-ports           listening sockets
 /cd <path>            continue this conversation in another directory
 /bash-mode            sticky shell  (also ctrl+shift+b)
@@ -99,7 +100,8 @@ Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
   "powerline": {
     "preset": "chef",
     "placement": "above",
-    "welcome": true
+    "welcome": true,
+    "appearance": { "base": "lanternwake" }
   }
 }
 ```
@@ -220,6 +222,13 @@ Declarative deny/inject rules in the **global** agent settings file. No shell co
 - ChefGroep status keys (`powerline.preset`, `powerline.tps`, `powerline.ports`) exist for other extensions. They are not the public pitch.
 - The legacy `@groeponline/pi-powerline-footer` package is deprecated on npm in favor of `@groeponline/pi-wishcraft`; the GitHub fork relationship is retained for upstream history and attribution.
 - Tags are not rewritten. 0.19.x through current stay on the timeline.
+
+## vNext Direction
+
+Wishcraft is evolving into Pi's animated operator layer — intent, skills, ideas, guardrails, and session state made visible and controllable without turning Pi into an IDE.
+
+- **[vNext Stacked PR Release Plan](docs/design/vnext-release-plan.md)**: Specifications for PR0 through PR8.
+- **[Design Corpus](docs/index.md#design-system--vnext-specifications)**: Deck, Signal, Motion Gallery, tokens, and the 10 structural presets. `npm run preview` renders the Deck frames.
 
 ## Docs
 

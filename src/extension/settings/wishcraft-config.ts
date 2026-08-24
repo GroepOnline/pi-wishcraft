@@ -11,38 +11,20 @@
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { RuntimeState } from "../core/types.ts";
+import { openWishcraftDeck } from "../ui/deck/index.ts";
+import { parseDeckRouteArg } from "../ui/deck/routes.ts";
 import { readSettings, writeSettingKey } from "../settings/settings-io.ts";
 import { isRecord } from "../settings/settings-io.ts";
-import { config as stateConfig, setConfig, PRESET_NAMES } from "../core/state.ts";
-import { parsePowerlineConfig } from "../../config/powerline-config.ts";
+import { reloadPowerlineFromSettings } from "./appearance-write.ts";
+import {
+  buildConfigGroups,
+  type ConfigGroup,
+  type ConfigItem,
+  type ConfigValue,
+} from "./wishcraft-config-items.ts";
 
-// ---------------------------------------------------------------------------
-// Config-item declaraties
-// ---------------------------------------------------------------------------
-
-export type ConfigValue = boolean | string | number | null;
-
-export interface ConfigItem {
-  /** Label in the list. */
-  label: string;
-  /** Path inside settings ("powerline.placement", "wishcraft.hooksEnabled", ...). */
-  path: string;
-  /** Edit kind. */
-  kind: "toggle" | "select" | "text" | "number";
-  /** For select: the choices. */
-  choices?: string[];
-  /** Hint under the group. */
-  hint?: string;
-  /** Detail explanation (optional). */
-  description?: string;
-  /** Effective value when the setting is absent (toggles only; defaults to false). */
-  default?: boolean;
-}
-
-export interface ConfigGroup {
-  title: string;
-  items: ConfigItem[];
-}
+export type { ConfigGroup, ConfigItem, ConfigValue };
+export { buildConfigGroups };
 
 /** Nested read: "wishcraft.hooksEnabled" → settings.wishcraft.hooksEnabled. */
 export function readConfigPath(settings: Record<string, unknown>, path: string): ConfigValue {
@@ -116,80 +98,6 @@ export function writeConfigPath(
     }
     return node;
   });
-}
-
-const SEPARATORS = [
-  "powerline",
-  "powerline-thin",
-  "slash",
-  "pipe",
-  "block",
-  "none",
-  "ascii",
-  "dot",
-  "chevron",
-  "star",
-];
-
-/** Build groups from current settings (values shown live). */
-export function buildConfigGroups(settings: Record<string, unknown>): ConfigGroup[] {
-  return [
-    {
-      title: "Status bar",
-      items: [
-        { label: "Preset", path: "powerline.preset", kind: "select", choices: ["default", "minimal", "compact", "full", "nerd", "ascii", "chef"] },
-        { label: "Separator", path: "powerline.separator", kind: "select", choices: SEPARATORS },
-        { label: "Placement", path: "powerline.placement", kind: "select", choices: ["above", "below"] },
-        { label: "Path mode", path: "powerline.segmentOptions.path.mode", kind: "select", choices: ["basename", "abbreviated", "full"] },
-        { label: "Path max length", path: "powerline.segmentOptions.path.maxLength", kind: "number", hint: "0 = unlimited" },
-        { label: "Time format", path: "powerline.segmentOptions.time.format", kind: "select", choices: ["12h", "24h"] },
-        { label: "Time seconds", path: "powerline.segmentOptions.time.showSeconds", kind: "toggle" },
-        { label: "Git host icons", path: "powerline.segmentOptions.git.hostIcon", kind: "toggle" },
-        { label: "Git ahead/behind", path: "powerline.segmentOptions.git.showAheadBehind", kind: "toggle" },
-        { label: "Git latest commit", path: "powerline.segmentOptions.git.showCommit", kind: "toggle" },
-        { label: "Context format", path: "powerline.segmentOptions.context.format", kind: "select", choices: ["full", "percent"] },
-        { label: "Cache-read format", path: "powerline.segmentOptions.cache_read.format", kind: "select", choices: ["tokens", "percent", "both"] },
-        { label: "Cost display", path: "powerline.segmentOptions.cost.subscriptionDisplay", kind: "select", choices: ["subscription", "reported-cost", "both"] },
-        { label: "Currency", path: "powerline.segmentOptions.cost.currency", kind: "text" },
-        { label: "Ports include UDP", path: "powerline.segmentOptions.openPorts.includeUdp", kind: "toggle" },
-        { label: "TPS window (ms)", path: "powerline.segmentOptions.tps.windowMs", kind: "number", hint: "default 1000" },
-        { label: "TPS mode", path: "powerline.segmentOptions.tps.mode", kind: "select", choices: ["both", "out", "in"] },
-        { label: "TPS label", path: "powerline.segmentLabels.tps", kind: "text", hint: "empty = no label" },
-      ],
-    },
-    {
-      title: "Welcome & vibes",
-      items: [
-        { label: "Welcome overlay", path: "powerline.welcome", kind: "toggle", hint: "on = overlay at startup, off = no welcome" },
-        { label: "Animate wishcraft lantern", path: "wishcraft.welcome.animateLantern", kind: "toggle", hint: "flicker on the lantern" },
-      ],
-    },
-    {
-      title: "Skills",
-      items: [
-        { label: "Inline expand /command and $skill", path: "wishcraft.inlineSkills", kind: "toggle", hint: "needs a restart to take effect" },
-        { label: "Read hints", path: "wishcraft.readHints", kind: "toggle", default: true, hint: "off = no continuation hint after partial reads" },
-      ],
-    },
-    {
-      title: "Hooks & repairs (harness)",
-      items: [
-        { label: "Hooks enabled", path: "wishcraft.hooksEnabled", kind: "toggle", hint: "preToolUse / postToolUse / sessionStart command hooks" },
-        { label: "Tool-input repairs", path: "wishcraft.repairsEnabled", kind: "toggle", hint: "null-for-optional, auto-link, json-array, path aliases" },
-        { label: "Daily token budget", path: "wishcraft.tokenBudget.daily", kind: "number", hint: "colours the cost segment; never blocks. 0 = off" },
-      ],
-    },
-    {
-      title: "Shortcuts",
-      items: [
-        { label: "Menu", path: "powerlineShortcuts.menu", kind: "text", hint: "e.g. alt+p" },
-        { label: "Info", path: "powerlineShortcuts.info", kind: "text" },
-        { label: "Stash", path: "powerlineShortcuts.stashHistory", kind: "text" },
-        { label: "Idea", path: "powerlineShortcuts.ideaCapture", kind: "text" },
-        { label: "Queue", path: "powerlineShortcuts.queueOpen", kind: "text" },
-      ],
-    },
-  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -272,13 +180,8 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const ok = writeConfigPath(cwd, item.path, value);
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
-        // live-reload powerline config + status bar
         if (item.path.startsWith("powerline")) {
-          setConfig({
-            ...stateConfig,
-            ...parsePowerlineConfig(settings.powerline, PRESET_NAMES),
-          });
-          rt.tuiRef?.requestRender?.();
+          reloadPowerlineFromSettings(rt, settings);
         }
         ctx.ui.notify(
           ok ? `${item.label}: ${displayValue(item, value)} (saved)` : `${item.label} not saved (settings.json?)`,
@@ -294,6 +197,9 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const ok = writeConfigPath(cwd, item.path, next);
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
+        if (item.path.startsWith("powerline")) {
+          reloadPowerlineFromSettings(rt, settings);
+        }
         ctx.ui.notify(
           ok ? `${item.label}: ${next} (saved)` : `${item.label} not saved`,
           ok ? "info" : "warning",
@@ -305,6 +211,9 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const ok = writeConfigPath(cwd, item.path, nextToggleValue(item, cur));
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
+        if (item.path.startsWith("powerline")) {
+          reloadPowerlineFromSettings(rt, settings);
+        }
         ctx.ui.notify(
           ok ? `${item.label}: ${!(cur === true) ? "on" : "off"} (saved)` : `${item.label} not saved`,
           ok ? "info" : "warning",
@@ -437,17 +346,22 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
   );
 }
 
-/** Register /wishcraft. */
+/** Register /wishcraft — opens the Deck; `settings`/`config` open the flat list. */
 export function registerWishcraftConfigCommand(pi: ExtensionAPI, rt: RuntimeState): void {
   pi.registerCommand("wishcraft", {
-    description: "Configure all wishcraft settings in one overlay (status bar, welcome, hooks, shortcuts)",
-    handler: async (_args: string, ctx: any) => {
+    description: "Open the Wishcraft Deck, or settings/config for the flat list",
+    handler: async (args: string, ctx: any) => {
       if (!rt.enabled || !ctx.hasUI) {
-        ctx.ui.notify("Powerline UI is disabled", "info");
+        ctx.ui.notify("Signal UI is disabled", "info");
         return;
       }
       rt.currentCtx = ctx;
-      await showWishcraftConfig(rt, ctx);
+      const trimmed = args?.trim() ?? "";
+      if (trimmed === "config" || trimmed === "settings") {
+        await showWishcraftConfig(rt, ctx);
+        return;
+      }
+      await openWishcraftDeck(rt, ctx, parseDeckRouteArg(trimmed));
     },
   });
 }
