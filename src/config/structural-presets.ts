@@ -434,19 +434,6 @@ const _UNUSED_PRESETS: Record<StructuralPresetName, StructuralPresetDef> = {
       caps: { leftOpen: "[", leftClose: "]", rightOpen: "[", rightClose: "]" },
       animation: "liquid-rise",
     },
-    motion: motion("liquid-rise"),
-    deck: { ...DEFAULT_DECK, activityStyle: "bar" },
-    welcome: { lantern: false, ambient: true, motionId: "liquid-rise" },
-    glyphs: {
-      mode: "auto",
-      model: "▓",
-      modelAscii: "=",
-      segment: "░",
-      segmentAscii: ".",
-    },
-  },
-};
-
 export function isStructuralPresetName(name: string): name is StructuralPresetName {
   return (STRUCTURAL_PRESET_NAMES as readonly string[]).includes(name);
 }
