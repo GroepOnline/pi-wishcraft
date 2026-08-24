@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-24
+
 ### Changed
 - Deck polish: structural display names (Lanternwake, Hexforge, …), injectable gallery tick, route-specific footers, and Signal three-lane copy. Clock frames stay ASCII-safe. Flat `/wishcraft settings` reloads Signal through `reloadPowerlineFromSettings`.
 
