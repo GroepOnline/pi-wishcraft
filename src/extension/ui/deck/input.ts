@@ -12,6 +12,7 @@ import {
   paneOptions,
   searchAppearanceConfig,
 } from "./appearance.ts";
+import { searchMotions } from "../../../motion/gallery.ts";
 import {
   advanceWizard,
   applyWizardInput,
@@ -71,13 +72,13 @@ export function applyDeckInput(
   }
 
   if (skills.wizardOpen) {
-    if (data === "up") {
+    if (matchesKey(data, "up") || data === "up") {
       return {
         state: { ...nav, skills: { ...skills, wizard: cycleOpenWizard(skills, -1) } },
         action: { type: "none" },
       };
     }
-    if (data === "down") {
+    if (matchesKey(data, "down") || data === "down") {
       return {
         state: { ...nav, skills: { ...skills, wizard: cycleOpenWizard(skills, 1) } },
         action: { type: "none" },
@@ -90,7 +91,7 @@ export function applyDeckInput(
         action: { type: "wizard-complete", wizard },
       };
     }
-    if (data === "left") {
+    if (matchesKey(data, "left") || data === "left") {
       return {
         state: { ...nav, skills: { ...skills, wizard: retreatWizard(wizard) } },
         action: { type: "none" },
@@ -184,7 +185,12 @@ export function applyDeckInput(
   }
 
   if (matchesKey(data, "down") || data === "down") {
-    if (nextState.route === "appearance" || nextState.route === "motion") {
+    if (nextState.route === "motion") {
+      const max = Math.max(0, searchMotions(appearance.query).length - 1);
+      appearance.selected = Math.min(max, appearance.selected + 1);
+      return { state: { ...nextState, appearance }, action: { type: "none" } };
+    }
+    if (nextState.route === "appearance") {
       const max = Math.max(0, paneOptions(appearance.pane).length - 1);
       appearance.selected = Math.min(max, appearance.selected + 1);
       return { state: { ...nextState, appearance }, action: { type: "none" } };
