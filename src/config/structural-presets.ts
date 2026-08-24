@@ -8,81 +8,20 @@
  */
 
 import type {
-  ChromeSpec,
-  DeckSpec,
-  GlyphSet,
-  MotionRef,
-  SignalSpec,
   StructuralPresetDef,
   StructuralPresetName,
-  WelcomeSpec,
-  WishcraftTokens,
 } from "./types.ts";
 import { STRUCTURAL_PRESET_NAMES } from "./types.ts";
 
 export { STRUCTURAL_PRESET_NAMES };
 import type { MotionEvent } from "../motion/types.ts";
+import type { MotionRef } from "./types.ts";
 import { defaultMotionFor } from "../motion/catalog.ts";
+import { STRUCTURAL_PRESETS } from "./structural-preset-table.ts";
 
-function tokens(partial: Partial<WishcraftTokens>): Partial<WishcraftTokens> {
-  return partial;
-}
+export { STRUCTURAL_PRESETS };
 
-function motion(
-  signature: MotionRef,
-  overrides?: Partial<Record<MotionEvent, MotionRef>>,
-): Partial<Record<MotionEvent, MotionRef>> {
-  const base: Partial<Record<MotionEvent, MotionRef>> = {
-    idle: "wisp",
-    thinking: signature,
-    streaming: signature,
-    "tool.start": signature,
-    "tool.end": "rune-bloom",
-    "idea.capture": "rune-bloom",
-    "skill.insert": "rune-bloom",
-    "policy.deny": "rune-bloom",
-    repair: signature,
-    compact: "bar",
-    success: "rune-bloom",
-    warning: "rune-bloom",
-    error: "rune-bloom",
-  };
-  return { ...base, ...overrides };
-}
-
-const ROUNDED_CHROME: ChromeSpec = {
-  frame: "rounded",
-  corners: { tl: "╭", tr: "╮", bl: "╰", br: "╯" },
-  dividers: { horizontal: "─", vertical: "│", cross: "┼" },
-  density: "medium",
-};
-
-const MINIMAL_CHROME: ChromeSpec = {
-  frame: "minimal",
-  corners: { tl: " ", tr: " ", bl: " ", br: " " },
-  dividers: { horizontal: "─", vertical: " ", cross: " " },
-  density: "spacious",
-};
-
-const BORDERLESS_CHROME: ChromeSpec = {
-  frame: "borderless",
-  corners: { tl: "", tr: "", bl: "", br: "" },
-  dividers: { horizontal: "─", vertical: " ", cross: " " },
-  density: "spacious",
-};
-
-const DEFAULT_DECK: DeckSpec = {
-  navigation: "tabs",
-  panelStyle: "framed",
-  activityStyle: "pulse",
-};
-
-const DEFAULT_WELCOME: WelcomeSpec = {
-  lantern: true,
-  ambient: true,
-};
-
-export const STRUCTURAL_PRESETS: Record<StructuralPresetName, StructuralPresetDef> = {
+const _UNUSED_PRESETS: Record<StructuralPresetName, StructuralPresetDef> = {
   lanternwake: {
     name: "lanternwake",
     displayName: "Lanternwake",
