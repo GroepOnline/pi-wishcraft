@@ -229,7 +229,34 @@ export function applyDeckInput(
     };
   }
 
-  if (nextState.route === "appearance" || nextState.route === "motion") {
+  if (nextState.route === "motion") {
+    const hits = searchMotions(appearance.query);
+    if (data === "e") {
+      appearance.composerOpen = !appearance.composerOpen;
+      return { state: { ...nextState, appearance }, action: { type: "none" } };
+    }
+    if (data === " ") {
+      appearance.playing = !appearance.playing;
+      appearance.previewTick += 1;
+      return { state: { ...nextState, appearance }, action: { type: "none" } };
+    }
+    if (data === "f") {
+      const id = hits[appearance.selected]?.id;
+      if (id) appearance.favorites = toggleFavorite(appearance.favorites, id);
+      return { state: { ...nextState, appearance }, action: { type: "none" } };
+    }
+    if (matchesKey(data, "enter") || data === "enter") {
+      const id = hits[appearance.selected]?.id;
+      if (!id) return { state: nextState, action: { type: "none" } };
+      return {
+        state: nextState,
+        action: { type: "appearance", mix: applyAppearanceSelection(mix, "motion", id) },
+      };
+    }
+    return { state: nextState, action: { type: "none" } };
+  }
+
+  if (nextState.route === "appearance") {
     if (data === "tab" || matchesKey(data, "tab")) {
       appearance.pane = nextAppearancePane(appearance.pane);
       appearance.selected = 0;
