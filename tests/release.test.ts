@@ -17,9 +17,12 @@ import {
   existingTagAction,
   extractChangelogNotes,
   parseLatestVersionTag,
+  parseReleaseCandidateBranch,
   resolveReleaseVersion,
+  rewritePackageLockVersion,
   rewriteUnreleasedHeading,
   shouldSkipRelease,
+  validateReleaseCandidateMetadata,
 } from "../scripts/release.mjs";
 
 const root = join(import.meta.dirname, "..");
@@ -108,6 +111,46 @@ test("bump handles patch, minor, major, and explicit versions", () => {
   assert.equal(bump("0.18.0", "minor"), "0.19.0");
   assert.equal(bump("0.18.0", "major"), "1.0.0");
   assert.equal(bump("0.18.0", "0.19.0"), "0.19.0");
+});
+
+test("rewritePackageLockVersion keeps root and package metadata in sync", () => {
+  const lock = JSON.stringify({
+    name: "@groeponline/pi-wishcraft",
+    version: "1.3.0",
+    packages: { "": { name: "@groeponline/pi-wishcraft", version: "1.3.0" } },
+  });
+  const rewritten = JSON.parse(rewritePackageLockVersion(lock, "1.3.1"));
+  assert.equal(rewritten.version, "1.3.1");
+  assert.equal(rewritten.packages[""].version, "1.3.1");
+});
+
+test("release candidate metadata binds version, parent and release-only files", () => {
+  const parentSha = "0123456789abcdef0123456789abcdef01234567";
+  assert.deepEqual(
+    parseReleaseCandidateBranch("release-candidate/v1.3.1-0123456789ab"),
+    { version: "1.3.1", parentPrefix: "0123456789ab" },
+  );
+  assert.equal(
+    validateReleaseCandidateMetadata({
+      branch: "release-candidate/v1.3.1-0123456789ab",
+      subject: "chore: release 1.3.1",
+      packageVersion: "1.3.1",
+      changedFiles: ["package.json", "CHANGELOG.md", "package-lock.json"],
+      changelog: "# Changelog\n\n## [Unreleased]\n\n## [1.3.1] - 2026-08-25\n",
+      parentSha,
+    }),
+    "1.3.1",
+  );
+  assert.throws(() =>
+    validateReleaseCandidateMetadata({
+      branch: "release-candidate/v1.3.1-0123456789ab",
+      subject: "chore: release 1.3.1",
+      packageVersion: "1.3.1",
+      changedFiles: ["package.json", "src/index.ts", "CHANGELOG.md", "package-lock.json"],
+      changelog: "## [1.3.1] - 2026-08-25",
+      parentSha,
+    }),
+  /Unexpected release candidate files/);
 });
 
 test("chooseBump uses feat for minor and breaking for major", () => {
@@ -313,34 +356,44 @@ test("release --dry-run auto does not write package.json", () => {
   assert.match(result.stdout, /Would release \d+\.\d+\.\d+ \((patch|minor|major)\)/);
 });
 
-test(".github/workflows/release.yml publishes via npm-publish.sh from both the bump and tag jobs", () => {
+test(".github/workflows/release.yml publishes only from a verified tag", () => {
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   const publishSteps = workflow.match(/run: sh scripts\/npm-publish\.sh/g) ?? [];
-  assert.equal(publishSteps.length, 2, "expected one publish step per job");
+  assert.equal(publishSteps.length, 1, "candidate preparation must never publish");
   assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
-  // The publish logic (fail-closed check, idempotent skip, catalog echoes)
-  // must live in the script, not be duplicated inline in the workflow.
-  assert.doesNotMatch(workflow, /NPM_TOKEN is missing/);
+  assert.doesNotMatch(workflow, /node scripts\/release\.mjs auto --push/);
 });
 
-test(".github/workflows/release.yml does not grant id-token write and configures the npm registry for both jobs", () => {
+test("release candidate preparation dispatches Verify on an immutable candidate ref", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  assert.match(workflow, /actions: write/);
+  assert.match(workflow, /VERSION="\$\(node scripts\/release\.mjs next auto\)"/);
+  assert.match(workflow, /release-candidate\/v\$\{VERSION\}-\$\{BASE_SHORT\}/);
+  assert.match(workflow, /candidate-check "\$BRANCH" "\$CANDIDATE_SHA" "\$GITHUB_SHA"/);
+  assert.match(workflow, /actions\/workflows\/test\.yml\/dispatches/);
+});
+
+test("release promotion is checkout-free and validates GitHub metadata at the privileged boundary", () => {
+  const promote = readFileSync(
+    join(root, ".github/workflows/promote-release-candidate.yml"),
+    "utf8",
+  );
+  assert.match(promote, /workflow_run:/);
+  assert.match(promote, /workflow_run\.event == 'workflow_dispatch'/);
+  assert.match(promote, /workflow_run\.actor\.login == 'github-actions\[bot\]'/);
+  assert.doesNotMatch(promote, /actions\/checkout/);
+  assert.match(promote, /repos\/\$GITHUB_REPOSITORY\/commits\/\$CANDIDATE_SHA/);
+  assert.match(promote, /EXPECTED_FILES=.*CHANGELOG\.md package-lock\.json package\.json/);
+  assert.match(promote, /git\/refs\/heads\/main/);
+  assert.match(promote, /git\/refs.*refs\/tags\/\$TAG/);
+});
+
+test("release workflows keep npm auth scoped to the tag publisher", () => {
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   assert.doesNotMatch(workflow, /id-token:\s*write/);
   const registryUrls = workflow.match(/registry-url: "https:\/\/registry\.npmjs\.org"/g) ?? [];
-  assert.equal(registryUrls.length, 2);
+  assert.equal(registryUrls.length, 1);
   assert.match(workflow, /group: npm-publish-pi-wishcraft/);
-});
-
-test(".github/workflows/release.yml tests origin/main after reset and before tagging", () => {
-  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
-  const resetIndex = workflow.indexOf("git reset --hard origin/main");
-  const testIndex = workflow.indexOf("run: npm test");
-  const tagIndex = workflow.indexOf("node scripts/release.mjs auto --push");
-  const publishIndex = workflow.indexOf("run: sh scripts/npm-publish.sh");
-  assert.ok(resetIndex > -1, "expected the bump job to reset to origin/main");
-  assert.ok(testIndex > resetIndex, "tests must run on the origin/main tree");
-  assert.ok(tagIndex > testIndex, "tag step must come after tests");
-  assert.ok(publishIndex > tagIndex, "publish step must come after the tag step");
 });
 
 test("CHANGELOG.md keeps a well-formed Unreleased section for release.mjs to rewrite", () => {
@@ -538,10 +591,10 @@ test("github-release.sh fails when the requested version does not match package.
   }
 });
 
-test(".github/workflows/release.yml creates a GitHub Release from both jobs after npm publish", () => {
+test(".github/workflows/release.yml creates a GitHub Release only after tag publication", () => {
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   const releaseSteps = workflow.match(/run: sh scripts\/github-release\.sh/g) ?? [];
-  assert.equal(releaseSteps.length, 2, "expected one GitHub Release step per job");
+  assert.equal(releaseSteps.length, 1, "candidate preparation must not create a GitHub Release");
   assert.match(workflow, /GITHUB_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
   const publishJob = workflow.slice(workflow.indexOf("name: test + publish"));
   assert.match(publishJob, /contents:\s*write/);

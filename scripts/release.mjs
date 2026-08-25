@@ -2,7 +2,7 @@
 // Zero-dep release helper. Bumps version, rolls CHANGELOG, tags.
 // Local: npm run release [patch|minor|major|auto|x.y.z]
 // CI:    node scripts/release.mjs auto --push
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -10,6 +10,7 @@ import { dirname, join, resolve } from "node:path";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const pkgPath = join(root, "package.json");
 const changelogPath = join(root, "CHANGELOG.md");
+const lockPath = join(root, "package-lock.json");
 
 export function bump(version, kind) {
   const [major, minor, patch] = version.split(".").map(Number);
@@ -113,6 +114,52 @@ export function rewriteUnreleasedHeading(changelog, next, date) {
   };
 }
 
+export function rewritePackageLockVersion(lockText, next) {
+  const lock = JSON.parse(lockText);
+  lock.version = next;
+  if (lock.packages?.[""]) lock.packages[""].version = next;
+  return JSON.stringify(lock, null, 2) + "\n";
+}
+
+export function parseReleaseCandidateBranch(branch) {
+  const match = /^release-candidate\/v(\d+\.\d+\.\d+)-([0-9a-f]{12})$/.exec(branch);
+  if (!match) return null;
+  return { version: match[1], parentPrefix: match[2] };
+}
+
+export function validateReleaseCandidateMetadata({
+  branch,
+  subject,
+  packageVersion,
+  changedFiles,
+  changelog,
+  parentSha,
+}) {
+  const parsed = parseReleaseCandidateBranch(branch);
+  if (!parsed) throw new Error(`Invalid release candidate branch: ${branch}`);
+  if (!parentSha.startsWith(parsed.parentPrefix)) {
+    throw new Error(`Candidate branch parent prefix does not match ${parentSha}.`);
+  }
+  if (subject !== `chore: release ${parsed.version}`) {
+    throw new Error(`Unexpected release candidate subject: ${subject}`);
+  }
+  if (packageVersion !== parsed.version) {
+    throw new Error(`Candidate package version ${packageVersion} != ${parsed.version}.`);
+  }
+  const actual = [...new Set(changedFiles)].sort();
+  const expected = ["CHANGELOG.md", "package-lock.json", "package.json"];
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`Unexpected release candidate files: ${actual.join(", ")}`);
+  }
+  const hasHeading = changelog
+    .split("\n")
+    .some((line) => line.startsWith(`## [${parsed.version}]`));
+  if (!hasHeading) {
+    throw new Error(`CHANGELOG is missing ${parsed.version}.`);
+  }
+  return parsed.version;
+}
+
 /** Body under `## [version]` up to the next heading. Empty when missing. */
 export function extractChangelogNotes(changelog, version) {
   if (!/^\d+\.\d+\.\d+$/.test(version)) {
@@ -167,6 +214,12 @@ function main() {
 
   pkg.version = next;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+  if (existsSync(lockPath)) {
+    writeFileSync(
+      lockPath,
+      rewritePackageLockVersion(readFileSync(lockPath, "utf8"), next),
+    );
+  }
 
   const date = new Date().toISOString().slice(0, 10);
   const changelog = readFileSync(changelogPath, "utf8");
@@ -178,7 +231,7 @@ function main() {
     console.log("No [Unreleased] section; leaving CHANGELOG as-is.");
   }
 
-  execSync("git add package.json CHANGELOG.md", { cwd: root, stdio: "inherit" });
+  execSync("git add package.json package-lock.json CHANGELOG.md", { cwd: root, stdio: "inherit" });
   execSync(`git commit -m "chore: release ${next}"`, { cwd: root, stdio: "inherit" });
   execSync(`git tag -a ${tag} -m "Release ${next}"`, { cwd: root, stdio: "inherit" });
 
@@ -207,6 +260,40 @@ if (invokedAsCli) {
       if (!version) throw new Error("usage: node scripts/release.mjs notes <version>");
       const changelog = readFileSync(changelogPath, "utf8");
       process.stdout.write(extractChangelogNotes(changelog, version) + "\n");
+    } else if (process.argv[2] === "next") {
+      const kindArg = process.argv[3] ?? "auto";
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+      const tagBase = lastReleaseTag();
+      const { next } = resolveReleaseVersion(
+        pkg.version,
+        kindArg,
+        commitSubjectsSince(tagBase),
+      );
+      process.stdout.write(next + "\n");
+    } else if (process.argv[2] === "candidate-check") {
+      const branch = process.argv[3];
+      const sha = process.argv[4];
+      const parentSha = process.argv[5];
+      if (!branch || !sha || !parentSha) {
+        throw new Error("usage: node scripts/release.mjs candidate-check <branch> <sha> <parent-sha>");
+      }
+      if (!/^[0-9a-f]{40}$/.test(sha) || !/^[0-9a-f]{40}$/.test(parentSha)) {
+        throw new Error("candidate-check requires full commit SHAs");
+      }
+      const actualParent = git(`git rev-parse ${sha}^`);
+      if (actualParent !== parentSha) {
+        throw new Error(`Candidate parent ${actualParent} != expected ${parentSha}.`);
+      }
+      const subject = git(`git show -s --format=%s ${sha}`);
+      const packageVersion = JSON.parse(git(`git show ${sha}:package.json`)).version;
+      const changedFiles = git(`git diff-tree --no-commit-id --name-only -r ${sha}`)
+        .split("\n")
+        .filter(Boolean);
+      const changelog = git(`git show ${sha}:CHANGELOG.md`);
+      const version = validateReleaseCandidateMetadata({
+        branch, subject, packageVersion, changedFiles, changelog, parentSha,
+      });
+      process.stdout.write(version + "\n");
     } else {
       main();
     }
