@@ -27,7 +27,7 @@ test("theme token compatibility bridge uses the canonical config mapping", () =>
   assert.equal(compatibility.separator, tokens.motionDim);
 });
 
-test("Deck render hot path does not run static discovery", () => {
+test("Deck render hot path does not run static discovery or token-budget disk reads", () => {
   const component = readFileSync(
     join(root, "src/extension/ui/deck/component.ts"),
     "utf8",
@@ -47,6 +47,7 @@ test("Deck render hot path does not run static discovery", () => {
   );
   assert.match(snapshots, /export function buildDeckStaticSnapshot/);
   assert.match(snapshots, /staticSnapshot: DeckStaticSnapshot/);
+  assert.match(snapshots, /includeTokenBudget: false/);
 });
 
 test("terminal Signal one-shots settle back to idle without a second timer", () => {
