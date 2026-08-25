@@ -6,7 +6,6 @@
  * ---------------------------------------------------------------------------
  */
 
-import { visibleWidth } from "@earendil-works/pi-tui";
 import type { PresetDef, SegmentContext } from "../../config/types.ts";
 import { renderSegmentWithWidth } from "./layout.ts";
 import { getSeparator } from "../../theme/separators.ts";
