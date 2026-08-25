@@ -120,10 +120,16 @@ export function installFooterStatusRepaintHook(
   };
 }
 
+export interface BuildSegmentContextOptions {
+  /** Skip filesystem-backed token-budget reads for lightweight UI snapshots. */
+  includeTokenBudget?: boolean;
+}
+
 export function buildSegmentContext(
   rt: RuntimeState,
   ctx: any,
   theme: Theme,
+  options: BuildSegmentContextOptions = {},
 ): SegmentContext {
   const presetDef = getPreset(config.preset);
   const colors: ColorScheme = liveColorScheme(
@@ -234,17 +240,20 @@ export function buildSegmentContext(
     effectiveCustomItems,
     options: segmentOptions,
     segmentLabels: new Map(Object.entries(config.segmentLabels)),
-    tokenBudget: (() => {
-      const dailyLimit = parseTokenBudget(
-        readSettings(ctx.cwd ?? process.cwd()).wishcraft,
-      ).daily;
-      const now = Date.now();
-      const todayStart = Date.parse(`${dayKey(now)}T00:00:00`);
-      const dailyUsed = tokenTotal(
-        totalsForRange(loadUsageFileFromDisk(), todayStart, now + 1),
-      );
-      return { dailyLimit, dailyUsed };
-    })(),
+    tokenBudget:
+      options.includeTokenBudget === false
+        ? undefined
+        : (() => {
+            const dailyLimit = parseTokenBudget(
+              readSettings(ctx.cwd ?? process.cwd()).wishcraft,
+            ).daily;
+            const now = Date.now();
+            const todayStart = Date.parse(`${dayKey(now)}T00:00:00`);
+            const dailyUsed = tokenTotal(
+              totalsForRange(loadUsageFileFromDisk(), todayStart, now + 1),
+            );
+            return { dailyLimit, dailyUsed };
+          })(),
     theme,
     colors,
   };
