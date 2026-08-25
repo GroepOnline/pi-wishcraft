@@ -15,6 +15,8 @@ import { getDefaultColors } from "../../theme/theme.ts";
 import { getGitStatus } from "../../git/status.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { getUsageTokenTotal } from "../../usage/ledger.ts";
+import { tokenBudgetSnapshotForDay } from "../../usage/token-budget.ts";
+import { dayKey } from "../../usage/usage-store.ts";
 import {
   CUSTOM_COMPACTION_STATUS_KEY,
   EDITOR_STATUS_DEFER_MS,
@@ -203,6 +205,10 @@ export function buildSegmentContext(
     getQueueContext(ctx),
     rt.powerlineCompacting,
   );
+  const budgetSnapshot = tokenBudgetSnapshotForDay(
+    rt.tokenBudgetSnapshot,
+    dayKey(Date.now()),
+  );
 
   return {
     model: ctx.model,
@@ -233,7 +239,12 @@ export function buildSegmentContext(
     options: segmentOptions,
     segmentLabels: new Map(Object.entries(config.segmentLabels)),
     tokenBudget:
-      options.includeTokenBudget === false ? undefined : rt.tokenBudgetSnapshot,
+      options.includeTokenBudget === false
+        ? undefined
+        : {
+            dailyLimit: budgetSnapshot.dailyLimit,
+            dailyUsed: budgetSnapshot.dailyUsed,
+          },
     theme,
     colors,
   };
