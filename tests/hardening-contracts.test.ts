@@ -58,13 +58,17 @@ test("status segment context consumes cached token budget without filesystem rea
   assert.doesNotMatch(source, /readSettings/);
   assert.doesNotMatch(source, /loadUsageFileFromDisk/);
   assert.match(source, /rt\.tokenBudgetSnapshot/);
+  assert.match(source, /tokenBudgetSnapshotForDay/);
 
-  const lifecycle = readFileSync(
-    join(root, "src/extension/session/session-lifecycle.ts"),
+  const notifications = readFileSync(
+    join(root, "src/extension/session/session-notifications.ts"),
     "utf8",
   );
-  assert.match(lifecycle, /refreshTokenBudgetSnapshot/);
-  assert.match(lifecycle, /rt\.tokenBudgetSnapshot = \{ dailyLimit: daily, dailyUsed: used \}/);
+  assert.match(notifications, /export function refreshTokenBudgetSnapshot/);
+  assert.match(
+    notifications,
+    /rt\.tokenBudgetSnapshot = \{ day, dailyLimit: daily, dailyUsed: used \}/,
+  );
 });
 
 test("terminal Signal one-shots settle back to idle without a second timer", () => {
