@@ -28,7 +28,18 @@ export interface DeckRouteDef {
   description: string;
 }
 
-export interface DeckSessionSnapshot {
+/** Expensive discovery/config data cached outside the render hot path. */
+export interface DeckStaticSnapshot {
+  skillsTotal: number;
+  skillsWarnings: number;
+  policyEnabled: boolean;
+  policyRuleCount: number;
+  skills: DeckSkillRow[];
+  guardrailRules: DeckGuardrailRow[];
+}
+
+/** Cheap session/runtime data that may be rebuilt for each paint. */
+export interface DeckSessionSnapshot extends DeckStaticSnapshot {
   modelLabel: string;
   branchLabel: string;
   contextPercent: number;
@@ -38,10 +49,6 @@ export interface DeckSessionSnapshot {
   signalMotion: string;
   queueCount: number;
   ideaCount: number;
-  skillsTotal: number;
-  skillsWarnings: number;
-  policyEnabled: boolean;
-  policyRuleCount: number;
   shellName: string | null;
   bashModeActive: boolean;
   appearanceBase: string;
@@ -49,9 +56,7 @@ export interface DeckSessionSnapshot {
   nextIntent: string | null;
   motionLevel: string;
   policySummary: string;
-  skills: DeckSkillRow[];
   ideas: DeckIdeaRow[];
-  guardrailRules: DeckGuardrailRow[];
 }
 
 export interface DeckSkillRow {
