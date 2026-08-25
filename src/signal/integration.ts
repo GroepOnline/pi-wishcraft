@@ -18,6 +18,7 @@ export function dispatchSignalEvent(
     activity,
     motionId: resolved.motion[event] ?? resolved.signal.animation,
     maxTicks: isFiniteEvent(event) ? 6 : undefined,
+    settleOnDone: isTerminalEvent(event),
   });
   rt.lastLayoutResult = null;
   rt.tuiRef?.requestRender();
@@ -35,8 +36,10 @@ function isFiniteEvent(event: MotionEvent): boolean {
     event === "idea.capture" ||
     event === "skill.insert" ||
     event === "policy.deny" ||
-    event === "success" ||
-    event === "warning" ||
-    event === "error"
+    isTerminalEvent(event)
   );
+}
+
+function isTerminalEvent(event: MotionEvent): boolean {
+  return event === "success" || event === "warning" || event === "error";
 }
