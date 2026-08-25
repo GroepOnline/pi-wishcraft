@@ -79,7 +79,7 @@ jobs:
         run: sh scripts/github-release.sh
 
   publish:
-    name: publish verified tag
+    name: test + publish
     needs: verify
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
