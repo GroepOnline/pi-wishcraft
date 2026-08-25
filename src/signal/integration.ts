@@ -17,6 +17,7 @@ export function dispatchSignalEvent(
   setSignalEvent(rt.signal, rt.motionScheduler, rt.motionPolicy, event, {
     activity,
     motionId: resolved.motion[event] ?? resolved.signal.animation,
+    settleMotionId: resolved.motion.idle,
     maxTicks: isFiniteEvent(event) ? 6 : undefined,
     settleOnDone: isTerminalEvent(event),
   });
