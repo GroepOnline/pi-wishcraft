@@ -15,14 +15,8 @@ import { getDefaultColors } from "../../theme/theme.ts";
 import { getGitStatus } from "../../git/status.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { getUsageTokenTotal } from "../../usage/ledger.ts";
-import {
-  dayKey,
-  loadUsageFileFromDisk,
-  tokenTotal,
-  totalsForRange,
-} from "../../usage/usage-store.ts";
-import { parseTokenBudget } from "../../usage/token-budget.ts";
-import { readSettings } from "../settings/settings-io.ts";
+import { tokenBudgetSnapshotForDay } from "../../usage/token-budget.ts";
+import { dayKey } from "../../usage/usage-store.ts";
 import {
   CUSTOM_COMPACTION_STATUS_KEY,
   EDITOR_STATUS_DEFER_MS,
@@ -120,10 +114,16 @@ export function installFooterStatusRepaintHook(
   };
 }
 
+export interface BuildSegmentContextOptions {
+  /** Omit token-budget data from lightweight UI snapshots. */
+  includeTokenBudget?: boolean;
+}
+
 export function buildSegmentContext(
   rt: RuntimeState,
   ctx: any,
   theme: Theme,
+  options: BuildSegmentContextOptions = {},
 ): SegmentContext {
   const presetDef = getPreset(config.preset);
   const colors: ColorScheme = liveColorScheme(
@@ -205,6 +205,10 @@ export function buildSegmentContext(
     getQueueContext(ctx),
     rt.powerlineCompacting,
   );
+  const budgetSnapshot = tokenBudgetSnapshotForDay(
+    rt.tokenBudgetSnapshot,
+    dayKey(Date.now()),
+  );
 
   return {
     model: ctx.model,
@@ -234,17 +238,13 @@ export function buildSegmentContext(
     effectiveCustomItems,
     options: segmentOptions,
     segmentLabels: new Map(Object.entries(config.segmentLabels)),
-    tokenBudget: (() => {
-      const dailyLimit = parseTokenBudget(
-        readSettings(ctx.cwd ?? process.cwd()).wishcraft,
-      ).daily;
-      const now = Date.now();
-      const todayStart = Date.parse(`${dayKey(now)}T00:00:00`);
-      const dailyUsed = tokenTotal(
-        totalsForRange(loadUsageFileFromDisk(), todayStart, now + 1),
-      );
-      return { dailyLimit, dailyUsed };
-    })(),
+    tokenBudget:
+      options.includeTokenBudget === false
+        ? undefined
+        : {
+            dailyLimit: budgetSnapshot.dailyLimit,
+            dailyUsed: budgetSnapshot.dailyUsed,
+          },
     theme,
     colors,
   };

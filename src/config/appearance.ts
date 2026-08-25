@@ -62,7 +62,6 @@ export function resolveAppearanceMix(
   config: AppearanceMixConfig = {},
 ): ResolvedAppearance {
   const baseName = config.base ?? "lanternwake";
-  const base = getStructuralPreset(baseName);
 
   const paletteName = layerPreset(config, "palette", baseName);
   const signalName = layerPreset(config, "signalLayout", baseName);

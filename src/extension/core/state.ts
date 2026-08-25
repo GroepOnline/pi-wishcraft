@@ -117,6 +117,7 @@ export function createRuntimeState(
     currentEditor: null,
     costAlertNotified: false,
     tokenBudgetNotifiedLevel: 0,
+    tokenBudgetSnapshot: { day: "", dailyLimit: null, dailyUsed: 0 },
     bashModeActive: false,
     bashTranscript: new BashTranscriptStore(bashModeSettings),
     bashCompletionEngine: new BashCompletionEngine(),

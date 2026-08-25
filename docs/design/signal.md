@@ -1,68 +1,71 @@
-# Signal — The Animated Powerline Specification
+# Signal — Animated status contract
 
 ## Overview
 
-**Signal** is Wishcraft's animated powerline. While previous terminal footers were static rows of plain text, Signal turns status into an informative, living track.
+Signal is Wishcraft's status renderer for stock Pi. `/signal` is primary; `/powerline` remains a compatibility alias. No-args toggles the surface, `/signal menu` opens Navigate / Configure / Status, and `/signal <preset>` changes the information preset.
 
-- **Primary Command**: `/signal` (opens the Signal configuration deck or toggles view modes).
-- **Compatibility Alias**: `/powerline` (retained for backward compatibility).
+Signal divides status into three lanes:
 
----
-
-## 3-Lane Architecture
-
-Signal divides status information into three distinct, customizable lanes:
-
-```
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│ LEFT LANE                    CENTER LANE                    RIGHT LANE           │
-│ Model · Git Status           Live Activity & Tools          Context · Queue      │
-├──────────────────────────────┼──────────────────────────────┼────────────────────┤
-│ ◆ GPT-5.6 ╾━━━━ main ━━━━    │ ╾✦╼━━━━ read_file ━━━━━━━    │ ctx █████░ 47%     │
-└──────────────────────────────┴──────────────────────────────┴────────────────────┘
+```text
+LEFT / IDENTITY            CENTER / ACTIVITY            RIGHT / CONTEXT
+model · git · workspace    lifecycle · tool · motion    context · queue
 ```
 
-1. **Left Lane (Identity & Workspace)**
-   - Active Model badge (with provider color accent)
-   - Git branch and repository clean/dirty status
-   - Workspace directory (truncated gracefully on compact displays)
+A typical frame:
 
-2. **Center Lane (Live Activity & Motion)**
-   - Current agent state (Thinking, Streaming, Tool Execution)
-   - Active tool call indicator (`read_file`, `grep`, `execute_command`)
-   - Traveling motion pulse representing data throughput
-
-3. **Right Lane (Metrics & Session)**
-   - Context window progress bar and percentage
-   - Queued user/agent instructions count
-   - Session cost / token consumption (if enabled)
-
----
-
-## Live Motion Sweeps
-
-Signal animates only when actual work is being processed. The track reflects execution states through traveling pulses:
-
-### Token Streaming Wave
-```
-t0:  ◆ GPT-5.6 ╾▓▒░━━━━ main ━━━━━━━━━ read ━━━━━━━━━ ctx 47%
-t1:  ◆ GPT-5.6 ━╾▓▒░━━━ main ━━━━━━━━━ read ━━━━━━━━━ ctx 47%
-t2:  ◆ GPT-5.6 ━━━╾▓▒░━ main ━━━━━━━━━ read ━━━━━━━━━ ctx 47%
-t3:  ◆ GPT-5.6 ━━━━━━━━ main ╾▓▒░━━━━━ read ━━━━━━━━━ ctx 47%
+```text
+◆ GPT-5.6  main       ╾✦╼ read_file       ctx █████░ 47% · q1
 ```
 
-### Tool Execution Traveling Pulse
+## Renderer contract
+
+**Signal is the universal status-line renderer.** This is intentional, including for the legacy layout preset names (`default`, `minimal`, `compact`, `full`, `nerd`, `ascii`, `chef`). There is no second legacy renderer hidden behind those names.
+
+Compatibility is preserved at the data/config layer:
+
+- legacy presets still define their existing segment selection, layout options, separators, and explicit colors;
+- with no structural appearance layer selected, legacy preset colors remain exact;
+- structural preset names (`lanternwake` … `crucible`) opt into the vNext appearance personality and semantic-token palette;
+- `powerline.appearance.*` may mix palette, Signal grammar, chrome, glyphs, deck, welcome, and motion independently.
+
+In other words: **one renderer, two compatible preset contracts**. A future change that restores a second renderer or silently remaps legacy colors is a breaking change and requires explicit migration tests.
+
+## Three lanes
+
+1. **Identity / workspace** — model, Git state, path/workspace identity.
+2. **Activity** — thinking, streaming, tool execution, compacting and one-shot outcomes.
+3. **Context / queue** — context usage and queued/parked work.
+
+Width pressure is resolved inside Signal; lanes may compact or omit optional detail, but their semantic order stays identity → activity → context.
+
+## Motion lifecycle
+
+Signal owns no timer. It leases the shared MotionScheduler only while a motion channel needs frames.
+
+```text
+idle / ready       0 FPS
+      │
+      ├─ thinking / streaming / tool.start / compact  → active state
+      │
+      └─ success | warning | error                    → finite burst
+                                                        ↓
+                                                     idle / ready
+                                                     0 FPS
 ```
-t0:  read ━━━╾✦╼━━━ grep ━━━━━━━━━ edit ━━━━━━━━━
-t1:  read ✓ ━━━━━━━ grep ━━━╾✦╼━━━ edit ━━━━━━━━━
-t2:  read ✓ ━━━━━━━ grep ✓ ━━━━━━━ edit ━━━╾✦╼━━━
-```
 
----
+Terminal one-shots (`success`, `warning`, `error`) settle their semantic state back to `idle/ready` when the final frame completes. This prevents a completed agent run from leaving `done` painted indefinitely without keeping a background timer alive.
 
-## Fault Isolation & Error Boundaries
+Reduced/functional/off motion policies may suppress frames entirely; status text must still communicate the state. `NO_COLOR`, screen-reader flags and ASCII fallback are first-class inputs to the same policy.
 
-Signal builds on Pi-Wishcraft's existing segment architecture:
-- Every segment executes in an isolated `try/catch` wrapper.
-- If an individual segment fails (e.g. git command timeout or unexpected API response), it degrades gracefully to a silent fallback or a compact warning glyph without crashing the surrounding status line.
-- Segment separators adjust dynamically when neighboring segments are hidden or empty.
+## Fault isolation
+
+Signal builds on Wishcraft's segment isolation:
+
+- a failing custom segment is isolated instead of blanking the full status surface;
+- cached Git/session state is preferred during transient refreshes;
+- separators collapse around hidden/empty segments;
+- rendering must not perform unrelated discovery work such as the Deck skill doctor.
+
+## Performance invariant
+
+Idle is 0 FPS. Continuous animation uses the shared coalescing scheduler. Expensive filesystem-backed discovery belongs outside paint/render paths; status rendering consumes already-resolved/cached state.

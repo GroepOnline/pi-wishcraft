@@ -12,6 +12,12 @@ export interface TokenBudgetLevel {
   level: 0 | 80 | 100;
 }
 
+export interface TokenBudgetSnapshot {
+  day: string;
+  dailyLimit: number | null;
+  dailyUsed: number;
+}
+
 export function parseTokenBudget(wishcraftSettings: unknown): TokenBudget {
   if (!wishcraftSettings || typeof wishcraftSettings !== "object") {
     return { daily: null };
@@ -34,6 +40,23 @@ export function tokenBudgetLevel(used: number, daily: number | null): TokenBudge
   if (ratio >= 1) return { ratio, level: 100 };
   if (ratio >= 0.8) return { ratio, level: 80 };
   return { ratio, level: 0 };
+}
+
+/**
+ * Return the budget visible for a local day. A long-lived session that crosses
+ * midnight must never carry yesterday's usage into the new day; the next
+ * lifecycle refresh will repopulate usage from disk after a new usage event.
+ */
+export function tokenBudgetSnapshotForDay(
+  snapshot: TokenBudgetSnapshot,
+  day: string,
+): TokenBudgetSnapshot {
+  if (snapshot.day === day) return snapshot;
+  return {
+    day,
+    dailyLimit: snapshot.dailyLimit,
+    dailyUsed: 0,
+  };
 }
 
 export function formatTokenBudgetWarning(

@@ -39,8 +39,12 @@ export function createSignalRuntime(now = Date.now()): SignalRuntime {
 export interface SetSignalEventOptions {
   activity?: string;
   motionId?: string;
+  /** Motion to restore when a terminal one-shot settles back to semantic idle. */
+  settleMotionId?: string;
   /** Finite events stop after this many frames. */
   maxTicks?: number;
+  /** Terminal one-shots return to semantic idle when their final frame completes. */
+  settleOnDone?: boolean;
 }
 
 export function setSignalEvent(
@@ -79,6 +83,14 @@ export function setSignalEvent(
     onDone() {
       runtime.release = null;
       if (options.maxTicks !== undefined) runtime.active = false;
+      if (options.settleOnDone) {
+        runtime.event = "idle";
+        runtime.motionId = options.settleMotionId ?? defaultMotionFor("idle");
+        runtime.tick = 0;
+        runtime.startedAt = Date.now();
+        runtime.activity = "ready";
+        runtime.active = false;
+      }
     },
   });
 }
