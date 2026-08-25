@@ -112,18 +112,37 @@ function maybeNotifyCostAlert(rt: RuntimeState, ctx: any): void {
   );
 }
 
-function maybeNotifyTokenBudget(rt: RuntimeState, ctx: any): void {
-  if (!ctx?.hasUI) return;
-  const daily = parseTokenBudget(readSettings(ctx.cwd ?? process.cwd()).wishcraft)
-    .daily;
-  if (!daily) return;
+/** Refresh disk-backed budget data at lifecycle boundaries, never during paint. */
+function refreshTokenBudgetSnapshot(
+  rt: RuntimeState,
+  ctx: any,
+  settings?: ReturnType<typeof readSettings>,
+) {
+  const resolvedSettings = settings ?? readSettings(ctx.cwd ?? process.cwd());
+  const daily = parseTokenBudget(resolvedSettings.wishcraft).daily;
+  if (!daily) {
+    rt.tokenBudgetSnapshot = { dailyLimit: null, dailyUsed: 0 };
+    return { daily: null, used: 0, level: 0 as const };
+  }
+
   const now = Date.now();
   const todayStart = Date.parse(`${dayKey(now)}T00:00:00`);
   const used = tokenTotal(
     totalsForRange(loadUsageFileFromDisk(), todayStart, now + 1),
   );
+  rt.tokenBudgetSnapshot = { dailyLimit: daily, dailyUsed: used };
   const { level } = tokenBudgetLevel(used, daily);
-  if (level === 0 || level <= rt.tokenBudgetNotifiedLevel) return;
+  return { daily, used, level };
+}
+
+function maybeNotifyTokenBudget(
+  rt: RuntimeState,
+  ctx: any,
+  settings?: ReturnType<typeof readSettings>,
+): void {
+  if (!ctx?.hasUI) return;
+  const { daily, used, level } = refreshTokenBudgetSnapshot(rt, ctx, settings);
+  if (!daily || level === 0 || level <= rt.tokenBudgetNotifiedLevel) return;
   rt.tokenBudgetNotifiedLevel = level;
   ctx.ui.notify(formatTokenBudgetWarning(used, daily, level), "warning");
 }
@@ -180,6 +199,7 @@ export function registerSessionLifecycle(
     rt.liveAssistantUsage = null;
     rt.costAlertNotified = false;
     rt.tokenBudgetNotifiedLevel = 0;
+    rt.tokenBudgetSnapshot = { dailyLimit: null, dailyUsed: 0 };
     rt.powerlineCompacting = false;
     rt.deliverAfterRetrySettles = false;
     rt.stashedEditorText = null;
@@ -232,7 +252,7 @@ export function registerSessionLifecycle(
       } else {
         dismissWelcome(rt, ctx);
       }
-      maybeNotifyTokenBudget(rt, ctx);
+      maybeNotifyTokenBudget(rt, ctx, settings);
     }
   });
 
@@ -264,6 +284,7 @@ export function registerSessionLifecycle(
     rt.getThinkingLevelFn = null;
     rt.currentThinkingLevel = null;
     rt.liveAssistantUsage = null;
+    rt.tokenBudgetSnapshot = { dailyLimit: null, dailyUsed: 0 };
     rt.tuiRef = null;
     rt.currentEditor = null;
     resetLayoutCache(rt);
