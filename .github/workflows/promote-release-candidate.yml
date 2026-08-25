@@ -1,0 +1,102 @@
+name: Promote Release Candidate
+
+on:
+  workflow_run:
+    workflows: ["Verify"]
+    types: [completed]
+
+concurrency:
+  group: release-promote-pi-wishcraft
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: >-
+      github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'workflow_dispatch'
+      && github.event.workflow_run.actor.login == 'github-actions[bot]'
+      && startsWith(github.event.workflow_run.head_branch, 'release-candidate/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Validate candidate from GitHub metadata only
+        id: candidate
+        run: |
+          set -euo pipefail
+          case "$BRANCH" in
+            release-candidate/v[0-9]*.[0-9]*.[0-9]*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+            *) echo "Invalid candidate branch: $BRANCH" >&2; exit 1 ;;
+          esac
+          VERSION="${BRANCH#release-candidate/v}"
+          VERSION="${VERSION%-????????????}"
+          PARENT_PREFIX="${BRANCH##*-}"
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          REMOTE_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" --jq '.object.sha' 2>/dev/null || true)"
+          if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$CANDIDATE_SHA" ]; then
+            echo "Candidate branch moved after Verify; refusing promotion." >&2
+            exit 1
+          fi
+          COMMIT="$(gh api "repos/$GITHUB_REPOSITORY/commits/$CANDIDATE_SHA")"
+          PARENT_SHA="$(printf '%s' "$COMMIT" | jq -r '.parents[0].sha')"
+          SUBJECT="$(printf '%s' "$COMMIT" | jq -r '.commit.message | split("\n")[0]')"
+          FILES="$(printf '%s' "$COMMIT" | jq -r '[.files[].filename] | sort | join("\n")')"
+          if [ "$MAIN_SHA" = "$CANDIDATE_SHA" ]; then
+            STATE="already-promoted"
+          elif [ "$PARENT_SHA" = "$MAIN_SHA" ]; then
+            [ -n "$REMOTE_SHA" ] || { echo "Candidate ref disappeared." >&2; exit 1; }
+            STATE="ready"
+          else
+            STATE="stale"
+          fi
+          if [ "$STATE" != "stale" ]; then
+            [ "${PARENT_SHA:0:12}" = "$PARENT_PREFIX" ] || { echo "Parent prefix mismatch." >&2; exit 1; }
+            [ "$SUBJECT" = "chore: release $VERSION" ] || { echo "Unexpected subject: $SUBJECT" >&2; exit 1; }
+            EXPECTED_FILES="$(printf '%s\n' CHANGELOG.md package-lock.json package.json | sort)"
+            [ "$FILES" = "$EXPECTED_FILES" ] || { echo "Unexpected candidate files:" >&2; printf '%s\n' "$FILES" >&2; exit 1; }
+            PACKAGE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/contents/package.json?ref=$CANDIDATE_SHA" --jq '.content' | base64 -d)"
+            PACKAGE_LOCK="$(gh api "repos/$GITHUB_REPOSITORY/contents/package-lock.json?ref=$CANDIDATE_SHA" --jq '.content' | base64 -d)"
+            CHANGELOG="$(gh api "repos/$GITHUB_REPOSITORY/contents/CHANGELOG.md?ref=$CANDIDATE_SHA" --jq '.content' | base64 -d)"
+            PACKAGE_VERSION="$(printf '%s' "$PACKAGE_JSON" | jq -r '.version')"
+            LOCK_VERSION="$(printf '%s' "$PACKAGE_LOCK" | jq -r '.version')"
+            LOCK_ROOT_VERSION="$(printf '%s' "$PACKAGE_LOCK" | jq -r '.packages[""].version')"
+            [ "$PACKAGE_VERSION" = "$VERSION" ] || { echo "package.json version mismatch." >&2; exit 1; }
+            [ "$LOCK_VERSION" = "$VERSION" ] || { echo "package-lock root version mismatch." >&2; exit 1; }
+            [ "$LOCK_ROOT_VERSION" = "$VERSION" ] || { echo "package-lock package version mismatch." >&2; exit 1; }
+            printf '%s\n' "$CHANGELOG" | grep -Fqx "## [$VERSION] - $(date -u +%F)" || {
+              echo "CHANGELOG release heading missing." >&2; exit 1;
+            }
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
+      - name: Drop stale candidate
+        if: steps.candidate.outputs.state == 'stale'
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" || true
+      - name: Promote exact verified SHA and tag
+        if: steps.candidate.outputs.state != 'stale'
+        env:
+          VERSION: ${{ steps.candidate.outputs.version }}
+          STATE: ${{ steps.candidate.outputs.state }}
+        run: |
+          set -euo pipefail
+          if [ "$STATE" = "ready" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$CANDIDATE_SHA" -F force=false >/dev/null
+          fi
+          TAG="v$VERSION"
+          TAG_JSON="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null || true)"
+          if [ -n "$TAG_JSON" ]; then
+            TAG_TYPE="$(printf '%s' "$TAG_JSON" | jq -r '.object.type')"
+            TAG_SHA="$(printf '%s' "$TAG_JSON" | jq -r '.object.sha')"
+            if [ "$TAG_TYPE" = "tag" ]; then
+              TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$TAG_SHA" --jq '.object.sha')"
+            fi
+            [ "$TAG_SHA" = "$CANDIDATE_SHA" ] || { echo "Tag $TAG points elsewhere." >&2; exit 1; }
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$CANDIDATE_SHA" >/dev/null
+          fi
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" || true

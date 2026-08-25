@@ -120,11 +120,17 @@ test("release is blocked on the same reusable Verify contract as pull requests",
   const release = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   assert.match(release, /uses: \.\/\.github\/workflows\/test\.yml/);
   const verifyDependencies = release.match(/needs: verify/g) ?? [];
-  assert.equal(verifyDependencies.length, 2, "both publish paths must need verify");
-  assert.match(release, /git reset --hard origin\/main/);
-  const resetIndex = release.indexOf("git reset --hard origin/main");
-  const postSyncTestIndex = release.indexOf("run: npm test", resetIndex);
-  const tagIndex = release.indexOf("node scripts/release.mjs auto --push");
-  assert.ok(postSyncTestIndex > resetIndex, "synchronized main must be retested");
-  assert.ok(tagIndex > postSyncTestIndex, "tagging must follow post-sync verification");
+  assert.equal(verifyDependencies.length, 2, "candidate prep and tag publish must need verify");
+  assert.match(release, /git rev-parse origin\/main/);
+  assert.match(release, /actions\/workflows\/test\.yml\/dispatches/);
+
+  const promote = readFileSync(
+    join(root, ".github/workflows/promote-release-candidate.yml"),
+    "utf8",
+  );
+  assert.match(promote, /workflow_run\.conclusion == 'success'/);
+  assert.doesNotMatch(promote, /actions\/checkout/);
+  assert.match(promote, /commits\/\$CANDIDATE_SHA/);
+  assert.match(promote, /git\/refs\/heads\/main/);
+  assert.match(promote, /refs\/tags\/\$TAG/);
 });
