@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-08-25
+
 ### Fixed
 - Make protected-main releases promote only an exact bot-generated candidate SHA after its own canonical `Verify` check succeeds.
 - Keep `package-lock.json` version metadata synchronized with release commits and resolve the dev-only `nanoid` advisory at 3.3.18.
