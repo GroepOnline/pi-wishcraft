@@ -68,6 +68,8 @@ export interface RuntimeState {
   costAlertNotified: boolean;
   /** Highest daily-budget warning already shown this session (0 / 80 / 100). */
   tokenBudgetNotifiedLevel: 0 | 80 | 100;
+  /** Event-driven token-budget snapshot consumed by render paths without disk I/O. */
+  tokenBudgetSnapshot: { dailyLimit: number | null; dailyUsed: number };
   bashModeActive: boolean;
   bashTranscript: BashTranscriptStore;
   bashCompletionEngine: BashCompletionEngine;
