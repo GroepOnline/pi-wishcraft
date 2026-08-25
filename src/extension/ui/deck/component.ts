@@ -59,6 +59,7 @@ export function createDeckNavState(
     assignEvent: "streaming",
     skillCreate: false,
     skillCreateName: "",
+    navMode: false,
   };
 }
 
@@ -155,7 +156,7 @@ export function createDeckComponent(
 
       if (state.pendingJump === "g" && data.length === 1 && isOverlayPrintable(data)) {
         const route = deckRouteByJump(data);
-        state = { ...state, pendingJump: null };
+        state = { ...state, pendingJump: null, navMode: false };
         if (route) setRoute(route);
         return;
       }
@@ -167,8 +168,27 @@ export function createDeckComponent(
         return;
       }
 
+      // ←/tab returns focus to the NAVIGATION column in one press; from there
+      // ↑↓ moves the nav selection and any other key drops back into the list.
+      if (
+        !state.composerOpen &&
+        !state.skillCreate &&
+        (matchesKey(data, "left") || matchesKey(data, "tab"))
+      ) {
+        state = { ...state, navMode: true };
+        return;
+      }
+      if (state.navMode) {
+        if (matchesKey(data, "up") || matchesKey(data, "down")) {
+          // fall through to the nav handlers at the bottom
+        } else {
+          state = { ...state, navMode: false };
+          return;
+        }
+      }
+
       if (state.route === "appearance") {
-        if (handleList(data, "selectedAppearance", STRUCTURAL_PRESET_NAMES.length)) return;
+        if (!state.navMode && handleList(data, "selectedAppearance", STRUCTURAL_PRESET_NAMES.length)) return;
         if (matchesKey(data, "enter")) {
           const name = STRUCTURAL_PRESET_NAMES[state.selectedAppearance];
           if (name) {
@@ -182,7 +202,7 @@ export function createDeckComponent(
 
       if (state.route === "motion") {
         const count = filterMotions(state.searchQuery).length;
-        if (handleList(data, "selectedMotion", count)) return;
+        if (!state.navMode && handleList(data, "selectedMotion", count)) return;
         if (data === "t") {
           state = { ...state, assignEvent: cycleAssignEvent(state.assignEvent) };
           return;
@@ -248,7 +268,7 @@ export function createDeckComponent(
         }
         const snapshot = liveSnapshot();
         const rows = filterSkillRows(snapshot.skills, state.searchQuery);
-        if (handleList(data, "selectedSkill", rows.length)) return;
+        if (!state.navMode && handleList(data, "selectedSkill", rows.length)) return;
         if (matchesKey(data, "enter")) {
           const selected = rows[state.selectedSkill];
           if (!selected) return;
@@ -266,7 +286,7 @@ export function createDeckComponent(
       }
 
       if (state.route === "ideas") {
-        if (handleList(data, "selectedIdea", liveSnapshot().ideas.length)) return;
+        if (!state.navMode && handleList(data, "selectedIdea", liveSnapshot().ideas.length)) return;
       }
 
       if (matchesKey(data, "up")) {
@@ -311,7 +331,7 @@ export function createDeckComponent(
       if (state.route !== "motion" && state.route !== "skills") {
         const matches = filterDeckRoutes(next);
         if (matches.length === 1) {
-          state = { ...state, searchOpen: false, searchQuery: "" };
+          state = { ...state, searchOpen: false, searchQuery: "", navMode: false };
           setRoute(matches[0]!);
         }
       }
@@ -324,7 +344,7 @@ export function createDeckComponent(
       }
       const matches = filterDeckRoutes(state.searchQuery);
       if (matches[0]) {
-        state = { ...state, searchOpen: false, searchQuery: "" };
+        state = { ...state, searchOpen: false, searchQuery: "", navMode: false };
         setRoute(matches[0]);
       }
     }

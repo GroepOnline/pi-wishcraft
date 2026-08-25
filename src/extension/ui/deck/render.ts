@@ -31,13 +31,13 @@ export function deckFooter(state: DeckNavState): string {
   if (state.skillCreate) return "type a name · enter create · esc cancel";
   switch (state.route) {
     case "appearance":
-      return "↑↓ select base · enter apply · / Search · g h Home · Esc Close";
+      return "↑↓ select base · enter apply · ←/tab nav · / Search · g h Home · Esc Close";
     case "motion":
-      return "↑↓ motion · t event · e composer · enter apply · Esc Close";
+      return "↑↓ motion · t event · e composer · enter apply · ←/tab nav · Esc Close";
     case "skills":
-      return "↑↓ skill · enter insert · n new · / filter · Esc Close";
+      return "↑↓ skill · enter insert · n new · / filter · ←/tab nav · Esc Close";
     case "ideas":
-      return "↑↓ idea · / Search · g h Home · Esc Close";
+      return "↑↓ idea · / Search · ←/tab nav · g h Home · Esc Close";
     default:
       return "/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close";
   }

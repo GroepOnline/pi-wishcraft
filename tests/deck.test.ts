@@ -60,6 +60,7 @@ const navState: DeckNavState = {
   assignEvent: "streaming",
   skillCreate: false,
   skillCreateName: "",
+  navMode: false,
 };
 
 const theme = {
@@ -134,6 +135,9 @@ test("deckFooter is route-specific", () => {
   assert.match(deckFooter({ ...navState, composerOpen: true }), /nudge/);
   assert.match(deckFooter({ ...navState, skillCreate: true }), /create/);
   assert.match(deckFooter({ ...navState, searchOpen: true, searchQuery: "hex" }), /\/ hex_/);
+  // one-press return to the NAVIGATION column is advertised on list routes
+  assert.match(deckFooter({ ...navState, route: "skills" }), /←\/tab nav/);
+  assert.match(deckFooter({ ...navState, route: "motion" }), /←\/tab nav/);
 });
 
 test("filterSkillRows matches name, category, and description", () => {
