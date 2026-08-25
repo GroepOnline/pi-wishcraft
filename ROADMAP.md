@@ -1,208 +1,146 @@
 # Roadmap — pi-wishcraft
 
-Herschreven 2026-08-18. Vijfde pass 2026-08-20: 0.19.0–0.19.2 staan
-op npm. CHE-40 (`/powerline` tab) is Done via #18. Overlay-submenus
-(CHE-42 / #19) starten 0.20. ROADMAP was achter op de code: hooks,
-repairs-subset en skills-manager v2 UI zitten al op `main`.
+Baseline: **v1.2.0**, published 2026-08-24.
 
-Pi core is de engine. Wishcraft is de cockpit. Elke feature dient één van
-drie doelen: **grip** (skills, tokens, config), **prestatie** (repairs,
-hooks, read-hints), of **leven** (overlays, vibes, detail views).
+Pi is the engine. Wishcraft is the operator experience layer: Signal, Deck, skills, ideas, shell UX, hooks, repairs and policy without forking Pi core.
 
-Elke release is één campagne met een done-criterium. P1 = deze release,
-P2 = volgende, P3 = richting 1.0. Wat in 0.19 staat, shipt. Wat later
-staat, start niet eerder.
+Historical 0.x/1.0/vNext campaign detail belongs in `CHANGELOG.md` and `docs/design/`. This file describes only the current product contract and work that is still open.
 
----
+## Product boundary
 
-## Waarom wij bestaan
+Wishcraft may extend the Pi experience, but it does not become:
 
-De pi-extensiewereld heeft statusbalken. Ze heeft geen cockpit.
+- a Pi fork or second agent engine;
+- a fleet/orchestration control plane;
+- a SaaS integrations bundle;
+- a second plugin runtime competing with Pi extensions;
+- a telemetry collector by default.
 
-**Upstream `nicobailon/pi-powerline-footer`** is een goede balk: git,
-context, stash, compaction-queue, vibes, welcome, bash-mode. Wij zijn
-daaruit gegroeid. Wat zij niet hebben, en wat onze publieke identiteit
-is:
+External systems should connect through small contribution/integration contracts. Vendor-specific control planes belong outside Wishcraft.
 
-| Wij | Zij / de rest |
-|---|---|
-| Skills als OS: `/skills`, inline `/$`, usage, later doctor | Geen skill-manager |
-| Idee → actie: `#`, `/idea`, `/ideas`, `/ideas issue` | Alleen compaction-hold queue |
-| Eerlijke TPS: 1s-venster over 5s-ring, in/out gescheiden | Session-average of helemaal niks |
-| Tab-token completion + git ahead/behind | Niet of later |
-| Harness-laag (0.20): hooks + tool-input repairs op stock pi | Nergens in het extensie-ecosysteem |
+## Release line
 
-**oh-my-pi** is een hele agent-fork (~80k regels Rust-core, eigen tools,
-LSP, DAP). Dat is een ander product. Wij forken Mario's pi niet. Alles
-wat we willen van oh-my-pi vertalen we naar een extensie of we laten het
-liggen. De weddenschap: de beste cockpit op stock pi wint van een
-tweede engine.
+| Release | Theme | State | Done means |
+| --- | --- | --- | --- |
+| **1.2** | Operator Layer | shipped | Deck, universal Signal, structural appearance, motion gallery/composer, skill workbench and first-class motion accessibility |
+| **1.3** | Hardening | current | release invariant, render-path performance, one token source of truth, explicit renderer/lifecycle contracts, regression coverage |
+| **1.4** | Extension Contract | next | typed settings registry plus small contribution APIs; no new plugin runtime |
+| **1.5** | Craft Ecosystem | later | curated skill/package workflows built on Pi-native distribution and the contribution contract |
+| **2.0** | Stable Experience Platform | target | documented compatibility policy, migrations, performance budgets and stable public extension points |
 
-**Command Code** is een commerciële harness (hooks, tool-call repairs,
-read-tool engineering). Hun inzicht klopt: open modellen falen op het
-contract, niet op "slimheid". Wij kopiëren hun product niet. We gieten
-dezelfde principes in wat Pi al native biedt:
+## 1.3 — Hardening
 
-- `pi.on("tool_call")` — `event.input` is mutable; `block` + `reason` +
-  `terminate` bestaan (`pi-coding-agent` 0.84.x
-  `dist/core/extensions/types.d.ts`).
-- `pi.on("tool_result")` — resultaat muteren.
-- `pi.on("session_start" | "input" | "turn_end")`.
+No feature dump. This release exists to make the v1.2 surface trustworthy.
 
-Geen core-patch. Geen tweede agent. Iedereen die `pi` draait kan de
-cockpit + harness installeren.
+### P0 — release integrity
 
-**ChefGroep** (ChefBar-statuskeys, fleet-ports) is een privé-bonus, niet
-de publieke pitch. De npm-pagina moet leesbaar zijn voor iemand die pi
-gisteren installeerde.
+- One reusable `Verify` contract for PR verification and release gating.
+- Verify includes whitespace, typecheck, unit tests, circular dependency check and Pi package contract.
+- Release jobs depend on Verify and re-check the synchronized `origin/main` tree before tagging.
+- `main` should require the Verify check in repository rules before merge.
 
-Kort: **wij zijn de cockpit + harness voor stock pi.** Niet de balk.
-Niet de fork. Niet de SaaS-agent.
+### P0 — render/runtime performance
 
----
+- Deck paint must not run filesystem-backed skill discovery, skill doctor or settings parsing.
+- Expensive Deck data is cached as static snapshot state and refreshed only on open, relevant navigation or mutation.
+- Live model/Git/context/queue/Signal state remains cheap to repaint.
+- Idle motion stays 0 FPS.
 
-## Wat wij niet worden
+### P0 — appearance consistency
 
-- Geen agent-fork. Geen oh-my-pi-lite.
-- Geen derde control surface naast ChefBar / Kater. Overlays blijven in
-  deze extensie.
-- Geen muis op de live footer. Pi core bezit die; overlay-navigatie is
-  het pad.
-- Geen eigen bulk-read tool. Core's verantwoordelijkheid; wij leveren
-  repairs + hints eromheen.
-- Geen PostHog in de balk. Events alleen op expliciete Joep-opt-in.
-- Geen custom embed/component-registratie voor footer-segments.
-  Segments zijn data; `customItems` + `command/env/static` dekken
-  gebruikerscontent.
-- Geen skills-markt als identiteit vóór 1.0. Eerst discovery die klopt
-  en een manager die zoekt.
-- Geen fleet-SSH `open_ports` zonder expliciete opt-in (`segmentOptions.openPorts.host`; sanitized, geen shell-injectie).
-- Geen versie-reset naar 1.0.0. We blijven op 0.19 → 0.20 → 1.0 wanneer
-  de cockpit stabiel is.
+- `src/config/types.ts` + `src/config/tokens.ts` are the canonical token contract.
+- `src/theme/tokens/*` is compatibility-only; it may re-export but may not define a second palette or semantic mapping.
+- One structural base must paint the same semantic roles regardless of the configuration path used to select it.
 
----
+### P0 — Signal contract
 
-## Mijlpalen
+- Signal is the universal status renderer for legacy and structural presets.
+- Legacy presets keep their existing segment/layout/color contract unless a structural appearance layer is explicitly selected.
+- Terminal one-shots (`success`, `warning`, `error`) settle to `idle/ready` after their finite burst.
+- Reduced/off/screen-reader modes communicate state without requiring animation.
 
-- **0.19.0–0.19.2 — "Correctheid"** (geland). Bugs, hygiëne, catalogus,
-  auto-release, `/powerline` tab. Hooks, repairs-subset en skills
-  manager v2 UI gingen mee in #12, eerder dan deze sectie beloofde.
-  Done = npm 0.19.2 live, `/skills` filtert, `$test` expandeert geen
-  debris, verify-trio groen op de tag.
-- **0.20.0–0.22 — "Harness"** (0.20.0 + 0.21.0 op npm; leftovers in GRO-1414).
-  Overlay-chrome + CHE-42 drill-down, Configure als SelectList, token-overlays,
-  rest-repairs, README-hooks. Done = drie README-hookvoorbeelden, repair-teller,
-  `alt+p` overlay-boom, `/tps` deelt de ring met het segment.
-- **1.0 — "Cockpit"**. Skills-doctor/install, declaratieve policy,
-  preset-editor, idee-review, stabiele ChefGroep-statuskeys,
-  documentatie die waar is. Done = README dekt alles wat we shipten,
-  geen kapotte footer-belofte.
-- **vNext — "Operator Layer"** (in uitvoering). Stacked PRs PR0–PR8:
-  Deck control surface (`ctx.ui.custom`), animated Signal powerline,
-  zero-overhead Motion Engine (0 FPS idle), 10 signature structural presets,
-  semantische tokens, en first-class accessibility (`NO_COLOR`, reduced motion).
-  Zie [docs/design/vnext-release-plan.md](docs/design/vnext-release-plan.md).
-  - PR0 design corpus — geland (`docs/design/`).
-  - PR1 motion engine — geland (`src/motion/`): één scheduler op de bestaande
-    coalescing timer, semantische events, 6 channels, 0 FPS zonder consumers.
-  - PR2 semantic tokens — geland (`src/config/tokens.ts`): `PresetDef.tokens`
-    is optioneel en `DEFAULT_TOKENS` reproduceert `getDefaultColors()`.
-  - PR3 structural presets — geland (`src/config/structural-presets.ts`,
-    `src/config/appearance.ts`): 10 signature presets, mixable layers, Nerd/ASCII
-    glyph fallbacks; legacy layout presets ongewijzigd.
-  - PR4 animated Signal — geland (`src/signal/`): drie lanes, lifecycle-driven
-    motion op één gedeelde scheduler, `/signal` primair en 0 FPS in rust.
-  - PR5 Deck — geland (`src/extension/ui/deck/`): unified overlay via
-    `ctx.ui.custom`, Alt+P en `/wishcraft`, elf routes, jump/search navigatie.
-  - PR6 Appearance / Gallery — geland: Deck Motion gallery + composer,
-    50+ catalog defs, Enter assigns `powerline.appearance.motion`.
-  - PR7 accessibility — geland: `src/theme/detect.ts`,
-    `src/motion/accessibility.ts`, `powerline.motionLevel`.
-  - PR8 Craft + docs — geland: Deck Skill Workbench, idea/guardrail panes,
-    `skills/wishcraft-tui/references/*`, project subagents.
+### P1 — verification matrix
 
-## Top-15 track: remaining maturity gaps
+Add/keep regression coverage for:
 
-Written 2026-08-20, rebaselined on 0.27.1 (code review, not this ROADMAP
-alone). Feature density is high; several original gaps closed in
-0.23–0.27. What remains is the maturity layer that separates a top-15 pi
-extension from a feature-rich prototype.
+- widths around 40 / 80 / 120+ columns;
+- ASCII, Nerd Font and `NO_COLOR` rendering;
+- full / reduced / functional / off motion;
+- Deck render hot-path invariants;
+- legacy preset color compatibility;
+- release-gate dependency order;
+- Linux and macOS system-segment parsing.
 
-### Already shipped (0.22.x–0.27.x)
-- **CHE-41 per-segment detail** — `→` in Navigate, snapshot on open (0.22.1).
-- **CHE-42 drill-down** — #19 + Configure in #13.
-- **Changelog roll** — version headers drive the what's-new panel.
-- **Per-segment fault isolation** — throwing custom segments show `!id`
-  instead of blanking the footer (#34, 0.23.1).
-- **macOS open_ports** — netstat dot-address parsing (#34, 0.23.1).
-- **GitHub Release per npm tag** (#25, 0.23.2).
-- **CodeQL proto-pollution hardening** (#27, 0.23.3).
-- **setupHooks wired** (#26, 0.23.4).
-- **Policy engine** — declarative deny/inject, no spawn (GRO-1418, #29,
-  0.24.0).
-- **`/skills doctor`** — broken frontmatter, dupes, unused, budget
-  (GRO-1416, #28, 0.24.0 / 0.25.0 tag).
-- **`/skills new` templates** — no marketplace (GRO-1417, #32, 0.26.0).
-- **`/ideas` review overlay** — status, tags, skill insert (GRO-1419, #31,
-  0.27.0).
-- **English operator UI** — overlays, skill manager, `/wishcraft` TUI
-  (GRO-1422, #24, 0.27.1).
-- **`powerline.skills.count` + read hints + Status trim** (GRO-1420, 0.23.0).
-- **1.0.0 cockpit cut** — README lists doctor, templates, policy, and
-  idea-review (GRO-1421). Semver leaves 0.x.
+## 1.4 — Extension Contract
 
-### Remaining open gaps (maturity)
-P1 — differentiation and quality:
-1. **Settings contract to pi core.** No `contributes.settings`/schema;
-   users hand-edit JSON. *Fix: typed settings schema + contributions.*
-2. **Zero-config first run.** Install still expects JSON edits for the most
-   useful features. *Fix: sensible defaults + first-run setup overlay.*
-3. **Perf budget / low-power mode.** Status renders every ~33ms; heavy
-   segments (bash-history, git) can hit the hot path. *Fix: configurable
-   refresh + lite mode / repeating scheduler with 0 FPS idle. Scheduler landed
-   in PR1 (`src/motion/scheduler.ts`); the segment hot path is still open.*
-4. **Accessibility (no-color / reduced-motion).** Truecolor + animations
-   (vibes, rainbow think) break on terminals without truecolor. *Fix:
-   `NO_COLOR`/8-color + reduced-motion respect (PR7).*
+The next architecture step is **composability**, not more built-in routes.
 
-P2 — full product, post-1.0:
-5. **Preset editor in-menu** — custom JSON-only today (addressed in PR3 & PR6).
-6. **Skill install from repo/npm** — discovery + doctor exist; install and
-   curate missing (addressed in PR8).
-7. **Host-status integration** — `ctx.ui.setStatus` beside the footer so
-   status also shows in host UI (`skills.count` is a start; full coverage
-   remains).
+### Typed settings registry
 
----
+One registry should drive:
 
-## vNext Milestone: The Stacked PR Plan
-
-The complete vNext architecture is detailed in **[`docs/design/vnext-release-plan.md`](docs/design/vnext-release-plan.md)** and executed across 9 stacked pull requests:
-
-```mermaid
-graph LR
-  PR0["PR0: Design Corpus"] --> PR1["PR1: Motion Engine"]
-  PR1 --> PR2["PR2: Semantic Tokens"]
-  PR2 --> PR3["PR3: Preset Contract"]
-  PR3 --> PR4["PR4: Animated Signal"]
-  PR4 --> PR5["PR5: Wishcraft Deck"]
-  PR5 --> PR6["PR6: Appearance & Gallery"]
-  PR6 --> PR7["PR7: First-Class A11y"]
-  PR7 --> PR8["PR8: Craft, Skills & Docs"]
+```text
+settings definition
+      │
+      ├─ parsing + validation
+      ├─ defaults + migrations
+      ├─ /wishcraft settings
+      ├─ Pi settings contribution (where supported)
+      └─ generated documentation/examples
 ```
 
----
+This removes duplicate knowledge about settings and enables a real zero-config first run.
 
-## Kwaliteit (altijd)
+### Small contribution API
 
-- Overlay logic is testable via pure functions. No headless `ctx.ui`.
-- **English UI:** operator overlays, notify strings, and `/wishcraft` copy are
-  English. Do not add Dutch UI strings.
-- `prepublishOnly` = `tsc --noEmit`. Een slecht type ship't niet.
-- `madge --circular` blijft CI. Nieuwe map in `src/` → check mee.
-- Dependabot-vulns (devDep-transitief): waiven, track op GRO-603.
-  Niet required in CI. Geen stille bump van TypeScript 7 of
-  `@types/node` 26 in een bug-PR.
-- TPS-core blijft 1s sliding window over 5s-ring. Geen regressie
-  naar session-average of per-render EMA (beide spikten:
-  `tps:12775`).
+Target capabilities, subject to Pi host APIs:
+
+```text
+registerDeckRoute()
+registerSignalSource()
+registerMotion()
+registerAppearanceContribution()
+registerRecipeOrAction()
+contributeSettings()
+```
+
+Rules:
+
+- Pi remains the package/extension runtime.
+- Contributions are data/callback contracts, not arbitrary nested plugin loaders.
+- Public contracts are versioned and capability-scoped.
+- A failing contribution cannot take down Signal or the Deck.
+
+## 1.5 — Craft Ecosystem
+
+After the contribution/settings contracts are stable:
+
+- skill import/install workflows from explicit trusted sources;
+- curated recipes/actions that compose existing Wishcraft/Pi capabilities;
+- package discovery surfaced through Pi-native package distribution rather than a parallel Wishcraft marketplace;
+- export/import of appearance and motion recipes with validation.
+
+## 2.0 — Stable Experience Platform
+
+2.0 is justified when the public contracts, not the feature count, are stable.
+
+Required before 2.0:
+
+- compatibility and deprecation policy;
+- settings migrations with round-trip tests;
+- measured render/performance budgets;
+- stable contribution API with fault isolation;
+- release provenance and required repository checks;
+- docs generated from canonical contracts where practical;
+- no known duplicate sources of truth for tokens, settings or release verification.
+
+## Always-on engineering rules
+
+- English operator UI.
+- No synchronous discovery work in paint/render loops.
+- No background animation when nothing consumes it.
+- Core Pi tools are not silently rewritten by Wishcraft repairs.
+- Policies and hooks remain explicitly disableable.
+- Security-sensitive paths fail closed.
+- Package/release verification runs before npm publication.
+- New features must fit the operator-layer boundary above.
