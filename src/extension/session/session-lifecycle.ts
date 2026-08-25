@@ -16,26 +16,10 @@ import {
   onVibeToolCall,
 } from "../../working-vibes/index.ts";
 import {
-  getSessionTotalCost,
   getUsageTokenTotal,
   isSessionAssistantMessage,
 } from "../../usage/ledger.ts";
-import {
-  formatCostAlertMessage,
-  shouldTriggerCostAlert,
-} from "./cost-alert.ts";
-import {
-  formatTokenBudgetWarning,
-  parseTokenBudget,
-  tokenBudgetLevel,
-} from "../../usage/token-budget.ts";
-import {
-  recordUsageEvent,
-  loadUsageFileFromDisk,
-  tokenTotal,
-  totalsForRange,
-  dayKey,
-} from "../../usage/usage-store.ts";
+import { recordUsageEvent } from "../../usage/usage-store.ts";
 import {
   detectCustomCompactionEnabled,
   readSettings,
@@ -81,71 +65,10 @@ import {
   dispatchSignalEvent,
   settleSignal,
 } from "../../signal/integration.ts";
-
-/**
- * Fire the configured `powerline.costAlert` warning at most once per session.
- * Reads the running cost from the (cached) token ledger so repeated calls are
- * cheap; a UI-less or already-notified session short-circuits immediately.
- */
-function maybeNotifyCostAlert(rt: RuntimeState, ctx: any): void {
-  if (!ctx?.hasUI || rt.costAlertNotified) return;
-  const threshold = config.costAlert;
-  const sessionEvents = rt.sessionBranchCache.get(ctx.sessionManager);
-  const totalCost = getSessionTotalCost(rt.tokenStatsCache.get(sessionEvents));
-  if (
-    !shouldTriggerCostAlert({
-      totalCost,
-      threshold,
-      alreadyNotified: rt.costAlertNotified,
-    })
-  ) {
-    return;
-  }
-  rt.costAlertNotified = true;
-  ctx.ui.notify(
-    formatCostAlertMessage(
-      totalCost,
-      threshold as number,
-      config.segmentOptions?.cost?.currency ?? "USD",
-    ),
-    "warning",
-  );
-}
-
-/** Refresh disk-backed budget data at lifecycle boundaries, never during paint. */
-function refreshTokenBudgetSnapshot(
-  rt: RuntimeState,
-  ctx: any,
-  settings?: ReturnType<typeof readSettings>,
-) {
-  const resolvedSettings = settings ?? readSettings(ctx.cwd ?? process.cwd());
-  const daily = parseTokenBudget(resolvedSettings.wishcraft).daily;
-  if (!daily) {
-    rt.tokenBudgetSnapshot = { dailyLimit: null, dailyUsed: 0 };
-    return { daily: null, used: 0, level: 0 as const };
-  }
-
-  const now = Date.now();
-  const todayStart = Date.parse(`${dayKey(now)}T00:00:00`);
-  const used = tokenTotal(
-    totalsForRange(loadUsageFileFromDisk(), todayStart, now + 1),
-  );
-  rt.tokenBudgetSnapshot = { dailyLimit: daily, dailyUsed: used };
-  const { level } = tokenBudgetLevel(used, daily);
-  return { daily, used, level };
-}
-
-function maybeNotifyTokenBudget(
-  rt: RuntimeState,
-  ctx: any,
-  settings?: ReturnType<typeof readSettings>,
-): void {
-  if (!ctx?.hasUI) return;
-  const { daily, used, level } = refreshTokenBudgetSnapshot(rt, ctx, settings);
-  if (!daily || level === 0 || level <= rt.tokenBudgetNotifiedLevel) return;
-  rt.tokenBudgetNotifiedLevel = level;
-  ctx.ui.notify(formatTokenBudgetWarning(used, daily, level), "warning");
-}
+import {
+  maybeNotifyCostAlert,
+  maybeNotifyTokenBudget,
+} from "./session-notifications.ts";
 
 // Helper to extract recent agent response text (skipping thinking blocks)
 function getRecentAgentContext(ctx: any): string | undefined {
@@ -199,7 +122,7 @@ export function registerSessionLifecycle(
     rt.liveAssistantUsage = null;
     rt.costAlertNotified = false;
     rt.tokenBudgetNotifiedLevel = 0;
-    rt.tokenBudgetSnapshot = { dailyLimit: null, dailyUsed: 0 };
+    rt.tokenBudgetSnapshot = { day: "", dailyLimit: null, dailyUsed: 0 };
     rt.powerlineCompacting = false;
     rt.deliverAfterRetrySettles = false;
     rt.stashedEditorText = null;
@@ -284,7 +207,7 @@ export function registerSessionLifecycle(
     rt.getThinkingLevelFn = null;
     rt.currentThinkingLevel = null;
     rt.liveAssistantUsage = null;
-    rt.tokenBudgetSnapshot = { dailyLimit: null, dailyUsed: 0 };
+    rt.tokenBudgetSnapshot = { day: "", dailyLimit: null, dailyUsed: 0 };
     rt.tuiRef = null;
     rt.currentEditor = null;
     resetLayoutCache(rt);
