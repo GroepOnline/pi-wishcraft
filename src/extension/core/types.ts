@@ -11,6 +11,7 @@ import type {
   SessionTokenStatsCache,
 } from "../../usage/ledger.ts";
 import type { CoreContextUsageCache } from "../../usage/context.ts";
+import type { TokenBudgetSnapshot } from "../../usage/token-budget.ts";
 import type { WelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
 import type { RenderScheduler } from "../../render/timer.ts";
 import type { MotionPolicy, MotionScheduler } from "../../motion/index.ts";
@@ -69,7 +70,7 @@ export interface RuntimeState {
   /** Highest daily-budget warning already shown this session (0 / 80 / 100). */
   tokenBudgetNotifiedLevel: 0 | 80 | 100;
   /** Event-driven token-budget snapshot consumed by render paths without disk I/O. */
-  tokenBudgetSnapshot: { dailyLimit: number | null; dailyUsed: number };
+  tokenBudgetSnapshot: TokenBudgetSnapshot;
   bashModeActive: boolean;
   bashTranscript: BashTranscriptStore;
   bashCompletionEngine: BashCompletionEngine;
