@@ -52,7 +52,7 @@ export function buildDeckStaticSnapshot(ctx: any): DeckStaticSnapshot {
   };
 }
 
-/** Build only runtime-backed data during paint; no skill/settings discovery here. */
+/** Build only runtime-backed data during paint; no filesystem discovery here. */
 export function buildDeckSessionSnapshot(
   rt: RuntimeState,
   ctx: any,
@@ -61,7 +61,9 @@ export function buildDeckSessionSnapshot(
   const theme = { fg: (_color: string, text: string) => text } as Theme;
   let segmentCtx;
   try {
-    segmentCtx = buildSegmentContext(rt, ctx, theme);
+    segmentCtx = buildSegmentContext(rt, ctx, theme, {
+      includeTokenBudget: false,
+    });
   } catch {
     segmentCtx = null;
   }
