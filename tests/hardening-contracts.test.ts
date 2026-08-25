@@ -50,6 +50,23 @@ test("Deck render hot path does not run static discovery or token-budget disk re
   assert.match(snapshots, /includeTokenBudget: false/);
 });
 
+test("status segment context consumes cached token budget without filesystem reads", () => {
+  const source = readFileSync(
+    join(root, "src/extension/core/segment-context.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /readSettings/);
+  assert.doesNotMatch(source, /loadUsageFileFromDisk/);
+  assert.match(source, /rt\.tokenBudgetSnapshot/);
+
+  const lifecycle = readFileSync(
+    join(root, "src/extension/session/session-lifecycle.ts"),
+    "utf8",
+  );
+  assert.match(lifecycle, /refreshTokenBudgetSnapshot/);
+  assert.match(lifecycle, /rt\.tokenBudgetSnapshot = \{ dailyLimit: daily, dailyUsed: used \}/);
+});
+
 test("terminal Signal one-shots settle back to idle without a second timer", () => {
   let callback: (() => void) | null = null;
   let now = 0;
