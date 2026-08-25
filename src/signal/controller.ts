@@ -41,6 +41,8 @@ export interface SetSignalEventOptions {
   motionId?: string;
   /** Finite events stop after this many frames. */
   maxTicks?: number;
+  /** Terminal one-shots return to semantic idle when their final frame completes. */
+  settleOnDone?: boolean;
 }
 
 export function setSignalEvent(
@@ -79,6 +81,14 @@ export function setSignalEvent(
     onDone() {
       runtime.release = null;
       if (options.maxTicks !== undefined) runtime.active = false;
+      if (options.settleOnDone) {
+        runtime.event = "idle";
+        runtime.motionId = defaultMotionFor("idle");
+        runtime.tick = 0;
+        runtime.startedAt = Date.now();
+        runtime.activity = "ready";
+        runtime.active = false;
+      }
     },
   });
 }
