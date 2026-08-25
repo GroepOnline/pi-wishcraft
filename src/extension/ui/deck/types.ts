@@ -94,4 +94,6 @@ export interface DeckNavState {
   assignEvent: import("../../../motion/types.ts").MotionEvent;
   skillCreate: boolean;
   skillCreateName: string;
+  /** True when ↑↓ moves the NAVIGATION column instead of the route list. */
+  navMode: boolean;
 }
