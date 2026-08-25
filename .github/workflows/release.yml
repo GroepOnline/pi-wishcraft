@@ -1,9 +1,7 @@
 name: Release
 
-# Merge to main always cuts a tag AND publishes in the same job. A GITHUB_TOKEN
-# tag push does not start a second workflow, so publish cannot wait for the
-# tag event. Manual `git push` of a v* tag still runs the tag job. Put
-# [skip release] in the merge commit to opt out.
+# Main releases and manual v* tag publishes use the same canonical verification
+# workflow as pull requests. A release may never publish from a red verify gate.
 on:
   push:
     branches: [main]
@@ -17,8 +15,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify:
+    if: >-
+      (github.ref == 'refs/heads/main'
+      && github.event_name == 'push'
+      && !startsWith(github.event.head_commit.message, 'chore: release')
+      && !contains(github.event.head_commit.message, '[skip release]'))
+      || startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/test.yml
+
   bump:
     name: bump + tag + publish
+    needs: verify
     if: >-
       github.ref == 'refs/heads/main'
       && github.event_name == 'push'
@@ -44,12 +52,6 @@ jobs:
           git reset --hard origin/main
       - name: Install devDependencies
         run: npm ci --ignore-scripts
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Unit tests
-        run: npm test
-      - name: Pi package release gate
-        run: npm run verify:package
       - name: Cut release tag
         run: |
           git config user.name "github-actions[bot]"
@@ -65,7 +67,8 @@ jobs:
         run: sh scripts/github-release.sh
 
   publish:
-    name: test + publish
+    name: publish verified tag
+    needs: verify
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -80,12 +83,6 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - name: Install devDependencies
         run: npm ci --ignore-scripts
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Unit tests
-        run: npm test
-      - name: Pi package release gate
-        run: npm run verify:package
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
