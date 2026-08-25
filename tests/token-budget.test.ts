@@ -6,6 +6,7 @@ import {
   formatTokenBudgetWarning,
   parseTokenBudget,
   tokenBudgetLevel,
+  tokenBudgetSnapshotForDay,
 } from "../src/usage/token-budget.ts";
 
 test("parseTokenBudget reads wishcraft.tokenBudget.daily", () => {
@@ -23,4 +24,19 @@ test("tokenBudgetLevel trips at 80% and 100% and never blocks", () => {
   assert.equal(costColorForBudget(100), "contextError");
   assert.equal(costColorForBudget(0), "cost");
   assert.match(formatTokenBudgetWarning(80, 100, 80), /80%/);
+});
+
+test("token budget snapshot resets usage when the local day rolls over", () => {
+  const yesterday = {
+    day: "2026-08-24",
+    dailyLimit: 100_000,
+    dailyUsed: 82_000,
+  };
+
+  assert.equal(tokenBudgetSnapshotForDay(yesterday, "2026-08-24"), yesterday);
+  assert.deepEqual(tokenBudgetSnapshotForDay(yesterday, "2026-08-25"), {
+    day: "2026-08-25",
+    dailyLimit: 100_000,
+    dailyUsed: 0,
+  });
 });
