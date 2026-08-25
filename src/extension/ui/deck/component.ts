@@ -26,7 +26,10 @@ import {
 import type { RuntimeState } from "../../core/types.ts";
 import { appearanceDisplayName } from "../../../config/structural-presets.ts";
 import { filterSkillRows, selectedGalleryMotion } from "./route-bodies.ts";
-import { buildDeckSessionSnapshot } from "./session-snapshot.ts";
+import {
+  buildDeckSessionSnapshot,
+  buildDeckStaticSnapshot,
+} from "./session-snapshot.ts";
 import { deckRouteByJump, deckRouteIndex } from "./routes.ts";
 import { filterDeckRoutes, renderDeckFrame } from "./render.ts";
 import { DECK_ROUTE_DEFS } from "./routes.ts";
@@ -66,14 +69,23 @@ export function createDeckComponent(
   theme: import("@earendil-works/pi-coding-agent").Theme,
   done: () => void,
 ) {
-  const refreshSnapshot = () => buildDeckSessionSnapshot(rt, ctx);
+  let staticSnapshot = buildDeckStaticSnapshot(ctx);
+  const liveSnapshot = () => buildDeckSessionSnapshot(rt, ctx, staticSnapshot);
+  const refreshStaticSnapshot = (): void => {
+    staticSnapshot = buildDeckStaticSnapshot(ctx);
+  };
+
   let state = createDeckNavState(
     initialRoute,
-    appearanceIndex(refreshSnapshot().appearanceBase),
+    appearanceIndex(liveSnapshot().appearanceBase),
   );
   let composer: ComposerDraft | null = null;
 
   const setRoute = (route: DeckRoute): void => {
+    const routeChanged = route !== state.route;
+    if (routeChanged && (route === "skills" || route === "guardrails")) {
+      refreshStaticSnapshot();
+    }
     const jumpingToAppearance = route === "appearance" && state.route !== "appearance";
     state = {
       ...state,
@@ -83,7 +95,7 @@ export function createDeckComponent(
       searchOpen: false,
       searchQuery: "",
       selectedAppearance: jumpingToAppearance
-        ? appearanceIndex(refreshSnapshot().appearanceBase)
+        ? appearanceIndex(liveSnapshot().appearanceBase)
         : state.selectedAppearance,
     };
     composer = null;
@@ -100,7 +112,7 @@ export function createDeckComponent(
       return renderDeckFrame(
         theme,
         width,
-        refreshSnapshot(),
+        liveSnapshot(),
         state,
         rt.resolvedShortcuts,
         composer,
@@ -209,6 +221,7 @@ export function createDeckComponent(
             if (!name) return;
             try {
               const { filePath } = writeSkillFromTemplate(name, "standard");
+              refreshStaticSnapshot();
               state = { ...state, skillCreate: false, skillCreateName: "" };
               ctx.ui.notify(`Created ${name}. ${filePath}`, "info");
             } catch (error) {
@@ -233,7 +246,7 @@ export function createDeckComponent(
           state = { ...state, skillCreate: true, skillCreateName: "" };
           return;
         }
-        const snapshot = refreshSnapshot();
+        const snapshot = liveSnapshot();
         const rows = filterSkillRows(snapshot.skills, state.searchQuery);
         if (handleList(data, "selectedSkill", rows.length)) return;
         if (matchesKey(data, "enter")) {
@@ -253,7 +266,7 @@ export function createDeckComponent(
       }
 
       if (state.route === "ideas") {
-        if (handleList(data, "selectedIdea", refreshSnapshot().ideas.length)) return;
+        if (handleList(data, "selectedIdea", liveSnapshot().ideas.length)) return;
       }
 
       if (matchesKey(data, "up")) {
