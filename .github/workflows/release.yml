@@ -52,6 +52,18 @@ jobs:
           git reset --hard origin/main
       - name: Install devDependencies
         run: npm ci --ignore-scripts
+      # Re-run the canonical checks after the sync because origin/main may have
+      # advanced while this release job was queued. We tag exactly this tree.
+      - name: Whitespace check
+        run: git diff --check HEAD~1 HEAD
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Circular dependency check
+        run: npm run circular
+      - name: Pi package release gate
+        run: npm run verify:package
       - name: Cut release tag
         run: |
           git config user.name "github-actions[bot]"
