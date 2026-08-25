@@ -9,9 +9,55 @@ import { collectSkillDoctorInputs, diagnoseSkills } from "../../skills/skill-doc
 import { parsePolicySettings } from "../../hooks/policy-config.ts";
 import { readSettings } from "../../settings/settings-io.ts";
 import { describePolicy } from "../../../motion/accessibility.ts";
-import type { DeckSessionSnapshot } from "./types.ts";
+import type { DeckSessionSnapshot, DeckStaticSnapshot } from "./types.ts";
 
-export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessionSnapshot {
+/**
+ * Build the expensive Deck data once per open/navigation refresh.
+ * This intentionally owns filesystem-backed skill discovery/doctor and settings reads.
+ */
+export function buildDeckStaticSnapshot(ctx: any): DeckStaticSnapshot {
+  const cwd = ctx.cwd ?? process.cwd();
+  const skills = loadSkillCatalog(cwd);
+  const doctorInputs = collectSkillDoctorInputs(cwd);
+  const doctor = diagnoseSkills(
+    doctorInputs.entries,
+    doctorInputs.usage,
+    doctorInputs.contents,
+  );
+  const warnings = doctor.filter((row) => row.status !== "ok").length;
+  const settings = readSettings(cwd);
+  const policy = parsePolicySettings(settings.wishcraft);
+
+  return {
+    skillsTotal: skills.length,
+    skillsWarnings: warnings,
+    policyEnabled: policy.enabled,
+    policyRuleCount: policy.rules.length,
+    skills: skills.slice(0, 24).map((skill) => {
+      const row = doctor.find((entry) => entry.skill === skill.name);
+      const usage = doctorInputs.usage.get(skill.name);
+      return {
+        name: skill.name,
+        category: skill.category,
+        status: row?.status ?? (skill.warning ? "warn" : "ok"),
+        description: skill.description.slice(0, 72),
+        usage: usage?.count ?? 0,
+      };
+    }),
+    guardrailRules: policy.rules.slice(0, 8).map((rule) => ({
+      action: rule.action,
+      tool: rule.tool,
+      reason: rule.action === "deny" ? rule.reason : rule.context.slice(0, 48),
+    })),
+  };
+}
+
+/** Build only runtime-backed data during paint; no skill/settings discovery here. */
+export function buildDeckSessionSnapshot(
+  rt: RuntimeState,
+  ctx: any,
+  staticSnapshot: DeckStaticSnapshot = buildDeckStaticSnapshot(ctx),
+): DeckSessionSnapshot {
   const theme = { fg: (_color: string, text: string) => text } as Theme;
   let segmentCtx;
   try {
@@ -24,17 +70,6 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
     getQueueContext(ctx),
     rt.powerlineCompacting,
   );
-  const cwd = ctx.cwd ?? process.cwd();
-  const skills = loadSkillCatalog(cwd);
-  const doctorInputs = collectSkillDoctorInputs(cwd);
-  const doctor = diagnoseSkills(
-    doctorInputs.entries,
-    doctorInputs.usage,
-    doctorInputs.contents,
-  );
-  const warnings = doctor.filter((row) => row.status !== "ok").length;
-  const settings = readSettings(cwd);
-  const policy = parsePolicySettings(settings.wishcraft);
   const appearance = resolveAppearanceMix(
     effectiveAppearanceMix(config.appearance, config.preset),
   );
@@ -56,6 +91,7 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
   }
 
   return {
+    ...staticSnapshot,
     modelLabel,
     branchLabel,
     contextPercent: Math.round(segmentCtx?.contextPercent ?? 0),
@@ -65,10 +101,6 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
     signalMotion: rt.signal.motionId,
     queueCount: queue.queueCount,
     ideaCount: queue.ideaCount,
-    skillsTotal: skills.length,
-    skillsWarnings: warnings,
-    policyEnabled: policy.enabled,
-    policyRuleCount: policy.rules.length,
     shellName: rt.shellSession?.state.shellName ?? null,
     bashModeActive: rt.bashModeActive,
     appearanceBase: appearance.base,
@@ -76,17 +108,6 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
     nextIntent: queue.leadingText,
     motionLevel: config.motionLevel,
     policySummary: describePolicy(rt.motionPolicy),
-    skills: skills.slice(0, 24).map((skill) => {
-      const row = doctor.find((entry) => entry.skill === skill.name);
-      const usage = doctorInputs.usage.get(skill.name);
-      return {
-        name: skill.name,
-        category: skill.category,
-        status: row?.status ?? (skill.warning ? "warn" : "ok"),
-        description: skill.description.slice(0, 72),
-        usage: usage?.count ?? 0,
-      };
-    }),
     ideas: rt.queueStore
       .list()
       .filter((item) => item.intent === "idea")
@@ -95,10 +116,5 @@ export function buildDeckSessionSnapshot(rt: RuntimeState, ctx: any): DeckSessio
         text: item.text.slice(0, 64),
         reviewStatus: item.reviewStatus ?? "idea",
       })),
-    guardrailRules: policy.rules.slice(0, 8).map((rule) => ({
-      action: rule.action,
-      tool: rule.tool,
-      reason: rule.action === "deny" ? rule.reason : rule.context.slice(0, 48),
-    })),
   };
 }
