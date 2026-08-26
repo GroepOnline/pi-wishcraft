@@ -10,21 +10,24 @@ async function importFreshColors(nocache: string | undefined) {
   return mod as typeof import("../src/theme/colors.ts");
 }
 
-function withNoColor<T>(value: string | undefined, run: () => T): T {
+async function withNoColor<T>(
+  value: string | undefined,
+  run: () => Promise<T>,
+): Promise<T> {
   const original = process.env.NO_COLOR;
   try {
     if (value === undefined) delete process.env.NO_COLOR;
     else process.env.NO_COLOR = value;
-    return run();
+    return await run();
   } finally {
     if (original === undefined) delete process.env.NO_COLOR;
     else process.env.NO_COLOR = original;
   }
 }
 
-test("NO_COLOR present and non-empty disables wishcraft color", async () => {
-  const { colorEnabled, fgOnly, getFgAnsiCode } = await importFreshColors("1");
-  withNoColor("1", () => {
+test("NO_COLOR present and non-empty disables wishcraft color", { concurrency: false }, async () => {
+  await withNoColor("1", async () => {
+    const { colorEnabled, fgOnly, getFgAnsiCode } = await importFreshColors("1");
     assert.equal(colorEnabled(), false);
     assert.equal(fgOnly("accent", "text"), "text");
     assert.equal(getFgAnsiCode("model"), "");
@@ -32,16 +35,16 @@ test("NO_COLOR present and non-empty disables wishcraft color", async () => {
   });
 });
 
-test("empty NO_COLOR keeps color enabled", async () => {
-  const { colorEnabled } = await importFreshColors("");
-  withNoColor("", () => {
+test("empty NO_COLOR keeps color enabled", { concurrency: false }, async () => {
+  await withNoColor("", async () => {
+    const { colorEnabled } = await importFreshColors("");
     assert.equal(colorEnabled(), true);
   });
 });
 
-test("unset NO_COLOR keeps color enabled", async () => {
-  const { colorEnabled } = await importFreshColors("unset");
-  withNoColor(undefined, () => {
+test("unset NO_COLOR keeps color enabled", { concurrency: false }, async () => {
+  await withNoColor(undefined, async () => {
+    const { colorEnabled } = await importFreshColors("unset");
     assert.equal(colorEnabled(), true);
   });
 });
