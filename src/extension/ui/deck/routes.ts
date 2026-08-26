@@ -1,7 +1,8 @@
 import type { DeckRoute, DeckRouteDef } from "./types.ts";
 import { DECK_ROUTES } from "./types.ts";
+import { getContributedDeckRoutes } from "../../contrib/registry.ts";
 
-export const DECK_ROUTE_DEFS: readonly DeckRouteDef[] = [
+export const BUILTIN_DECK_ROUTE_DEFS: readonly DeckRouteDef[] = [
   { id: "home", label: "Home", jumpKey: "h", description: "Session overview and next intent" },
   { id: "signal", label: "Signal", jumpKey: "s", description: "Lane layout and live activity" },
   { id: "skills", label: "Skills", jumpKey: "k", description: "Catalog and health diagnostics" },
@@ -15,8 +16,22 @@ export const DECK_ROUTE_DEFS: readonly DeckRouteDef[] = [
   { id: "diagnostics", label: "Diagnostics", jumpKey: "d", description: "Environment and capability checks" },
 ];
 
+export const DECK_ROUTE_DEFS: readonly DeckRouteDef[] = BUILTIN_DECK_ROUTE_DEFS;
+
+export function getAllDeckRouteDefs(): readonly DeckRouteDef[] {
+  const contributed = getContributedDeckRoutes().map((r) => ({
+    id: r.id as DeckRoute,
+    label: r.label,
+    jumpKey: r.jumpKey ?? "",
+    description: r.description ?? "",
+  }));
+  // ponytail: no dedup beyond registry — built-ins win, contributed appended
+  return [...BUILTIN_DECK_ROUTE_DEFS, ...contributed];
+}
+
 export function isDeckRoute(value: string): value is DeckRoute {
-  return (DECK_ROUTES as readonly string[]).includes(value);
+  if ((DECK_ROUTES as readonly string[]).includes(value)) return true;
+  return getContributedDeckRoutes().some((r) => r.id === value);
 }
 
 export function parseDeckRouteArg(args: string | undefined): DeckRoute {
