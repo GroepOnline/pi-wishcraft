@@ -20,6 +20,7 @@ import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
 import { getSeparator } from "../theme/separators.ts";
 import { frameAt, getMotion, sweepPosition, trailGlyph } from "../motion/index.ts";
 import type { SignalRuntime } from "./controller.ts";
+import { getContributedSignalSources } from "../extension/contrib/registry.ts";
 
 export interface SignalRenderOptions {
   separatorStyle: StatusLineSeparatorStyle;
@@ -50,7 +51,10 @@ export function renderSignal(
     },
   );
   const left = renderModules(merged.leftSegments, ctx);
-  const right = renderModules(merged.rightSegments, ctx);
+  const right = [
+    ...renderModules(merged.rightSegments, ctx),
+    ...renderContributedSources(ctx),
+  ];
   const secondary = renderModules(merged.secondarySegments, ctx);
   const separator = getSeparator(options.separatorStyle).left;
 
@@ -178,6 +182,21 @@ function joinModules(modules: Module[], separator: string, width: number): strin
     used += next;
   }
   return fitted.length ? ` ${fitted.map((module) => module.content).join(sep)} ` : "";
+}
+
+function renderContributedSources(ctx: SegmentContext): Module[] {
+  const out: Module[] = [];
+  for (const src of getContributedSignalSources()) {
+    try {
+      const raw = src.render?.(ctx);
+      if (!raw || typeof raw !== "string" || !raw.trim()) continue;
+      // ponytail: fault-isolated — a throwing or empty source never takes down Signal
+      out.push({ content: raw.trim(), width: visibleWidth(raw) });
+    } catch {
+      // skip failing contribution
+    }
+  }
+  return out;
 }
 
 function styledSeparator(separator: string): string {
