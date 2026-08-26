@@ -1,4 +1,6 @@
-# Wishcraft vNext — Stacked PR Release Plan
+# Wishcraft vNext — Stacked PR Release Plan — ARCHIVED (all 8 landed)
+
+> **Archived 2026-08-26:** All 8 PRs landed via `784faaa feat: merge Wishcraft vNext operator layer` → `65e62fd v1.2.0` (plus hardening `f352b38`/`ecb2d5e`/`e79737f` and vivid `0044a87`). Historical detail only; active plan is `ROADMAP.md` 1.4a-d. Do not use this as future todo.
 
 ## Goal
 
