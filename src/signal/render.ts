@@ -189,7 +189,9 @@ function renderContributedSources(ctx: SegmentContext): Module[] {
   for (const src of getContributedSignalSources()) {
     try {
       const raw = src.render?.(ctx);
-      if (!raw || typeof raw !== "string" || !raw.trim()) continue;
+      if (!raw || typeof raw !== "string") continue;
+      const stripped = raw.replace(/\x1b\[[0-9;]*m/g, "").trim();
+      if (!stripped) continue;
       // ponytail: fault-isolated — a throwing or empty source never takes down Signal
       out.push({ content: raw.trim(), width: visibleWidth(raw) });
     } catch {
