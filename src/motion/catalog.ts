@@ -20,7 +20,8 @@ const CORE_MOTIONS: readonly MotionDef[] = [
     colorRole: "motionHot",
     fallbackGlyph: "*",
     loop: "while-active",
-    generator: { geometry: "ember", trail: 3, direction: "forward", intervalMs: 90, ease: "pulse" },
+    // ponytail: vivid — longer trail + faster pulse, travels the full Signal rail
+    generator: { geometry: "ember", trail: 6, direction: "forward", intervalMs: 62, ease: "pulse" },
     description: "Lanternwake signature. A warm ember travels the connected segments, only while work happens.",
   },
   {
@@ -29,10 +30,11 @@ const CORE_MOTIONS: readonly MotionDef[] = [
     category: "wishcraft",
     kind: "frames",
     channels: ["workingGlyph", "ambient"],
-    colorRole: "motionDim",
+    colorRole: "motionHot",
     fallbackGlyph: "o",
     loop: "ambient",
-    frames: ["◌", "○", "◈", "○"],
+    // ponytail: vivid ambient — higher contrast, tighter loop so idle actually breathes
+    frames: ["◌", "◎", "◈", "⬡", "◈", "◎"],
     description: "Soft phase drift for minimal presets.",
   },
   {
@@ -56,7 +58,7 @@ const CORE_MOTIONS: readonly MotionDef[] = [
     colorRole: "motionHot",
     fallbackGlyph: "#",
     loop: "while-active",
-    generator: { geometry: "heat", trail: 4, direction: "forward", intervalMs: 80, ease: "linear" },
+    generator: { geometry: "heat", trail: 7, direction: "forward", intervalMs: 55, ease: "linear" },
     description: "Heat propagates block by block toward the active tool.",
   },
   {
@@ -125,10 +127,10 @@ const CORE_MOTIONS: readonly MotionDef[] = [
     category: "matrix",
     kind: "generator",
     channels: ["workingGlyph", "signal", "ambient"],
-    colorRole: "secondary",
+    colorRole: "motionHot",
     fallbackGlyph: "O",
     loop: "ambient",
-    generator: { geometry: "orbit", radius: 2, trail: 3, intervalMs: 280, ease: "breathe" },
+    generator: { geometry: "orbit", radius: 3, trail: 5, intervalMs: 150, ease: "breathe" },
     description: "Orbit and phase motion, slow enough for night work.",
   },
   {
@@ -276,13 +278,14 @@ export const CHANNEL_MATRIX: Record<MotionEvent, readonly MotionChannel[]> = {
 };
 
 /** Documented cadence bands per channel. */
+// ponytail: tightened for vivid motion — signal/glyph sweep at ~60-80ms, ambient breathes at ~180ms
 export const CADENCE_MS: Record<MotionChannel, { min: number; max: number }> = {
-  workingGlyph: { min: 80, max: 120 },
-  signal: { min: 80, max: 120 },
+  workingGlyph: { min: 55, max: 85 },
+  signal: { min: 55, max: 85 },
   deckTransient: { min: 50, max: 100 },
-  panelIndicator: { min: 120, max: 250 },
-  borderEmphasis: { min: 200, max: 400 },
-  ambient: { min: 250, max: 750 },
+  panelIndicator: { min: 100, max: 200 },
+  borderEmphasis: { min: 180, max: 350 },
+  ambient: { min: 180, max: 400 },
 };
 
 /** Gallery previews are allowed to run hotter than production channels. */
