@@ -1,5 +1,6 @@
 import type { PowerlineConfig } from "../../config/powerline-config.ts";
 import type { StatusLinePreset } from "../../config/types.ts";
+import { SETTING_DEFAULTS } from "../../config/settings-registry.ts";
 import { PRESETS } from "../../config/presets.ts";
 import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
@@ -31,7 +32,7 @@ import type { RuntimeState } from "./types.ts";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export let config: PowerlineConfig = {
-  preset: "default",
+  preset: SETTING_DEFAULTS["powerline.preset"],
   customItems: [],
   disabledSegments: [],
   invalidDisabledSegments: [],
@@ -39,9 +40,9 @@ export let config: PowerlineConfig = {
   invalidLayoutSegments: [],
   separator: null,
   segmentOptions: {},
-  placement: "above",
+  placement: SETTING_DEFAULTS["powerline.placement"],
   invalidPlacement: null,
-  welcome: true,
+  welcome: SETTING_DEFAULTS["powerline.welcome"],
   stashSharpSShortcut: false,
   costAlert: null,
   customItemsAuto: false,
@@ -50,7 +51,7 @@ export let config: PowerlineConfig = {
   presets: {},
   segmentLabels: {},
   appearance: {},
-  motionLevel: "full",
+  motionLevel: SETTING_DEFAULTS["powerline.motionLevel"],
 };
 
 export function setConfig(next: PowerlineConfig): void {
