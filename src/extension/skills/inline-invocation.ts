@@ -17,6 +17,7 @@ import { logDiscoveryError } from "../../welcome/discover.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { RuntimeState } from "../core/types.ts";
 import {
+  getAvailableCommands,
   getAvailableSkills,
   invalidateSkillCache,
   recordSkillUsage,
@@ -59,32 +60,51 @@ function isExcluded(index: number, ranges: Array<[number, number]>): boolean {
 }
 
 /**
- * Expandeer alle inline triggers (/command en $skill) in de tekst
+ * Expandeer inline triggers — /command (trigger-based) en $skill (name-based)
+ * via gescheiden lookups.
+ *
+ *   /command → expandeert ALLEEN als de skill `trigger: /command` heeft
+ *   $skill   → expandeert op basis van `name:` in frontmatter
+ *
+ * Skills zonder `trigger:` reageren niet op /-prefix, en skills met
+ * `trigger:` reageren op de exacte trigger-naam (zonder /-prefix).
  */
 export function expandInlineTriggers(text: string): string {
   const availableSkills = getAvailableSkills();
+  const availableCommands = getAvailableCommands();
 
-  // Pattern for both /command and $skill
-  const TRIGGER_REGEX = /(^|[\s(])(\/|\$)([a-zA-Z0-9_-]+)/g;
   const excluded = findExcludedRanges(text);
 
+  // ── Match /command (trigger-based) ──
+  const SLASH_REGEX = /(^|[\s(])\/([a-zA-Z0-9_-]+)/g;
   const matches: Array<{
     start: number;
     end: number;
     full: string;
     name: string;
   }> = [];
+
   let match: RegExpExecArray | null;
-
-  while ((match = TRIGGER_REGEX.exec(text)) !== null) {
-    // Skip als binnen code block
+  while ((match = SLASH_REGEX.exec(text)) !== null) {
     if (isExcluded(match.index, excluded)) continue;
+    const name = match[2]!;
+    // Alleen expanden als er een skill met matching trigger is
+    if (!availableCommands.has(name)) continue;
+    matches.push({
+      start: match.index + match[1]!.length,
+      end: match.index + match[0].length,
+      full: match[0],
+      name,
+    });
+  }
 
-    const name = match[3]!;
-
-    // Alleen bekende skills expanden
+  // ── Match $skill (name-based) ──
+  const DOLLAR_REGEX = /(^|[\s(])\$([a-zA-Z0-9_-]+)/g;
+  while ((match = DOLLAR_REGEX.exec(text)) !== null) {
+    if (isExcluded(match.index, excluded)) continue;
+    const name = match[2]!;
+    // Alleen expanden als de skill-naam bekend is
     if (!availableSkills.has(name)) continue;
-
     matches.push({
       start: match.index + match[1]!.length,
       end: match.index + match[0].length,
@@ -107,6 +127,10 @@ export function expandInlineTriggers(text: string): string {
     }
   }
 
+  // /command lookups use command map, $skill lookups use skill map
+  const lookupMap = (m: { full: string }) =>
+    m.full.startsWith("/") ? availableCommands : availableSkills;
+
   // Rebuild the text with expansions
   let result = "";
   let cursor = 0;
@@ -114,7 +138,7 @@ export function expandInlineTriggers(text: string): string {
   for (const m of deduped) {
     result += text.slice(cursor, m.start);
 
-    const filePath = availableSkills.get(m.name)!;
+    const filePath = lookupMap(m).get(m.name)!;
     try {
       const rawContent = readFileSync(filePath, "utf8");
       const cleanContent = stripFrontmatter(rawContent);

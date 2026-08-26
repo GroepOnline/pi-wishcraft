@@ -42,14 +42,15 @@ export function stripFrontmatter(content: string): string {
 export interface SkillFrontmatter {
 	name: string | null;
 	description: string | null;
+	trigger: string | null;
 }
 
 /**
- * Parse minimal YAML frontmatter (name/description) from a skill file.
+ * Parse minimal YAML frontmatter (name/description/trigger) from a skill file.
  * Returns nulls when the keys are absent or there is no frontmatter block.
  */
 export function parseSkillFrontmatter(content: string): SkillFrontmatter {
-	const fm: SkillFrontmatter = { name: null, description: null };
+	const fm: SkillFrontmatter = { name: null, description: null, trigger: null };
 	const lines = content.split("\n");
 
 	if (lines[0]?.trim() !== "---") {
@@ -76,6 +77,8 @@ export function parseSkillFrontmatter(content: string): SkillFrontmatter {
 			fm.name = value || null;
 		} else if (key === "description" && fm.description === null) {
 			fm.description = value || null;
+		} else if (key === "trigger" && fm.trigger === null) {
+			fm.trigger = value ? value.replace(/^\//, "") : null;
 		}
 	}
 

@@ -37,6 +37,8 @@ export interface SkillEntry {
   mtimeMs: number;
   /** All frontmatter keys (raw, including unknown). */
   frontmatterKeys: string[];
+  /** Frontmatter trigger value (e.g. /test, /showcase). */
+  trigger: string | null;
   /** Diagnostic message (core diagnostics, or empty description). */
   warning?: string;
 }
@@ -82,6 +84,7 @@ function scanLooseExtraFiles(
         lineCount: content.split("\n").length,
         mtimeMs,
         frontmatterKeys: parseFrontmatterKeys(content),
+        trigger: null,
         warning: "no description — the model will not see this skill in the prompt",
       });
       knownPaths.add(filePath);
@@ -95,6 +98,7 @@ const CACHE_TTL_MS = 30_000;
 let cachedAt = 0;
 let cachedEntries: SkillEntry[] | null = null;
 let cachedPathMap: Map<string, string> | null = null;
+let cachedTriggerMap: Map<string, string> | null = null;
 let cachedCwd: string | null = null;
 let onCacheInvalidated: (() => void) | null = null;
 
@@ -110,6 +114,7 @@ export function invalidateSkillCache(): void {
   cachedAt = 0;
   cachedEntries = null;
   cachedPathMap = null;
+  cachedTriggerMap = null;
   cachedCwd = null;
   onCacheInvalidated?.();
 }
@@ -237,6 +242,7 @@ function buildRejectedSkillEntries(
       lineCount,
       mtimeMs,
       frontmatterKeys: parseFrontmatterKeys(content),
+      trigger: null,
       warning: message,
     });
     knownPaths.add(filePath);
@@ -283,6 +289,7 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
     if (!warning && s.filePath && diagByPath.has(s.filePath)) {
       warning = diagByPath.get(s.filePath);
     }
+    const fm = content ? parseSkillFrontmatter(content) : { name: null, description: null, trigger: null };
     return {
       name: s.name,
       description: s.description,
@@ -295,6 +302,7 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
       lineCount,
       mtimeMs,
       frontmatterKeys: parseFrontmatterKeys(content),
+      trigger: fm.trigger ?? null,
       warning,
     };
   });
@@ -305,6 +313,25 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
     ...entries.map((e) => e.filePath),
     ...loose.map((e) => e.filePath),
   ]);
+
+  // ── Name dedup: prefer project > global > prompts > extra ──
+  // When the same skill name appears in multiple roots (e.g. both
+  // ~/.pi/agent/skills/test/ and ./.pi/skills/test/), keep only the
+  // highest-priority entry so the catalog never shows doubles.
+  const NAME_PRIORITY: Record<SkillCategory, number> = {
+    project: 0,
+    global: 1,
+    prompts: 2,
+    extra: 3,
+  };
+  const seen = new Map<string, { prio: number; entry: SkillEntry }>();
+  for (const e of entries) {
+    const prio = NAME_PRIORITY[e.category] ?? 4;
+    const cur = seen.get(e.name);
+    if (!cur || prio < cur.prio) seen.set(e.name, { prio, entry: e });
+  }
+  const deduped = [...seen.values()].map((v) => v.entry);
+
   const rejected = buildRejectedSkillEntries(
     result.diagnostics,
     catalogPaths,
@@ -314,18 +341,30 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
   cachedAt = now;
   cachedCwd = cwd;
   cachedEntries = [
-    ...entries.filter((e) => !looseNames.has(e.name)),
+    ...deduped.filter((e) => !looseNames.has(e.name)),
     ...loose,
     ...rejected,
   ].sort((a, b) => a.name.localeCompare(b.name));
   cachedPathMap = new Map(cachedEntries.map((e) => [e.name, e.filePath] as const));
+  cachedTriggerMap = new Map(
+    cachedEntries
+      .filter((e) => e.trigger !== null)
+      .map((e) => [e.trigger!, e.filePath] as const),
+  );
   return cachedEntries;
 }
 
-/** Compat: name → file path (for inline-invocation). */
+/** Compat: name → file path (for inline-invocation $skill). */
 export function getAvailableSkills(): Map<string, string> {
   loadSkillCatalog();
   return cachedPathMap ?? new Map();
+}
+
+/** Compat: trigger → file path (for inline-invocation /command).
+ * Only skills with a `trigger: /command` frontmatter field are returned. */
+export function getAvailableCommands(): Map<string, string> {
+  loadSkillCatalog();
+  return cachedTriggerMap ?? new Map();
 }
 
 // ---------------------------------------------------------------------------

@@ -75,7 +75,9 @@ export function assignNestedConfigValue(
   return true;
 }
 
-/** Nested write (new object per level) + persist to settings.json. */
+/** Nested write (new object per level) + persist to settings.json.
+ * An empty string for a text field means "clear" — the key is removed from settings
+ * so the code falls through to the default. */
 export function writeConfigPath(
   cwd: string,
   path: string,
@@ -282,7 +284,8 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
               editing = false;
               editBuffer = "";
             } else if (matchesKey(data, "enter")) {
-              if (editBuffer.trim() !== "") applyEdit(editBuffer.trim());
+              // Save even if empty — allows clearing a field (e.g. remove a shortcut binding)
+              applyEdit(editBuffer.trim());
               editing = false;
               editBuffer = "";
             } else if (matchesKey(data, "backspace")) {

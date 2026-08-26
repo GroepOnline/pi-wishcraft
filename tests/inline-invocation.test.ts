@@ -14,7 +14,7 @@ before(() => {
   mkdirSync(skillsDir, { recursive: true });
   writeFileSync(
     join(skillsDir, "test.md"),
-    "---\nname: test\ndescription: Test skill voor inline expansie\n---\nDit is een test skill content\n",
+    "---\nname: test\ntrigger: test\ndescription: Test skill voor inline expansie\n---\nDit is een test skill content\n",
   );
   writeFileSync(
     join(skillsDir, "ook.md"),
@@ -64,6 +64,13 @@ describe("inline-invocation", () => {
 		const result = expandInlineTriggers(input);
 		assert.ok(result.includes("Dit is een test skill content"));
 		assert.ok(!result.includes("/test"));
+	});
+
+	it("should NOT expand /command for skills without trigger", () => {
+		// 'ook' has no trigger: frontmatter, so /ook should not expand
+		const input = "Doe /ook";
+		const result = expandInlineTriggers(input);
+		assert.strictEqual(result, input);
 	});
 
 	it("should expand single $skill trigger", () => {
@@ -128,10 +135,16 @@ describe("inline-invocation", () => {
 	});
 
 	it("should handle mixed valid and invalid triggers", () => {
-		const input = "/test en /ongeldig en $ook";
+		const input = "/test en /ongeldig en $ook en /ook";
 		const result = expandInlineTriggers(input);
+		// /test expands (has trigger: test)
 		assert.ok(result.includes("Dit is een test skill content"));
+		// $ook expands (has name: ook)
 		assert.ok(result.includes("Dit is de content van de ook skill"));
+		// /ongeldig unknown, stays
 		assert.ok(result.includes("/ongeldig"));
+		// /ook does NOT expand (no trigger in frontmatter)
+		// The literal "/ook" should remain in the output
+		assert.ok(result.includes("/ook"));
 	});
 });
