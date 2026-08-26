@@ -18,7 +18,7 @@ import { mergeSegmentsWithCustomItems } from "../config/powerline-config.ts";
 import { renderSegment } from "../segments/index.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
 import { getSeparator } from "../theme/separators.ts";
-import { frameAt, getMotion } from "../motion/index.ts";
+import { frameAt, getMotion, sweepPosition, trailGlyph } from "../motion/index.ts";
 import type { SignalRuntime } from "./controller.ts";
 
 export interface SignalRenderOptions {
@@ -91,11 +91,27 @@ export function renderActivity(
   const open = spec.caps.leftOpen ?? "";
   const close = spec.caps.leftClose ?? "";
   const dim = getFgAnsiCode("sep");
+  const hot = getFgAnsiCode("accent");
   const reset = colorEnabled() ? ansi.reset : "";
-  const rail = runtime.active
-    ? `${spec.separators.left}${glyph}${spec.separators.right}`
-    : `${spec.separators.left}${spec.separators.right}`;
-  return `${dim}${open}${rail}${close}${reset} ${label}`;
+  // ponytail: vivid sweep — 12-char rail with travelling head + 6-char trail, not a single glyph
+  const RAIL_WIDTH = 12;
+  let railInner: string;
+  if (!runtime.active) {
+    railInner = "━".repeat(RAIL_WIDTH);
+  } else {
+    const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
+    let built = "";
+    for (let i = 0; i < RAIL_WIDTH; i++) {
+      const dist = Math.abs(i - pos);
+      if (dist === 0) built += glyph;
+      else if (dist <= 6) built += trailGlyph(dist, ascii);
+      else built += "━";
+    }
+    railInner = built;
+  }
+  const railColor = runtime.active ? hot : dim;
+  const rail = `${spec.separators.left}${railInner}${spec.separators.right}`;
+  return `${railColor}${open}${rail}${close}${reset} ${label}`;
 }
 
 function fitLanes(

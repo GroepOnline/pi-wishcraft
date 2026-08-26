@@ -159,8 +159,8 @@ test("cadence stays inside the documented bands", () => {
 
 test("idle without an ambient consumer is 0 FPS", () => {
   assert.equal(targetFps(DEFAULT_MOTION_POLICY, ["ambient"], []), 0);
-  assert.equal(targetFps(DEFAULT_MOTION_POLICY, ["ambient"], ["ambient"]), 3);
-  assert.equal(targetFps(DEFAULT_MOTION_POLICY, ["signal"], ["signal"]), 10);
+  assert.equal(targetFps(DEFAULT_MOTION_POLICY, ["ambient"], ["ambient"]), 8);
+  assert.equal(targetFps(DEFAULT_MOTION_POLICY, ["signal"], ["signal"]), 16);
 });
 
 test("scheduler stays stopped until a consumer subscribes", () => {
