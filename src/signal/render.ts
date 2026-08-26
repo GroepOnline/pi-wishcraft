@@ -184,16 +184,22 @@ function joinModules(modules: Module[], separator: string, width: number): strin
   return fitted.length ? ` ${fitted.map((module) => module.content).join(sep)} ` : "";
 }
 
+const ANSI_CONTROL_RE = /\x1B(?:\][^\x07]*(?:\x07|\x1B\\)|\[[0-?]*[ -/]*[@-~]|[@-_])|\x9B[0-?]*[ -/]*[@-~]|\x9D[^\x07]*(?:\x07|\x1B\\)/g;
+
+function stripAnsiControls(text: string): string {
+  return text.replace(ANSI_CONTROL_RE, "");
+}
+
 function renderContributedSources(ctx: SegmentContext): Module[] {
   const out: Module[] = [];
   for (const src of getContributedSignalSources()) {
     try {
       const raw = src.render?.(ctx);
       if (!raw || typeof raw !== "string") continue;
-      const stripped = raw.replace(/\x1b\[[0-9;]*m/g, "").trim();
-      if (!stripped) continue;
+      const content = raw.trim();
+      if (!stripAnsiControls(content).trim()) continue;
       // ponytail: fault-isolated — a throwing or empty source never takes down Signal
-      out.push({ content: raw.trim(), width: visibleWidth(raw) });
+      out.push({ content, width: visibleWidth(content) });
     } catch {
       // skip failing contribution
     }
