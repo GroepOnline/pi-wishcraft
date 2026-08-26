@@ -11,6 +11,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SETTING_DEFAULTS } from "../../config/settings-registry.ts";
 import type { RuntimeState } from "../core/types.ts";
 import {
   getSettingsPath,
@@ -44,7 +45,7 @@ let hooksSettings: WishcraftHooksSettings = {};
 let hooksEnabled = false;
 let policyRules: PolicyRule[] = [];
 let policyEnabled = false;
-let repairsEnabled = true;
+let repairsEnabled: boolean = SETTING_DEFAULTS["wishcraft.repairsEnabled"];
 let pendingSessionContext: string | null = null;
 
 function refreshSettings(cwd: string): void {
@@ -59,10 +60,15 @@ function refreshSettings(cwd: string): void {
   const policy = parsePolicySettings(globalWishcraft);
   policyRules = policy.rules;
   policyEnabled = policy.enabled;
-  repairsEnabled =
-    !merged ||
-    typeof merged !== "object" ||
-    (merged as Record<string, unknown>).repairsEnabled !== false;
+  if (!merged || typeof merged !== "object" || Array.isArray(merged)) {
+    repairsEnabled = SETTING_DEFAULTS["wishcraft.repairsEnabled"];
+  } else {
+    const configured = (merged as Record<string, unknown>).repairsEnabled;
+    repairsEnabled =
+      typeof configured === "boolean"
+        ? configured
+        : SETTING_DEFAULTS["wishcraft.repairsEnabled"];
+  }
 }
 
 function hasAnyHook(hooks: WishcraftHooksSettings): boolean {

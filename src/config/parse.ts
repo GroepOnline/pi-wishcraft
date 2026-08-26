@@ -29,6 +29,7 @@ import type {
 } from "./types.ts";
 import { isStructuralPresetName } from "./structural-presets.ts";
 import { isMotionLevel, type MotionLevel } from "../motion/accessibility.ts";
+import { SETTING_DEFAULTS } from "./settings-registry.ts";
 
 export interface PowerlineConfig {
   preset: StatusLinePreset;
@@ -65,7 +66,7 @@ export function parsePowerlineConfig(
   presets: readonly StatusLinePreset[],
 ): PowerlineConfig {
   const defaultConfig: PowerlineConfig = {
-    preset: "default",
+    preset: SETTING_DEFAULTS["powerline.preset"],
     customItems: [],
     disabledSegments: [],
     invalidDisabledSegments: [],
@@ -73,9 +74,9 @@ export function parsePowerlineConfig(
     invalidLayoutSegments: [],
     separator: null,
     segmentOptions: {},
-    placement: "above",
+    placement: SETTING_DEFAULTS["powerline.placement"],
     invalidPlacement: null,
-    welcome: true,
+    welcome: SETTING_DEFAULTS["powerline.welcome"],
     stashSharpSShortcut: false,
     costAlert: null,
     customItemsAuto: false,
@@ -84,7 +85,7 @@ export function parsePowerlineConfig(
     presets: {},
     segmentLabels: {},
     appearance: {},
-    motionLevel: "full",
+    motionLevel: SETTING_DEFAULTS["powerline.motionLevel"],
   };
 
   const directPreset = normalizePreset(value, presets);
@@ -138,7 +139,10 @@ export function parsePowerlineConfig(
     segmentOptions: normalizeSegmentOptions(value),
     placement,
     invalidPlacement,
-    welcome: value.welcome !== false,
+    welcome:
+      typeof value.welcome === "boolean"
+        ? value.welcome
+        : SETTING_DEFAULTS["powerline.welcome"],
     stashSharpSShortcut: value.stashSharpSShortcut === true,
     costAlert: normalizeCostAlert(value.costAlert),
     customItemsAuto:
@@ -149,7 +153,9 @@ export function parsePowerlineConfig(
     presets: customPresetDefs,
     segmentLabels: normalizeSegmentLabels(value.segmentLabels),
     appearance: normalizeAppearance(value.appearance),
-    motionLevel: isMotionLevel(value.motionLevel) ? value.motionLevel : "full",
+    motionLevel: isMotionLevel(value.motionLevel)
+      ? value.motionLevel
+      : SETTING_DEFAULTS["powerline.motionLevel"],
   };
 }
 

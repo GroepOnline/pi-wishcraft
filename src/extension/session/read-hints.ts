@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "../../config/settings-registry.ts";
 import { readSettings } from "../settings/settings-io.ts";
 
 export interface ReadToolInput {
@@ -43,9 +44,12 @@ export function readHintsEnabled(wishcraftSettings: unknown): boolean {
     typeof wishcraftSettings !== "object" ||
     Array.isArray(wishcraftSettings)
   ) {
-    return true;
+    return SETTING_DEFAULTS["wishcraft.readHints"];
   }
-  return (wishcraftSettings as Record<string, unknown>).readHints !== false;
+  const configured = (wishcraftSettings as Record<string, unknown>).readHints;
+  return typeof configured === "boolean"
+    ? configured
+    : SETTING_DEFAULTS["wishcraft.readHints"];
 }
 
 /** True when core read output already carries an offset/range continuation line. */

@@ -114,20 +114,16 @@ function isPrintable(data: string): boolean {
 
 /** Value shown for a config item given its stored value. */
 export function displayValue(item: ConfigItem, value: ConfigValue): string {
-  // An unset toggle renders as its declared default (read hints default on).
-  if (item.kind === "toggle" && (value === null || value === undefined)) {
-    return (item.default ?? false) ? "on" : "off";
-  }
-  if (value === null || value === undefined || value === "") return item.kind === "toggle" ? "off" : "—";
-  if (item.kind === "toggle") return value ? "on" : "off";
-  return String(value);
+  const effective = value ?? item.defaultValue ?? null;
+  if (effective === null || effective === "") return item.kind === "toggle" ? "off" : "—";
+  if (item.kind === "toggle") return effective === true ? "on" : "off";
+  return String(effective);
 }
 
-/** Next stored boolean after toggling `item` from its current `value`. */
+/** Next stored boolean after toggling `item` from its current effective value. */
 export function nextToggleValue(item: ConfigItem, value: ConfigValue): boolean {
-  const effective =
-    item.kind === "toggle" && value === null ? (item.default ?? false) : value === true;
-  return !effective;
+  const effective = value ?? item.defaultValue ?? false;
+  return effective !== true;
 }
 
 function coerce(item: ConfigItem, current: ConfigValue, next: string): ConfigValue {
@@ -192,9 +188,11 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
       };
 
       const cycleSelect = (item: ConfigItem, forward: boolean) => {
+        if (item.kind !== "select") return;
         const cur = readConfigPath(settings, item.path);
-        const list = item.choices ?? [];
-        const idx = list.indexOf(String(cur ?? list[0]));
+        const list = item.choices;
+        const effective = cur ?? item.defaultValue ?? list[0];
+        const idx = list.indexOf(String(effective));
         const next = list[(idx + (forward ? 1 : list.length - 1) + list.length) % list.length]!;
         const ok = writeConfigPath(cwd, item.path, next);
         settings = readSettings(cwd);
@@ -210,14 +208,15 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
 
       const toggle = (item: ConfigItem) => {
         const cur = readConfigPath(settings, item.path);
-        const ok = writeConfigPath(cwd, item.path, nextToggleValue(item, cur));
+        const next = nextToggleValue(item, cur);
+        const ok = writeConfigPath(cwd, item.path, next);
         settings = readSettings(cwd);
         groups = buildConfigGroups(settings);
         if (item.path.startsWith("powerline")) {
           reloadPowerlineFromSettings(rt, settings);
         }
         ctx.ui.notify(
-          ok ? `${item.label}: ${!(cur === true) ? "on" : "off"} (saved)` : `${item.label} not saved`,
+          ok ? `${item.label}: ${next ? "on" : "off"} (saved)` : `${item.label} not saved`,
           ok ? "info" : "warning",
         );
       };

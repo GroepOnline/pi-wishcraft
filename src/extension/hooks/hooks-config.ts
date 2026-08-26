@@ -19,6 +19,8 @@
  * ---------------------------------------------------------------------------
  */
 
+import { SETTING_DEFAULTS } from "../../config/settings-registry.ts";
+
 export type HookEventName = "preToolUse" | "postToolUse" | "sessionStart" | "turnEnd";
 
 export interface HookCommand {
@@ -81,7 +83,10 @@ export function parseHooksSettings(
   wishcraftSettings: unknown,
 ): { enabled: boolean; hooks: WishcraftHooksSettings } {
   if (!isRecord(wishcraftSettings)) return { enabled: false, hooks: {} };
-  const enabled = wishcraftSettings.hooksEnabled !== false;
+  const enabled =
+    typeof wishcraftSettings.hooksEnabled === "boolean"
+      ? wishcraftSettings.hooksEnabled
+      : SETTING_DEFAULTS["wishcraft.hooksEnabled"];
   const raw = wishcraftSettings.hooks;
   if (!isRecord(raw)) return { enabled, hooks: {} };
   return {

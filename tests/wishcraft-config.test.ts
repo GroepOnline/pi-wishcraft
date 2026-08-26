@@ -20,7 +20,7 @@ function findItem(label: string) {
 test("read hints toggle defaults on and the first toggle disables it", () => {
   const item = findItem("Read hints");
   assert.equal(item.path, "wishcraft.readHints");
-  assert.equal(item.default, true);
+  assert.equal(item.defaultValue, true);
   // Unset (absent) value renders as enabled.
   assert.equal(displayValue(item, null), "on");
   // First toggle writes false, disabling read hints.
@@ -44,11 +44,20 @@ test("structural appearance base is a select in the flat settings list", () => {
   assert.equal(item.choices?.length, 10);
 });
 
-test("a normal toggle defaults off and the first toggle enables it", () => {
-  const item = findItem("Hooks enabled");
-  assert.notEqual(item.default, true);
+test("a normal opt-in toggle defaults off and the first toggle enables it", () => {
+  const item = findItem("Inline expand /command and $skill");
+  assert.notEqual(item.defaultValue, true);
   assert.equal(displayValue(item, null), "off");
   assert.equal(nextToggleValue(item, null), true);
+});
+
+test("runtime-default-on toggles render and toggle from the registry default", () => {
+  for (const label of ["Hooks enabled", "Tool-input repairs"]) {
+    const item = findItem(label);
+    assert.equal(item.defaultValue, true);
+    assert.equal(displayValue(item, null), "on");
+    assert.equal(nextToggleValue(item, null), false);
+  }
 });
 
 test("displayValue renders absent/empty values", () => {
