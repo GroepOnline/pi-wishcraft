@@ -23,6 +23,7 @@ import { STRUCTURAL_PRESET_NAMES } from "./types.ts";
 export { STRUCTURAL_PRESET_NAMES };
 import type { MotionEvent } from "../motion/types.ts";
 import { defaultMotionFor } from "../motion/catalog.ts";
+import { resolveAppearance } from "../extension/contrib/appearance.ts";
 
 function tokens(partial: Partial<WishcraftTokens>): Partial<WishcraftTokens> {
   return partial;
@@ -513,7 +514,11 @@ export function isStructuralPresetName(name: string): name is StructuralPresetNa
 }
 
 export function getStructuralPreset(name: StructuralPresetName): StructuralPresetDef {
-  return STRUCTURAL_PRESETS[name];
+  return resolveAppearance(STRUCTURAL_PRESETS[name]);
+}
+
+export function getEffectivePreset(name: StructuralPresetName): StructuralPresetDef {
+  return getStructuralPreset(name);
 }
 
 /** Display name for a stored base, or the raw value when it is not structural. */
