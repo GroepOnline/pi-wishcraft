@@ -72,3 +72,29 @@ npm test               # node --experimental-strip-types --test tests/**/*.test.
 ```
 
 Run both before proposing any non-trivial change.
+
+## Cursor Cloud specific instructions
+
+The Cloud Agent environment is provisioned so the extension can be tested both as
+a library and inside real `pi`, with Docker for containerized/parallel runs.
+
+- **Node:** the platform `node` on `PATH` is v22.14 (fine for `npm ci`,
+  `typecheck`, and the test suite, which use `--experimental-strip-types`).
+  Node 24 is available via `nvm` and is what CI uses.
+- **pi CLI:** installed and pinned to the wishcraft peer range
+  (`@earendil-works/pi-coding-agent` `>=0.81.0 <0.85.0`). pi requires Node
+  `>=22.19`, so the `pi` launcher is wrapped to run under the `nvm` Node 24.
+  `~/.pi/agent/settings.json` loads this checkout (`packages: ["/workspace"]`,
+  `preset: chef`) so `pi` renders the wishcraft welcome/powerline on startup.
+  Running a model needs a provider key (`/login`); the extension loads without
+  one.
+- **Docker:** `dockerd` runs with the `fuse-overlayfs` storage driver (required
+  in the nested VM). `scripts/cloud-agent-start.sh` starts it per boot;
+  `scripts/cloud-agent-install.sh` is the idempotent bootstrap (`npm ci` plus
+  self-healing pi setup).
+- **Containerized / parallel testing:** `scripts/docker-test.sh [-n N]` runs the
+  full check suite (`typecheck` + `test` + `circular`) in `node:24` containers,
+  each with an isolated copy of the tree, so `N` runs are safe in parallel.
+- **Publishing / pi.dev:** merges to `main` auto-publish to npm via the org
+  `NPM_TOKEN` (`.github/workflows/release.yml`), and pi.dev mirrors npm. Gate
+  the catalog contract with `npm run verify:package`.

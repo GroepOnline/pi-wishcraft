@@ -42,6 +42,7 @@ export class BashModeEditor extends CustomEditor {
   private ghost: GhostSuggestion | null = null;
   private ghostAbort: AbortController | null = null;
   private ghostToken = 0;
+  private ghostSchedule: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     tui: any,
@@ -76,9 +77,26 @@ export class BashModeEditor extends CustomEditor {
     this.scheduleGhostUpdate();
   }
 
+  /** Resolve a ghost immediately for callers that need a settled refresh. */
+  async refreshGhostSuggestionNow(): Promise<void> {
+    const text = this.getExpandedText();
+    const currentToken = ++this.ghostToken;
+    this.ghostAbort?.abort();
+    this.ghostSchedule = null;
+
+    const controller = new AbortController();
+    this.ghostAbort = controller;
+    const ghost = await this.optionsRef.resolveGhostSuggestion(text, controller.signal);
+    if (controller.signal.aborted || currentToken !== this.ghostToken) return;
+    this.ghost = ghost;
+    this.tui.requestRender();
+  }
+
   clearGhostSuggestion(): void {
     this.ghostAbort?.abort();
     this.ghostAbort = null;
+    if (this.ghostSchedule) clearTimeout(this.ghostSchedule);
+    this.ghostSchedule = null;
     this.ghost = null;
   }
 
@@ -338,23 +356,24 @@ export class BashModeEditor extends CustomEditor {
     const text = this.getExpandedText();
     const currentToken = ++this.ghostToken;
     this.ghostAbort?.abort();
+    if (this.ghostSchedule) clearTimeout(this.ghostSchedule);
+    this.ghostSchedule = null;
 
     const controller = new AbortController();
     this.ghostAbort = controller;
+    // Start immediately so editor actions have deterministic refresh semantics.
+    // The abort signal and token still discard stale results when typing races
+    // with an in-flight history/filesystem lookup.
     this.optionsRef
       .resolveGhostSuggestion(text, controller.signal)
       .then((ghost) => {
-        if (controller.signal.aborted || currentToken !== this.ghostToken)
-          return;
+        if (controller.signal.aborted || currentToken !== this.ghostToken) return;
         this.ghost = ghost;
         this.tui.requestRender();
       })
       .catch((error) => {
-        if (error instanceof Error && error.message === "aborted") return;
-        console.debug(
-          "[wishcraft] Failed to resolve bash ghost suggestion:",
-          error,
-        );
+        if (controller.signal.aborted || (error instanceof Error && error.message === "aborted")) return;
+        console.debug("[wishcraft] Failed to resolve bash ghost suggestion:", error);
       });
   }
 }

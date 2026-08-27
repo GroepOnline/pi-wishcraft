@@ -17,7 +17,11 @@ Kongming lanterns started as battlefield signals and later carried wishes. Wishc
 
 Install `@groeponline/pi-wishcraft`. It is listed on the [Pi package catalog](https://pi.dev/packages/@groeponline/pi-wishcraft). Grew out of [`nicobailon/pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer). Maintained by [GroepOnline](https://github.com/GroepOnline).
 
-Guides live in [`docs/`](docs/index.md). This page is the contract: what ships, how to install it, and what can fail.
+Guides live in [`docs/`](docs/index.md). This is the Pi extension contract: what ships, how to install it, and what can fail.
+
+## Quick start tutorial
+
+Install, restart Pi (or run `/reload`), then press `alt+p` for the Deck. Try `/signal menu`, `/skills`, `/ideas`, and `ctrl+shift+b`. Full setup: [docs/configuration.md](docs/configuration.md).
 
 ## Install
 
@@ -27,13 +31,13 @@ Pi package manager (usual path):
 pi install npm:@groeponline/pi-wishcraft
 ```
 
-Ephemeral VMs / CI:
+For a local checkout or CI environment, run the repository bootstrap script with Bash:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/scripts/install.sh | bash
+bash ./scripts/install.sh
 ```
 
-Then restart pi or `/reload`. Pi host packages are declared as `peerDependencies: "*"`, matching the Pi package contract.
+Then restart Pi or `/reload`. Pi host packages are declared as `peerDependencies: "*"`, matching the Pi package contract.
 
 ## What you get
 
@@ -48,6 +52,8 @@ Then restart pi or `/reload`. Pi host packages are declared as `peerDependencies
 | Hooks + repairs | Command hooks on pi events. Custom-tool input repairs before execution. Kill-switch: `wishcraft.hooksEnabled`. |
 | Read hints | Appends a one-line continuation hint after a partial `read`, so the model knows the next offset. Opt-out: `wishcraft.readHints: false`. |
 | Policy | In-process deny/inject rules in global settings. No spawn. Kill-switch: `wishcraft.policyEnabled`. |
+| Working indicator | Four deterministic styles (`dots`, `pulse`, `bar`, `ascii`) with accessibility-aware static fallbacks. |
+| Welcome art | `lantern`, `balloon`, and `normal` opening artwork, each with a different silhouette and narrow-terminal fallback. |
 
 Pi owns the footer chrome, feed scrolling, and input. Wishcraft supplies widgets, overlays, and the bash/stash/editor integrations. The bar is not clickable; actions are commands and overlays.
 
@@ -126,7 +132,9 @@ At 80% the cost segment warns; at 100% it goes red and welcome notifies. `/usage
 
 ## Hooks
 
-Hooks are commands that read JSON on stdin. Definitions come from the **global** agent settings file only. Project `.pi/settings.json` cannot install new hook commands. `wishcraft.hooksEnabled: false` disables every hook without deleting the config.
+Hooks are commands that read JSON on stdin. See [docs/configuration.md](docs/configuration.md) for examples.
+
+Definitions come from the **global** agent settings file only. Project `.pi/settings.json` cannot install new hook commands. `wishcraft.hooksEnabled: false` disables every hook without deleting the config.
 
 ```json
 {
@@ -147,7 +155,7 @@ Hooks are commands that read JSON on stdin. Definitions come from the **global**
 }
 ```
 
-**bash-guard** (exit 2 = deny):
+**Example hook** (exit 2 = deny):
 
 ```bash
 #!/usr/bin/env bash
@@ -161,7 +169,7 @@ fi
 exit 0
 ```
 
-**write-audit** (append-only, never blocks):
+**Another example** (append-only, never blocks):
 
 ```bash
 #!/usr/bin/env bash
@@ -169,7 +177,7 @@ mkdir -p "$HOME/.pi/agent/logs"
 cat >> "$HOME/.pi/agent/logs/write-audit.jsonl"
 ```
 
-**SessionStart git-status** (extra context, never blocks):
+**SessionStart example** (extra context, never blocks):
 
 ```bash
 #!/usr/bin/env bash
@@ -188,7 +196,8 @@ Repairs run on custom/extension tools only, before hooks: drop null optionals, p
 
 ## Policy
 
-Declarative deny/inject rules in the **global** agent settings file. No shell commands — pure in-process regex. Evaluated before command hooks. `wishcraft.policyEnabled: false` disables policy without deleting rules.
+Declarative deny/inject rules live in the global settings file; see [docs/configuration.md](docs/configuration.md).
+No shell commands — pure in-process regex. Evaluated before command hooks. `wishcraft.policyEnabled: false` disables policy without deleting rules.
 
 ```json
 {
@@ -211,24 +220,18 @@ Declarative deny/inject rules in the **global** agent settings file. No shell co
 }
 ```
 
-**deny** — regex on tool input (`bash` uses `command`; other tools use JSON-serialized input). First match wins; the tool call is blocked with `reason`.
-
-**inject** — regex on file path after a matching tool completes; context is appended to the tool result (same shape as postToolUse hook `additionalContext`).
 
 ## Limits
 
 - No mouse on the live footer. Pi core owns that surface.
 - No second `alt+i` product. Ports stay on `alt+i`; other detail is `→` in the navigator.
 - ChefGroep status keys (`powerline.preset`, `powerline.tps`, `powerline.ports`) exist for other extensions. They are not the public pitch.
-- The legacy `@groeponline/pi-powerline-footer` package is deprecated on npm in favor of `@groeponline/pi-wishcraft`; the GitHub fork relationship is retained for upstream history and attribution.
+- The legacy `@groeponline/pi-powerline-footer` package is deprecated in favor of `@groeponline/pi-wishcraft`.
 - Tags are not rewritten. 0.19.x through current stay on the timeline.
 
 ## vNext Direction
 
-Wishcraft is evolving into Pi's animated operator layer — intent, skills, ideas, guardrails, and session state made visible and controllable without turning Pi into an IDE.
-
-- **[vNext Stacked PR Release Plan](docs/design/vnext-release-plan.md)**: Specifications for PR0 through PR8.
-- **[Design Corpus](docs/index.md#design-system--vnext-specifications)**: Deck, Signal, Motion Gallery, tokens, and the 10 structural presets. `npm run preview` renders the Deck frames.
+Wishcraft is Pi's animated operator layer. See the [release plan](docs/design/vnext-release-plan.md) and [design corpus](docs/index.md#design-system--vnext-specifications).
 
 ## Docs
 

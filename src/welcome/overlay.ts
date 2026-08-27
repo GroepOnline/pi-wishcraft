@@ -3,6 +3,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { dim, renderWelcomeBox } from "./renderer.ts";
 import type { WelcomeData } from "./types.ts";
 import type { LoadedCounts, RecentSession } from "./types.ts";
+import type { WelcomeArtTheme } from "./welcome-art.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Welcome Components
@@ -47,6 +48,11 @@ export class WelcomeComponent implements Component {
 
   setCountdown(seconds: number): void {
     this.countdown = seconds;
+  }
+
+  setArt(art: WelcomeArtTheme, animate: boolean): void {
+    this.data.art = art;
+    this.data.animateArt = animate;
   }
 
   invalidate(): void {}

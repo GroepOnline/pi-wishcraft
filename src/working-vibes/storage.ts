@@ -9,6 +9,7 @@ import { join, dirname } from "node:path";
 import { getAgentPath } from "../paths/agent-dirs.ts";
 
 export type VibeMode = "generate" | "file";
+export type WorkingIndicatorStyle = "dots" | "pulse" | "bar" | "ascii";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
@@ -51,6 +52,7 @@ export interface VibeConfig {
   refreshInterval: number; // default: 30000ms (30s)
   promptTemplate: string; // template with {theme}, {task}, {exclude} placeholders
   maxLength: number; // default: 65 chars
+  workingIndicatorStyle: WorkingIndicatorStyle;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -180,6 +182,14 @@ export function loadConfig(): VibeConfig {
       ? Math.max(0, settings.workingVibeRefreshInterval)
       : 30;
 
+  const rawIndicator = settings.wishcraft && isRecord(settings.wishcraft)
+    ? settings.wishcraft.workingIndicatorStyle
+    : settings.workingIndicatorStyle;
+  const workingIndicatorStyle: WorkingIndicatorStyle =
+    rawIndicator === "pulse" || rawIndicator === "bar" || rawIndicator === "ascii"
+      ? rawIndicator
+      : "dots";
+
   const maxLength =
     typeof settings.workingVibeMaxLength === "number" &&
     Number.isFinite(settings.workingVibeMaxLength)
@@ -204,6 +214,7 @@ export function loadConfig(): VibeConfig {
         ? settings.workingVibePrompt
         : DEFAULT_PROMPT,
     maxLength,
+    workingIndicatorStyle,
   };
 }
 

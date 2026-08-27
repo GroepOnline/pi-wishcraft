@@ -1,6 +1,6 @@
 # pi-wishcraft documentation
 
-The README is the public landing page (`banner.png` only). Everything below lives here.
+This package is a Pi.dev extension, not a standalone website. The README is the short installation and capability contract; the complete operator, configuration, and design references live here.
 
 ## Guides
 
@@ -13,6 +13,9 @@ The README is the public landing page (`banner.png` only). Everything below live
 - [Segments & theming](./segments.md) — segment reference, separators, thinking/path/git options, and theme overrides.
 
 ## Design System & vNext Specifications
+
+These documents describe the terminal-native extension UI and are useful when contributing to or reviewing the package; they are not a web application specification.
+
 
 - [vNext Stacked PR Release Plan](./design/vnext-release-plan.md) — The comprehensive implementation roadmap covering PR0 through PR8.
 - [vNext Architecture & Overview](./design/vnext-overview.md) — Product vision, five pillars, and architectural boundaries.
