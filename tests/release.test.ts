@@ -378,14 +378,25 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
     join(root, ".github/workflows/promote-release-candidate.yml"),
     "utf8",
   );
-  assert.match(promote, /workflow_run:/);
-  assert.match(promote, /workflow_run\.event == 'workflow_dispatch'/);
-  assert.match(promote, /workflow_run\.actor\.login == 'github-actions\[bot\]'/);
+  // workflow_run is suppressed when the completed workflow was dispatched via
+  // GITHUB_TOKEN (anti-recursion), so promotion must be an explicit
+  // workflow_dispatch; the gate lives in Verify's dispatch step and the full
+  // validation lives in Promotion's metadata-only step.
+  assert.match(promote, /workflow_dispatch:/);
+  assert.match(promote, /inputs:/);
+  assert.match(promote, /branch:/);
+  assert.match(promote, /sha:/);
   assert.doesNotMatch(promote, /actions\/checkout/);
   assert.match(promote, /repos\/\$GITHUB_REPOSITORY\/commits\/\$CANDIDATE_SHA/);
   assert.match(promote, /EXPECTED_FILES=.*CHANGELOG\.md package-lock\.json package\.json/);
   assert.match(promote, /git\/refs\/heads\/main/);
   assert.match(promote, /git\/refs.*refs\/tags\/\$TAG/);
+
+  // Verify may dispatch promotion only for bot-verified release candidates.
+  const verify = readFileSync(join(root, ".github/workflows/test.yml"), "utf8");
+  assert.match(verify, /gh workflow run promote-release-candidate\.yml --ref main/);
+  assert.match(verify, /github\.actor == 'github-actions\[bot\]'/);
+  assert.match(verify, /startsWith\(github\.ref_name, 'release-candidate\/v'\)/);
 });
 
 test("release workflows keep npm auth scoped to the tag publisher", () => {

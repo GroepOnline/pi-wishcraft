@@ -119,6 +119,7 @@ test("release is blocked on the same reusable Verify contract as pull requests",
 
   const release = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   assert.match(release, /uses: \.\/\.github\/workflows\/test\.yml/);
+  assert.match(release, /actions: write/); // caller must grant the nested verify job's actions scope
   const verifyDependencies = release.match(/needs: verify/g) ?? [];
   assert.equal(verifyDependencies.length, 2, "candidate prep and tag publish must need verify");
   assert.match(release, /git rev-parse origin\/main/);
@@ -128,9 +129,13 @@ test("release is blocked on the same reusable Verify contract as pull requests",
     join(root, ".github/workflows/promote-release-candidate.yml"),
     "utf8",
   );
-  assert.match(promote, /workflow_run\.conclusion == 'success'/);
+  // anti-recursion: Verify is GITHUB_TOKEN-dispatched, so the Verify -> Promote
+  // link must be an explicit workflow_dispatch; the actor/ref gate lives in
+  // Verify's dispatch step, all candidate validation stays in Promote.
+  assert.match(promote, /workflow_dispatch:/);
   assert.doesNotMatch(promote, /actions\/checkout/);
   assert.match(promote, /commits\/\$CANDIDATE_SHA/);
   assert.match(promote, /git\/refs\/heads\/main/);
   assert.match(promote, /refs\/tags\/\$TAG/);
+  assert.match(verify, /Dispatch promotion for verified candidate/);
 });
