@@ -391,6 +391,11 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
   assert.match(promote, /EXPECTED_FILES=.*CHANGELOG\.md package-lock\.json package\.json/);
   assert.match(promote, /git\/refs\/heads\/main/);
   assert.match(promote, /git\/refs.*refs\/tags\/\$TAG/);
+  // gh api prints the error body to stdout on non-2xx, so ref and tag
+  // existence must be gated on the exit code, never on an empty capture.
+  assert.match(promote, /never on an empty capture/);
+  assert.doesNotMatch(promote, /REMOTE_SHA="\$\(gh api[^)]*\) \|\| true/);
+  assert.doesNotMatch(promote, /TAG_JSON="\$\(gh api[^)]*\) \|\| true/);
 
   // Verify may dispatch promotion only for bot-verified release candidates.
   const verify = readFileSync(join(root, ".github/workflows/test.yml"), "utf8");

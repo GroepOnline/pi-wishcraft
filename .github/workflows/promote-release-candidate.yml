@@ -44,7 +44,13 @@ jobs:
           VERSION="${VERSION%-????????????}"
           PARENT_PREFIX="${BRANCH##*-}"
           MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
-          REMOTE_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" --jq '.object.sha' 2>/dev/null || true)"
+          # gh api writes the error body to stdout on non-2xx, so gate on the exit
+          # code, never on an empty capture.
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" --jq '.object.sha' > /tmp/candidate-ref.json 2>/dev/null; then
+            REMOTE_SHA="$(cat /tmp/candidate-ref.json)"
+          else
+            REMOTE_SHA=""
+          fi
           if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$CANDIDATE_SHA" ]; then
             echo "Candidate branch moved after Verify; refusing promotion." >&2
             exit 1
@@ -95,8 +101,10 @@ jobs:
             gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$CANDIDATE_SHA" -F force=false >/dev/null
           fi
           TAG="v$VERSION"
-          TAG_JSON="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>/dev/null || true)"
-          if [ -n "$TAG_JSON" ]; then
+          # gh api writes the error body to stdout on non-2xx, so gate tag
+          # existence on the exit code, never on an empty capture.
+          if gh api "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" > /tmp/tag.json 2>/dev/null; then
+            TAG_JSON="$(cat /tmp/tag.json)"
             TAG_TYPE="$(printf '%s' "$TAG_JSON" | jq -r '.object.type')"
             TAG_SHA="$(printf '%s' "$TAG_JSON" | jq -r '.object.sha')"
             if [ "$TAG_TYPE" = "tag" ]; then
