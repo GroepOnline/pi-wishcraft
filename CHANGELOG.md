@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Versioned autoresearch harness (`.auto/measure.sh`, `checks.sh`, `config.json`, `prompt.md`): one-run `METRIC` output for test/typecheck/circular plus signal-render and registry micro-benchmarks. Future autoresearch sessions run against this contract.
+
 ## [1.5.0] - 2026-08-27
 
 ## [1.4.1] - 2026-08-27
