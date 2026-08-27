@@ -35,4 +35,3 @@ Optimize the entire Wishcraft extension for **real effectiveness and speed** —
 - 2026-08-26: Vivid sweep landed (0044a87): 12-char rail with ▓▒░ trail, 16/8 FPS, trails 6-7. Before that motion was single glyph ◜───▓─── + ghost red border.
 - 2026-08-26: Settings registry (0bfa5a2) and contribution API (62d6156) landed. Baseline for this session is after those.
 - Baseline to measure next.
-
