@@ -72,3 +72,5 @@ npm test               # node --experimental-strip-types --test tests/**/*.test.
 ```
 
 Run both before proposing any non-trivial change.
+
+Compound Engineering overlay: `.compound-engineering/` (tracked `config.yaml`, gitignored `config.local.yaml`). Artifact root `.compound-engineering/artifacts/`. Portable skills `~/.agents/skills/ce-*`; native Cursor plugin is fallback only when this overlay is absent.

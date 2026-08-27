@@ -100,3 +100,6 @@ hs_err_pid*
 *.tar.xz
 *.tar.zst
 bun.lock
+
+# Compound Engineering checkout-local settings (tracked: config.yaml + example)
+.compound-engineering/*.local.yaml
