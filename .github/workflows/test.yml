@@ -15,7 +15,6 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
-      checks: write  # report verify to branch protection (API-dispatched runs are suite-less)
       actions: write  # dispatch promotion via workflow_dispatch (GITHUB_TOKEN-run chain)
     steps:
       - uses: actions/checkout@v7
@@ -45,24 +44,6 @@ jobs:
       - name: Dependency audit (informational)
         run: npm audit --audit-level=high
         continue-on-error: true
-      # API-dispatched Verify runs are suite-less (check_suite_id null), so the
-      # candidate's "verify" never lands in a check suite and branch protection
-      # rejects the promote push with HTTP 422. Report the passing check through
-      # the Checks API, which attaches it to a suite, before dispatching Promote.
-      - name: Report verify check for branch protection
-        if: >-
-          success()
-          && github.event_name == 'workflow_dispatch'
-          && github.actor == 'github-actions[bot]'
-          && startsWith(github.ref_name, 'release-candidate/v')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          gh api repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs
-          -f name=verify
-          -f head_sha="$GITHUB_SHA"
-          -f status=completed
-          -f conclusion=success
       # workflow_run triggers are suppressed when the completed workflow was
       # itself dispatched via GITHUB_TOKEN (anti-recursion), so the Verify ->
       # Promote link must be a workflow_dispatch, which always creates a run.
