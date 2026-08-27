@@ -13,6 +13,9 @@ jobs:
     name: verify
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: write  # dispatch promotion via workflow_dispatch (GITHUB_TOKEN-run chain)
     steps:
       - uses: actions/checkout@v7
         with:
@@ -41,3 +44,18 @@ jobs:
       - name: Dependency audit (informational)
         run: npm audit --audit-level=high
         continue-on-error: true
+      # workflow_run triggers are suppressed when the completed workflow was
+      # itself dispatched via GITHUB_TOKEN (anti-recursion), so the Verify ->
+      # Promote link must be a workflow_dispatch, which always creates a run.
+      - name: Dispatch promotion for verified candidate
+        if: >-
+          success()
+          && github.event_name == 'workflow_dispatch'
+          && github.actor == 'github-actions[bot]'
+          && startsWith(github.ref_name, 'release-candidate/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh workflow run promote-release-candidate.yml --ref main
+          -f branch="${{ github.ref_name }}"
+          -f sha="${{ github.sha }}"

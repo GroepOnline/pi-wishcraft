@@ -1,9 +1,21 @@
 name: Promote Release Candidate
 
+# Triggered via workflow_dispatch by the Verify workflow's final step.
+# A plain workflow_run trigger would be suppressed because Verify is itself
+# dispatched from Release via GITHUB_TOKEN (anti-recursion), so promotion must
+# be driven by the explicit dispatch (which always creates a run). The whole
+# gate lives in the validation step below: candidate must be a release commit
+# whose parent is main, at the exact verified SHA, touching only the three
+# release files.
 on:
-  workflow_run:
-    workflows: ["Verify"]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Release candidate branch (release-candidate/vX.Y.Z-<release>)
+        required: true
+      sha:
+        description: Exact verified candidate SHA
+        required: true
 
 concurrency:
   group: release-promote-pi-wishcraft
@@ -11,19 +23,14 @@ concurrency:
 
 jobs:
   promote:
-    if: >-
-      github.event.workflow_run.conclusion == 'success'
-      && github.event.workflow_run.event == 'workflow_dispatch'
-      && github.event.workflow_run.actor.login == 'github-actions[bot]'
-      && startsWith(github.event.workflow_run.head_branch, 'release-candidate/v')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      BRANCH: ${{ github.event.workflow_run.head_branch }}
-      CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha }}
+      BRANCH: ${{ inputs.branch }}
+      CANDIDATE_SHA: ${{ inputs.sha }}
     steps:
       - name: Validate candidate from GitHub metadata only
         id: candidate
