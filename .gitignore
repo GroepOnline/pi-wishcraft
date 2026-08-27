@@ -133,3 +133,5 @@ Pods/
 .env
 .env.local
 .env.*.local
+.compound-engineering/*.local.yaml
+
