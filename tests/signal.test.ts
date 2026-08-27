@@ -14,6 +14,10 @@ import { getStructuralPreset } from "../src/config/structural-presets.ts";
 import { PRESETS } from "../src/config/presets.ts";
 import type { SegmentContext } from "../src/config/types.ts";
 import { registerCommands } from "../src/extension/commands/commands.ts";
+import {
+  clearContributions,
+  registerSignalSource,
+} from "../src/extension/contrib/registry.ts";
 
 function schedulerHarness() {
   let callback: (() => void) | null = null;
@@ -122,6 +126,56 @@ test("Signal renders left, center, and right lanes on one line", () => {
   assert.match(line, /47%/); // right lane
   assert.ok(line.indexOf("project") < line.indexOf("ready"));
   assert.ok(line.indexOf("ready") < line.indexOf("47%"));
+});
+
+test("Signal renders valid contributed sources and isolates empty or failing output", () => {
+  clearContributions();
+  try {
+    assert.equal(registerSignalSource({ id: "ok", label: "OK", render: () => "contrib-ok" }), true);
+    assert.equal(registerSignalSource({ id: "null", label: "Null", render: () => null }), true);
+    assert.equal(registerSignalSource({ id: "empty", label: "Empty", render: () => "" }), true);
+    assert.equal(registerSignalSource({ id: "space", label: "Space", render: () => "   " }), true);
+    assert.equal(
+      registerSignalSource({ id: "sgr-space", label: "SGR Space", render: () => "\x1b[31m   \x1b[0m" }),
+      true,
+    );
+    assert.equal(registerSignalSource({ id: "csi-only", label: "CSI", render: () => "\x1b[2K" }), true);
+    assert.equal(
+      registerSignalSource({ id: "osc-only", label: "OSC", render: () => "\x1b]0;hidden\x07" }),
+      true,
+    );
+    assert.equal(
+      registerSignalSource({
+        id: "throws",
+        label: "Throws",
+        render: () => {
+          throw new Error("boom");
+        },
+      }),
+      true,
+    );
+
+    const signal = createSignalRuntime(0);
+    signal.activity = "ready";
+    const result = renderSignal(
+      segmentContext(),
+      PRESETS.minimal,
+      signal,
+      120,
+      {
+        separatorStyle: "slash",
+        signal: getStructuralPreset("lanternwake").signal,
+        ascii: true,
+      },
+    );
+
+    assert.match(result.topContent, /contrib-ok/);
+    assert.doesNotMatch(result.topContent, /\x1b\[31m\s+\x1b\[0m/);
+    assert.doesNotMatch(result.topContent, /\x1b\[2K/);
+    assert.doesNotMatch(result.topContent, /\x1b\]0;hidden\x07/);
+  } finally {
+    clearContributions();
+  }
 });
 
 test("appearance config accepts independent structural layers", () => {
