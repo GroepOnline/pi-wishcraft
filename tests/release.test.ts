@@ -397,6 +397,11 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
   assert.match(verify, /gh workflow run promote-release-candidate\.yml --ref main/);
   assert.match(verify, /github\.actor == 'github-actions\[bot\]'/);
   assert.match(verify, /startsWith\(github\.ref_name, 'release-candidate\/v'\)/);
+  // API-dispatched Verify runs are suite-less, so Verify must report its own
+  // passing check through the Checks API for protected-branch evaluation.
+  assert.match(verify, /Report verify check for branch protection/);
+  assert.match(verify, /check-runs/);
+  assert.match(verify, /-f conclusion=success/);
 });
 
 test("release workflows keep npm auth scoped to the tag publisher", () => {
