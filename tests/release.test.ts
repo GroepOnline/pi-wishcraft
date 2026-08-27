@@ -362,6 +362,9 @@ test(".github/workflows/release.yml publishes only from a verified tag", () => {
   assert.equal(publishSteps.length, 1, "candidate preparation must never publish");
   assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
   assert.doesNotMatch(workflow, /node scripts\/release\.mjs auto --push/);
+  // Bot-created tags never emit an `on: push` tag event (anti-recursion), so a
+  // workflow_dispatch on the tag ref is the publish path Promote must drive.
+  assert.match(workflow, /workflow_dispatch:/);
 });
 
 test("release candidate preparation dispatches Verify on an immutable candidate ref", () => {
@@ -394,6 +397,7 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
   // gh api prints the error body to stdout on non-2xx, so ref and tag
   // existence must be gated on the exit code, never on an empty capture.
   assert.match(promote, /never on an empty capture/);
+  assert.match(promote, /gh workflow run release\.yml --ref "\$TAG"/);
   assert.doesNotMatch(promote, /REMOTE_SHA="\$\(gh api[^)]*\) \|\| true/);
   assert.doesNotMatch(promote, /TAG_JSON="\$\(gh api[^)]*\) \|\| true/);
 

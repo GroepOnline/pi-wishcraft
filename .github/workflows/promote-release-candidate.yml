@@ -114,4 +114,9 @@ jobs:
           else
             gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$CANDIDATE_SHA" >/dev/null
           fi
+          # A tag created via the API under GITHUB_TOKEN does not emit an `on: push`
+          # tag event (anti-recursion), so publish must be dispatched explicitly on
+          # the tag ref; release.yml's verify/publish gates key off the tag ref and
+          # hold for the dispatched run too.
+          gh workflow run release.yml --ref "$TAG"
           gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" || true

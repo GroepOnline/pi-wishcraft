@@ -2,11 +2,18 @@ name: Release
 
 # A main push prepares a release candidate; only an exact candidate SHA that has
 # its own Verify check may be promoted to protected main and tagged.
+#
+# Publish is also dispatachable on a tag ref: tags created via the API under
+# GITHUB_TOKEN do not emit an `on: push` tag event (same anti-recursion rule as
+# workflow_run), so Promote explicitly dispatches this workflow on the tag it
+# just created. The verify/publish `if` conditions below key off
+# `github.ref == refs/tags/v*`, which holds for a dispatched run too.
 on:
   push:
     branches: [main]
     tags:
       - "v*"
+  workflow_dispatch:
 
 concurrency:
   group: npm-publish-pi-wishcraft
