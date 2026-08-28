@@ -14,6 +14,8 @@ Settled-conflict findings: none (plan carries no session-settled KTDs).
 
 ## U12-final cutover — blocker (needs human decision + live verification)
 
+**RESOLVED 2026-08-28 (same day):** Joep chose the direction — "alle motion moet wel beter" — motion stays and improves. Landed in 4ff61ce: single v2 render path (renderStatusLineV2 -> computeLaneLayout -> paintLayout), v1 src/signal/render.ts deleted, motion rail redesigned as a first-class layout segment (fixed ● head, directional ━╾╌ trail, light ─ track, no arc caps), golden re-pinned deliberately. The blockers below are kept for the record.
+
 2026-08-28 run: the v1 powerline deletion cannot complete headless. Blockers, in order:
 
 1. **Async/sync boundary** — `runSegmentPipeline` (U2) is async (per-segment budget + timeout isolation); the always-on `getResponsiveLayout` render path is synchronous. An async pipeline does not drop into the sync render without a prepared-cache architecture change.
