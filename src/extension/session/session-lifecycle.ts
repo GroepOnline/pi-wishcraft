@@ -349,6 +349,27 @@ export function registerSessionLifecycle(
     requestQueueRender(rt);
   });
 
+  // pi 0.84.0+ emits `session_compact_failed` (not `session_compact`) when
+  // auto-compaction or /compact fails or is aborted. Without this handler
+  // `powerlineCompacting` stays true and the bar keeps showing the compact
+  // rail forever, even though the agent is idle. Root cause of the stuck
+  // "COMPACTING" seen on 2026-08-27.
+  pi.on("session_compact_failed", async (event, ctx) => {
+    rt.powerlineCompacting = false;
+    rt.deliverAfterRetrySettles = false;
+    rt.currentCtx = ctx;
+    rt.coreContextUsageCache.reset();
+    requestImmediateStatusRender(rt, { deferDuringTyping: false });
+    dispatchSignalEvent(
+      rt,
+      config.appearance,
+      event.errorMessage ? "error" : "idle",
+      event.errorMessage ? "compact failed" : undefined,
+    );
+    finishFailedCompaction(rt, ctx, event.errorMessage ?? "Compaction cancelled");
+    requestQueueRender(rt);
+  });
+
   pi.on("agent_settled", async (_event, ctx) => {
     if (rt.powerlineCompacting) {
       finishFailedCompaction(rt, ctx, "Compaction did not complete");
