@@ -10,6 +10,7 @@ import { sweepPosition, trailGlyph } from "../motion/index.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
+import { lanternSigil } from "./motion-candidates.ts";
 
 export function renderActivity(
   runtime: SignalRuntime,
@@ -29,13 +30,13 @@ export function renderActivity(
   const RAIL_WIDTH = 12;
   const track = ascii ? "-" : "─";
   const head = ascii ? "o" : "●";
-  let railInner: string;
+  let railBlock: string;
   if (!runtime.active) {
-    railInner = track.repeat(RAIL_WIDTH);
+    railBlock = track.repeat(RAIL_WIDTH);
   } else if (runtime.activity === "compacting") {
     // Compact state: two heads travel inward and compress a heavy core —
     // visually distinct from the sweep so compaction reads at a glance.
-    railInner = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii);
+    railBlock = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii);
   } else {
     const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
     const built: string[] = [];
@@ -44,10 +45,23 @@ export function renderActivity(
       else if (i < pos) built.push(trailGlyph(Math.min(pos - i, 4), ascii));
       else built.push(track);
     }
-    railInner = built.join("");
+    railBlock = built.join("");
+  }
+  // Active state: 3-row lantern sigil ONLY for the streaming/working
+  // activity (the visible "the model is doing something" pulse). Other
+  // active states keep their 1-row rails (compacting = inward heads,
+  // ready/empty = calm flat). The sigil is a braille-block lantern;
+  // there is no honest 12-col ASCII equivalent — fall back to comet.
+  if (runtime.active && !ascii && runtime.activity === "streaming") {
+    const sigilRows = lanternSigil(runtime.tick, false);
+    const [r0, ...rest] = sigilRows;
+    const framed = `${spec.separators.left}${r0} ${label}${spec.separators.right}`;
+    railBlock = [framed, ...rest].join("\n");
+    const railColor = runtime.active ? hot : dim;
+    return `${railColor}${open}${railBlock}${close}${reset}`;
   }
   const railColor = runtime.active ? hot : dim;
-  const rail = `${spec.separators.left}${railInner}${spec.separators.right}`;
+  const rail = `${spec.separators.left}${railBlock}${spec.separators.right}`;
   return `${railColor}${open}${rail}${close}${reset} ${label}`;
 }
 
