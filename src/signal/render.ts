@@ -102,6 +102,11 @@ export function renderActivity(
   let railInner: string;
   if (!runtime.active) {
     railInner = "━".repeat(RAIL_WIDTH);
+  } else if (runtime.activity === "compacting") {
+    // Compact state: distinct inward-compress animation. Two heads travel
+    // toward center and compress the rail — visually distinct from the
+    // generic sweep so the user can tell compaction apart from thinking/streaming.
+    railInner = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii);
   } else {
     const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
     let built = "";
@@ -116,6 +121,38 @@ export function renderActivity(
   const railColor = runtime.active ? hot : dim;
   const rail = `${spec.separators.left}${railInner}${spec.separators.right}`;
   return `${railColor}${open}${rail}${close}${reset} ${label}`;
+}
+
+/**
+ * Compact rail: two heads travel inward toward center, compressing the rail.
+ * Gives compaction a distinct visual signature vs the generic sweep.
+ */
+function renderCompactRail(
+  tick: number,
+  width: number,
+  ascii: boolean,
+): string {
+  const half = Math.floor(width / 2);
+  // Heads oscillate from the edges toward center and back.
+  const span = half;
+  const phase = tick % (span * 2);
+  const inward = phase < span ? phase : span * 2 - phase;
+  const leftPos = inward;
+  const rightPos = width - 1 - inward;
+  let built = "";
+  for (let i = 0; i < width; i++) {
+    const isHead = i === leftPos || i === rightPos;
+    if (isHead) {
+      built += ascii ? "*" : "◆";
+    } else {
+      // Fill between the two heads with a denser glyph, outside with dim.
+      const between = i > leftPos && i < rightPos;
+      built += between
+        ? (ascii ? "=" : "▓")
+        : (ascii ? "-" : "━");
+    }
+  }
+  return built;
 }
 
 function fitLanes(

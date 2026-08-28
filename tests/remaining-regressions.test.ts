@@ -209,7 +209,7 @@ test("context segment shows used tokens, maximum, and percentage", () => {
     }),
   );
 
-  assert.equal(stripAnsi(context.content), "◫ 4.5k/272k (1.7%) AC");
+  assert.equal(stripAnsi(context.content), "◫ 4.5k/272k (1.7%) AC ░░░░░░░░");
   assert.equal(context.visible, true);
 });
 
