@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-28
+
 ### Added (v2 Platform — wishcraft-v2-platform plan)
 - Powerline v2: the status line now renders through a single path (`renderStatusLineV2` -> `computeLaneLayout` -> `paintLayout`) with the motion rail as a first-class layout segment (reading order left -> rail -> right preserved; under width pressure the right lane yields first, the rail later). The legacy v1 three-lane renderer (`src/signal/render.ts`) is deleted; rail semantics live in `src/render/motion-rail.ts`. Deliberate visible delta: the configured separator now joins every primary segment. Golden pinned post-cutover in `tests/signal-golden.test.ts` (pre-cutover baseline preserved in git history at 84b2e2a).
 - Bash v2: PTY session core (`bash-mode/pty-session.ts`, SGR-safe ANSI filter, sentinel-based command boundary) plus the long-lived `PtyManagedShellSession` cutover: `session-factory.ts` routes `auto`/`v2` through the PTY-backed session and the editor forwards printable input to the running command's stdin while it runs (interactive programs work; Ctrl-C stays an interrupt). When `script(1)` is missing, commands degrade per-run to plain pipes with a one-time warning. The legacy pipe-based `ManagedShellSession` is deleted.
