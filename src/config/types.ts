@@ -243,7 +243,11 @@ export type StatusLineSeparatorStyle =
   | "ascii"
   | "dot"
   | "chevron"
-  | "star";
+  | "star"
+  | "blunt"
+  | "rounded"
+  | "diamond"
+  | "double";
 
 // Preset names
 export type PowerlinePlacement = "above" | "below";

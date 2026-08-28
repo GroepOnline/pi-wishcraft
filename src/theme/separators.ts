@@ -34,6 +34,26 @@ export function getSeparator(style: StatusLineSeparatorStyle): SeparatorDef {
     ["dot", { left: chars.dot, right: chars.dot }],
     ["chevron", { left: "›", right: "‹" }],
     ["star", { left: "✦", right: "✦" }],
+    ["blunt", {
+      left: chars.bluntLeft,
+      right: chars.bluntRight,
+      endCaps: {
+        left: chars.doubleRight,
+        right: chars.doubleLeft,
+        useBgAsFg: true,
+      },
+    }],
+    ["rounded", {
+      left: chars.roundedLeft,
+      right: chars.roundedRight,
+      endCaps: {
+        left: chars.roundedRight,
+        right: chars.roundedLeft,
+        useBgAsFg: true,
+      },
+    }],
+    ["diamond", { left: ` ${chars.diamond} `, right: ` ${chars.diamond} ` }],
+    ["double", { left: chars.doubleLeft, right: chars.doubleRight }],
   ]);
 
   const definition = registry.get(style) ?? registry.get("powerline-thin")!;
