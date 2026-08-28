@@ -7,6 +7,7 @@
  */
 
 import { sweepPosition, trailGlyph } from "../motion/index.ts";
+import { brailleWave } from "./motion-candidates.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
@@ -37,14 +38,21 @@ export function renderActivity(
     // visually distinct from the sweep so compaction reads at a glance.
     railInner = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii);
   } else {
-    const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
-    const built: string[] = [];
-    for (let i = 0; i < RAIL_WIDTH; i++) {
-      if (i === pos) built.push(head);
-      else if (i < pos) built.push(trailGlyph(Math.min(pos - i, 4), ascii));
-      else built.push(track);
+    // Activity→geometry mapping: motion carries meaning. Streaming tokens
+    // flow as a travelling braille wave; other active states keep the
+    // directional comet; compacting squeezes (branch above).
+    if (runtime.activity === "streaming" && !ascii) {
+      railInner = brailleWave(runtime.tick, false);
+    } else {
+      const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
+      const built: string[] = [];
+      for (let i = 0; i < RAIL_WIDTH; i++) {
+        if (i === pos) built.push(head);
+        else if (i < pos) built.push(trailGlyph(Math.min(pos - i, 4), ascii));
+        else built.push(track);
+      }
+      railInner = built.join("");
     }
-    railInner = built.join("");
   }
   const railColor = runtime.active ? hot : dim;
   const rail = `${spec.separators.left}${railInner}${spec.separators.right}`;

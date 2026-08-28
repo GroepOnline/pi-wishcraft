@@ -1,0 +1,6 @@
+{"iter":0,"kind":"baseline","desc":"directional comet ●+━╾╌ (already on feat branch)","metrics":{"violations":0},"keep":true,"asi":"comet is correct but conservative; Joep wants extremer"}
+{"iter":1,"kind":"run","desc":"braille-wave: travelling amplitude ⣀⣤⣶⣿ under label","metrics":{"violations":0,"render_us":3.2},"keep":true,"asi":"most alive; wave=token-stream semantics; zero shade; ascii ~ fallback"}
+{"iter":2,"kind":"run","desc":"chevrons ▶‣› flow","metrics":{"violations":0},"keep":false,"asi":"clean directional, good rollback/backup idiom later; less alive than wave"}
+{"iter":3,"kind":"run","desc":"boids lagged followers","metrics":{"violations":0},"keep":false,"asi":"reads scattered dots, unclear at 12 cols"}
+{"iter":4,"kind":"run","desc":"shimmer deterministic glyph flicker","metrics":{"violations":0},"keep":false,"asi":"noise without signal; broken-glyph vibe"}
+{"iter":5,"kind":"run","desc":"seismo block-element spikes","metrics":{"violations":24,"render_us":2.9},"keep":false,"asi":"bars — exactly the idiom Joep excluded; shade-family violation"}

@@ -102,7 +102,7 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   signal.tick = 2;
   const spec = getStructuralPreset("lanternwake").signal;
 
-  assert.match(stripAnsi(renderActivity(signal, spec, false)), /●/);
+  assert.match(stripAnsi(renderActivity(signal, spec, false)), /⣿|⣶/); // streaming rides the braille wave
   assert.match(stripAnsi(renderActivity(signal, spec, true)), /o/);
   assert.match(stripAnsi(renderActivity(signal, spec, true)), /streaming/);
   // Trail is directional: glyphs behind the head only, light track ahead.
