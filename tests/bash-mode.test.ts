@@ -1653,6 +1653,7 @@ test("bash editor command-z resets shell history and updates ghost state", async
     assert.equal(Reflect.get(shellEditor, "shellHistoryIndex"), -1);
     assert.deepEqual(Reflect.get(shellEditor, "shellHistoryItems"), []);
     assert.equal(Reflect.get(shellEditor, "shellHistoryDraft"), "");
+    await shellEditor.refreshGhostSuggestionNow();
     assert.equal(ghostRefreshes.at(-1), "a");
 
     const plainEditor = createEditor();

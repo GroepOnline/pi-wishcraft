@@ -190,6 +190,37 @@ Make `open_ports` probe a named SSH host instead of the laptop:
 
 See [Segments & theming](./segments.md) for the probe's best-effort behavior and requirements.
 
+## Bash Mode performance and workflow
+
+Bash Mode keeps a project-scoped command history, supports Bash/Zsh/Fish history recall, Git-aware completion, path completion, file drops, ghost suggestions, and safe `!`/`!!` commands. Ghost suggestions are coalesced during rapid typing and cancelled when the editor context changes, so completion never blocks command entry.
+
+Use `ctrl+shift+b` to toggle Bash Mode. `Escape` exits the mode, `Tab` accepts one completion token, `Right Arrow` accepts the full ghost suggestion, and the configured editor-boundary shortcuts jump to the start/end of the input. Commands are not submitted while another shell command is running.
+
+## Working indicator
+
+The agent's working indicator can use a compact animated frame style. Each style has a distinct visual grammar: `dots` is a quiet three-dot cadence, `pulse` is a centered heartbeat, `bar` is a travelling progress sweep, and `ascii` is a terminal-safe bracketed spinner. Accessibility settings can collapse all four to a static frame.
+
+The indicator is intentionally separate from the structural appearance motion: it describes immediate agent activity, while appearance motion describes Signal/deck transitions and ambient state. Choose one of the following depending on the desired feel:
+
+| Style | Character | Best for |
+|---|---|---|
+| `dots` | gentle sequential dots | unobtrusive everyday use |
+| `pulse` | expanding/contracting center | clear activity at a glance |
+| `bar` | travelling block across a track | high-information dashboards |
+| `ascii` | portable `[=]`, `[-]`, `[.]` frames | SSH, basic terminals, and logs |
+
+ Configure it under `wishcraft.workingIndicatorStyle`; supported values are `dots` (default), `pulse`, `bar`, and `ascii`. Motion accessibility settings still apply: reduced/off motion uses a static frame.
+
+```json
+{
+  "wishcraft": {
+    "workingIndicatorStyle": "pulse"
+  }
+}
+```
+
+The Skills route in the Deck and `/skills` manager share one catalog. Use `/skills doctor` to inspect frontmatter, descriptions, duplicate names, warnings, and usage; `/skills new [template]` creates a safe starter skill. Skill deletion is restricted to canonical skill roots.
+
 ## Appearance
 
 `powerline.appearance` is independent of the information layout (`powerline.preset`). The structural base paints Signal colors and motion. Layout presets (`default`, `minimal`, `compact`, `full`, `nerd`, `ascii`, `chef`) keep their segment lists until you change `preset`.
@@ -205,7 +236,20 @@ See [Segments & theming](./segments.md) for the probe's best-effort behavior and
 }
 ```
 
-Bases: `lanternwake`, `threadbound`, `scryglass`, `runebloom`, `moonwell`, `hexforge`, `vellum`, `wisp`, `starweave`, `crucible`. Apply from Deck → Appearance → Enter, `/wishcraft settings`, or `/signal hexforge` (a structural layout name also writes `appearance.base`). Optional mix keys: `palette`, `signalLayout`, `chrome`, `glyphs`, `deck`, `welcome`, `motion`.
+Bases: `lanternwake`, `threadbound`, `scryglass`, `runebloom`, `moonwell`, `hexforge`, `vellum`, `wisp`, `starweave`, `crucible`. They are deliberately different rather than aliases: each has its own palette, chrome geometry, Signal lane layout, glyph vocabulary, welcome treatment, and signature motion event. Apply from Deck → Appearance → Enter, `/wishcraft settings`, or `/signal hexforge` (a structural layout name also writes `appearance.base`). Optional mix keys: `palette`, `signalLayout`, `chrome`, `glyphs`, `deck`, `welcome`, `motion`.
+
+Quick personality guide:
+
+- `lanternwake`: warm ember glow and relay motion; welcoming and expressive.
+- `threadbound`: woven separators and linked transitions; structured and calm.
+- `scryglass`: cool observatory palette; sparse, analytical readout.
+- `runebloom`: ornamented glyphs and bloom transitions; mystical and decorative.
+- `moonwell`: blue night palette with slow tidal motion; quiet long sessions.
+- `hexforge`: hard-edged blocks and tool-centric motion; dense engineering mode.
+- `vellum`: restrained paper-like contrast; documentation and review work.
+- `wisp`: lightweight, airy signal; lowest visual weight while remaining animated.
+- `starweave`: constellation accents and travelling signal; exploratory sessions.
+- `crucible`: high-contrast heat and decisive transitions; incident/debug mode.
 
 Until `appearance` is set, Signal keeps the layout preset colors. If `preset` itself is a structural name and `appearance` is empty, that name is treated as the base.
 

@@ -41,6 +41,7 @@ export const SETTING_DEFAULTS = {
   "wishcraft.readHints": true,
   "wishcraft.hooksEnabled": true,
   "wishcraft.repairsEnabled": true,
+  "wishcraft.workingIndicatorStyle": "dots",
 } as const satisfies Record<string, SettingValue>;
 
 export const SETTING_GROUPS = [
@@ -80,6 +81,7 @@ export const SETTINGS_REGISTRY = [
   { id: "status.tps.label", path: "powerline.segmentLabels.tps", group: "status", label: "TPS label", kind: "text", hint: "empty = no label" },
   { id: "welcome.enabled", path: "powerline.welcome", group: "vibes", label: "Welcome overlay", kind: "toggle", defaultValue: SETTING_DEFAULTS["powerline.welcome"], hint: "on = overlay at startup, off = no welcome" },
   { id: "welcome.lanternMotion", path: "wishcraft.welcome.animateLantern", group: "vibes", label: "Animate wishcraft lantern", kind: "toggle", hint: "flicker on the lantern" },
+  { id: "vibes.indicatorStyle", path: "wishcraft.workingIndicatorStyle", group: "vibes", label: "Working indicator", kind: "select", choices: ["dots", "pulse", "bar", "ascii"], defaultValue: SETTING_DEFAULTS["wishcraft.workingIndicatorStyle"], hint: "frame style used while the agent is working" },
   { id: "skills.inline", path: "wishcraft.inlineSkills", group: "skills", label: "Inline expand /command and $skill", kind: "toggle", hint: "needs a restart to take effect", restartRequired: true },
   { id: "skills.readHints", path: "wishcraft.readHints", group: "skills", label: "Read hints", kind: "toggle", defaultValue: SETTING_DEFAULTS["wishcraft.readHints"], hint: "off = no continuation hint after partial reads" },
   { id: "harness.hooks", path: "wishcraft.hooksEnabled", group: "harness", label: "Hooks enabled", kind: "toggle", defaultValue: SETTING_DEFAULTS["wishcraft.hooksEnabled"], hint: "gate for configured preToolUse / postToolUse / sessionStart hooks" },

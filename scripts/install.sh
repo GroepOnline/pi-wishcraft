@@ -26,8 +26,6 @@ fi
 # 3. Safely update ~/.pi/agent/settings.json using node
 node -e '
 const fs = require("node:fs");
-const path = require("node:path");
-
 const settingsPath = process.argv[1];
 const pkgName = "npm:@groeponline/pi-wishcraft";
 
@@ -55,7 +53,7 @@ settings.packages = settings.packages.filter(p => {
 });
 
 // If local dev checkout is present, keep it, otherwise add npm package
-const hasLocalCheckout = settings.packages.some(p => typeof p === "string" && (p.includes("pi-powerline-footer") || p.includes("pi-wishcraft")));
+const hasLocalCheckout = settings.packages.some(p => typeof p === "string" && p !== pkgName && (p.endsWith("/pi-wishcraft") || p.endsWith("/pi-powerline-footer")));
 if (!hasLocalCheckout) {
   settings.packages.push(pkgName);
 }

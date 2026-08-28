@@ -78,8 +78,8 @@
 # When a PR introduces a concept new to the codebase, the generated PR
 # description gains a "New concepts" section teaching it. The section toggle is
 # the single gate: off disables judgment, the section, the /ce-explain offer,
-# and archival. Archival additionally writes the explainer to docs/explainers/
-# and links it from the PR (full-workflow runs only; override per run with
+# and archival. Archival additionally writes the explainer to `<docs_root>/explainers/`
+# (default `docs/explainers/`) and links it from the PR (full-workflow runs only; override per run with
 # archive:on|off). Note: this file is gitignored and per-checkout -- fresh
 # worktrees don't inherit it.
 
@@ -147,7 +147,7 @@
 #   - { type: github-issues, id: gh-issues, target: owner/repo, ack_action: "feedback:ack", closeout_action: "feedback:resolved", sensitive: false, approved: true }
 
 # Sweep-owned settings.
-# sweep_state_path: docs/feedback-sweep/state.yml   # committed (multi-agent) or /tmp path (solo)
+# sweep_state_path: <docs_root>/feedback-sweep/state.yml   # default docs/feedback-sweep/state.yml; committed (multi-agent) or /tmp path (solo)
 # sweep_ack_cap: 25                                 # max acks per source per run before the circuit breaker
 # sweep_lease_ttl_minutes: 60                       # single-writer lease staleness threshold
 # sweep_shared_branch: false                        # true: push-gated lease for shared-docs-branch topology

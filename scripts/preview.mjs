@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Live preview of the Wishcraft Deck / Signal / Gallery renderers.
- * This is a harness for the Pi extension UI, not a product site.
+ * Contributor-only live preview of the terminal-native Wishcraft Deck / Signal
+ * renderers. This is a test harness for the Pi extension, not a website or
+ * production runtime.
  */
 import http from "node:http";
 import { renderDeckFrame } from "../src/extension/ui/deck/render.ts";
@@ -106,7 +107,7 @@ function htmlPage(tick) {
 <body>
   <header>
     <h1>Wishcraft operator layer</h1>
-    <p>Preview of the Pi extension Deck, Signal gallery, and Composer — not a standalone product.</p>
+    <p>Contributor preview of the terminal-native Pi extension UI. This is not a standalone website or production runtime.</p>
     <nav>${DECK_ROUTES.map((route) => `<a href="#${route}">${route}</a>`).join("")}</nav>
   </header>
   <div class="meta">
@@ -141,6 +142,6 @@ const server = http.createServer((req, res) => {
   res.end(htmlPage(Date.now()));
 });
 
-server.listen(PORT, "127.0.0.1", () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Wishcraft Deck preview http://127.0.0.1:${PORT}`);
 });
