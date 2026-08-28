@@ -27,6 +27,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      actions: write # gh workflow run (publish dispatch on the tag) needs it
     env:
       # No checkout in this job: pin the repo so gh never resolves it via git remote.
       GH_REPO: ${{ github.repository }}
