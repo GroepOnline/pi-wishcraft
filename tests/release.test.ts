@@ -153,13 +153,15 @@ test("release candidate metadata binds version, parent and release-only files", 
   /Unexpected release candidate files/);
 });
 
-test("chooseBump uses feat for minor and breaking for major", () => {
+test("chooseBump is conservative: feat bumps patch, breaking bumps major", () => {
   assert.equal(chooseBump(["docs: roadmap", "fix: hooks timeout"]), "patch");
+  // feat no longer auto-promotes to minor (minor-race prevention);
+  // explicit breaking still promotes to major.
   assert.equal(
     chooseBump(["docs: catalog", "feat: wishcraft 0.19 — skills manager v2"]),
-    "minor",
+    "patch",
   );
-  assert.equal(chooseBump(["feat(config): labels", "fix: debris"]), "minor");
+  assert.equal(chooseBump(["feat(config): labels", "fix: debris"]), "patch");
   assert.equal(chooseBump(["feat!: drop old settings shape"]), "major");
   assert.equal(chooseBump(["fix: foo", "chore: release 0.18.0"]), "patch");
 });
@@ -171,12 +173,14 @@ test("shouldSkipRelease guards release commits and opt-out", () => {
 });
 
 test("resolveReleaseVersion maps auto from subjects onto the current version", () => {
+  // feat no longer auto-promotes to minor — patch is the conservative
+  // default so consecutive feature PRs don't burn minor versions.
   assert.deepEqual(
     resolveReleaseVersion("0.18.0", "auto", [
       "feat: wishcraft 0.19 — skills manager v2",
       "docs: drop leftover merge conflict marker from ROADMAP",
     ]),
-    { kind: "minor", next: "0.19.0" },
+    { kind: "patch", next: "0.18.1" },
   );
   assert.deepEqual(resolveReleaseVersion("0.19.0", "auto", ["docs: typo"]), {
     kind: "patch",
