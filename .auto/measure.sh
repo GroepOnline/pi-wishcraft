@@ -32,7 +32,7 @@ CIRC=$(npx madge --circular src 2>&1 | grep -c "No circular" || echo 0)
 
 # micro: signal render 10k, registry 100k
 node --input-type=module <<'NODE' > /tmp/autoresearch_micro.out 2>&1
-import { renderActivity } from "./src/signal/render.ts";
+import { renderActivity } from "./src/render/motion-rail.ts";
 import { getSettingDefinition } from "./src/config/settings-registry.ts";
 import { createSignalRuntime } from "./src/signal/controller.ts";
 import { getStructuralPreset } from "./src/config/structural-presets.ts";

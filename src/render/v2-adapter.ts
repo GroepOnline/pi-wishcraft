@@ -57,6 +57,8 @@ export function renderPowerlineV2(
     secondary: layout.secondary.map(toPainted),
     dropped: [] as PaintedLane[],
     widthClass: layout.widthClass,
+    primaryRowCount: layout.primaryRowCount,
+    secondaryRowCount: layout.secondaryRowCount,
   };
 
   return {

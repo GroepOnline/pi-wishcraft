@@ -12,6 +12,15 @@ export interface LayoutSegment {
   id: string;
   text: string;
   priority: number;
+  /**
+   * Optional visual height (rows). When > 1 the segment's `text` is split
+   * on `\n` and rendered across that many rows; other segments on the same
+   * lane pad empty rows below their content. The lane's rowCount is the
+   * max height across its rendered segments, so a tall rail creates a
+   * 3-row block beneath the rest of the line without disturbing their
+   * own row(s).
+   */
+  height?: number;
 }
 
 export interface LayoutConfig {
@@ -26,12 +35,32 @@ export interface LayoutResult {
   secondary: LayoutSegment[];
   dropped: LayoutSegment[];
   widthClass: WidthClass;
+  /** Max visual row count across rendered primary segments (>=1). */
+  primaryRowCount: number;
+  /** Max visual row count across rendered secondary segments (>=1). */
+  secondaryRowCount: number;
 }
 
 function widthClassFor(width: number): WidthClass {
   if (width < 60) return "small";
   if (width < 120) return "medium";
   return "wide";
+}
+
+function segmentLineWidth(seg: LayoutSegment): number {
+  let max = 0;
+  for (const line of seg.text.split("\n")) {
+    const w = visibleWidth(line);
+    if (w > max) max = w;
+  }
+  return max;
+}
+
+function segmentHeight(seg: LayoutSegment): number {
+  if (seg.height && seg.height > 1) return seg.height;
+  // ponytail: derive from text so a 3-line rail without an explicit
+  // height still renders as 3 rows. Single-line text stays 1 row.
+  return Math.max(1, seg.text.split("\n").length);
 }
 
 function laneFor(seg: LayoutSegment, config: LayoutConfig): "primary" | "secondary" | null {
@@ -60,11 +89,11 @@ export function computeLaneLayout(
       dropped.push(seg);
       continue;
     }
-    if (visibleWidth(seg.text) === 0) {
+    if (segmentLineWidth(seg) === 0) {
       dropped.push(seg);
       continue;
     }
-    const w = visibleWidth(seg.text);
+    const w = segmentLineWidth(seg);
     // Each lane owns its own budget: a primary segment must not push a
     // secondary segment off the line. Separator width is charged only when
     // a segment follows another in the same lane.
@@ -86,10 +115,21 @@ export function computeLaneLayout(
   const secondaryOrder = new Map(config.secondary.map((id, i) => [id, i]));
   secondary.sort((a, b) => (secondaryOrder.get(a.id) ?? 0) - (secondaryOrder.get(b.id) ?? 0));
 
+  const primaryRowCount = primary.reduce(
+    (m, s) => Math.max(m, segmentHeight(s)),
+    1,
+  );
+  const secondaryRowCount = secondary.reduce(
+    (m, s) => Math.max(m, segmentHeight(s)),
+    1,
+  );
+
   return {
     primary,
     secondary,
     dropped,
     widthClass: widthClassFor(width),
+    primaryRowCount,
+    secondaryRowCount,
   };
 }
