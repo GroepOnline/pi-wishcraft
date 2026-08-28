@@ -57,6 +57,13 @@ export class MotionScheduler {
 
   /** Subscribe a consumer and return its unsubscribe function. */
   subscribe(consumer: MotionConsumer): () => void {
+    const existing = this.consumers.get(consumer.id);
+    if (existing) {
+      // Defensive: re-subscribing with the same id without an explicit
+      // release leaks the old consumer's onDone. Call it here so the
+      // contract is safe even if the caller forgets to release first.
+      existing.onDone?.();
+    }
     this.consumers.set(consumer.id, consumer);
     this.ticks.set(consumer.id, 0);
     this.due.set(consumer.id, this.now() + intervalFor(consumer));

@@ -10,6 +10,7 @@ import { sweepPosition, trailGlyph } from "../motion/index.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
+import { lanternSigil } from "./motion-candidates.ts";
 
 export function renderActivity(
   runtime: SignalRuntime,
@@ -29,13 +30,14 @@ export function renderActivity(
   const RAIL_WIDTH = 12;
   const track = ascii ? "-" : "─";
   const head = ascii ? "o" : "●";
-  let railInner: string;
+  const railColor = runtime.active ? hot : dim;
+  let railBlock: string;
   if (!runtime.active) {
-    railInner = track.repeat(RAIL_WIDTH);
+    railBlock = track.repeat(RAIL_WIDTH);
   } else if (runtime.activity === "compacting") {
     // Compact state: two heads travel inward and compress a heavy core —
     // visually distinct from the sweep so compaction reads at a glance.
-    railInner = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii);
+    railBlock = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii);
   } else {
     const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
     const built: string[] = [];
@@ -44,10 +46,28 @@ export function renderActivity(
       else if (i < pos) built.push(trailGlyph(Math.min(pos - i, 4), ascii));
       else built.push(track);
     }
-    railInner = built.join("");
+    railBlock = built.join("");
   }
-  const railColor = runtime.active ? hot : dim;
-  const rail = `${spec.separators.left}${railInner}${spec.separators.right}`;
+  // Active state: 3-row lantern sigil ONLY for the streaming/working
+  // activity. Each row is wrapped individually with the lane color
+  // so rows 1+ don't inherit an empty ANSI state from row 0.
+  if (runtime.active && !ascii && runtime.activity === "streaming") {
+    const sigilRows = lanternSigil(runtime.tick, false);
+    const [r0, ...rest] = sigilRows;
+    const framed = `${spec.separators.left}${r0} ${label}${spec.separators.right}`;
+    const allRows = [framed, ...rest];
+    const colored = (row: string) => `${railColor}${row}${reset}`;
+    // open brackets on the first row, close on the last row, color on
+    // every row so the whole sigil reads as one amber block.
+    const rows = allRows.map((row, i) => {
+      const prefix = i === 0 ? open : "";
+      const suffix = i === allRows.length - 1 ? close : "";
+      return `${prefix}${colored(row)}${suffix}`;
+    });
+    railBlock = rows.join("\n");
+    return railBlock;
+  }
+  const rail = `${spec.separators.left}${railBlock}${spec.separators.right}`;
   return `${railColor}${open}${rail}${close}${reset} ${label}`;
 }
 

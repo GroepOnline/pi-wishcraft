@@ -102,12 +102,21 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   signal.tick = 2;
   const spec = getStructuralPreset("lanternwake").signal;
 
-  assert.match(stripAnsi(renderActivity(signal, spec, false)), /●/);
+  // Non-ASCII: 3-row lantern sigil (lanternwake + streaming falls to the
+  // sigil branch). The 1-row directional comet was retired in favour of
+  // the multi-row sigil — the new visual contract. Lantern is pure `#`
+  // blocks: no braille, no shade blocks, no font assumptions.
+  const rail = stripAnsi(renderActivity(signal, spec, false));
+  const lines = rail.split("\n");
+  assert.equal(lines.length, 3, "sigil must be 3 rows");
+  assert.match(lines[0]!, /streaming/);
+  assert.match(lines[0]!, /#/);
+  // ASCII fallback: 1-row comet, no honest sigil at 12 cols.
   assert.match(stripAnsi(renderActivity(signal, spec, true)), /o/);
-  assert.match(stripAnsi(renderActivity(signal, spec, true)), /streaming/);
-  // Trail is directional: glyphs behind the head only, light track ahead.
-  const rail = stripAnsi(renderActivity(signal, spec, true));
-  assert.ok(rail.indexOf("o") > rail.indexOf(">"), "trail must trail the head");
+  const asciiRail = stripAnsi(renderActivity(signal, spec, true));
+  assert.match(asciiRail, /streaming/);
+  const trailBehind = asciiRail.indexOf("o") > asciiRail.indexOf(">");
+  assert.ok(trailBehind, "ASCII trail must trail the head");
 });
 
 test("Signal renders left, center, and right lanes on one line", () => {

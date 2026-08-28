@@ -131,7 +131,10 @@ export function renderPowerlinePrimaryLines(
   if (!rt.currentCtx) return [];
 
   const layout = getResponsiveLayout(rt, width, theme);
-  return layout.topContent ? [layout.topContent] : [];
+  if (!layout.topContent) return [];
+  // Multi-row rail (sigil) arrives as \n-joined text; the editor wants one
+  // string per visual line.
+  return layout.topContent.split("\n");
 }
 
 export function renderPowerlineSecondaryLines(
@@ -142,7 +145,8 @@ export function renderPowerlineSecondaryLines(
   if (!rt.currentCtx) return [];
 
   const layout = getResponsiveLayout(rt, width, theme);
-  return layout.secondaryContent ? [layout.secondaryContent] : [];
+  if (!layout.secondaryContent) return [];
+  return layout.secondaryContent.split("\n");
 }
 
 export function renderPowerlineQueuePreviewLines(
