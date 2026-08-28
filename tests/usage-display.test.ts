@@ -96,7 +96,7 @@ test("context_pct defaults to the full tokens/window rendering", () => {
   );
 
   const rendered = renderSegment("context_pct", ctx);
-  assert.equal(stripAnsi(rendered.content), "◫ 12k/200k (6.2%) AC");
+  assert.equal(stripAnsi(rendered.content), "◫ 12k/200k (6.2%) AC ░░░░░░░░");
 });
 
 test("context_pct percent format renders a bare rounded percentage", () => {

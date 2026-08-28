@@ -2,6 +2,7 @@ import type { StatusLineSegment } from "../config/types.ts";
 import { getIcons } from "../theme/icons.ts";
 import { formatUsdCost } from "../usage/rates.ts";
 import { costColorForBudget, tokenBudgetLevel } from "../usage/token-budget.ts";
+import { ansi, colorEnabled } from "../theme/colors.ts";
 import { color, withIcon, formatTokens } from "./shared.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -110,17 +111,53 @@ export const contextPctSegment: StatusLineSegment = {
       percentOnly
         ? color(ctx, semantic, text)
         : withIcon(icons.context, color(ctx, semantic, text));
+    let semantic: "context" | "contextWarn" | "contextError";
     if (contextPercent > 90) {
-      content = colored("contextError");
+      semantic = "contextError";
     } else if (contextPercent > 70) {
-      content = colored("contextWarn");
+      semantic = "contextWarn";
     } else {
-      content = colored("context");
+      semantic = "context";
     }
+    const baseContent = colored(semantic);
+
+    // Append a compact 8-cell fill bar so usage is scannable at a glance.
+    // Filled cells use the semantic color, empty cells use the muted separator.
+    const bar = contextFillBar(contextPercent, (s) => color(ctx, s, ""));
+    content = percentOnly ? baseContent : `${baseContent} ${bar}`;
 
     return { content, visible: true };
   },
 };
+
+/**
+ * Compact 8-cell context fill bar. Filled cells track the usage percentage;
+ * the cell color follows the threshold (normal/warn/error) so the bar doubles
+ * as a glanceable usage meter alongside the numeric readout.
+ */
+function contextFillBar(
+  percent: number,
+  colorFn: (semantic: "context" | "contextWarn" | "contextError") => string,
+): string {
+  const CELLS = 8;
+  const filled = Math.round((percent / 100) * CELLS);
+  let semantic: "context" | "contextWarn" | "contextError";
+  if (percent > 90) {
+    semantic = "contextError";
+  } else if (percent > 70) {
+    semantic = "contextWarn";
+  } else {
+    semantic = "context";
+  }
+  // Filled cells are left-aligned, so we can emit them as one colored run,
+  // then the empty cells as another — just two color codes total, not one per cell.
+  const filledColor = colorFn(semantic);
+  const emptyColor = colorFn("context");
+  const reset = colorEnabled() ? ansi.reset : "";
+  const filledRun = filled > 0 ? `${filledColor}${"▓".repeat(filled)}${reset}` : "";
+  const emptyRun = filled < CELLS ? `${emptyColor}${"░".repeat(CELLS - filled)}${reset}` : "";
+  return `${filledRun}${emptyRun}`;
+}
 
 export const contextTotalSegment: StatusLineSegment = {
   id: "context_total",
