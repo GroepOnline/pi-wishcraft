@@ -22,7 +22,7 @@ The managed shell is persistent for the current pi session. Command output appea
 
 ## Execution (v2)
 
-Commands run under a real PTY via `script(1)` (no native dependency), so programs that read stdin work: printable input typed while a command runs is forwarded to the process, and `ctrl+c` interrupts it. SGR color survives into the transcript when the terminal supports it; `NO_COLOR` renders plain text. When `script(1)` is missing, each command degrades to plain pipe execution with a one-time warning (no color, no interactive stdin). Explicit `prefer:"v1"` remains as a transition hatch until the legacy pipe session is removed.
+Commands run under a real PTY via `script(1)` (no native dependency), so programs that read stdin work: printable input typed while a command runs is forwarded to the process, and `ctrl+c` interrupts it. SGR color survives into the transcript when the terminal supports it; `NO_COLOR` renders plain text. When `script(1)` is missing, each command degrades to plain pipe execution with a one-time warning (no color, no interactive stdin).
 
 ## Shell ghost suggestions
 

@@ -6,7 +6,6 @@ import {
   _resetPtyProbeForTests,
   _resetWarnForTests,
 } from "../bash-mode/session-factory.ts";
-import { ManagedShellSession } from "../bash-mode/shell-session.ts";
 import { PtyManagedShellSession } from "../bash-mode/ptyshell-managed.ts";
 import type { BashTranscriptStore } from "../bash-mode/transcript.ts";
 
@@ -25,14 +24,12 @@ const baseOpts = (overrides: Partial<Parameters<typeof createShellSession>[0]> =
   ...overrides,
 });
 
-test("factory: returns a ManagedShellSession under auto and v1 preferences", () => {
-  for (const prefer of ["auto", "v1"] as const) {
+test("factory: returns a PtyManagedShellSession under auto and v2 preferences", () => {
+  for (const prefer of ["auto", "v2"] as const) {
     const session = createShellSession(baseOpts({ prefer }));
     assert.ok(
-      prefer === "v1"
-        ? session instanceof ManagedShellSession
-        : session instanceof PtyManagedShellSession,
-      `prefer=${prefer} must yield the expected session type`,
+      session instanceof PtyManagedShellSession,
+      `prefer=${prefer} must yield the PTY-managed session`,
     );
   }
 });

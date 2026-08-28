@@ -29,7 +29,7 @@ import {
 } from "../bash-mode/completion.ts";
 import { getIcons } from "../src/theme/icons.ts";
 import { resolveColor } from "../src/theme/theme.ts";
-import { ManagedShellSession } from "../bash-mode/shell-session.ts";
+import { PtyManagedShellSession } from "../bash-mode/ptyshell-managed.ts";
 import { parseBashModeSettings } from "../src/extension/shortcuts/shortcuts-config.ts";
 
 function getMethod(target: object, name: string): Function {
@@ -608,7 +608,7 @@ test("managed shell session preserves cwd changes across commands", async (t) =>
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -653,7 +653,7 @@ test("managed shell session recovers cleanly after interrupt", async (t) => {
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -671,9 +671,12 @@ test("managed shell session recovers cleanly after interrupt", async (t) => {
 
   try {
     await session.ensureReady();
-    await session.runCommand("sleep 5");
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // v2 runCommand awaits process exit, so hold the promise and interrupt
+    // while it is in flight (v1 queued and returned immediately).
+    const running = session.runCommand("sleep 5");
+    await new Promise((resolve) => setTimeout(resolve, 300));
     session.interrupt();
+    await running;
     await waitForCommand();
 
     const interruptedCommand = store.getSnapshot().commands[0];
@@ -2114,7 +2117,7 @@ test("managed shell session sources the project init script before ready", async
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -2125,6 +2128,9 @@ test("managed shell session sources the project init script before ready", async
 
   try {
     await session.ensureReady();
+    // v2 has no persistent shell: initScript runs as a preamble of every
+    // command (documented divergence), so the cwd lands after a command.
+    await session.runCommand(":");
     assert.equal(session.state.cwd, childDir);
   } finally {
     session.dispose();

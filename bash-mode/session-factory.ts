@@ -1,4 +1,3 @@
-import { ManagedShellSession } from "./shell-session.ts";
 import { PtyManagedShellSession } from "./ptyshell-managed.ts";
 import {
   _resetScriptAvailableForTests,
@@ -6,7 +5,7 @@ import {
 } from "./pty-session.ts";
 import type { BashTranscriptStore } from "./transcript.ts";
 
-export type SessionPreference = "auto" | "v1" | "v2";
+export type SessionPreference = "auto" | "v2";
 
 export interface CreateShellSessionOptions {
   cwd: string;
@@ -44,34 +43,22 @@ export function _resetPtyProbeForTests(): void {
 
 export function createShellSession(
   opts: CreateShellSessionOptions,
-): PtyManagedShellSession | ManagedShellSession {
+): PtyManagedShellSession {
   // transcript is a typed required field (TS enforces it); the factory has
   // no untyped JS consumers.
-  const preference = opts.prefer ?? "auto";
   const ptyAvailable = opts.scriptAvailable ? opts.scriptAvailable() : isPtyPreferred();
-  if (preference !== "v1" && !ptyAvailable) {
+  if (!ptyAvailable) {
     warnScriptMissingOnce();
   }
-  // v2 (and auto) route through the PTY-backed managed session; when
+  // auto and v2 both route through the PTY-backed managed session; when
   // script(1) is absent it degrades per command to plain pipes (KTD2).
-  // Explicit prefer:"v1" is the strangler exit hatch until v1 deletion.
-  if (preference !== "v1") {
-    return new PtyManagedShellSession(
-      opts.shellPath ?? "/bin/sh",
-      opts.cwd,
-      opts.transcript,
-      opts.onStateChange ?? (() => {}),
-      opts.onCommandSuccess ?? (() => {}),
-      opts.initScript ?? null,
-      opts.scriptAvailable,
-    );
-  }
-  return new ManagedShellSession(
+  return new PtyManagedShellSession(
     opts.shellPath ?? "/bin/sh",
     opts.cwd,
     opts.transcript,
     opts.onStateChange ?? (() => {}),
     opts.onCommandSuccess ?? (() => {}),
     opts.initScript ?? null,
+    opts.scriptAvailable,
   );
 }

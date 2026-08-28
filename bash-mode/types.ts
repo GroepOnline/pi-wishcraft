@@ -65,9 +65,9 @@ export interface ShellSessionState {
 }
 
 /**
- * Common surface shared by v1 `ManagedShellSession` and the v2
- * PTY-backed `PtyManagedShellSession` (U13 cutover seam). writeStdin is
- * optional: only the v2 session supports editor forward-mode.
+ * Common surface for the PTY-backed managed session; kept as a seam so the
+ * editor/actions wiring does not depend on PtyManagedShellSession internals.
+ * writeStdin is optional-callable via the seam (v2 exposes it).
  */
 export interface ManagedShellSessionLike {
   readonly state: ShellSessionState;

@@ -4,13 +4,13 @@
 
 ### Added (v2 Platform — wishcraft-v2-platform plan)
 - Powerline v2: pure `computeLaneLayout` (priority drop, width-class) + cheap `paintLayout` adapter wired behind the existing v1 renderer. v1 deletion deferred to a follow-up PR with live-golden verification.
-- Bash v2: PTY session core (`bash-mode/pty-session.ts`, SGR-safe ANSI filter, sentinel-based command boundary) plus the long-lived `PtyManagedShellSession` cutover: `session-factory.ts` routes `auto`/`v2` through the PTY-backed session and the editor forwards printable input to the running command's stdin while it runs (interactive programs work; Ctrl-C stays an interrupt). When `script(1)` is missing, commands degrade per-run to plain pipes with a one-time warning; explicit `prefer:"v1"` remains as the strangler hatch until v1 deletion.
+- Bash v2: PTY session core (`bash-mode/pty-session.ts`, SGR-safe ANSI filter, sentinel-based command boundary) plus the long-lived `PtyManagedShellSession` cutover: `session-factory.ts` routes `auto`/`v2` through the PTY-backed session and the editor forwards printable input to the running command's stdin while it runs (interactive programs work; Ctrl-C stays an interrupt). When `script(1)` is missing, commands degrade per-run to plain pipes with a one-time warning. The legacy pipe-based `ManagedShellSession` is deleted.
 - Skill Studio: shell + state machine + `/studio` command, list/inspect/actions (create from template, overwrite confirm, doctor), DeepWiki client with 7-day disk cache (`src/studio/deepwiki/`), AI advice engine with pi-ai streaming and char-capped context (`src/studio/advise/`), and an advice pane that streams + inserts into the session.
 - Tests: 686 passing across new and existing suites; full `typecheck`, `madge --circular`, and `npm test` green.
 
 ### Deferred
 - U12-final: v1 powerline renderer + `src/signal/render.ts` deletion (need live-golden snapshot first).
-- U13-final: v1 `ManagedShellSession` deletion + editor live-tail rendering (editor-forward parity; `prefer:"v1"` hatch still active).
+- v1 powerline renderer + `src/signal/render.ts` deletion (U12-final, needs live-golden snapshot first).
 - Deck left-rail navigation bug (arrow-down skipping straight to the skills list).
 
 ## [1.5.1] - 2026-08-27
