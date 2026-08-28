@@ -64,6 +64,8 @@ export interface ShellSessionState {
   lastExitCode: number | null;
 }
 
+export { createForwardState, handleForwardInput, type ForwardState, type ForwardDecision, type PtyAction } from "./forward.ts";
+
 export interface BashModeEditorOptions {
   keybindings: KeybindingsManager;
   isBashModeActive: () => boolean;
