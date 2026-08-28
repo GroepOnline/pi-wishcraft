@@ -123,7 +123,7 @@ export const contextPctSegment: StatusLineSegment = {
 
     // Append a compact 8-cell fill bar so usage is scannable at a glance.
     // Filled cells use the semantic color, empty cells use the muted separator.
-    const bar = contextFillBar(contextPercent, (s) => color(ctx, s, ""));
+    const bar = contextFillBar(ctx, contextPercent);
     content = percentOnly ? baseContent : `${baseContent} ${bar}`;
 
     return { content, visible: true };
@@ -135,27 +135,24 @@ export const contextPctSegment: StatusLineSegment = {
  * the cell color follows the threshold (normal/warn/error) so the bar doubles
  * as a glanceable usage meter alongside the numeric readout.
  */
-function contextFillBar(
-  percent: number,
-  colorFn: (semantic: "context" | "contextWarn" | "contextError") => string,
-): string {
+function contextFillBar(ctx: SegmentContext, percent: number): string {
   const CELLS = 8;
-  const filled = Math.round((percent / 100) * CELLS);
+  const clamped = Math.min(100, Math.max(0, percent));
+  const filled = Math.min(CELLS, Math.max(0, Math.round((clamped / 100) * CELLS)));
   let semantic: "context" | "contextWarn" | "contextError";
-  if (percent > 90) {
+  if (clamped > 90) {
     semantic = "contextError";
-  } else if (percent > 70) {
+  } else if (clamped > 70) {
     semantic = "contextWarn";
   } else {
     semantic = "context";
   }
   // Filled cells are left-aligned, so we can emit them as one colored run,
   // then the empty cells as another — just two color codes total, not one per cell.
-  const filledColor = colorFn(semantic);
-  const emptyColor = colorFn("context");
-  const reset = colorEnabled() ? ansi.reset : "";
-  const filledRun = filled > 0 ? `${filledColor}${"▓".repeat(filled)}${reset}` : "";
-  const emptyRun = filled < CELLS ? `${emptyColor}${"░".repeat(CELLS - filled)}${reset}` : "";
+  // Pass the glyphs into color()/fg so the color code wraps the glyphs themselves.
+  const filledRun = filled > 0 ? color(ctx, semantic, "▓".repeat(filled)) : "";
+  const emptyRun =
+    filled < CELLS ? color(ctx, "separator", "░".repeat(CELLS - filled)) : "";
   return `${filledRun}${emptyRun}`;
 }
 
