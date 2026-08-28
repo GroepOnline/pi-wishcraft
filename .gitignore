@@ -105,7 +105,6 @@ bun.lock
 .compound-engineering/*.local.yaml
 
 # ChefGroep standard ignores (OS / Xcode / local env / CE)
-.compound-engineering/*.local.yaml
 
 # OS / editors
 .DS_Store
