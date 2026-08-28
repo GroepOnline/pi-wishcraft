@@ -9,6 +9,7 @@ import {
   type StudioKeyEvent,
   type StudioState,
 } from "../src/studio/state.ts";
+import { openSkillStudio, SKILL_STUDIO_PANES_READY } from "../src/studio/open.ts";
 
 const makeKey = (k: StudioKeyEvent["key"], char?: string): StudioKeyEvent => ({ key: k, char });
 
@@ -95,6 +96,31 @@ test("help mode: navigation keys do not move selection", () => {
   const help = press(s0, makeKey("printable", "?"));
   const idle = press(help, makeKey("down"));
   assert.equal(idle.selectedIndex, help.selectedIndex);
+});
+
+test("studio entrypoint stays fail-closed while panes are placeholders", async () => {
+  assert.equal(SKILL_STUDIO_PANES_READY, false);
+  const notices: Array<[string, string]> = [];
+  let customCalls = 0;
+  const rt: any = { enabled: true, currentCtx: null };
+  const ctx: any = {
+    hasUI: true,
+    mode: "interactive",
+    ui: {
+      notify(message: string, level: string) {
+        notices.push([message, level]);
+      },
+      async custom() {
+        customCalls += 1;
+      },
+    },
+  };
+
+  await openSkillStudio(rt, ctx);
+
+  assert.equal(customCalls, 0);
+  assert.equal(rt.currentCtx, null);
+  assert.deepEqual(notices, [["Skill Studio is not available until its panes are connected", "warning"]]);
 });
 
 test("studio modules contain only English operator strings", () => {
