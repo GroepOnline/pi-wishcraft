@@ -24,7 +24,10 @@ npm view "$SPEC" version >"$view_out" 2>"$view_err"
 view_status=$?
 set -e
 
-if [ "$view_status" -eq 0 ]; then
+# npm 11 returns exit 0 with EMPTY output for a missing @version on some
+# registry configs, so exit status alone is not a reliable presence test.
+# Presence = non-empty stdout ("1.4.3"). Absence = E404 anywhere.
+if [ -s "$view_out" ]; then
   echo "${VERSION} is already on npm; skip publish"
 else
   if grep -Eqi 'E404|404 Not Found|code E404|is not in this registry' "$view_err" "$view_out"; then
@@ -38,7 +41,7 @@ else
     set -e
     cat "$publish_err" >&2
     if [ "$publish_status" -ne 0 ]; then
-      if npm view "$SPEC" version >/dev/null 2>&1; then
+      if npm view "$SPEC" version 2>/dev/null | grep -q .; then
         echo "${VERSION} appeared on npm during publish; skip"
       elif grep -Eqi 'cannot publish over|previously published' "$publish_err"; then
         echo "${VERSION} is already on npm; skip publish"
