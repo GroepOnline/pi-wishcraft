@@ -23,6 +23,15 @@ Guides live in [`docs/`](docs/index.md). This is the Pi extension contract: what
 
 Install, restart Pi (or run `/reload`), then press `alt+p` for the Deck. Try `/signal menu`, `/skills`, `/ideas`, and `ctrl+shift+b`. Full setup: [docs/configuration.md](docs/configuration.md).
 
+## v2 Platform (in this release)
+
+- **Powerline v2 layout + paint** — pure `computeLaneLayout` (priority drop, width-class) and a cheap `paintLayout` adapter live behind the existing v1 renderer. v1 deletion is intentionally deferred to a follow-up PR with live-golden verification, so the bar you see today is identical to v1 until that lands.
+- **Bash v2 PTY session** — `bash-mode/pty-session.ts` wraps `script(1)` for real PTY execution with an SGR-safe ANSI filter. `bash-mode/session-factory.ts` exposes a v2 preference; v1 `ManagedShellSession` is the runtime default today. v1 deletion needs a shape unification first (long-lived-shell on top of the one-shot v2).
+- **Skill Studio** — `/studio` opens a fullscreen studio (non-overlay, `ctx.ui.custom`). Browse the local skill catalog, run the doctor, and create skills from templates. The advice pane streams model output (`src/studio/advise/engine.ts`) into a session message. DeepWiki lookups (`src/studio/deepwiki/`) feed the engine with 7-day disk cache.
+- **Tests** — 686 passing. `npm run typecheck`, `npx madge --circular src index.ts bash-mode queue`, and `npm test` are all green.
+
+See `STRATEGY.md` for the product direction and `.compound-engineering/artifacts/plans/2026-08-28-001-feat-wishcraft-v2-platform-plan.md` for the plan these units implement.
+
 ## Install
 
 Pi package manager (usual path):

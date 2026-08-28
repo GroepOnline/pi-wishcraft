@@ -2,7 +2,16 @@
 
 ## [Unreleased]
 
-## [1.5.2] - 2026-08-28
+### Added (v2 Platform — wishcraft-v2-platform plan)
+- Powerline v2: pure `computeLaneLayout` (priority drop, width-class) + cheap `paintLayout` adapter wired behind the existing v1 renderer. v1 deletion deferred to a follow-up PR with live-golden verification.
+- Bash v2: PTY session core (`bash-mode/pty-session.ts`, SGR-safe ANSI filter, sentinel-based command boundary). `bash-mode/session-factory.ts` exposes the v2 preference with a v1 fallback so existing bash-mode actions keep working unchanged.
+- Skill Studio: shell + state machine + `/studio` command, list/inspect/actions (create from template, overwrite confirm, doctor), DeepWiki client with 7-day disk cache (`src/studio/deepwiki/`), AI advice engine with pi-ai streaming and char-capped context (`src/studio/advise/`), and an advice pane that streams + inserts into the session.
+- Tests: 686 passing across new and existing suites; full `typecheck`, `madge --circular`, and `npm test` green.
+
+### Deferred
+- U12-final: v1 powerline renderer + `src/signal/render.ts` deletion (need live-golden snapshot first).
+- U13-final: v1 `ManagedShellSession` deletion + long-lived-shell surface on top of `PtyShellSession` (shape unification).
+- Deck left-rail navigation bug (arrow-down skipping straight to the skills list).
 
 ## [1.5.1] - 2026-08-27
 
