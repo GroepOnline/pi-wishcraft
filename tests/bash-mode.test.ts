@@ -1646,13 +1646,13 @@ test("bash editor v2 forward-mode routes printable input to the PTY stdin", asyn
     editor.handleInput("\x04");
     assert.deepEqual(
       forwarded,
-      ["h", "e", "l", "l", "o", "\r", "\x04"],
+      ["h", "e", "l", "l", "o", "😀", "\r", "\x04"],
       "Enter/EOF must reach the child stdin in forward-mode",
     );
     editor.handleInput("\x03");
     assert.deepEqual(
       forwarded,
-      ["h", "e", "l", "l", "o", "\r", "\x04"],
+      ["h", "e", "l", "l", "o", "😀", "\r", "\x04"],
       "interrupt must not be forwarded",
     );
   } finally {
