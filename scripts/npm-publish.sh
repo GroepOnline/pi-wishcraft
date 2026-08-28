@@ -32,15 +32,24 @@ if [ -s "$view_out" ]; then
 else
   if grep -Eqi 'E404|404 Not Found|code E404|is not in this registry' "$view_err" "$view_out"; then
     set +e
-    # --tag <VERSION> sidesteps npm's implicit-latest check, which refuses
-    # to publish a version lower than the current latest ("Cannot implicitly
-    # apply the latest tag because previously published version X is higher").
-    # We repoint `latest` ourselves after publish.
-    npm publish --access public --tag "$VERSION" 2>"$publish_err"
+    # --tag must be an arbitrary dist-tag NAME, not a version number:
+    # "npm publish --tag 1.4.3" still trips npm's implicit-latest check
+    # ("Cannot implicitly apply the latest tag because previously published
+    # version X is higher than the new version"). Publishing under a marker
+    # tag first, then repointing `latest` explicitly, is the only way to
+    # publish a lower version.
+    npm publish --access public --tag "release-${VERSION}" 2>"$publish_err"
     publish_status=$?
     set -e
     cat "$publish_err" >&2
-    if [ "$publish_status" -ne 0 ]; then
+    if [ "$publish_status" -eq 0 ]; then
+      # Publish succeeded under the marker tag; promote it to `latest` when
+      # this is the intended line. (npm refuses to auto-assign latest to a
+      # version lower than the current one, hence the explicit repoint.)
+      if ! npm dist-tag add "$PACKAGE@$VERSION" latest 2>/dev/null; then
+        echo "warning: published ${VERSION} but could not set latest; dist-tag 'release-${VERSION}' remains." >&2
+      fi
+    else
       if npm view "$SPEC" version 2>/dev/null | grep -q .; then
         echo "${VERSION} appeared on npm during publish; skip"
       elif grep -Eqi 'cannot publish over|previously published' "$publish_err"; then

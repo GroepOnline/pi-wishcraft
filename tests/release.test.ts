@@ -60,6 +60,9 @@ case "$1" in
     fi
     exit "\${STUB_NPM_PUBLISH_EXIT:-0}"
     ;;
+  dist-tag)
+    exit 0
+    ;;
   *)
     exit 1
     ;;
