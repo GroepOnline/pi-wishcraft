@@ -1,8 +1,7 @@
-import type { StatusLineSegment } from "../config/types.ts";
+import type { SegmentContext, StatusLineSegment } from "../config/types.ts";
 import { getIcons } from "../theme/icons.ts";
 import { formatUsdCost } from "../usage/rates.ts";
 import { costColorForBudget, tokenBudgetLevel } from "../usage/token-budget.ts";
-import { ansi, colorEnabled } from "../theme/colors.ts";
 import { color, withIcon, formatTokens } from "./shared.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
