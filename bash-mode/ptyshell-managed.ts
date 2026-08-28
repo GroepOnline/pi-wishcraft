@@ -22,6 +22,7 @@
  * ------------------------------------------------------------------------
  */
 
+import { basename } from "node:path";
 import type { BashTranscriptStore } from "./transcript.ts";
 import { PtyShellSession } from "./pty-session.ts";
 import type { ShellSessionState } from "./types.ts";
@@ -48,7 +49,7 @@ export class PtyManagedShellSession {
     this.onStateChange = onStateChange;
     this.onCommandSuccess = onCommandSuccess;
     this.initScript = initScript ?? "";
-    const shellName = shellPath.split("/").pop()?.toLowerCase() ?? "sh";
+    const shellName = basename(shellPath).toLowerCase();
     this.state = {
       ready: true,
       running: false,
@@ -61,7 +62,9 @@ export class PtyManagedShellSession {
       cwd,
       shellPath,
       onOutput: (line) => this.appendToTranscript(line),
-      onStateChange,
+      // The managed session notifies every user-visible transition itself;
+      // passing the caller's callback through would double-fire renders.
+      onStateChange: () => {},
       color: true,
     });
   }

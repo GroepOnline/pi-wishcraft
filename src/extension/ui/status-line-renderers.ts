@@ -182,7 +182,7 @@ export function renderBashTranscriptLines(
 ): string[] {
   if (!rt.bashModeActive) return [];
 
-  const snapshot = rt.bashTranscript.getSnapshot();
+  const snapshot = rt.bashTranscript.recentCommands(4);
   if (snapshot.commands.length === 0) return [];
 
   const lines: string[] = [];
@@ -192,7 +192,7 @@ export function renderBashTranscriptLines(
     );
   }
 
-  const recentCommands = snapshot.commands.slice(-4);
+  const recentCommands = snapshot.commands;
   for (const command of recentCommands) {
     const promptGlyph =
       (rt.shellSession?.state.shellName ?? "shell") === "fish" ? ">" : "$";

@@ -20,6 +20,10 @@ While bash mode is active:
 
 The managed shell is persistent for the current pi session. Command output appears in a transcript below the editor, and shell cwd changes are reflected in the footer path and `shell_mode` segment.
 
+## Execution (v2)
+
+Commands run under a real PTY via `script(1)` (no native dependency), so programs that read stdin work: printable input typed while a command runs is forwarded to the process, and `ctrl+c` interrupts it. SGR color survives into the transcript when the terminal supports it; `NO_COLOR` renders plain text. When `script(1)` is missing, each command degrades to plain pipe execution with a one-time warning (no color, no interactive stdin). Explicit `prefer:"v1"` remains as a transition hatch until the legacy pipe session is removed.
+
 ## Shell ghost suggestions
 
 Bash mode is ghost-first. Successful per-project shell history is the primary source, while deterministic path and git continuations can still extend an existing command. Shell-native completion probes are disabled so `!command` predictions never spawn interactive shell completion subprocesses.

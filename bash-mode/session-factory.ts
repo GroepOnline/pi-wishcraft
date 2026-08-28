@@ -1,13 +1,15 @@
-import { spawnSync } from "node:child_process";
 import { ManagedShellSession } from "./shell-session.ts";
 import { PtyManagedShellSession } from "./ptyshell-managed.ts";
+import {
+  _resetScriptAvailableForTests,
+  defaultScriptAvailable,
+} from "./pty-session.ts";
 import type { BashTranscriptStore } from "./transcript.ts";
 
 export type SessionPreference = "auto" | "v1" | "v2";
 
 export interface CreateShellSessionOptions {
   cwd: string;
-  shellEnv: NodeJS.ProcessEnv;
   prefer?: SessionPreference;
   transcript: BashTranscriptStore;
   onStateChange?: () => void;
@@ -15,8 +17,6 @@ export interface CreateShellSessionOptions {
   initScript?: string | null;
   shellPath?: string;
 }
-
-let lastPtyProbe: boolean | null = null;
 
 let warnedScriptMissing = false;
 
@@ -29,36 +29,20 @@ function warnScriptMissingOnce(): void {
 }
 
 export function isPtyPreferred(): boolean {
-  if (lastPtyProbe === null) {
-    const probe = spawnSync("script", ["--version"], { stdio: "ignore" });
-    lastPtyProbe = probe.status === 0;
-  }
-  return lastPtyProbe;
+  return defaultScriptAvailable();
 }
 
 export function _resetPtyProbeForTests(): void {
-  lastPtyProbe = null;
-}
-
-export class BashSessionFactoryError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BashSessionFactoryError";
-  }
+  _resetScriptAvailableForTests();
 }
 
 export function createShellSession(
   opts: CreateShellSessionOptions,
 ): PtyManagedShellSession | ManagedShellSession {
-  // ponytail: a per-command transcript store is required so the first
-  // runCommand() does not crash on a missing startCommand() call.
-  if (!opts.transcript) {
-    throw new BashSessionFactoryError(
-      "createShellSession requires a transcript store; construct one from bash-mode/transcript.ts and pass it in",
-    );
-  }
+  // transcript is a typed required field (TS enforces it); the factory has
+  // no untyped JS consumers.
   const preference = opts.prefer ?? "auto";
-  if (preference === "v2" && !isPtyPreferred()) {
+  if (preference !== "v1" && !isPtyPreferred()) {
     warnScriptMissingOnce();
   }
   // v2 (and auto) route through the PTY-backed managed session; when

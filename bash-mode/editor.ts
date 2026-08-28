@@ -167,14 +167,11 @@ export class BashModeEditor extends CustomEditor {
       // PTY stdin (AE1). Interrupt stays a keybinding above; key-releases
       // and multi-key sequences stay in the editor. Opt-in via
       // forwardWhileRunning so v1 run-blocked behavior is unchanged.
-      const forwardEnabled =
-        typeof this.optionsRef.forwardWhileRunning === "function"
-          ? this.optionsRef.forwardWhileRunning()
-          : (this.optionsRef.forwardWhileRunning ?? false);
       if (
         bashMode &&
         this.optionsRef.isShellRunning() &&
-        forwardEnabled &&
+        (this.optionsRef.forwardWhileRunning?.() ?? false) &&
+        this.optionsRef.onForwardInput != null &&
         !isKeyRelease(data) &&
         isPrintableInput(data)
       ) {

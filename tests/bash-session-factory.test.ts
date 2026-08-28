@@ -4,7 +4,6 @@ import {
   createShellSession,
   isPtyPreferred,
   _resetPtyProbeForTests,
-  BashSessionFactoryError,
 } from "../bash-mode/session-factory.ts";
 import { ManagedShellSession } from "../bash-mode/shell-session.ts";
 import { PtyManagedShellSession } from "../bash-mode/ptyshell-managed.ts";
@@ -21,7 +20,6 @@ function fakeTranscript(): BashTranscriptStore {
 
 const baseOpts = (overrides: Partial<Parameters<typeof createShellSession>[0]> = {}) => ({
   cwd: process.cwd(),
-  shellEnv: process.env,
   transcript: fakeTranscript(),
   ...overrides,
 });
@@ -56,17 +54,11 @@ test("factory: isPtyPreferred returns a boolean and is stable", () => {
   assert.equal(first, second, "the probe should be cached");
 });
 
-test("factory: missing transcript raises BashSessionFactoryError", () => {
-  assert.throws(
-    () =>
-      createShellSession({
-        cwd: process.cwd(),
-        shellEnv: process.env,
-        // @ts-expect-error - transcript is now required
-        transcript: undefined,
-      }),
-    BashSessionFactoryError,
-  );
+test("factory: missing script(1) still yields a session (degrades to pipes)", () => {
+  _resetPtyProbeForTests();
+  const session = createShellSession(baseOpts({ prefer: "v2" }));
+  assert.ok(session instanceof PtyManagedShellSession, "v2 must still construct");
+  _resetPtyProbeForTests();
 });
 
 test("factory: prefer:\"v2\" yields the PTY-backed managed session (U13 cutover)", () => {

@@ -173,6 +173,7 @@ export class PtyShellSession {
           this.state.cwd = result.cwd;
           this.running = null;
           this.onStateChange();
+          rmSync(file, { force: true });
           resolve(result);
         },
         settled: false,
@@ -192,7 +193,7 @@ export class PtyShellSession {
           })
         : spawn(this.shellPath, ["-c", buildPosixWrapper(this.state.cwd, file)], {
             cwd: this.state.cwd,
-            env: { ...process.env },
+            env: process.env,
             stdio: ["pipe", "pipe", "pipe"],
             detached: true,
           });
@@ -308,7 +309,7 @@ function buildPosixWrapper(cwd: string, file: string): string {
 
 let scriptAvailableCache: boolean | null = null;
 
-function defaultScriptAvailable(): boolean {
+export function defaultScriptAvailable(): boolean {
   if (scriptAvailableCache === null) {
     try {
       const probe = spawnSync("script", ["--version"], { stdio: "ignore" });
@@ -318,4 +319,8 @@ function defaultScriptAvailable(): boolean {
     }
   }
   return scriptAvailableCache;
+}
+
+export function _resetScriptAvailableForTests(): void {
+  scriptAvailableCache = null;
 }

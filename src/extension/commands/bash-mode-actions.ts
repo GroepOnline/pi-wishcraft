@@ -39,7 +39,6 @@ export const ensureShellSession = async (
     rt.shellSession = createShellSession({
       shellPath: getShellPath(),
       cwd: rt.currentCtx?.cwd ?? process.cwd(),
-      shellEnv: process.env,
       transcript: rt.bashTranscript,
       prefer: "auto",
       onStateChange: () => requestStatusRender(rt),
