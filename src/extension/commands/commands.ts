@@ -23,6 +23,7 @@ import { showPowerlineClassicMenu } from "../ui/powerline-menu-view.ts";
 import { syncAppearanceForLayoutPreset } from "../settings/appearance-write.ts";
 import { openStashHistory } from "../shortcuts/shortcuts-router.ts";
 import { ensureShellSession, setBashModeActive } from "./bash-mode-actions.ts";
+import { openSkillStudio } from "../../studio/open.ts";
 import { setupCustomEditor } from "../ui/custom-editor.ts";
 import { getPromptHistoryState } from "../history/prompt-history.ts";
 import {
@@ -210,6 +211,13 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
         return;
       }
       ctx.ui.notify("Usage: /bash-mode [on|off|toggle]", "warning");
+    },
+  });
+
+  pi.registerCommand("studio", {
+    description: "Open the Skill Studio fullscreen workspace",
+    handler: async (_args, ctx) => {
+      await openSkillStudio(rt, ctx);
     },
   });
 

@@ -133,3 +133,7 @@ Pods/
 .env
 .env.local
 .env.*.local
+
+# Local agent adapter state (never product code)
+.codex/
+.pi/

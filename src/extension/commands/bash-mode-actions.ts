@@ -4,7 +4,7 @@ import {
   readGlobalShellHistory,
   readProjectHistory,
 } from "../../../bash-mode/history.ts";
-import { ManagedShellSession } from "../../../bash-mode/shell-session.ts";
+import { createShellSession } from "../../../bash-mode/session-factory.ts";
 import { requestStatusRender } from "../core/segment-context.ts";
 import type { RuntimeState } from "../core/types.ts";
 
@@ -34,17 +34,18 @@ export const getShellHistoryEntries = (
 
 export const ensureShellSession = async (
   rt: RuntimeState,
-): Promise<ManagedShellSession> => {
+): Promise<NonNullable<RuntimeState["shellSession"]>> => {
   if (!rt.shellSession) {
-    rt.shellSession = new ManagedShellSession(
-      getShellPath(),
-      rt.currentCtx?.cwd ?? process.cwd(),
-      rt.bashTranscript,
-      () => requestStatusRender(rt),
-      (command, cwd) =>
+    rt.shellSession = createShellSession({
+      shellPath: getShellPath(),
+      cwd: rt.currentCtx?.cwd ?? process.cwd(),
+      transcript: rt.bashTranscript,
+      prefer: "auto",
+      onStateChange: () => requestStatusRender(rt),
+      onCommandSuccess: (command, cwd) =>
         appendProjectHistory(rt.currentCtx?.cwd ?? process.cwd(), command, cwd),
-      rt.bashModeSettings.initScript,
-    );
+      initScript: rt.bashModeSettings.initScript,
+    });
   }
   await rt.shellSession.ensureReady();
   return rt.shellSession;

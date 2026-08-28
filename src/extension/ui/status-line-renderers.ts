@@ -21,7 +21,7 @@ import {
 import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { prefersAsciiGlyphs } from "../../motion/index.ts";
-import { renderSignal } from "../../signal/render.ts";
+import { renderStatusLineV2 } from "../../render/v2-entry.ts";
 
 /**
  * Get cached responsive layout or compute fresh one.
@@ -77,7 +77,7 @@ export function getResponsiveLayout(
   const appearance = resolveAppearanceMix(
     effectiveAppearanceMix(config.appearance, config.preset),
   );
-  rt.lastLayoutResult = renderSignal(
+  rt.lastLayoutResult = renderStatusLineV2(
     segmentCtx,
     presetDef,
     rt.signal,
@@ -182,7 +182,7 @@ export function renderBashTranscriptLines(
 ): string[] {
   if (!rt.bashModeActive) return [];
 
-  const snapshot = rt.bashTranscript.getSnapshot();
+  const snapshot = rt.bashTranscript.recentCommands(4);
   if (snapshot.commands.length === 0) return [];
 
   const lines: string[] = [];
@@ -192,7 +192,7 @@ export function renderBashTranscriptLines(
     );
   }
 
-  const recentCommands = snapshot.commands.slice(-4);
+  const recentCommands = snapshot.commands;
   for (const command of recentCommands) {
     const promptGlyph =
       (rt.shellSession?.state.shellName ?? "shell") === "fish" ? ">" : "$";
@@ -211,9 +211,8 @@ export function renderBashTranscriptLines(
       ` ${theme.fg("accent", promptGlyph)} ${commandLine} ${theme.fg("dim", "(")}${status}${theme.fg("dim", ")")}`,
     );
 
-    const outputTail = command.output.slice(-6);
-    for (const outputLine of outputTail) {
-      lines.push(
+    // recentCommands already tails output to the store's outputTail (6).
+    for (const outputLine of command.output) {      lines.push(
         `   ${truncateToWidth(outputLine, Math.max(1, width - 3), "…")}`,
       );
     }

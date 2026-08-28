@@ -279,7 +279,7 @@ export const STRUCTURAL_PRESETS: Record<StructuralPresetName, StructuralPresetDe
     signal: {
       layout: "arc",
       separators: { left: "───", right: "───", subLeft: "◜", subRight: "◟" },
-      caps: { leftOpen: "◜", leftClose: "◝", rightOpen: "◞", rightClose: "◟" },
+      caps: { leftOpen: "", leftClose: "", rightOpen: "", rightClose: "" },
       animation: "lunar-breathe",
     },
     motion: motion("lunar-breathe"),

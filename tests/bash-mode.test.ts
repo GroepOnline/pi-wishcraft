@@ -29,7 +29,7 @@ import {
 } from "../bash-mode/completion.ts";
 import { getIcons } from "../src/theme/icons.ts";
 import { resolveColor } from "../src/theme/theme.ts";
-import { ManagedShellSession } from "../bash-mode/shell-session.ts";
+import { PtyManagedShellSession } from "../bash-mode/ptyshell-managed.ts";
 import { parseBashModeSettings } from "../src/extension/shortcuts/shortcuts-config.ts";
 
 function getMethod(target: object, name: string): Function {
@@ -608,7 +608,7 @@ test("managed shell session preserves cwd changes across commands", async (t) =>
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -653,7 +653,7 @@ test("managed shell session recovers cleanly after interrupt", async (t) => {
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -671,9 +671,12 @@ test("managed shell session recovers cleanly after interrupt", async (t) => {
 
   try {
     await session.ensureReady();
-    await session.runCommand("sleep 5");
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // v2 runCommand awaits process exit, so hold the promise and interrupt
+    // while it is in flight (v1 queued and returned immediately).
+    const running = session.runCommand("sleep 5");
+    await new Promise((resolve) => setTimeout(resolve, 300));
     session.interrupt();
+    await running;
     await waitForCommand();
 
     const interruptedCommand = store.getSnapshot().commands[0];
@@ -1598,6 +1601,68 @@ test("bash editor command-z undoes deleted text for supported encodings only", a
   }
 });
 
+test("bash editor v2 forward-mode routes printable input to the PTY stdin", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { KeybindingsManager } = await import(
+      new URL(
+        "../node_modules/@earendil-works/pi-coding-agent/dist/core/keybindings.js",
+        import.meta.url,
+      ).href
+    );
+    const keybindings = KeybindingsManager.create();
+    const forwarded: string[] = [];
+    const editor = new BashModeEditor(
+      { requestRender() {}, terminal: { columns: 80, rows: 24 } },
+      {},
+      keybindings,
+      {
+        keybindings,
+        isBashModeActive: () => true,
+        isShellRunning: () => true,
+        onExitBashMode() {},
+        onSubmitCommand() {},
+        onInterrupt() {},
+        onForwardInput: (data) => {
+          forwarded.push(data);
+        },
+        forwardWhileRunning: () => true,
+        onNotify() {},
+        getHistoryEntries: () => [],
+        resolveGhostSuggestion: async () => null,
+      },
+    );
+
+    for (const char of "hello") editor.handleInput(char);
+    assert.deepEqual(forwarded, ["h", "e", "l", "l", "o"]);
+    assert.equal(editor.getText(), "", "forwarded input must not enter the editor");
+
+    // A single Unicode code point (emoji is two UTF-16 units) must forward.
+    editor.handleInput("😀");
+    assert.deepEqual(forwarded, ["h", "e", "l", "l", "o", "😀"]);
+
+    // Enter (\r) and EOF (\x04) must forward while a line-oriented program
+    // runs (AE1); Ctrl-C (app.clear) stays an interrupt, never forwarded.
+    editor.handleInput("\r");
+    editor.handleInput("\x04");
+    assert.deepEqual(
+      forwarded,
+      ["h", "e", "l", "l", "o", "😀", "\r", "\x04"],
+      "Enter/EOF must reach the child stdin in forward-mode",
+    );
+    editor.handleInput("\x03");
+    assert.deepEqual(
+      forwarded,
+      ["h", "e", "l", "l", "o", "😀", "\r", "\x04"],
+      "interrupt must not be forwarded",
+    );
+  } finally {
+    links.cleanup();
+  }
+});
+
 test("bash editor command-z resets shell history and updates ghost state", async () => {
   const links = ensureEditorModuleLinks();
 
@@ -2052,7 +2117,7 @@ test("managed shell session sources the project init script before ready", async
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -2063,6 +2128,9 @@ test("managed shell session sources the project init script before ready", async
 
   try {
     await session.ensureReady();
+    // v2 has no persistent shell: initScript runs as a preamble of every
+    // command (documented divergence), so the cwd lands after a command.
+    await session.runCommand(":");
     assert.equal(session.state.cwd, childDir);
   } finally {
     session.dispose();
