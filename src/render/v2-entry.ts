@@ -108,6 +108,16 @@ export function renderStatusLineV2(
     primary.push(id);
   });
 
+  merged.secondarySegments.forEach((id, i) => {
+    try {
+      const rendered = renderSegment(id, ctx);
+      if (!rendered.visible || !rendered.content) return;
+      segments.push({ id, text: rendered.content, priority: 500 - i });
+    } catch {
+      // Keep secondary segments behind the same fault boundary as primary.
+    }
+  });
+
   const separatorGlyph = getSeparator(options.separatorStyle).left;
   const result = renderPowerlineV2(segments, width, {
     primary,

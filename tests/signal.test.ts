@@ -132,6 +132,22 @@ test("Signal renders left, center, and right lanes on one line", () => {
   assert.ok(line.indexOf("ready") < line.indexOf("47%"));
 });
 
+test("Signal renders configured secondary segments on the secondary line", () => {
+  const ctx = segmentContext();
+  ctx.extensionStatuses.set("test", "syncing");
+  const signal = createSignalRuntime(0);
+  signal.activity = "ready";
+
+  const result = renderStatusLineV2(ctx, PRESETS.default, signal, 200, {
+    separatorStyle: "slash",
+    signal: getStructuralPreset("lanternwake").signal,
+    ascii: true,
+  });
+
+  assert.match(result.secondaryContent, /syncing/);
+  assert.doesNotMatch(result.topContent, /syncing/);
+});
+
 test("Signal renders valid contributed sources and isolates empty or failing output", () => {
   clearContributions();
   try {
