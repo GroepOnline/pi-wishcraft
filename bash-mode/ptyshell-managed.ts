@@ -71,9 +71,13 @@ export class PtyManagedShellSession {
     });
   }
 
-  /** v2 sessions support editor forward-mode (printable input to PTY stdin). */
+  /**
+   * v2 sessions support editor forward-mode only when the active transport
+   * is a real PTY — the script(1)-missing pipe fallback has no interactive
+   * stdin (KTD2), so forwarding would swallow input (CodeRabbit #dJjDJ).
+   */
   supportsForwardMode(): boolean {
-    return true;
+    return this.pty.state.mode !== "pipe";
   }
 
   async ensureReady(): Promise<void> {

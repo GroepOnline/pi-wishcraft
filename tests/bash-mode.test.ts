@@ -1636,6 +1636,10 @@ test("bash editor v2 forward-mode routes printable input to the PTY stdin", asyn
     assert.deepEqual(forwarded, ["h", "e", "l", "l", "o"]);
     assert.equal(editor.getText(), "", "forwarded input must not enter the editor");
 
+    // A single Unicode code point (emoji is two UTF-16 units) must forward.
+    editor.handleInput("😀");
+    assert.deepEqual(forwarded, ["h", "e", "l", "l", "o", "😀"]);
+
     // Enter (\r) and EOF (\x04) must forward while a line-oriented program
     // runs (AE1); Ctrl-C (app.clear) stays an interrupt, never forwarded.
     editor.handleInput("\r");

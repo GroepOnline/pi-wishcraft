@@ -162,6 +162,20 @@ test("managed v2: supportsForwardMode is true (editor forward-mode enabled)", ()
   session.dispose();
 });
 
+test("managed v2: supportsForwardMode is false in pipe-fallback transport (no interactive stdin)", () => {
+  const session = new PtyManagedShellSession(
+    "/bin/sh",
+    process.cwd(),
+    makeTranscript(),
+    () => {},
+    () => {},
+    null,
+    () => false,
+  );
+  assert.equal(session.supportsForwardMode(), false);
+  session.dispose();
+});
+
 test("managed v2: pipe-degraded run (script unavailable) executes via pipes and reports mode", async () => {
   const transcript = makeTranscript();
   const session = new PtyManagedShellSession(

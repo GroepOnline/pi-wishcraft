@@ -11,7 +11,9 @@ export const DEFAULT_EDITOR_BOUNDARY_SHORTCUTS: EditorBoundaryShortcuts = {
 };
 
 export function isPrintableInput(data: string): boolean {
-  return data.length === 1 && data.charCodeAt(0) >= 32;
+  const points = [...data];
+  if (points.length !== 1) return false;
+  return (points[0]?.codePointAt(0) ?? 0) >= 32;
 }
 
 export function isCommandUndoShortcut(data: string): boolean {
