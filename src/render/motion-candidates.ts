@@ -74,3 +74,58 @@ export function seismo(tick: number, ascii: boolean): string {
   }
   return out;
 }
+
+/** G: fat-band — 2-row topographic waveform. Each cell fills to 1/8 height
+ * (▁▂▃▄▅▆▇█) by wave amplitude; mirror row underneath creates a 2x
+ * visual mass. Reads as a waveform image, not as a single bar.
+ * Mass: 2 rows × 8 vertical levels ≈ 16x character presence vs the
+ * single-row braille wave. Joep: "echt 11x zo dik".
+ */
+const HEIGHT = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+export function fatBand(tick: number, ascii: boolean): string[] {
+  if (ascii) {
+    return ["~~~~~~~~~~~~", "~~~~~~~~~~~~"];
+  }
+  const row1: string[] = [];
+  const row2: string[] = [];
+  for (let i = 0; i < W; i++) {
+    const phase = Math.sin((i - tick * 0.9) * 0.85);
+    const amp = (0.5 + 0.5 * phase); // 0..1
+    const level = Math.min(7, Math.max(0, Math.round(amp * 7)));
+    row1.push(HEIGHT[level] ?? "▁");
+    row2.push(HEIGHT[7 - level] ?? "█");
+  }
+  return [row1.join(""), row2.join("")];
+}
+
+/** H: lantern sigil — 3-row animated identity (the OMP-intro step-up).
+ * Centered braille-block lantern that breathes/sways; reads as a sigil,
+ * not as a bar. Lives behind a layout PR that lets v2 segments declare
+ * height so the sigil can sit above the prompt without breaking other
+ * segments. Joep: "denk is aan wat OMP als intro heeft maar dan anders".
+ */
+const LANTERN = [
+  "    ⣀⣀    ",
+  "  ⣀⣤⣶⣿⣶⣤⣀  ",
+  "   ⣤⣶⣿⣶⣤   ",
+  "    ⣤⣶⣤    ",
+];
+function shift(s: string, n: number, w = 12): string {
+  const padded = (n < 0 ? " ".repeat(-n) + s : s + " ".repeat(n));
+  return padded.slice(0, w).padEnd(w, " ");
+}
+export function lanternSigil(tick: number, ascii: boolean): string[] {
+  if (ascii) {
+    return [
+      "    ####    ",
+      "  ##O####O##  ",
+      "   ##O##O##   ",
+      "    ##O##    ",
+    ].map((r) => shift(r, 0));
+  }
+  const sway = Math.round(Math.sin(tick * 0.3) * 1.5);
+  const breathe = (tick % 8) < 4 ? 0 : 1;
+  const rows = LANTERN.map((r) => shift(r, sway));
+  if (breathe) rows[1] = shift("  ⣀⣤⣶⣿⣿⣿⣶⣤⣀  ", sway);
+  return rows;
+}

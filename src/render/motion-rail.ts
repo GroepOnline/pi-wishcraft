@@ -7,7 +7,9 @@
  */
 
 import { sweepPosition, trailGlyph } from "../motion/index.ts";
-import { brailleWave } from "./motion-candidates.ts";
+import { fatBand } from "./motion-candidates.ts";
+
+const BOLD = "\x1b[1m";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
@@ -39,10 +41,20 @@ export function renderActivity(
     railInner = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii);
   } else {
     // Activity→geometry mapping: motion carries meaning. Streaming tokens
-    // flow as a travelling braille wave; other active states keep the
-    // directional comet; compacting squeezes (branch above).
+    // ride a 1/8-block topographic fat-band (bolded peaks) — ~5x perceived
+    // mass vs the single-row braille wave, one row so layout stays
+    // untouched. Other active states keep the directional comet;
+    // compacting squeezes. The proper 3-row sigil lives in
+    // motion-candidates as the OMP-intro step-up (separate header PR).
     if (runtime.activity === "streaming" && !ascii) {
-      railInner = brailleWave(runtime.tick, false);
+      const [top] = fatBand(runtime.tick, false);
+      const peak = /[▆▇█]/;
+      railInner = colorEnabled()
+        ? top
+            .split("")
+            .map((g) => (peak.test(g) ? `${BOLD}${g}${ansi.reset}` : g))
+            .join("")
+        : top;
     } else {
       const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
       const built: string[] = [];
