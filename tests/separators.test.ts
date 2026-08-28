@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { getSeparator } from "../src/theme/separators.ts";
 import { ASCII_SEPARATORS, NERD_SEPARATORS } from "../src/theme/icons.ts";
 import { EXTRA_MOTIONS } from "../src/motion/catalog-extra.ts";
+import { PRESETS } from "../src/config/presets.ts";
 
 test("v3 separator chars exist in both font sets", () => {
   // Nerd-font codepoints are powerline-adjacent block glyphs, not ASCII.
@@ -37,4 +38,14 @@ test("v3 motion ids are unique and registered", () => {
   const copper = EXTRA_MOTIONS.find((m) => m.id === "copper-switch")!;
   assert.equal(copper.loop, "finite");
   assert.equal(copper.kind, "frames");
+});
+test("chef-calm preset stays lean and quiet", () => {
+  const calm = PRESETS["chef-calm"];
+  assert.ok(calm, "chef-calm preset exists");
+  const total = calm.leftSegments.length + (calm.rightSegments?.length ?? 0);
+  assert.ok(total <= 6, `expected <=6 segments, got ${total}`);
+  assert.equal(calm.separator, "dot");
+  assert.equal(calm.segmentOptions?.git?.showCommit, false);
+  assert.equal(calm.motion?.idle, "nimbus");
+  assert.equal(calm.motion?.["tool.end"], "copper-switch");
 });

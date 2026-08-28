@@ -260,6 +260,7 @@ export type StatusLinePreset =
   | "nerd"
   | "ascii"
   | "chef"
+  | "chef-calm"
   // vNext Structural Signature Presets
   | "lanternwake"
   | "threadbound"
