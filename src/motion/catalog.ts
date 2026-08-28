@@ -335,5 +335,9 @@ export function defaultMotionFor(event: MotionEvent): string {
     case "warning":
     case "error":
       return "rune-bloom";
+    default:
+      // Future events fall back to idle motion instead of returning
+      // undefined, which would break scheduler subscription.
+      return "wisp";
   }
 }
