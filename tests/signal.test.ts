@@ -104,12 +104,13 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
 
   // Non-ASCII: 3-row lantern sigil (lanternwake + streaming falls to the
   // sigil branch). The 1-row directional comet was retired in favour of
-  // the multi-row sigil — the new visual contract.
+  // the multi-row sigil — the new visual contract. Lantern is pure `#`
+  // blocks: no braille, no shade blocks, no font assumptions.
   const rail = stripAnsi(renderActivity(signal, spec, false));
   const lines = rail.split("\n");
   assert.equal(lines.length, 3, "sigil must be 3 rows");
   assert.match(lines[0]!, /streaming/);
-  assert.match(lines[0]!, /[⣀⣤⣶⣿]/);
+  assert.match(lines[0]!, /#/);
   // ASCII fallback: 1-row comet, no honest sigil at 12 cols.
   assert.match(stripAnsi(renderActivity(signal, spec, true)), /o/);
   const asciiRail = stripAnsi(renderActivity(signal, spec, true));
