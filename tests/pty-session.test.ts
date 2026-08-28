@@ -3,7 +3,6 @@ import test from "node:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
 import { filterPtyOutput, PtyShellSession } from "../bash-mode/pty-session.ts";
 
 const SCRIPT_AVAILABLE = await (async () => {
