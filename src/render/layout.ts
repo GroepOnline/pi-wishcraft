@@ -45,13 +45,15 @@ export function computeLaneLayout(
   width: number,
   config: LayoutConfig,
 ): LayoutResult {
-  const cap = Math.max(0, width);
+  const cap = Math.max(0, Math.min(width, config.maxWidth));
+  const separatorWidth = visibleWidth(config.separator);
   const primary: LayoutSegment[] = [];
   const secondary: LayoutSegment[] = [];
   const dropped: LayoutSegment[] = [];
   // Sort by priority desc once; then assign by lane membership and width.
   const sorted = [...segments].sort((a, b) => b.priority - a.priority);
-  let used = 0;
+  let primaryUsed = 0;
+  let secondaryUsed = 0;
   for (const seg of sorted) {
     const lane = laneFor(seg, config);
     if (lane === null) {
@@ -63,12 +65,18 @@ export function computeLaneLayout(
       continue;
     }
     const w = visibleWidth(seg.text);
-    if (used + w > cap) {
+    // Each lane owns its own budget: a primary segment must not push a
+    // secondary segment off the line. Separator width is charged only when
+    // a segment follows another in the same lane.
+    const used = lane === "primary" ? primaryUsed : secondaryUsed;
+    const addedWidth = used === 0 ? w : separatorWidth + w;
+    if (used + addedWidth > cap) {
       dropped.push(seg);
       continue;
     }
     (lane === "primary" ? primary : secondary).push(seg);
-    used += w + visibleWidth(config.separator);
+    if (lane === "primary") primaryUsed += addedWidth;
+    else secondaryUsed += addedWidth;
   }
 
   // Honor the original primary/secondary order in the config so callers

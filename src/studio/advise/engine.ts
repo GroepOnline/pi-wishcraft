@@ -1,17 +1,24 @@
-import type { Model } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
 import { buildAdviseContext, type AdviseContext, type AdviseContextSection } from "./context.ts";
 import { buildPrompt, type AdviseMode, type AdvisePrompt } from "./prompts.ts";
 
 /**
- * Provider-agnostic surface the engine needs: any object exposing the
- * pi-ai Provider.stream signature. Kept narrow so tests can stub a stream
- * without spinning up the full fauxProvider machinery.
+ * Provider-agnostic surface the engine needs: any object exposing a
+ * `stream` with the pi-ai shape. The model is the engine's local
+ * {@link AdviseModel} contract — production adapters map it to a fully
+ * populated pi-ai `Model` at the boundary, so no incomplete object is ever
+ * cast into one here.
  */
+export interface AdviseStreamContext extends AdviseContext {
+  /** Built prompt (system + rendered user instructions). Providers that
+   *  construct their own LLM context from the sections may ignore it. */
+  prompt?: AdvisePrompt;
+}
+
 export interface AdviseStreamProvider {
   stream(
-    model: Model<string>,
-    context: AdviseContext,
+    model: AdviseModel,
+    context: AdviseStreamContext,
     options: { signal: AbortSignal; maxTokens?: number },
   ): AsyncIterable<unknown>;
 }
@@ -53,23 +60,20 @@ export async function runAdvice(opts: RunAdviceOptions): Promise<RunAdviceResult
   if (!opts.provider) {
     return { kind: "unavailable", reason: "no-model" };
   }
-  const model = (opts.model ?? DEFAULT_MODEL) as unknown as Model<string>;
+  const model = opts.model ?? DEFAULT_MODEL;
   const maxChars = opts.maxChars ?? DEFAULT_MAX_CHARS;
-  const ctx = buildAdviseContext({
+  const ctx: AdviseStreamContext = buildAdviseContext({
     body: opts.body,
     references: opts.references,
     wiki: opts.wiki,
     maxChars,
   });
-  const prompt: AdvisePrompt = buildPrompt(opts.mode, {
+  ctx.prompt = buildPrompt(opts.mode, {
     skillName: opts.skillName,
     body: ctx.body,
     references: ctx.references,
     wiki: ctx.wiki,
   });
-  // The provider stub in tests ignores the context; in production the
-  // pi-ai wire protocol serializes the prompt itself, not our context.
-  void prompt;
 
   const stream = opts.provider.stream(model, ctx, {
     signal: opts.signal,

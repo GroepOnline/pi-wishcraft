@@ -2,7 +2,7 @@
 
 import type { RenderedSegment, SegmentContext } from "../config/types.ts";
 
-export interface PipelineContext {
+export interface PipelineContext extends SegmentContext {
   /** Bumped by callers when any input that affects rendering changes; the
    *  pipeline uses this together with the segment id as the cache key. */
   version: string;

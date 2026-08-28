@@ -6,11 +6,10 @@
  * confirm step it already shows for delete/overwrite elsewhere.
  */
 
-import { existsSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   SkillNameError,
-  isSkillTemplateId,
   writeSkillFromTemplate,
   type SkillTemplateId,
 } from "../extension/skills/skill-templates.ts";
@@ -68,8 +67,12 @@ async function runCreate(
       return { kind: "declined", message: `Cancelled: ${safe} unchanged`, filePath };
     }
     try {
-      rmSync(filePath, { force: true });
-      writeSkillFromTemplate(safe, action.template, action.skillsRoot);
+      // Atomic overwrite: the replacement is written to a temp file and
+      // renamed over SKILL.md only after it succeeds, so a failed write
+      // never destroys the existing skill.
+      writeSkillFromTemplate(safe, action.template, action.skillsRoot, {
+        overwrite: true,
+      });
       return { kind: "ok", message: `Overwrote ${safe}`, filePath };
     } catch (err) {
       return { kind: "error", message: errorMessage(err) };

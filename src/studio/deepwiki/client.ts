@@ -4,6 +4,10 @@
 
 const PROTOCOL_VERSION = "2024-11-05";
 
+/** Ceiling for a single DeepWiki MCP round-trip; prevents a hung server
+ *  from blocking the advice pane forever (R13 offline degradation). */
+const RPC_TIMEOUT_MS = 15_000;
+
 interface JsonRpcResponse<T> {
   jsonrpc: "2.0";
   id: number;
@@ -24,6 +28,7 @@ async function rpc<T>(
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+    signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
   });
   if (!res.ok) {
     throw new Error(`DeepWiki HTTP ${res.status}`);
@@ -45,6 +50,24 @@ export async function callTool<T = unknown>(
   fetchImpl: typeof fetch = fetch,
 ): Promise<T> {
   const idRef = { value: 0 };
-  await rpc(endpoint, "initialize", { protocolVersion: PROTOCOL_VERSION, capabilities: {} }, fetchImpl, idRef);
+  const initRes = await rpc(
+    endpoint,
+    "initialize",
+    {
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: { name: "pi-wishcraft", version: "1.0.0" },
+    },
+    fetchImpl,
+    idRef,
+  );
+  // Best-effort initialized notification; some MCP servers require it
+  // before accepting tool calls. Never block on it (R13 degradation).
+  void fetchImpl(endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+  }).catch(() => {});
+  void initRes;
   return rpc<T>(endpoint, "tools/call", { name: tool, arguments: args }, fetchImpl, idRef);
 }

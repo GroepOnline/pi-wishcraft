@@ -19,9 +19,19 @@
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { randomBytes } from "node:crypto";
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
 
-const DONE_SENTINEL = "__PI_DONE__";
+/**
+ * Fresh per-command completion delimiter. The wrapper prints it after the
+ * sourced script ends; because it is unpredictable, a command cannot forge
+ * it mid-stream and settle the run early (which would let a later
+ * runCommand replace `this.child` and orphan the still-running process
+ * group).
+ */
+function makeDoneDelimiter(): string {
+  return `__PI_DONE__${randomBytes(8).toString("hex")}`;
+}
 
 export interface PtyFilterOptions {
   /** Keep SGR color sequences; false strips them too (plain-text mode). */
@@ -93,17 +103,19 @@ function getCloseExitCode(code: number | null, signal: NodeJS.Signals | null): n
   return 1;
 }
 
-function buildWrapper(shellName: string, cwd: string, file: string): string {
+function buildWrapper(shellName: string, cwd: string, file: string, done: string): string {
   const quotedCwd = quoteShellArg(cwd);
   const quotedFile = quoteShellArg(file);
   if (shellName.includes("fish")) {
-    return `cd ${quotedCwd}; and source ${quotedFile}; printf '\\n${DONE_SENTINEL}:%s:%s\\n' $status $PWD`;
+    return `cd ${quotedCwd}; and source ${quotedFile}; printf '\\n${done}:%s:%s\\n' $status $PWD`;
   }
-  return `cd ${quotedCwd} && . ${quotedFile}; printf '\\n${DONE_SENTINEL}:%s:%s\\n' "$?" "$PWD"`;
+  return `cd ${quotedCwd} && . ${quotedFile}; printf '\\n${done}:%s:%s\\n' "$?" "$PWD"`;
 }
 
 interface RunningCommand {
   id: number;
+  /** This command's completion delimiter; only its own wrapper prints it. */
+  done: string;
   buffer: string;
   /** Trailing partial escape sequence carried across chunks. */
   escapeTail: string;
@@ -157,12 +169,14 @@ export class PtyShellSession {
     const file = join(this.tempDir, `cmd-${id}.${extension}`);
     writeFileSync(file, command.endsWith("\n") ? command : `${command}\n`, "utf8");
 
-    const wrapper = buildWrapper(this.shellName, this.state.cwd, file);
+    const done = makeDoneDelimiter();
+    const wrapper = buildWrapper(this.shellName, this.state.cwd, file, done);
     const usePty = this.scriptProbe();
 
     return new Promise<PtyRunResult>((resolve) => {
       const running: RunningCommand = {
         id,
+        done,
         buffer: "",
         escapeTail: "",
         resolve: (result) => {
@@ -191,7 +205,7 @@ export class PtyShellSession {
             stdio: ["pipe", "pipe", "pipe"],
             detached: true,
           })
-        : spawn(this.shellPath, ["-c", buildWrapper(this.shellName, this.state.cwd, file)], {
+        : spawn(this.shellPath, ["-c", buildWrapper(this.shellName, this.state.cwd, file, done)], {
             cwd: this.state.cwd,
             env: process.env,
             stdio: ["pipe", "pipe", "pipe"],
@@ -281,10 +295,12 @@ export class PtyShellSession {
     const merged = running.escapeTail + chunk;
     running.escapeTail = "";
 
-    // Carry a trailing partial escape (unterminated CSI/OSC/DCS) to the next
-    // chunk so split sequences cannot leak their introducer into output.
+    // Carry a trailing partial escape (unterminated CSI/OSC/DCS, or a bare
+    // ESC byte) to the next chunk so split sequences cannot leak their
+    // introducer into output — a lone ESC followed by e.g. "[31m" on the
+    // next chunk must filter as one SGR, not render as plain text.
     let work = merged;
-    const partial = /(?:\x1b(?:\[[0-9;?]*[ -/]*|\][^\x07\x1b]*|[P^_][^\x07\x1b]*))$/.exec(work);
+    const partial = /(?:\x1b(?:\[[0-9;?]*[ -/]*|\][^\x07\x1b]*|[P^_][^\x07\x1b]*))$|\x1b$/.exec(work);
     if (partial) {
       running.escapeTail = partial[0];
       work = work.slice(0, work.length - running.escapeTail.length);
@@ -299,8 +315,8 @@ export class PtyShellSession {
 
     for (const rawLine of parts) {
       const line = rawLine.replace(/\r$/, "");
-      if (line.startsWith(`${DONE_SENTINEL}:`)) {
-        const rest = line.slice(DONE_SENTINEL.length + 1);
+      if (line.startsWith(`${running.done}:`)) {
+        const rest = line.slice(running.done.length + 1);
         // exit code may not contain ':'; cwd may (rare) — split on first two only.
         const firstColon = rest.indexOf(":");
         if (firstColon !== -1) {

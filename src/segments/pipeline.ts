@@ -23,8 +23,10 @@ interface CacheEntry {
 
 const cacheStore = new Map<string, CacheEntry>();
 
-function cacheKey(id: string, version: string): string {
-  return `${id}:${version}`;
+function cacheKey(kind: "builtin" | "source", id: string, version: string): string {
+  // Namespace by producer type: a builtin segment and a contributed source
+  // may share an id and must never reuse each other's cached entry.
+  return `${kind}:${id}:${version}`;
 }
 
 function normalizeSourceOutput(raw: string | undefined): RenderedSegment {
@@ -107,11 +109,13 @@ export async function runSegmentPipeline(
   options: PipelineOptions = {},
 ): Promise<RenderedPipelineOutput[]> {
   const { cache = false, budgetMs = 0 } = options;
-  const segCtx: SegmentContext = ctx as unknown as SegmentContext;
+  // PipelineContext extends SegmentContext, so renderers receive the context
+  // values they read (usage stats, window, thresholds) without a cast.
+  const segCtx: SegmentContext = ctx;
   const out: RenderedPipelineOutput[] = [];
 
   for (const segment of segments) {
-    const key = cacheKey(segment.id, ctx.version);
+    const key = cacheKey("builtin", segment.id, ctx.version);
     if (cache) {
       const hit = cacheStore.get(key);
       if (hit) {
@@ -132,7 +136,7 @@ export async function runSegmentPipeline(
   }
 
   for (const source of sources) {
-    const key = cacheKey(source.id, ctx.version);
+    const key = cacheKey("source", source.id, ctx.version);
     if (cache) {
       const hit = cacheStore.get(key);
       if (hit) {

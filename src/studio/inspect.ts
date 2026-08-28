@@ -6,7 +6,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 
 const MD_LINK_RE = /\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 
@@ -29,6 +29,9 @@ export function resolveReferences(body: string, baseDir: string): ResolvedRefere
     if (!href || isExternal(href) || isAbsolute(href)) continue;
     if (!RELATIVE_PREFIXES.some((p) => href.startsWith(p))) continue;
     const path = resolve(baseDir, href);
+    const rel = relative(baseDir, path);
+    // `..`-escape: a reference may never walk out of the skill directory.
+    if (rel.startsWith("..")) continue;
     out.push({ href, path, exists: existsSync(path) });
   }
   return out;

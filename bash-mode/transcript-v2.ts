@@ -37,26 +37,31 @@ function balancedSgr(text: string, maxWidth: number): string {
 function truncateToVisibleWidth(text: string, maxWidth: number): string {
   let visible = "";
   let width = 0;
-  let openSgr = "";
+  let colorActive = false;
   let i = 0;
   while (i < text.length && width < maxWidth) {
-    const ch = text[i] ?? "";
+    const codePoint = text.codePointAt(i) ?? 0;
+    const ch = String.fromCodePoint(codePoint);
     if (ch === "\x1b" && text[i + 1] === "[") {
       let j = i + 2;
       while (j < text.length && /[0-9;]/.test(text[j] ?? "")) j += 1;
       if (text[j] === "m") {
         const seq = text.slice(i, j + 1);
-        if (seq === "\x1b[0m") openSgr = "";
-        else openSgr = seq;
+        // Zero-width: keep the sequence at its original position so text
+        // before it stays unstyled; only a reset deactivates the format.
+        visible += seq;
+        colorActive = seq !== "\x1b[0m";
       }
       i = j + 1;
       continue;
     }
     visible += ch;
-    width += 1;
-    i += 1;
+    // Iterate display units, not UTF-16 code units: wide glyphs advance the
+    // cap by their visible width and surrogate pairs are never split.
+    width += visibleWidth(ch);
+    i += ch.length;
   }
-  return openSgr ? `${openSgr}${visible}\x1b[0m` : visible;
+  return colorActive ? `${visible}\x1b[0m` : visible;
 }
 
 export function appendColored(

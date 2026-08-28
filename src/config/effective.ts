@@ -46,7 +46,11 @@ function coerceToggle(value: unknown): boolean | null {
 function coerceNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const parsed = Number.parseFloat(value);
+    const trimmed = value.trim();
+    if (trimmed === "") return null;
+    // Full-string conversion: "1000ms" and friends must not silently
+    // coerce to a number; invalid values fall back to the default.
+    const parsed = Number(trimmed);
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;

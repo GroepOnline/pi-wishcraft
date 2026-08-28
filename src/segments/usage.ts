@@ -140,7 +140,9 @@ function contextFillBar(
   colorFn: (semantic: "context" | "contextWarn" | "contextError") => string,
 ): string {
   const CELLS = 8;
-  const filled = Math.round((percent / 100) * CELLS);
+  // Clamp to the bar's cell count: percentages above 100 must not grow the
+  // status line, and negative percentages must not underflow the empty run.
+  const filled = Math.max(0, Math.min(CELLS, Math.round((percent / 100) * CELLS)));
   let semantic: "context" | "contextWarn" | "contextError";
   if (percent > 90) {
     semantic = "contextError";
