@@ -2,17 +2,27 @@
 
 ## [Unreleased]
 
-## [1.7.1] - 2026-08-28
-
-## [1.7.0] - 2026-08-28
-
-## [1.6.0] - 2026-08-28
+## [1.4.3] - 2026-08-28
 
 ### Added (v2 Platform — wishcraft-v2-platform plan)
 - Powerline v2: the status line now renders through a single path (`renderStatusLineV2` -> `computeLaneLayout` -> `paintLayout`) with the motion rail as a first-class layout segment (reading order left -> rail -> right preserved; under width pressure the right lane yields first, the rail later). The legacy v1 three-lane renderer (`src/signal/render.ts`) is deleted; rail semantics live in `src/render/motion-rail.ts`. Deliberate visible delta: the configured separator now joins every primary segment. Golden pinned post-cutover in `tests/signal-golden.test.ts` (pre-cutover baseline preserved in git history at 84b2e2a).
+- Multi-row layout: segments declare a visual row count (`LayoutSegment.height?` + auto-derive from embedded `\n`); `computeLaneLayout` returns `primaryRowCount`/`secondaryRowCount`; `paintLayout`/`paintSecondary` render one string per row with the separator on row 0 only.
+- Motion rail: lantern sigil as 3-row active rail for the streaming state — a portable `#`-block lantern (sway + breath) that replaces the braille version that rendered as shade-block blobs on terminals without braille fonts. ASCII fallback stays a directional comet; `ready` = calm flat `─` track; `compacting` = inward heads.
 - Bash v2: PTY session core (`bash-mode/pty-session.ts`, SGR-safe ANSI filter, sentinel-based command boundary) plus the long-lived `PtyManagedShellSession` cutover: `session-factory.ts` routes `auto`/`v2` through the PTY-backed session and the editor forwards printable input to the running command's stdin while it runs (interactive programs work; Ctrl-C stays an interrupt). When `script(1)` is missing, commands degrade per-run to plain pipes with a one-time warning. The legacy pipe-based `ManagedShellSession` is deleted.
 - Skill Studio modules: shell + state machine + `/studio` command, list/inspect/actions (create from template, overwrite confirm, doctor), DeepWiki client with 7-day disk cache (`src/studio/deepwiki/`), AI advice engine with pi-ai streaming and char-capped context (`src/studio/advise/`), and an advice pane that streams + inserts into the session. Operator exposure remains deferred and fail-closed until the Studio panes are connected.
-- Tests: 704 passing across new and existing suites; full `typecheck`, `madge --circular`, and `npm test` green.
+- Versioned autoresearch harness (`.auto/measure.sh`, `checks.sh`, `config.json`, `prompt.md`): one-run `METRIC` output for test/typecheck/circular plus signal-render and registry micro-benchmarks.
+- Tests: 706 passing across new and existing suites; full `typecheck`, `madge --circular`, and `npm test` green.
+
+### Fixed
+- `segmentHeight` counted trailing empty lines as extra rows, forcing an empty full-width row below a segment — the "big block under every line" render bug.
+- `paintLayout` row-1+ separator padding used `separator.length` (ANSI bytes) instead of `visibleWidth(separator)` — a dead column between lanes on multi-row content.
+- Multi-row rail color: `renderActivity` now wraps each sigil row with its own ANSI color+reset, so rows 1+ render in the lane accent instead of falling back to the terminal default.
+- `activityForEvent` and `defaultMotionFor` had no `default` case — unknown events leaked the literal text `undefined` into the powerline.
+- `MotionScheduler.subscribe` now calls `onDone` on an existing consumer with the same id before replacing it (a silent leak on re-subscribe).
+- `setSignalEvent` wraps `scheduler.subscribe` in try/catch so a throw leaves the runtime in a clean idle state instead of `active=true` with `release=null`.
+
+### Changed
+- Version numbering: the ladder had raced up to 1.7.x while the shipped feature depth was a handful of patches. This release restores the honest number (1.4.3) and `chooseBump` now defaults to `patch` for normal `feat:` commits — only an explicit breaking marker (`feat!:`, `BREAKING CHANGE`) auto-promotes (to `major`); `minor` is an explicit manual choice.
 
 ### Deferred
 - Editor live-tail and v1 session cleanup.
@@ -21,13 +31,6 @@
 - Managed-suite pipe-mode safeguards.
 - Studio operator exposure until its panes are connected.
 - Deck left-rail navigation bug (arrow-down skipping straight to the skills list).
-
-## [1.5.1] - 2026-08-27
-
-### Added
-- Versioned autoresearch harness (`.auto/measure.sh`, `checks.sh`, `config.json`, `prompt.md`): one-run `METRIC` output for test/typecheck/circular plus signal-render and registry micro-benchmarks. Future autoresearch sessions run against this contract.
-
-## [1.5.0] - 2026-08-27
 
 ## [1.4.1] - 2026-08-27
 
