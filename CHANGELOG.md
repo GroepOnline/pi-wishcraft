@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.4.4] - 2026-08-28
+
 ## [1.4.3] - 2026-08-28
 
 ### Added (v2 Platform — wishcraft-v2-platform plan)
