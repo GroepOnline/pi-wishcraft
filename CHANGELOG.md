@@ -10,7 +10,7 @@
 
 ### Deferred
 - U12-final: v1 powerline renderer + `src/signal/render.ts` deletion (need live-golden snapshot first).
-- v1 powerline renderer + `src/signal/render.ts` deletion (U12-final, needs live-golden snapshot first).
+- v1 powerline renderer + `src/signal/render.ts` deletion (U12-final, needs live-golden first; golden barrier pinned in `tests/signal-golden.test.ts` — the cutover PR must match it).
 - Deck left-rail navigation bug (arrow-down skipping straight to the skills list).
 
 ## [1.5.1] - 2026-08-27
