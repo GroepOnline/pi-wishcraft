@@ -7,6 +7,13 @@
 import type { RuntimeState } from "../extension/core/types.ts";
 import { createStudioComponent } from "./component.ts";
 
+/**
+ * Keep the operator command fail-closed until list/detail/actions/advice are
+ * actually wired into the fullscreen component. The scaffold stays available
+ * to tests and follow-up implementation without exposing a misleading command.
+ */
+export const SKILL_STUDIO_PANES_READY = false;
+
 export async function openSkillStudio(
   rt: RuntimeState,
   ctx: any,
@@ -21,6 +28,10 @@ export async function openSkillStudio(
   }
   if (ctx.mode === "rpc") {
     ctx.ui.notify("Skill Studio is not available in RPC mode", "warning");
+    return;
+  }
+  if (!SKILL_STUDIO_PANES_READY) {
+    ctx.ui.notify("Skill Studio is not available until its panes are connected", "warning");
     return;
   }
 
