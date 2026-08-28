@@ -59,8 +59,10 @@ function segmentLineWidth(seg: LayoutSegment): number {
 function segmentHeight(seg: LayoutSegment): number {
   if (seg.height && seg.height > 1) return seg.height;
   // ponytail: derive from text so a 3-line rail without an explicit
-  // height still renders as 3 rows. Single-line text stays 1 row.
-  return Math.max(1, seg.text.split("\n").length);
+  // height still renders as 3 rows. Trailing empty lines are noise from
+  // upstream trims — don't promote them to extra rows.
+  const nonEmpty = seg.text.split("\n").filter((line) => line.length > 0);
+  return Math.max(1, nonEmpty.length);
 }
 
 function laneFor(seg: LayoutSegment, config: LayoutConfig): "primary" | "secondary" | null {

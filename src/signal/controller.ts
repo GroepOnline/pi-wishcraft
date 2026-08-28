@@ -131,5 +131,9 @@ export function activityForEvent(event: MotionEvent): string {
       return "warning";
     case "error":
       return "error";
+    default:
+      // Future events fall back to ready instead of leaking `undefined`
+      // into the powerline.
+      return "ready";
   }
 }
