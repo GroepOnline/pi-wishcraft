@@ -30,6 +30,7 @@ export function renderActivity(
   const RAIL_WIDTH = 12;
   const track = ascii ? "-" : "─";
   const head = ascii ? "o" : "●";
+  const railColor = runtime.active ? hot : dim;
   let railBlock: string;
   if (!runtime.active) {
     railBlock = track.repeat(RAIL_WIDTH);
@@ -48,19 +49,24 @@ export function renderActivity(
     railBlock = built.join("");
   }
   // Active state: 3-row lantern sigil ONLY for the streaming/working
-  // activity (the visible "the model is doing something" pulse). Other
-  // active states keep their 1-row rails (compacting = inward heads,
-  // ready/empty = calm flat). The sigil is a braille-block lantern;
-  // there is no honest 12-col ASCII equivalent — fall back to comet.
+  // activity. Each row is wrapped individually with the lane color
+  // so rows 1+ don't inherit an empty ANSI state from row 0.
   if (runtime.active && !ascii && runtime.activity === "streaming") {
     const sigilRows = lanternSigil(runtime.tick, false);
     const [r0, ...rest] = sigilRows;
     const framed = `${spec.separators.left}${r0} ${label}${spec.separators.right}`;
-    railBlock = [framed, ...rest].join("\n");
-    const railColor = runtime.active ? hot : dim;
-    return `${railColor}${open}${railBlock}${close}${reset}`;
+    const allRows = [framed, ...rest];
+    const colored = (row: string) => `${railColor}${row}${reset}`;
+    // open brackets on the first row, close on the last row, color on
+    // every row so the whole sigil reads as one amber block.
+    const rows = allRows.map((row, i) => {
+      const prefix = i === 0 ? open : "";
+      const suffix = i === allRows.length - 1 ? close : "";
+      return `${prefix}${colored(row)}${suffix}`;
+    });
+    railBlock = rows.join("\n");
+    return railBlock;
   }
-  const railColor = runtime.active ? hot : dim;
   const rail = `${spec.separators.left}${railBlock}${spec.separators.right}`;
   return `${railColor}${open}${rail}${close}${reset} ${label}`;
 }
