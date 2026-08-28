@@ -11,3 +11,13 @@ Deferred (decision-gated; filed as tickets):
 - **P2 — tests/ptyshell-managed.test.ts:39 — Managed-suite tests can green-wash a broken PTY path on script-less hosts (no per-feature mode assertion).** Defer filed: https://github.com/GroepOnline/pi-wishcraft/issues/73 — test-infra hardening (mode assertion / SCRIPT_AVAILABLE gate).
 
 Settled-conflict findings: none (plan carries no session-settled KTDs).
+
+## U12-final cutover — blocker (needs human decision + live verification)
+
+2026-08-28 run: the v1 powerline deletion cannot complete headless. Blockers, in order:
+
+1. **Async/sync boundary** — `runSegmentPipeline` (U2) is async (per-segment budget + timeout isolation); the always-on `getResponsiveLayout` render path is synchronous. An async pipeline does not drop into the sync render without a prepared-cache architecture change.
+2. **Motion-rail loss** — v1 `renderSignal` has a center animated motion rail (`renderActivity`); the v2 layout is primary/secondary priority-based with a static separator. Deleting v1 removes a visible feature, not just an implementation.
+3. **Live-golden gate** — plan U12-final requires golden-line snapshots verified in a real terminal before v1 deletion. The headless pre-revert snapshot exists: `tests/signal-golden.test.ts` (84b2e2a) pins v1's exact output (`!path / !git ◇━╾--o------━━━╼━◇ ready !context_pct`). The cutover PR must re-pin v2 output deliberately, with an operator glance-check.
+
+Product decision needed: keep the motion rail in v2 (port `renderActivity` into the v2 pipeline as a center/module segment) or drop it (accept less animated status line). Then: offline-prime the segment cache from an idle scheduler, switch `status-line-renderers` to the pipeline → `computeLaneLayout` → `paintLayout`, delete `src/signal/render.ts` + the getResponsiveLayout v1 internals, and re-pin the golden in a deliberate commit. That is a follow-up PR with real-terminal evidence (plan chapter 3, Deferred).
