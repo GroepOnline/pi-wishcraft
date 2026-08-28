@@ -46,16 +46,6 @@ const DEFAULT_MODEL: AdviseModel = {
   maxTokens: 1024,
 };
 
-function toContext(opts: RunAdviceOptions, prompt: AdvisePrompt) {
-  return {
-    body: opts.body,
-    references: opts.references,
-    wiki: opts.wiki,
-    maxChars: opts.maxChars ?? DEFAULT_MAX_CHARS,
-    prompt,
-  };
-}
-
 export async function runAdvice(opts: RunAdviceOptions): Promise<RunAdviceResult> {
   if (opts.signal.aborted) {
     return { kind: "unavailable", reason: "aborted" };
@@ -64,30 +54,27 @@ export async function runAdvice(opts: RunAdviceOptions): Promise<RunAdviceResult
     return { kind: "unavailable", reason: "no-model" };
   }
   const model = (opts.model ?? DEFAULT_MODEL) as unknown as Model<string>;
+  const maxChars = opts.maxChars ?? DEFAULT_MAX_CHARS;
   const ctx = buildAdviseContext({
     body: opts.body,
     references: opts.references,
     wiki: opts.wiki,
-    maxChars: opts.maxChars ?? DEFAULT_MAX_CHARS,
+    maxChars,
   });
-  const prompt = buildPrompt(opts.mode, {
+  const prompt: AdvisePrompt = buildPrompt(opts.mode, {
     skillName: opts.skillName,
     body: ctx.body,
     references: ctx.references,
     wiki: ctx.wiki,
   });
-
-  // Adapter context the provider can ignore: it is here for the typed
-  // signature, not for use by pi-ai's wire protocol.
-  void toContext(opts, prompt);
+  // The provider stub in tests ignores the context; in production the
+  // pi-ai wire protocol serializes the prompt itself, not our context.
+  void prompt;
 
   const stream = opts.provider.stream(model, ctx, {
     signal: opts.signal,
     maxTokens: opts.model?.maxTokens ?? DEFAULT_MODEL.maxTokens,
   });
-  // ctx is the typed shape the provider stub receives; engine itself walks
-  // the stream directly below.
-  void ctx;
 
   let text = "";
   try {
@@ -95,9 +82,8 @@ export async function runAdvice(opts: RunAdviceOptions): Promise<RunAdviceResult
       if (opts.signal.aborted) {
         return { kind: "unavailable", reason: "aborted" };
       }
-      // Defensive: text delta extraction without depending on pi-ai's
-      // AssistantMessageEvent shape — anything with a .delta or .text
-      // field of string type counts.
+      // Defensive text extraction: anything with a string .delta or .text
+      // counts. Avoids pinning the engine to pi-ai's AssistantMessageEvent.
       const anyEv = ev as { delta?: unknown; text?: unknown };
       const delta =
         typeof anyEv.delta === "string"

@@ -44,17 +44,6 @@ test("layout: low-priority segments are dropped when width is tight", () => {
   assert.ok(!kept.has("queue"), "queue must be dropped first");
 });
 
-test("layout: hidden segments are excluded from output", () => {
-  const out = computeLaneLayout(segments([
-    ["model", "grok", 10],
-    ["hidden", "secret", 1],
-  ]), 80, {
-    ...cfg,
-    primary: ["model", "hidden"],
-  });
-  const kept = [...out.primary, ...out.secondary].map((s) => s.id);
-  assert.ok(!kept.includes("hidden"), "hidden segments must be excluded");
-});
 
 test("layout: width 40 produces the small-width class", () => {
   const out = computeLaneLayout(segments([

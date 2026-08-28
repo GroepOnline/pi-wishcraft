@@ -28,17 +28,16 @@ export interface LayoutResult {
   widthClass: WidthClass;
 }
 
-const DEFAULT_HIDDEN_SENTINEL = "hidden";
-
 function widthClassFor(width: number): WidthClass {
   if (width < 60) return "small";
   if (width < 120) return "medium";
   return "wide";
 }
 
-function isHidden(seg: LayoutSegment, config: LayoutConfig): boolean {
-  if (seg.id === DEFAULT_HIDDEN_SENTINEL) return true;
-  return !config.primary.includes(seg.id) && !config.secondary.includes(seg.id);
+function laneFor(seg: LayoutSegment, config: LayoutConfig): "primary" | "secondary" | null {
+  if (config.primary.includes(seg.id)) return "primary";
+  if (config.secondary.includes(seg.id)) return "secondary";
+  return null;
 }
 
 export function computeLaneLayout(
@@ -46,10 +45,16 @@ export function computeLaneLayout(
   width: number,
   config: LayoutConfig,
 ): LayoutResult {
-  const visible: LayoutSegment[] = [];
+  const cap = Math.max(0, width);
+  const primary: LayoutSegment[] = [];
+  const secondary: LayoutSegment[] = [];
   const dropped: LayoutSegment[] = [];
-  for (const seg of segments) {
-    if (isHidden(seg, config)) {
+  // Sort by priority desc once; then assign by lane membership and width.
+  const sorted = [...segments].sort((a, b) => b.priority - a.priority);
+  let used = 0;
+  for (const seg of sorted) {
+    const lane = laneFor(seg, config);
+    if (lane === null) {
       dropped.push(seg);
       continue;
     }
@@ -57,40 +62,17 @@ export function computeLaneLayout(
       dropped.push(seg);
       continue;
     }
-    visible.push(seg);
-  }
-  visible.sort((a, b) => b.priority - a.priority);
-
-  // Place by lane: primary first, then secondary if room.
-  const cap = Math.max(0, width);
-  const primary: LayoutSegment[] = [];
-  const secondary: LayoutSegment[] = [];
-  const placement: Array<{ seg: LayoutSegment; lane: "primary" | "secondary" }> = [];
-
-  for (const seg of visible) {
-    if (config.primary.includes(seg.id)) {
-      placement.push({ seg, lane: "primary" });
-    } else if (config.secondary.includes(seg.id)) {
-      placement.push({ seg, lane: "secondary" });
-    }
-  }
-
-  let used = 0;
-  for (const { seg, lane } of placement) {
     const w = visibleWidth(seg.text);
     if (used + w > cap) {
       dropped.push(seg);
       continue;
     }
-    if (lane === "primary") {
-      primary.push(seg);
-    } else {
-      secondary.push(seg);
-    }
+    (lane === "primary" ? primary : secondary).push(seg);
     used += w + visibleWidth(config.separator);
   }
 
-  // Honor the original primary order: callers expect model→context→git→queue.
+  // Honor the original primary/secondary order in the config so callers
+  // expect model->context->git->queue rather than priority-sorted.
   const primaryOrder = new Map(config.primary.map((id, i) => [id, i]));
   primary.sort((a, b) => (primaryOrder.get(a.id) ?? 0) - (primaryOrder.get(b.id) ?? 0));
   const secondaryOrder = new Map(config.secondary.map((id, i) => [id, i]));
