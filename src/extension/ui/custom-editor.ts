@@ -135,7 +135,7 @@ export function setupCustomEditor(
       onForwardInput: (data) => {
         rt.shellSession?.writeStdin?.(data);
       },
-      forwardWhileRunning: () => rt.shellSession?.writeStdin != null,
+      forwardWhileRunning: () => rt.shellSession?.supportsForwardMode() ?? false,
       onNotify: (message, level = "info") => ctx.ui.notify(message, level),
       getHistoryEntries: (prefix) => getShellHistoryEntries(rt, prefix),
       resolveGhostSuggestion: async (text, signal) => {

@@ -191,7 +191,7 @@ export class PtyShellSession {
             stdio: ["pipe", "pipe", "pipe"],
             detached: true,
           })
-        : spawn(this.shellPath, ["-c", buildPosixWrapper(this.state.cwd, file)], {
+        : spawn(this.shellPath, ["-c", buildWrapper(this.shellName, this.state.cwd, file)], {
             cwd: this.state.cwd,
             env: process.env,
             stdio: ["pipe", "pipe", "pipe"],
@@ -201,12 +201,29 @@ export class PtyShellSession {
       this.child = child as ChildProcessWithoutNullStreams;
       child.stdout.setEncoding("utf8");
       child.stderr.setEncoding("utf8");
+      child.stdin.on("error", () => {
+        // EPIPE after the child exits: input loss at teardown is expected.
+        // Without this listener a keystroke racing the exit would raise an
+        // unhandled error on the stdin stream and take down the host.
+      });
       child.stdout.on("data", (chunk: string) => this.handleChunk(String(chunk)));
       child.stderr.on("data", (chunk: string) => this.handleChunk(String(chunk)));
-      child.on("error", () => {
+      child.on("error", (error) => {
+        // spawn itself failed (script removed between probe and spawn, dead
+        // SHELL path): surface the reason, then settle as a normal failure.
+        // The first script-path failure also flips the probe cache so the
+        // next command degrades to pipes instead of silently failing again.
+        console.warn(
+          "[wishcraft] spawn failed:",
+          error instanceof Error ? error.message : String(error),
+        );
+        if (usePty) {
+          _resetScriptAvailableForTests();
+        }
         running.resolve({ exitCode: 1, cwd: this.state.cwd });
       });
       child.on("close", (code, signal) => {
+        this.child = null;
         // No sentinel observed. An operator interrupt never lets the command
         // complete, so it maps to 130 regardless of how `script` exits.
         if (this.interrupted) {
@@ -222,7 +239,8 @@ export class PtyShellSession {
   }
 
   writeStdin(data: string): void {
-    this.child?.stdin.write(data);
+    if (this.child == null || this.child.stdin.destroyed) return;
+    this.child.stdin.write(data);
   }
 
   interrupt(): void {
@@ -301,10 +319,6 @@ export class PtyShellSession {
       }
     }
   }
-}
-
-function buildPosixWrapper(cwd: string, file: string): string {
-  return `cd ${quoteShellArg(cwd)} && . ${quoteShellArg(file)}; printf '\\n${DONE_SENTINEL}:%s:%s\\n' "$?" "$PWD"`;
 }
 
 let scriptAvailableCache: boolean | null = null;

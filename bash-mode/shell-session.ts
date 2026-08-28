@@ -217,6 +217,11 @@ export class ManagedShellSession {
     }
   }
 
+  /** v1 sessions do not support editor forward-mode. */
+  supportsForwardMode(): boolean {
+    return false;
+  }
+
   dispose(): void {
     this.disposed = true;
     this.readyPromise = null;

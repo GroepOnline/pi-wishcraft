@@ -211,9 +211,8 @@ export function renderBashTranscriptLines(
       ` ${theme.fg("accent", promptGlyph)} ${commandLine} ${theme.fg("dim", "(")}${status}${theme.fg("dim", ")")}`,
     );
 
-    const outputTail = command.output.slice(-6);
-    for (const outputLine of outputTail) {
-      lines.push(
+    // recentCommands already tails output to the store's outputTail (6).
+    for (const outputLine of command.output) {      lines.push(
         `   ${truncateToWidth(outputLine, Math.max(1, width - 3), "…")}`,
       );
     }

@@ -16,9 +16,15 @@ export interface CreateShellSessionOptions {
   onCommandSuccess?: (command: string, cwd: string) => void;
   initScript?: string | null;
   shellPath?: string;
+  /** Override the script(1) availability probe (tests). */
+  scriptAvailable?: () => boolean;
 }
 
 let warnedScriptMissing = false;
+
+export function _resetWarnForTests(): void {
+  warnedScriptMissing = false;
+}
 
 function warnScriptMissingOnce(): void {
   if (warnedScriptMissing) return;
@@ -42,7 +48,8 @@ export function createShellSession(
   // transcript is a typed required field (TS enforces it); the factory has
   // no untyped JS consumers.
   const preference = opts.prefer ?? "auto";
-  if (preference !== "v1" && !isPtyPreferred()) {
+  const ptyAvailable = opts.scriptAvailable ? opts.scriptAvailable() : isPtyPreferred();
+  if (preference !== "v1" && !ptyAvailable) {
     warnScriptMissingOnce();
   }
   // v2 (and auto) route through the PTY-backed managed session; when
@@ -56,6 +63,7 @@ export function createShellSession(
       opts.onStateChange ?? (() => {}),
       opts.onCommandSuccess ?? (() => {}),
       opts.initScript ?? null,
+      opts.scriptAvailable,
     );
   }
   return new ManagedShellSession(

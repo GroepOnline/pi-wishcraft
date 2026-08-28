@@ -117,3 +117,64 @@ test("managed v2: dispose during a run kills the child", async () => {
   await run;
   assert.equal(session.state.running, false);
 }, { timeout: 10_000 });
+
+test("managed v2: runCommand after dispose rejects and finishes the transcript with exit 1", async () => {
+  const transcript = makeTranscript();
+  const session = new PtyManagedShellSession(
+    "/bin/sh",
+    process.cwd(),
+    transcript,
+    () => {},
+    () => {},
+    null,
+  );
+  session.dispose();
+  await assert.rejects(() => session.runCommand("echo nope"), /disposed/);
+  const record = transcript.getSnapshot().commands.at(-1);
+  assert.equal(record?.exitCode, 1, "error path must finish the transcript record");
+});
+
+test("managed v2: onCommandSuccess fires only for exit 0 with (command, cwd)", async () => {
+  const calls: Array<[string, string]> = [];
+  const transcript = makeTranscript();
+  const session = new PtyManagedShellSession(
+    "/bin/sh",
+    "/tmp",
+    transcript,
+    () => {},
+    (command, cwd) => {
+      calls.push([command, cwd]);
+    },
+    null,
+  );
+  await session.runCommand("echo ok");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "echo ok");
+  assert.equal(calls[0][1], "/tmp");
+  await session.runCommand("exit 7");
+  assert.equal(calls.length, 1, "non-zero exit must not fire onCommandSuccess");
+  session.dispose();
+});
+
+test("managed v2: supportsForwardMode is true (editor forward-mode enabled)", () => {
+  const session = makeSession();
+  assert.equal(session.supportsForwardMode(), true);
+  session.dispose();
+});
+
+test("managed v2: pipe-degraded run (script unavailable) executes via pipes and reports mode", async () => {
+  const transcript = makeTranscript();
+  const session = new PtyManagedShellSession(
+    "/bin/sh",
+    process.cwd(),
+    transcript,
+    () => {},
+    () => {},
+    null,
+    () => false,
+  );
+  await session.runCommand("printf 'pipe-mode\n'");
+  const record = transcript.getSnapshot().commands.at(-1);
+  assert.ok(record?.output.some((line) => line.includes("pipe-mode")));
+  session.dispose();
+});

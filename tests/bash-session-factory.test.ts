@@ -4,6 +4,7 @@ import {
   createShellSession,
   isPtyPreferred,
   _resetPtyProbeForTests,
+  _resetWarnForTests,
 } from "../bash-mode/session-factory.ts";
 import { ManagedShellSession } from "../bash-mode/shell-session.ts";
 import { PtyManagedShellSession } from "../bash-mode/ptyshell-managed.ts";
@@ -54,11 +55,34 @@ test("factory: isPtyPreferred returns a boolean and is stable", () => {
   assert.equal(first, second, "the probe should be cached");
 });
 
-test("factory: missing script(1) still yields a session (degrades to pipes)", () => {
+test("factory: missing script(1) still yields a session and warns once (KTD2)", () => {
   _resetPtyProbeForTests();
-  const session = createShellSession(baseOpts({ prefer: "v2" }));
-  assert.ok(session instanceof PtyManagedShellSession, "v2 must still construct");
-  _resetPtyProbeForTests();
+  const warnings: unknown[] = [];
+  const originalWarn = console.warn;
+  console.warn = (message?: unknown, ...rest: unknown[]) => {
+    warnings.push([message, ...rest]);
+  };
+  try {
+    const session = createShellSession({
+      ...baseOpts({ prefer: "v2" }),
+      scriptAvailable: () => false,
+    });
+    assert.ok(session instanceof PtyManagedShellSession, "v2 must still construct");
+    const second = createShellSession({
+      ...baseOpts({ prefer: "auto" }),
+      scriptAvailable: () => false,
+    });
+    assert.ok(second instanceof PtyManagedShellSession);
+    assert.equal(
+      warnings.filter((w) => String(w).includes("script(1) unavailable")).length,
+      1,
+      "degradation warning must fire exactly once across sessions",
+    );
+  } finally {
+    console.warn = originalWarn;
+    _resetPtyProbeForTests();
+    _resetWarnForTests();
+  }
 });
 
 test("factory: prefer:\"v2\" yields the PTY-backed managed session (U13 cutover)", () => {

@@ -76,6 +76,8 @@ export interface ManagedShellSessionLike {
   interrupt(): void;
   dispose(): void;
   writeStdin?(data: string): void;
+  /** Whether the session supports editor forward-mode (v2 PTY only). */
+  supportsForwardMode(): boolean;
 }
 
 export { createForwardState, handleForwardInput, type ForwardState, type ForwardDecision, type PtyAction } from "./forward.ts";

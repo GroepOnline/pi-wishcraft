@@ -44,6 +44,7 @@ export class PtyManagedShellSession {
     onStateChange: () => void,
     onCommandSuccess: (command: string, cwd: string) => void,
     initScript: string | null = null,
+    scriptAvailable?: () => boolean,
   ) {
     this.transcript = transcript;
     this.onStateChange = onStateChange;
@@ -65,8 +66,14 @@ export class PtyManagedShellSession {
       // The managed session notifies every user-visible transition itself;
       // passing the caller's callback through would double-fire renders.
       onStateChange: () => {},
+      scriptAvailable,
       color: true,
     });
+  }
+
+  /** v2 sessions support editor forward-mode (printable input to PTY stdin). */
+  supportsForwardMode(): boolean {
+    return true;
   }
 
   async ensureReady(): Promise<void> {
@@ -92,10 +99,19 @@ export class PtyManagedShellSession {
       this.state.cwd = result.cwd;
       this.transcript.finishCommand(id, result.exitCode);
       if (result.exitCode === 0) {
-        this.onCommandSuccess(command, result.cwd);
+        // A throwing success callback must not re-finish the already
+        // finished record as exit 1 and notify "run failed" for a command
+        // that succeeded.
+        try {
+          this.onCommandSuccess(command, result.cwd);
+        } catch (error) {
+          console.warn("[wishcraft] shell command succeeded but history callback failed", error);
+        }
       }
     } catch (error) {
-      this.transcript.finishCommand(id, 1);
+      const exitCode = 1;
+      this.state.lastExitCode = exitCode;
+      this.transcript.finishCommand(id, exitCode);
       throw error;
     } finally {
       this.currentCommandId = null;

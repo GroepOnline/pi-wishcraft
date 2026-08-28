@@ -4,7 +4,6 @@ import { SETTING_DEFAULTS } from "../../config/settings-registry.ts";
 import { PRESETS } from "../../config/presets.ts";
 import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
-import { ManagedShellSession } from "../../../bash-mode/shell-session.ts";
 import { PowerlineQueueStore } from "../../../queue/store.ts";
 import {
   SessionBranchCache,

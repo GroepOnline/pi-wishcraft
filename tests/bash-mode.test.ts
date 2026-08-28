@@ -1636,9 +1636,21 @@ test("bash editor v2 forward-mode routes printable input to the PTY stdin", asyn
     assert.deepEqual(forwarded, ["h", "e", "l", "l", "o"]);
     assert.equal(editor.getText(), "", "forwarded input must not enter the editor");
 
-    // Ctrl-C (app.clear) still stays an interrupt, never forwarded.
+    // Enter (\r) and EOF (\x04) must forward while a line-oriented program
+    // runs (AE1); Ctrl-C (app.clear) stays an interrupt, never forwarded.
+    editor.handleInput("\r");
+    editor.handleInput("\x04");
+    assert.deepEqual(
+      forwarded,
+      ["h", "e", "l", "l", "o", "\r", "\x04"],
+      "Enter/EOF must reach the child stdin in forward-mode",
+    );
     editor.handleInput("\x03");
-    assert.deepEqual(forwarded, ["h", "e", "l", "l", "o"], "interrupt must not be forwarded");
+    assert.deepEqual(
+      forwarded,
+      ["h", "e", "l", "l", "o", "\r", "\x04"],
+      "interrupt must not be forwarded",
+    );
   } finally {
     links.cleanup();
   }
