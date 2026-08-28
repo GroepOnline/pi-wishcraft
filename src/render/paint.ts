@@ -1,6 +1,8 @@
 // Cheap paint assembly. Consumes a layout and produces terminal-ready
 // strings. No fs, no git, no theme reload — those are upstream of layout.
 
+import { visibleWidth } from "@earendil-works/pi-tui";
+
 export interface PaintedLane {
   id: string;
   text: string;
@@ -25,12 +27,13 @@ export function paintLane(lane: PaintedLane): string {
 
 export function paintLayout(layout: PaintedLayout, separator: string): string {
   const rows = layout.primaryRowCount ?? 1;
+  const sepPad = " ".repeat(visibleWidth(separator));
   const out: string[] = [];
   for (let r = 0; r < rows; r++) {
     const rowOut: string[] = [];
     for (let i = 0; i < layout.primary.length; i++) {
       if (i > 0 && r === 0) rowOut.push(separator);
-      if (i > 0 && r > 0) rowOut.push(" ".repeat(separator.length));
+      if (i > 0 && r > 0) rowOut.push(sepPad);
       rowOut.push(paintLaneRow(layout.primary[i]!, r));
     }
     out.push(rowOut.join(""));
@@ -40,12 +43,13 @@ export function paintLayout(layout: PaintedLayout, separator: string): string {
 
 export function paintSecondary(layout: PaintedLayout, separator: string): string {
   const rows = layout.secondaryRowCount ?? 1;
+  const sepPad = " ".repeat(visibleWidth(separator));
   const out: string[] = [];
   for (let r = 0; r < rows; r++) {
     const rowOut: string[] = [];
     for (let i = 0; i < layout.secondary.length; i++) {
       if (i > 0 && r === 0) rowOut.push(separator);
-      if (i > 0 && r > 0) rowOut.push(" ".repeat(separator.length));
+      if (i > 0 && r > 0) rowOut.push(sepPad);
       rowOut.push(paintLaneRow(layout.secondary[i]!, r));
     }
     out.push(rowOut.join(""));
