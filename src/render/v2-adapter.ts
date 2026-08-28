@@ -17,6 +17,8 @@ export interface V2Segment extends LayoutSegment {}
 export interface V2LaneConfig {
   primary: string[];
   secondary: string[];
+  /** Separator between painted lanes; styled separators carry ANSI. */
+  separator?: string;
 }
 
 export interface V2RenderResult {
@@ -42,10 +44,11 @@ export function renderPowerlineV2(
   width: number,
   config: V2LaneConfig,
 ): V2RenderResult {
+  const separator = config.separator ?? SEPARATOR;
   const layout = computeLaneLayout(segments, width, {
     primary: config.primary,
     secondary: config.secondary,
-    separator: SEPARATOR,
+    separator,
     maxWidth: width,
   });
 
@@ -57,8 +60,8 @@ export function renderPowerlineV2(
   };
 
   return {
-    topContent: paintLayout(painted, SEPARATOR),
-    secondaryContent: paintSecondary(painted, SEPARATOR),
+    topContent: paintLayout(painted, separator),
+    secondaryContent: paintSecondary(painted, separator),
     dropped: layout.dropped,
     widthClass: layout.widthClass,
   };

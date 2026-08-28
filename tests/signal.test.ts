@@ -9,7 +9,8 @@ import {
   setSignalEvent,
   stopSignal,
 } from "../src/signal/controller.ts";
-import { renderActivity, renderSignal } from "../src/signal/render.ts";
+import { renderActivity } from "../src/render/motion-rail.ts";
+import { renderStatusLineV2 } from "../src/render/v2-entry.ts";
 import { getStructuralPreset } from "../src/config/structural-presets.ts";
 import { PRESETS } from "../src/config/presets.ts";
 import type { SegmentContext } from "../src/config/types.ts";
@@ -101,15 +102,18 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   signal.tick = 2;
   const spec = getStructuralPreset("lanternwake").signal;
 
-  assert.match(stripAnsi(renderActivity(signal, spec, false)), /◆/);
-  assert.match(stripAnsi(renderActivity(signal, spec, true)), /\*/);
+  assert.match(stripAnsi(renderActivity(signal, spec, false)), /●/);
+  assert.match(stripAnsi(renderActivity(signal, spec, true)), /o/);
   assert.match(stripAnsi(renderActivity(signal, spec, true)), /streaming/);
+  // Trail is directional: glyphs behind the head only, light track ahead.
+  const rail = stripAnsi(renderActivity(signal, spec, true));
+  assert.ok(rail.indexOf("o") > rail.indexOf(">"), "trail must trail the head");
 });
 
 test("Signal renders left, center, and right lanes on one line", () => {
   const signal = createSignalRuntime(0);
   signal.activity = "ready";
-  const result = renderSignal(
+  const result = renderStatusLineV2(
     segmentContext(),
     PRESETS.minimal,
     signal,
@@ -157,7 +161,7 @@ test("Signal renders valid contributed sources and isolates empty or failing out
 
     const signal = createSignalRuntime(0);
     signal.activity = "ready";
-    const result = renderSignal(
+    const result = renderStatusLineV2(
       segmentContext(),
       PRESETS.minimal,
       signal,

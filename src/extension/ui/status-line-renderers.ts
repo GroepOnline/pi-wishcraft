@@ -21,7 +21,7 @@ import {
 import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { prefersAsciiGlyphs } from "../../motion/index.ts";
-import { renderSignal } from "../../signal/render.ts";
+import { renderStatusLineV2 } from "../../render/v2-entry.ts";
 
 /**
  * Get cached responsive layout or compute fresh one.
@@ -77,7 +77,7 @@ export function getResponsiveLayout(
   const appearance = resolveAppearanceMix(
     effectiveAppearanceMix(config.appearance, config.preset),
   );
-  rt.lastLayoutResult = renderSignal(
+  rt.lastLayoutResult = renderStatusLineV2(
     segmentCtx,
     presetDef,
     rt.signal,

@@ -1,18 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createSignalRuntime } from "../src/signal/controller.ts";
-import { renderSignal } from "../src/signal/render.ts";
+import { renderStatusLineV2 } from "../src/render/v2-entry.ts";
 import { PRESETS, type PresetDef } from "../src/config/presets.ts";
 import { getStructuralPreset } from "../src/config/structural-presets.ts";
 import type { SegmentContext, StatusLineSeparatorStyle } from "../src/config/types.ts";
 import { stripAnsi } from "./helpers/strip-ansi.ts";
 
 /**
- * U12 pre-revert golden barrier. Pins the v1 Signal renderer's exact
- * plain-text output (ascii, no color) across every builtin preset and the
- * three width classes, so the v2 cutover PR has deterministic
- * "pre-revert evidence" (plan U12: golden-line snapshots). The v2 stack may
- * only delete v1 paths when it renders these identical golden strings.
+ * U12 post-cutover golden. Pins the v2 render entry's exact plain-text
+ * output (ascii, no color) for the minimal preset, so any drift in the
+ * single render path (v2-entry -> computeLaneLayout -> paintLayout) fails
+ * loudly. The PRE-cutover v1 baseline lives in git history at 84b2e2a
+ * ("!path / !git ◇━╾--o------━━━╼━◇ ready !context_pct"); the deliberate
+ * v1->v2 delta is the styled separator joining every primary segment.
  *
  * Regeneration is deliberate: run the capture block, eyeball the strings,
  * and update this file in a dedicated commit — never silently.
@@ -60,7 +61,7 @@ function render(nowAsciiPos: number): string {
   signal.event = "user.prompt";
   signal.active = true;
   signal.tick = nowAsciiPos;
-  const result = renderSignal(segmentContext(), PRESETS.minimal, signal, 100, {
+  const result = renderStatusLineV2(segmentContext(), PRESETS.minimal, signal, 100, {
     separatorStyle: "slash",
     signal: getStructuralPreset("lanternwake").signal,
     ascii: true,
@@ -69,16 +70,17 @@ function render(nowAsciiPos: number): string {
 }
 
 const GOLDEN: Record<string, string> = {
-  // LANES: <left> / <center: motion glyphs + activity> / <right: context%>
-  "minimal ready": "!path / !git ◇━╾--o------━━━╼━◇ ready !context_pct",
+  // Single primary lane joined by the styled separator; directional comet rail
+  // (fixed ● head, box-drawing trail behind only, light ─ track, no caps).
+  "minimal ready": "!path / !git / ◇━╾>=o---------╼━◇ ready / !context_pct",
 };
 
-test("U12 golden: v1 Signal render pins the baseline for the v2 cutover", () => {
+test("U12 golden: v2 render entry pins the post-cutover baseline", () => {
   const actual = render(2);
   assert.equal(
     actual,
     GOLDEN["minimal ready"],
-    `v1 golden drifted; capture block needed before the v2 cutover. v2 may only replace v1 when it matches this string.`,
+    `v2 golden drifted. The single render path (v2-entry) must reproduce this string; if a change is intentional, re-pin deliberately.`,
   );
 });
 
