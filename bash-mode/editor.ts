@@ -163,6 +163,25 @@ export class BashModeEditor extends CustomEditor {
         return;
       }
 
+      // v2 forward-mode: while a command runs, printable input goes to the
+      // PTY stdin (AE1). Interrupt stays a keybinding above; key-releases
+      // and multi-key sequences stay in the editor. Opt-in via
+      // forwardWhileRunning so v1 run-blocked behavior is unchanged.
+      const forwardEnabled =
+        typeof this.optionsRef.forwardWhileRunning === "function"
+          ? this.optionsRef.forwardWhileRunning()
+          : (this.optionsRef.forwardWhileRunning ?? false);
+      if (
+        bashMode &&
+        this.optionsRef.isShellRunning() &&
+        forwardEnabled &&
+        !isKeyRelease(data) &&
+        isPrintableInput(data)
+      ) {
+        this.optionsRef.onForwardInput(data);
+        return;
+      }
+
       if (
         bashMode &&
         this.keybindingsRef.matches(data, "tui.editor.cursorUp")

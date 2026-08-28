@@ -132,6 +132,10 @@ export function setupCustomEditor(
         rt.shellSession?.interrupt();
         ctx.ui.notify("Sent interrupt to shell", "info");
       },
+      onForwardInput: (data) => {
+        rt.shellSession?.writeStdin?.(data);
+      },
+      forwardWhileRunning: () => rt.shellSession?.writeStdin != null,
       onNotify: (message, level = "info") => ctx.ui.notify(message, level),
       getHistoryEntries: (prefix) => getShellHistoryEntries(rt, prefix),
       resolveGhostSuggestion: async (text, signal) => {

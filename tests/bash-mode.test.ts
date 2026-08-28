@@ -706,6 +706,7 @@ test("bash editor Tab advances the ghost suggestion without opening autocomplete
           isShellRunning: () => false,
           onExitBashMode() {},
           onInterrupt() {},
+          onForwardInput() {},
           onNotify() {},
           onSubmitCommand() {},
         },
@@ -866,6 +867,7 @@ test("bash editor does not submit pasted multiline input while bracketed paste i
             isShellRunning: () => false,
             onExitBashMode() {},
             onInterrupt() {},
+            onForwardInput() {},
             onNotify() {},
             onSubmitCommand() {
               submitted += 1;
@@ -923,6 +925,7 @@ test("bash editor refreshes shell ghost state after a bracketed paste completes"
             isShellRunning: () => false,
             onExitBashMode() {},
             onInterrupt() {},
+            onForwardInput() {},
             onNotify() {},
             onSubmitCommand() {},
             getHistoryEntries() {
@@ -990,6 +993,7 @@ test("bash editor inserts Finder file drops as path strings", async (t) => {
         onExitBashMode() {},
         onSubmitCommand() {},
         onInterrupt() {},
+        onForwardInput() {},
         onNotify() {},
         getHistoryEntries: () => [],
         resolveGhostSuggestion: async () => null,
@@ -1024,6 +1028,7 @@ test("bash editor inserts Finder file drops as path strings", async (t) => {
         onExitBashMode() {},
         onSubmitCommand() {},
         onInterrupt() {},
+        onForwardInput() {},
         onNotify() {},
         getHistoryEntries: () => [],
         resolveGhostSuggestion: async () => null,
@@ -1242,6 +1247,7 @@ test("bash editor recalls prompt history from single-line end without losing the
           onExitBashMode() {},
           onSubmitCommand() {},
           onInterrupt() {},
+          onForwardInput() {},
           onNotify() {},
           getHistoryEntries: () => [],
           resolveGhostSuggestion: async () => null,
@@ -1304,6 +1310,7 @@ test("bash editor recalls prompt history from single-line end without losing the
         onExitBashMode() {},
         onSubmitCommand() {},
         onInterrupt() {},
+        onForwardInput() {},
         onNotify() {},
         getHistoryEntries: () => [],
         resolveGhostSuggestion: async () => null,
@@ -1465,6 +1472,7 @@ test("bash editor runs copied Pi app action handlers for alt-enter", async () =>
         onExitBashMode() {},
         onSubmitCommand() {},
         onInterrupt() {},
+        onForwardInput() {},
         onNotify() {},
         getHistoryEntries: () => [],
         resolveGhostSuggestion: async () => null,
@@ -1525,6 +1533,7 @@ test("bash editor command-z undoes deleted text for supported encodings only", a
           onExitBashMode: options.onExitBashMode ?? (() => {}),
           onSubmitCommand() {},
           onInterrupt: options.onInterrupt ?? (() => {}),
+          onForwardInput() {},
           onNotify() {},
           getHistoryEntries: () => [],
           resolveGhostSuggestion:
@@ -1598,6 +1607,52 @@ test("bash editor command-z undoes deleted text for supported encodings only", a
   }
 });
 
+test("bash editor v2 forward-mode routes printable input to the PTY stdin", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { KeybindingsManager } = await import(
+      new URL(
+        "../node_modules/@earendil-works/pi-coding-agent/dist/core/keybindings.js",
+        import.meta.url,
+      ).href
+    );
+    const keybindings = KeybindingsManager.create();
+    const forwarded: string[] = [];
+    const editor = new BashModeEditor(
+      { requestRender() {}, terminal: { columns: 80, rows: 24 } },
+      {},
+      keybindings,
+      {
+        keybindings,
+        isBashModeActive: () => true,
+        isShellRunning: () => true,
+        onExitBashMode() {},
+        onSubmitCommand() {},
+        onInterrupt() {},
+        onForwardInput: (data) => {
+          forwarded.push(data);
+        },
+        forwardWhileRunning: () => true,
+        onNotify() {},
+        getHistoryEntries: () => [],
+        resolveGhostSuggestion: async () => null,
+      },
+    );
+
+    for (const char of "hello") editor.handleInput(char);
+    assert.deepEqual(forwarded, ["h", "e", "l", "l", "o"]);
+    assert.equal(editor.getText(), "", "forwarded input must not enter the editor");
+
+    // Ctrl-C (app.clear) still stays an interrupt, never forwarded.
+    editor.handleInput("\x03");
+    assert.deepEqual(forwarded, ["h", "e", "l", "l", "o"], "interrupt must not be forwarded");
+  } finally {
+    links.cleanup();
+  }
+});
+
 test("bash editor command-z resets shell history and updates ghost state", async () => {
   const links = ensureEditorModuleLinks();
 
@@ -1627,6 +1682,7 @@ test("bash editor command-z resets shell history and updates ghost state", async
           onExitBashMode() {},
           onSubmitCommand() {},
           onInterrupt() {},
+          onForwardInput() {},
           onNotify() {},
           getHistoryEntries: () => [],
           resolveGhostSuggestion:
@@ -1696,6 +1752,7 @@ test("bash editor command arrows jump to editor boundaries", async () => {
         onExitBashMode() {},
         onSubmitCommand() {},
         onInterrupt() {},
+        onForwardInput() {},
         onNotify() {},
         getHistoryEntries: () => [],
         resolveGhostSuggestion: async () => null,
@@ -1746,6 +1803,7 @@ test("bash editor command arrows jump to editor boundaries", async () => {
         onSubmitCommand() {},
         editorBoundaryShortcuts: { start: "ctrl+shift+u", end: "ctrl+shift+d" },
         onInterrupt() {},
+        onForwardInput() {},
         onNotify() {},
         getHistoryEntries: () => [],
         resolveGhostSuggestion: async () => null,
@@ -1772,6 +1830,7 @@ test("bash editor command arrows jump to editor boundaries", async () => {
           end: "super+shift+down",
         },
         onInterrupt() {},
+        onForwardInput() {},
         onNotify() {},
         getHistoryEntries: () => [],
         resolveGhostSuggestion: async () => null,

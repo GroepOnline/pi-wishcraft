@@ -64,6 +64,20 @@ export interface ShellSessionState {
   lastExitCode: number | null;
 }
 
+/**
+ * Common surface shared by v1 `ManagedShellSession` and the v2
+ * PTY-backed `PtyManagedShellSession` (U13 cutover seam). writeStdin is
+ * optional: only the v2 session supports editor forward-mode.
+ */
+export interface ManagedShellSessionLike {
+  readonly state: ShellSessionState;
+  ensureReady(): Promise<void>;
+  runCommand(command: string): Promise<void>;
+  interrupt(): void;
+  dispose(): void;
+  writeStdin?(data: string): void;
+}
+
 export { createForwardState, handleForwardInput, type ForwardState, type ForwardDecision, type PtyAction } from "./forward.ts";
 
 export interface BashModeEditorOptions {
@@ -75,6 +89,15 @@ export interface BashModeEditorOptions {
   onEditorSubmit?: () => void;
   editorBoundaryShortcuts?: EditorBoundaryShortcuts;
   onInterrupt: () => void;
+  /** Forward raw input to a running shell (v2 PTY forward-mode, U4). */
+  onForwardInput: (data: string) => void;
+  /**
+   * Enable forward-mode: while a command runs, printable input routes to
+   * the PTY stdin instead of the editor (AE1). v1 run-blocked behavior is
+   * the default until a session opts in. A function is evaluated per
+   * keystroke so the session kind (v1 vs v2) decides at input time.
+   */
+  forwardWhileRunning?: boolean | (() => boolean);
   onNotify: (message: string, level?: "info" | "warning" | "error") => void;
   getHistoryEntries: (prefix: string) => string[];
   resolveGhostSuggestion: (

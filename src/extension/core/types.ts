@@ -3,7 +3,7 @@ import type { ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent
 import type { BashModeSettings } from "../../../bash-mode/types.ts";
 import type { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import type { BashCompletionEngine } from "../../../bash-mode/completion.ts";
-import type { ManagedShellSession } from "../../../bash-mode/shell-session.ts";
+import type { ManagedShellSessionLike } from "../../../bash-mode/types.ts";
 import type { PowerlineQueueStore } from "../../../queue/store.ts";
 import type {
   SessionAssistantUsage,
@@ -74,7 +74,7 @@ export interface RuntimeState {
   bashModeActive: boolean;
   bashTranscript: BashTranscriptStore;
   bashCompletionEngine: BashCompletionEngine;
-  shellSession: ManagedShellSession | null;
+  shellSession: ManagedShellSessionLike | null;
   queueStore: PowerlineQueueStore;
   powerlineCompacting: boolean;
   deliverAfterRetrySettles: boolean;
