@@ -13,7 +13,6 @@
  * matching v1's "preserve model/git first, then context/queue" squeeze.
  */
 
-import { visibleWidth } from "@earendil-works/pi-tui";
 import type {
   PresetDef,
   SegmentContext,
