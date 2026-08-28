@@ -16,8 +16,10 @@ const GEOMETRY_FRAMES: Record<string, string[]> = {
   ember: ["◇", "◈", "◆", "◈"],
   orbit: ["◜", "◝", "◞", "◟"],
   bloom: ["·", "◇", "◈", "◆", "◈", "◇"],
-  heat: ["░", "▒", "▓", "█", "▓", "▒"],
-  liquid: ["·", "░", "▒", "▓", "█"],
+  // Density-pulse families (box-drawing, één glyphsysteem — shade-blokken
+  // zijn bewust weg: drie families door elkaar las als modder).
+  heat: ["─", "╌", "╾", "━", "╾", "╌"],
+  liquid: ["·", "╌", "╾", "━"],
   stitch: ["·", "╼", "◆", "╾"],
   refract: ["╭", "╮", "╯", "╰"],
   write: ["─", "──", "───", "────╾"],
