@@ -279,17 +279,34 @@ export class BashModeEditor extends CustomEditor {
       }
 
       if (
-        bashMode &&
+        (bashMode || oneOffBashCommand) &&
         this.keybindingsRef.matches(data, "tui.input.submit") &&
         !this.keybindingsRef.matches(data, "tui.input.newLine")
       ) {
+        // One-off bang prompts run the text after the prefix (mirrors pi's
+        // own !/!! handling in interactive-mode.js); anything else submits
+        // verbatim. Without the strip the bang would hit bash history
+        // expansion (`!cmd` = replay a previous command) instead of `cmd`.
+        const raw = this.getExpandedText().trim();
+        const oneOff = getOneOffBashCommandContext(raw);
+        const command = oneOff ? oneOff.command.trim() : raw;
+        if (!command) {
+          // Bash-off bare `!`: fall back to pi's own submit handling, whose
+          // `if (command)` guard turns an empty command into a normal prompt
+          // (pre-interception behavior). Full bash mode keeps the return.
+          // This must run before the shell-running guard: a bare `!` while a
+          // managed shell job runs should still delegate to pi, not be
+          // swallowed by the "already running" warning.
+          if (!bashMode) {
+            super.handleInput(data);
+          }
+          return;
+        }
+
         if (this.optionsRef.isShellRunning()) {
           this.optionsRef.onNotify("Shell command already running", "warning");
           return;
         }
-
-        const command = this.getExpandedText().trim();
-        if (!command) return;
         this.clearGhostSuggestion();
         resetShellHistoryBrowse(this);
         this.optionsRef.onEditorSubmit?.();
