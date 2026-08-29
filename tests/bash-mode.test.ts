@@ -2071,6 +2071,126 @@ test("one-off double-bang submit strips both bang characters", async () => {
   }
 });
 
+test("bash mode on strips the bang from one-off commands too", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    let submittedCommand = "";
+
+    getMethod(BashModeEditor.prototype, "handleInput").call(
+      {
+        optionsRef: {
+          isBashModeActive: () => true,
+          isShellRunning: () => false,
+          onExitBashMode() {},
+          onInterrupt() {},
+          onNotify() {},
+          onSubmitCommand(command: string) {
+            submittedCommand = command;
+          },
+        },
+        keybindingsRef: {
+          matches(_data: string, id: string) {
+            return id === "tui.input.submit";
+          },
+        },
+        getExpandedText() {
+          return "!git status";
+        },
+        acceptGhostSuggestion() {
+          return false;
+        },
+        clearGhostSuggestion() {},
+        setText() {},
+        refreshGhostSuggestion() {},
+        shellHistoryIndex: -1,
+        shellHistoryItems: [],
+        shellHistoryDraft: "",
+      },
+      "enter",
+    );
+
+    assert.equal(submittedCommand, "git status");
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("one-off newline keeps multi-line bang input in the editor", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { CustomEditor } = await import(
+      new URL(
+        "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/custom-editor.js",
+        import.meta.url,
+      ).href
+    );
+
+    let delegated = 0;
+    let submitted = 0;
+    const superHandleInput = CustomEditor.prototype.handleInput;
+    CustomEditor.prototype.handleInput = function handleInput() {
+      delegated += 1;
+    };
+
+    try {
+      getMethod(BashModeEditor.prototype, "handleInput").call(
+        {
+          optionsRef: {
+            isBashModeActive: () => false,
+            isShellRunning: () => false,
+            onExitBashMode() {},
+            onInterrupt() {},
+            onNotify() {},
+            onSubmitCommand() {
+              submitted += 1;
+            },
+            getHistoryEntries() {
+              return [];
+            },
+            resolveGhostSuggestion: async () => null,
+          },
+          keybindingsRef: {
+            matches(_data: string, id: string) {
+              return id === "tui.input.newLine";
+            },
+          },
+          getExpandedText() {
+            return "!cmd";
+          },
+          isOneOffBashCommandContext() {
+            return true;
+          },
+          isShellCompletionContext() {
+            return true;
+          },
+          scheduleGhostUpdate() {},
+          acceptGhostSuggestion() {
+            return false;
+          },
+          clearGhostSuggestion() {},
+          setText() {},
+          refreshGhostSuggestion() {},
+          shellHistoryIndex: -1,
+          shellHistoryItems: [],
+          shellHistoryDraft: "",
+        },
+        "enter",
+      );
+    } finally {
+      CustomEditor.prototype.handleInput = superHandleInput;
+    }
+
+    assert.equal(submitted, 0);
+    assert.equal(delegated, 1);
+  } finally {
+    links.cleanup();
+  }
+});
+
 test("bash editor does not accept a hidden ghost suggestion when the cursor is not at the end", async () => {
   const links = ensureEditorModuleLinks();
 

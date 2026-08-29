@@ -279,7 +279,7 @@ export class BashModeEditor extends CustomEditor {
       }
 
       if (
-        (bashMode || this.isOneOffBashCommandContext()) &&
+        (bashMode || oneOffBashCommand) &&
         this.keybindingsRef.matches(data, "tui.input.submit") &&
         !this.keybindingsRef.matches(data, "tui.input.newLine")
       ) {
@@ -288,13 +288,22 @@ export class BashModeEditor extends CustomEditor {
           return;
         }
 
-        // One-off bang prompts run the text after the prefix; anything else
-        // submits verbatim. Without this the bang would hit bash history
+        // One-off bang prompts run the text after the prefix (mirrors pi's
+        // own !/!! handling in interactive-mode.js); anything else submits
+        // verbatim. Without the strip the bang would hit bash history
         // expansion (`!cmd` = replay a previous command) instead of `cmd`.
         const raw = this.getExpandedText().trim();
         const oneOff = getOneOffBashCommandContext(raw);
-        const command = oneOff ? oneOff.command : raw;
-        if (!command) return;
+        const command = oneOff ? oneOff.command.trim() : raw;
+        if (!command) {
+          // Bash-off bare `!`: fall back to pi's own submit handling, whose
+          // `if (command)` guard turns an empty command into a normal prompt
+          // (pre-interception behavior). Full bash mode keeps the return.
+          if (!bashMode) {
+            super.handleInput(data);
+          }
+          return;
+        }
         this.clearGhostSuggestion();
         resetShellHistoryBrowse(this);
         this.optionsRef.onEditorSubmit?.();
