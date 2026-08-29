@@ -117,8 +117,11 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   const asciiRail = stripAnsi(renderActivity(signal, spec, true));
   assert.match(asciiRail, /o/);
   assert.match(asciiRail, /streaming/);
-  const trailBehind = asciiRail.indexOf("o") > asciiRail.indexOf(">");
-  assert.ok(trailBehind, "ASCII trail must trail the head");
+  const headIndex = asciiRail.indexOf("o");
+  const trailIndex = asciiRail.indexOf(">");
+  assert.notEqual(headIndex, -1, "ASCII head must be present");
+  assert.notEqual(trailIndex, -1, "ASCII trail must be present");
+  assert.ok(headIndex > trailIndex, "ASCII trail must trail the head");
 });
 
 test("Signal renders left, center, and right lanes on one line", () => {

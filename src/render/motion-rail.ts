@@ -6,14 +6,8 @@
  * rail, streaming = travelling head + trail, compacting = inward heads.
  */
 
-import {
-  defaultMotionFor,
-  frameAt,
-  framesOf,
-  getMotion,
-  sweepPosition,
-  trailGlyph,
-} from "../motion/index.ts";
+import { defaultMotionFor, getMotion } from "../motion/catalog.ts";
+import { frameAt, framesOf, sweepPosition, trailGlyph } from "../motion/frames.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
@@ -87,7 +81,11 @@ export function renderActivity(
       if (i === pos) built.push(`${cellColor(0)}${headGlyph(runtime.tick, 0)}${reset}`);
       else if (i < pos) {
         const distance = pos - i;
-        built.push(`${cellColor(distance)}${headGlyph(runtime.tick, distance)}${reset}`);
+        if (distance <= trailDepth) {
+          built.push(`${cellColor(distance)}${headGlyph(runtime.tick, distance)}${reset}`);
+        } else {
+          built.push(track);
+        }
       } else {
         built.push(track);
       }
