@@ -111,13 +111,11 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   assert.equal(lines.length, 3, "sigil must be 3 rows");
   assert.match(lines[0]!, /streaming/);
   assert.match(lines[0]!, /#/);
-  // ASCII fallback: 1-row comet, no honest sigil at 12 cols. The head
-  // glyph is the motion's own fallbackGlyph (ember-relay → "*"), not a
-  // hard-coded "o", so the rail reads the motion even in ASCII terminals.
+  // ASCII fallback: 1-row comet, no honest sigil at 12 cols.
+  assert.match(stripAnsi(renderActivity(signal, spec, true)), /o/);
   const asciiRail = stripAnsi(renderActivity(signal, spec, true));
-  assert.match(asciiRail, /\*/);
   assert.match(asciiRail, /streaming/);
-  const trailBehind = asciiRail.indexOf("*") > asciiRail.indexOf(">");
+  const trailBehind = asciiRail.indexOf("o") > asciiRail.indexOf(">");
   assert.ok(trailBehind, "ASCII trail must trail the head");
 });
 

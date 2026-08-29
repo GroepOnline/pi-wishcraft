@@ -6,12 +6,7 @@
  * rail, streaming = travelling head + trail, compacting = inward heads.
  */
 
-import {
-  frameAt,
-  getMotion,
-  sweepPosition,
-  trailGlyph,
-} from "../motion/index.ts";
+import { sweepPosition, trailGlyph } from "../motion/index.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
@@ -36,28 +31,19 @@ export function renderActivity(
   const track = ascii ? "-" : "─";
   const head = ascii ? "o" : "●";
   const railColor = runtime.active ? hot : dim;
-  const def = getMotion(runtime.motionId);
-  // The head glyph is the chosen motion's own frame — so ember-relay
-  // sweeps a ◇→◈→◆ sequence and hex-relay carries #-density, instead of
-  // every motion wearing the same generic comet.
-  const headGlyph = (tick: number, i: number) => {
-    if (def) return frameAt(def, Math.max(0, tick - Math.max(0, i)), ascii);
-    return head;
-  };
-  const trailDepth = def?.generator?.trail ?? 4;
   let railBlock: string;
   if (!runtime.active) {
     railBlock = track.repeat(RAIL_WIDTH);
   } else if (runtime.activity === "compacting") {
     // Compact state: two heads travel inward and compress a heavy core —
     // visually distinct from the sweep so compaction reads at a glance.
-    railBlock = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii, headGlyph);
+    railBlock = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii);
   } else {
     const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
     const built: string[] = [];
     for (let i = 0; i < RAIL_WIDTH; i++) {
-      if (i === pos) built.push(headGlyph(runtime.tick, pos));
-      else if (i < pos) built.push(trailGlyph(Math.min(pos - i, trailDepth), ascii));
+      if (i === pos) built.push(head);
+      else if (i < pos) built.push(trailGlyph(Math.min(pos - i, 4), ascii));
       else built.push(track);
     }
     railBlock = built.join("");
@@ -93,7 +79,6 @@ function renderCompactRail(
   tick: number,
   width: number,
   ascii: boolean,
-  headGlyph: (tick: number, i: number) => string,
 ): string {
   const half = Math.floor(width / 2);
   // Heads oscillate from the edges toward center and back.
@@ -102,11 +87,12 @@ function renderCompactRail(
   const inward = phase < span ? phase : span * 2 - phase;
   const leftPos = inward;
   const rightPos = width - 1 - inward;
+  const head = ascii ? "*" : "●";
   const core = ascii ? "=" : "━";
   const track = ascii ? "-" : "─";
   let built = "";
   for (let i = 0; i < width; i++) {
-    if (i === leftPos || i === rightPos) built += headGlyph(tick, i);
+    if (i === leftPos || i === rightPos) built += head;
     else built += i > leftPos && i < rightPos ? core : track;
   }
   return built;

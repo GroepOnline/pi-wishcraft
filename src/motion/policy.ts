@@ -8,7 +8,7 @@
  */
 
 import { CADENCE_MS, CHANNEL_MATRIX, PREVIEW_INTERVAL_MS } from "./catalog.ts";
-import type { MotionChannel, MotionDef, MotionEvent, MotionLevel, MotionPolicy, MotionToggles } from "./types.ts";
+import type { MotionChannel, MotionEvent, MotionLevel, MotionPolicy, MotionToggles } from "./types.ts";
 
 const CHANNEL_TOGGLE: Record<MotionChannel, keyof MotionToggles> = {
   workingGlyph: "state",
@@ -51,33 +51,6 @@ export function effectiveLevel(policy: MotionPolicy): MotionLevel {
   if (policy.level === "off" || policy.screenReader) return "off";
   if (policy.reducedMotion && policy.level === "full") return "reduced";
   return policy.level;
-}
-
-/**
- * Channels a motion is allowed to drive under the current policy.
- *
- * Same a11y filter as `allowedChannels`, but the source is the **motion's own
- * declared channels** instead of the event table. This is what makes an
- * explicit motion choice (preset signature or `appearance.motion` override)
- * actually runnable: the event no longer vetoes a motion it wasn't paired
- * with by the default matrix — the motion decides, the policy still filters.
- */
-export function channelsForMotion(
-  motion: MotionDef,
-  policy: MotionPolicy,
-): MotionChannel[] {
-  if (policy.screenReader || policy.level === "off") return [];
-
-  const effective = effectiveLevel(policy);
-  return motion.channels.filter((channel) => {
-    if (effective === "functional") {
-      return channel === "workingGlyph" || channel === "panelIndicator";
-    }
-    if (effective === "reduced") {
-      if (channel === "ambient" || channel === "signal") return false;
-    }
-    return policy.toggles[CHANNEL_TOGGLE[channel]];
-  });
 }
 
 export function cadenceFor(
