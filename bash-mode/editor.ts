@@ -283,11 +283,6 @@ export class BashModeEditor extends CustomEditor {
         this.keybindingsRef.matches(data, "tui.input.submit") &&
         !this.keybindingsRef.matches(data, "tui.input.newLine")
       ) {
-        if (this.optionsRef.isShellRunning()) {
-          this.optionsRef.onNotify("Shell command already running", "warning");
-          return;
-        }
-
         // One-off bang prompts run the text after the prefix (mirrors pi's
         // own !/!! handling in interactive-mode.js); anything else submits
         // verbatim. Without the strip the bang would hit bash history
@@ -299,9 +294,17 @@ export class BashModeEditor extends CustomEditor {
           // Bash-off bare `!`: fall back to pi's own submit handling, whose
           // `if (command)` guard turns an empty command into a normal prompt
           // (pre-interception behavior). Full bash mode keeps the return.
+          // This must run before the shell-running guard: a bare `!` while a
+          // managed shell job runs should still delegate to pi, not be
+          // swallowed by the "already running" warning.
           if (!bashMode) {
             super.handleInput(data);
           }
+          return;
+        }
+
+        if (this.optionsRef.isShellRunning()) {
+          this.optionsRef.onNotify("Shell command already running", "warning");
           return;
         }
         this.clearGhostSuggestion();

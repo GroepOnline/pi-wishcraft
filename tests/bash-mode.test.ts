@@ -964,6 +964,74 @@ test("bash editor refreshes shell ghost state after a bracketed paste completes"
   }
 });
 
+test("bash-off bare bang with a running shell delegates instead of warning", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { CustomEditor } = await import(
+      new URL(
+        "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/custom-editor.js",
+        import.meta.url,
+      ).href
+    );
+
+    let delegated = 0;
+    let submitted = 0;
+    let warned = 0;
+    const superHandleInput = CustomEditor.prototype.handleInput;
+    CustomEditor.prototype.handleInput = function handleInput() {
+      delegated += 1;
+    };
+
+    try {
+      getMethod(BashModeEditor.prototype, "handleInput").call(
+        {
+          optionsRef: {
+            isBashModeActive: () => false,
+            isShellRunning: () => true,
+            onExitBashMode() {},
+            onInterrupt() {},
+            onNotify() {
+              warned += 1;
+            },
+            onSubmitCommand() {
+              submitted += 1;
+            },
+            getHistoryEntries() {
+              return [];
+            },
+            resolveGhostSuggestion: async () => null,
+          },
+          keybindingsRef: {
+            matches(data: string, id: string) {
+              return data === "\r" && id === "tui.input.submit";
+            },
+          },
+          getExpandedText() {
+            return "!";
+          },
+          isOneOffBashCommandContext() {
+            return true;
+          },
+        },
+        "\r",
+      );
+    } finally {
+      CustomEditor.prototype.handleInput = superHandleInput;
+    }
+
+    // Empty one-off commands are detected before the shell-running guard:
+    // a bash-off bare `!` must fall back to pi's own submit handling
+    // instead of being swallowed by the "already running" warning.
+    assert.equal(delegated, 1);
+    assert.equal(submitted, 0);
+    assert.equal(warned, 0);
+  } finally {
+    links.cleanup();
+  }
+});
+
 test("bash editor inserts Finder file drops as path strings", async (t) => {
   if (process.platform === "win32") {
     t.skip("Finder file drops are macOS/POSIX paths");
