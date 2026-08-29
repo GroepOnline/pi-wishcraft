@@ -97,7 +97,7 @@ export function renderStatusLineV2(
 
   merged.leftSegments.forEach((id, i) => pushSegment(id, 10_000 - i));
 
-  const rail = renderActivity(runtime, options.signal, options.ascii);
+  const rail = renderActivity(runtime, options.signal, options.ascii, width);
   segments.push({ id: "signal", text: rail, priority: 5_000 });
   primary.push("signal");
 
