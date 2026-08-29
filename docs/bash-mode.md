@@ -20,6 +20,10 @@ While bash mode is active:
 
 The managed shell is persistent for the current pi session. Command output appears in a transcript below the editor, and shell cwd changes are reflected in the footer path and `shell_mode` segment.
 
+## Execution (v2)
+
+Commands run under a real PTY via `script(1)` (no native dependency), so programs that read stdin work: printable input typed while a command runs is forwarded to the process, and `ctrl+c` interrupts it. SGR color survives into the transcript when the terminal supports it; `NO_COLOR` renders plain text. When `script(1)` is missing, each command degrades to plain pipe execution with a one-time warning (no color, no interactive stdin).
+
 ## Shell ghost suggestions
 
 Bash mode is ghost-first. Successful per-project shell history is the primary source, while deterministic path and git continuations can still extend an existing command. Shell-native completion probes are disabled so `!command` predictions never spawn interactive shell completion subprocesses.
@@ -27,6 +31,8 @@ Bash mode is ghost-first. Successful per-project shell history is the primary so
 At command position, short stems first resolve from the newest successful local command, can use guarded global shell history for high-confidence heads like `git`, and finally fall back to a tiny curated default set when history is absent. Right now that curated set is `g` → `git status` and `c` → `cd ..`.
 
 If the bash prompt is empty, bash mode shows the newest successful project-history ghost suggestion immediately when one exists, including right after mode entry or after the prompt is cleared again. One-off `!command` and `!!command` prompts reuse the same shell prediction pipeline, including ghost text. Right Arrow or Tab accepts ghost text into the editor, and Enter runs the current shell command. Mode entry stays quiet: there is no automatic or manual dropdown completion surface, and ghost suggestions do not run shell-native completion probes.
+
+One-off `!command` and `!!command` prompts also work when bash mode is off: Enter routes them through the managed shell with the prefix stripped, so `!cmd` runs `cmd` (in a real PTY) instead of a headless shell failing on TUI programs or hitting bash history expansion. Output lands in the transcript below the editor, not in the model conversation — pi's own `!`-prefix bash (headless, context-injected) is superseded while this extension's editor is active. Full bash mode (`ctrl+shift+b`) is only needed for running plain commands or keeping the shell session visible in the footer.
 
 ## Configuration
 

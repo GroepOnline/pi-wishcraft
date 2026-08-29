@@ -31,6 +31,18 @@ const CHEF_COLORS: ColorScheme = {
   queue: "dim",
 };
 
+// chef-calm: same operational essentials, visually quieter. Accent stays
+// reserved for state (context/token states), everything else blends into
+// text/dim so the line reads as one row instead of a rainbow.
+const CHEF_CALM_COLORS: ColorScheme = {
+  ...DEFAULT_COLORS,
+  model: "text",
+  path: "text",
+  gitClean: "dim",
+  queue: "dim",
+  context: "accent",
+};
+
 // ---------------------------------------------------------------------------
 // 10 vNext Structural Signature Presets
 // ---------------------------------------------------------------------------
@@ -369,6 +381,42 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
       cost: { subscriptionDisplay: "both" },
       time: { format: "24h", showSeconds: false },
       openPorts: { includeUdp: false },
+    },
+  },
+
+  // chef-calm: five segments, dot separator, quiet motion. The operational
+  // row without the noise — tps/open_ports/subagents/cost/hostname dropped,
+  // git commit subjects off (ahead/behind stays). Colours: text/dim with a
+  // single accent for context so the line reads as one calm row.
+  "chef-calm": {
+    leftSegments: ["model", "path", "git"],
+    rightSegments: ["context_pct", "time"],
+    secondarySegments: [],
+    separator: "dot",
+    colors: CHEF_CALM_COLORS,
+    segmentOptions: {
+      model: { showThinkingLevel: false },
+      path: { mode: "basename" },
+      git: {
+        showBranch: true,
+        showStaged: false,
+        showUnstaged: false,
+        showUntracked: false,
+        polling: "branch",
+        hostIcon: false,
+        showAheadBehind: true,
+        showCommit: false,
+      },
+      context: { format: "percent" },
+      time: { format: "24h", showSeconds: false },
+    },
+    motion: {
+      idle: "nimbus",
+      thinking: "nimbus",
+      streaming: "nimbus",
+      "tool.end": "copper-switch",
+      success: "copper-switch",
+      error: "copper-switch",
     },
   },
 

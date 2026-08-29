@@ -12,7 +12,6 @@
 # pi-wishcraft
 
 Cockpit and harness for the [pi](https://github.com/badlogic/pi-mono) coding agent: a live status bar, overlay menus, skills, an idea inbox, sticky bash, hooks, and tool-input repairs. Stock pi stays the engine. This package is the operator layer.
-
 Kongming lanterns started as battlefield signals and later carried wishes. Wishcraft is that split in a coding session: telemetry on the bar, thoughts you can park without interrupting the run.
 
 Install `@groeponline/pi-wishcraft`. It is listed on the [Pi package catalog](https://pi.dev/packages/@groeponline/pi-wishcraft). Grew out of [`nicobailon/pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer). Maintained by [GroepOnline](https://github.com/GroepOnline).
@@ -22,6 +21,8 @@ Guides live in [`docs/`](docs/index.md). This is the Pi extension contract: what
 ## Quick start tutorial
 
 Install, restart Pi (or run `/reload`), then press `alt+p` for the Deck. Try `/signal menu`, `/skills`, `/ideas`, and `ctrl+shift+b`. Full setup: [docs/configuration.md](docs/configuration.md).
+
+## v2 Platform (in this release)
 
 ## Install
 

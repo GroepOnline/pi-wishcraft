@@ -279,9 +279,11 @@ test("sweep stands still when nothing is animating", () => {
   assert.equal(sweepPosition(5, 14, false), -1);
   assert.equal(sweepPosition(0, 14, true), 0);
   assert.equal(sweepPosition(0, 14, true, "reverse"), 13);
-  assert.equal(trailGlyph(0), "█");
-  assert.equal(trailGlyph(9), "━");
+  assert.equal(trailGlyph(0), "●");
+  assert.equal(trailGlyph(1), "━");
+  assert.equal(trailGlyph(9), "─");
   assert.equal(trailGlyph(0, true), "*");
+  assert.equal(trailGlyph(2, true), ">");
 });
 
 test("continuous events are separated from one-shot events", () => {

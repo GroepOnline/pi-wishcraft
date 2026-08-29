@@ -101,10 +101,8 @@ hs_err_pid*
 *.tar.zst
 bun.lock
 
-# Compound Engineering checkout-local settings (tracked: config.yaml + example)
-.compound-engineering/*.local.yaml
-
 # ChefGroep standard ignores (OS / Xcode / local env / CE)
+.compound-engineering/*.local.yaml
 
 # OS / editors
 .DS_Store
@@ -124,8 +122,6 @@ xcuserdata/
 *.xcuserstate
 *.xccheckout
 *.xcscmblueprint
-*.xcodeproj/
-*.xcworkspace/
 *.ipa
 *.dSYM
 *.dSYM.zip
@@ -135,3 +131,8 @@ Pods/
 .env
 .env.local
 .env.*.local
+
+# Local agent adapter state (never product code)
+.codex/
+.pi/
+node_modules/

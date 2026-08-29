@@ -91,6 +91,24 @@ export class BashTranscriptStore {
     };
   }
 
+  /**
+   * Shallow tail for hot render paths: last `count` commands with only the
+   * last `outputTail` lines each, no deep copy (the always-on powerline
+   * reads nothing else). Full snapshots stay on getSnapshot for
+   * doctor/export paths.
+   */
+  recentCommands(
+    count: number,
+    outputTail = 6,
+  ): { commands: BashCommandRecord[]; truncatedCommands: number } {
+    return {
+      commands: this.commands
+        .slice(-count)
+        .map((command) => ({ ...command, output: command.output.slice(-outputTail) })),
+      truncatedCommands: this.truncatedCommands,
+    };
+  }
+
   private enforceLimits(): void {
     while (
       this.commands.length > 1

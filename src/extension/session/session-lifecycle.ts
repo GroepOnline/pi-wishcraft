@@ -349,7 +349,7 @@ export function registerSessionLifecycle(
     requestQueueRender(rt);
   });
 
-  // pi 0.84.3+ emits `session_compact_failed` (not `session_compact`) when
+  // pi 0.84.0+ emits `session_compact_failed` (not `session_compact`) when
   // auto-compaction or /compact fails or is aborted. Without this handler
   // `powerlineCompacting` stays true and the bar keeps showing the compact
   // rail forever, even though the agent is idle. Root cause of the stuck

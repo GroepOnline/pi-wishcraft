@@ -9,7 +9,8 @@ import {
   setSignalEvent,
   stopSignal,
 } from "../src/signal/controller.ts";
-import { renderActivity, renderSignal } from "../src/signal/render.ts";
+import { renderActivity } from "../src/render/motion-rail.ts";
+import { renderStatusLineV2 } from "../src/render/v2-entry.ts";
 import { getStructuralPreset } from "../src/config/structural-presets.ts";
 import { PRESETS } from "../src/config/presets.ts";
 import type { SegmentContext } from "../src/config/types.ts";
@@ -101,15 +102,27 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   signal.tick = 2;
   const spec = getStructuralPreset("lanternwake").signal;
 
-  assert.match(stripAnsi(renderActivity(signal, spec, false)), /◆/);
-  assert.match(stripAnsi(renderActivity(signal, spec, true)), /\*/);
-  assert.match(stripAnsi(renderActivity(signal, spec, true)), /streaming/);
+  // Non-ASCII: 3-row lantern sigil (lanternwake + streaming falls to the
+  // sigil branch). The 1-row directional comet was retired in favour of
+  // the multi-row sigil — the new visual contract. Lantern is pure `#`
+  // blocks: no braille, no shade blocks, no font assumptions.
+  const rail = stripAnsi(renderActivity(signal, spec, false));
+  const lines = rail.split("\n");
+  assert.equal(lines.length, 3, "sigil must be 3 rows");
+  assert.match(lines[0]!, /streaming/);
+  assert.match(lines[0]!, /#/);
+  // ASCII fallback: 1-row comet, no honest sigil at 12 cols.
+  assert.match(stripAnsi(renderActivity(signal, spec, true)), /o/);
+  const asciiRail = stripAnsi(renderActivity(signal, spec, true));
+  assert.match(asciiRail, /streaming/);
+  const trailBehind = asciiRail.indexOf("o") > asciiRail.indexOf(">");
+  assert.ok(trailBehind, "ASCII trail must trail the head");
 });
 
 test("Signal renders left, center, and right lanes on one line", () => {
   const signal = createSignalRuntime(0);
   signal.activity = "ready";
-  const result = renderSignal(
+  const result = renderStatusLineV2(
     segmentContext(),
     PRESETS.minimal,
     signal,
@@ -126,6 +139,22 @@ test("Signal renders left, center, and right lanes on one line", () => {
   assert.match(line, /47%/); // right lane
   assert.ok(line.indexOf("project") < line.indexOf("ready"));
   assert.ok(line.indexOf("ready") < line.indexOf("47%"));
+});
+
+test("Signal renders configured secondary segments on the secondary line", () => {
+  const ctx = segmentContext();
+  ctx.extensionStatuses.set("test", "syncing");
+  const signal = createSignalRuntime(0);
+  signal.activity = "ready";
+
+  const result = renderStatusLineV2(ctx, PRESETS.default, signal, 200, {
+    separatorStyle: "slash",
+    signal: getStructuralPreset("lanternwake").signal,
+    ascii: true,
+  });
+
+  assert.match(result.secondaryContent, /syncing/);
+  assert.doesNotMatch(result.topContent, /syncing/);
 });
 
 test("Signal renders valid contributed sources and isolates empty or failing output", () => {
@@ -157,7 +186,7 @@ test("Signal renders valid contributed sources and isolates empty or failing out
 
     const signal = createSignalRuntime(0);
     signal.activity = "ready";
-    const result = renderSignal(
+    const result = renderStatusLineV2(
       segmentContext(),
       PRESETS.minimal,
       signal,

@@ -16,8 +16,10 @@ const GEOMETRY_FRAMES: Record<string, string[]> = {
   ember: ["◇", "◈", "◆", "◈"],
   orbit: ["◜", "◝", "◞", "◟"],
   bloom: ["·", "◇", "◈", "◆", "◈", "◇"],
-  heat: ["░", "▒", "▓", "█", "▓", "▒"],
-  liquid: ["·", "░", "▒", "▓", "█"],
+  // Density-pulse families (box-drawing, één glyphsysteem — shade-blokken
+  // zijn bewust weg: drie families door elkaar las als modder).
+  heat: ["─", "╌", "╾", "━", "╾", "╌"],
+  liquid: ["·", "╌", "╾", "━"],
   stitch: ["·", "╼", "◆", "╾"],
   refract: ["╭", "╮", "╯", "╰"],
   write: ["─", "──", "───", "────╾"],
@@ -73,12 +75,20 @@ export function sweepPosition(
   return direction === "reverse" ? width - 1 - step : step;
 }
 
-/** Trail glyph by distance from the travelling head. */
+/**
+ * Trail glyph by distance behind the travelling head. One family:
+ * box-drawing density fading back to the light track — no shade blocks.
+ */
 export function trailGlyph(distance: number, ascii = false): string {
-  if (ascii) return distance === 0 ? "*" : "-";
-  if (distance === 0) return "█";
-  if (distance === 1) return "▓";
-  if (distance === 2) return "▒";
-  if (distance === 3) return "░";
-  return "━";
+  if (ascii) {
+    if (distance === 0) return "*";
+    if (distance === 1) return "=";
+    if (distance === 2) return ">";
+    return "-";
+  }
+  if (distance === 0) return "●";
+  if (distance === 1) return "━";
+  if (distance === 2) return "╾";
+  if (distance === 3) return "╌";
+  return "─";
 }

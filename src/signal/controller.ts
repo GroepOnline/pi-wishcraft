@@ -72,27 +72,39 @@ export function setSignalEvent(
   }
 
   const def = getMotion(runtime.motionId);
-  runtime.release = scheduler.subscribe({
-    id: "signal-live",
-    channel: "signal",
-    intervalMs: def?.generator?.intervalMs,
-    maxTicks: options.maxTicks,
-    onTick(tick) {
-      runtime.tick = tick;
-    },
-    onDone() {
-      runtime.release = null;
-      if (options.maxTicks !== undefined) runtime.active = false;
-      if (options.settleOnDone) {
-        runtime.event = "idle";
-        runtime.motionId = options.settleMotionId ?? defaultMotionFor("idle");
-        runtime.tick = 0;
-        runtime.startedAt = Date.now();
-        runtime.activity = "ready";
-        runtime.active = false;
-      }
-    },
-  });
+  // Wrap subscribe so a throw doesn't leave runtime.active=true with
+  // release=null (a leaked state that would survive stopSignal).
+  let release: (() => void) | null = null;
+  try {
+    release = scheduler.subscribe({
+      id: "signal-live",
+      channel: "signal",
+      intervalMs: def?.generator?.intervalMs,
+      maxTicks: options.maxTicks,
+      onTick(tick) {
+        runtime.tick = tick;
+      },
+      onDone() {
+        runtime.release = null;
+        if (options.maxTicks !== undefined) runtime.active = false;
+        if (options.settleOnDone) {
+          runtime.event = "idle";
+          runtime.motionId = options.settleMotionId ?? defaultMotionFor("idle");
+          runtime.tick = 0;
+          runtime.startedAt = Date.now();
+          runtime.activity = "ready";
+          runtime.active = false;
+        }
+      },
+    });
+  } catch {
+    // subscribe failed: reset to idle so stopSignal / the next call can
+    // recover cleanly instead of leaving a half-active runtime.
+    runtime.active = false;
+    runtime.release = null;
+    return;
+  }
+  runtime.release = release;
 }
 
 export function stopSignal(
@@ -131,5 +143,9 @@ export function activityForEvent(event: MotionEvent): string {
       return "warning";
     case "error":
       return "error";
+    default:
+      // Future events fall back to ready instead of leaking `undefined`
+      // into the powerline.
+      return "ready";
   }
 }

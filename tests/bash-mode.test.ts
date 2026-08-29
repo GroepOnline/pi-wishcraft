@@ -29,7 +29,7 @@ import {
 } from "../bash-mode/completion.ts";
 import { getIcons } from "../src/theme/icons.ts";
 import { resolveColor } from "../src/theme/theme.ts";
-import { ManagedShellSession } from "../bash-mode/shell-session.ts";
+import { PtyManagedShellSession } from "../bash-mode/ptyshell-managed.ts";
 import { parseBashModeSettings } from "../src/extension/shortcuts/shortcuts-config.ts";
 
 function getMethod(target: object, name: string): Function {
@@ -608,7 +608,7 @@ test("managed shell session preserves cwd changes across commands", async (t) =>
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -653,7 +653,7 @@ test("managed shell session recovers cleanly after interrupt", async (t) => {
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -671,9 +671,12 @@ test("managed shell session recovers cleanly after interrupt", async (t) => {
 
   try {
     await session.ensureReady();
-    await session.runCommand("sleep 5");
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // v2 runCommand awaits process exit, so hold the promise and interrupt
+    // while it is in flight (v1 queued and returned immediately).
+    const running = session.runCommand("sleep 5");
+    await new Promise((resolve) => setTimeout(resolve, 300));
     session.interrupt();
+    await running;
     await waitForCommand();
 
     const interruptedCommand = store.getSnapshot().commands[0];
@@ -956,6 +959,74 @@ test("bash editor refreshes shell ghost state after a bracketed paste completes"
 
     assert.equal(delegated, 1);
     assert.equal(scheduled, 1);
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("bash-off bare bang with a running shell delegates instead of warning", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { CustomEditor } = await import(
+      new URL(
+        "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/custom-editor.js",
+        import.meta.url,
+      ).href
+    );
+
+    let delegated = 0;
+    let submitted = 0;
+    let warned = 0;
+    const superHandleInput = CustomEditor.prototype.handleInput;
+    CustomEditor.prototype.handleInput = function handleInput() {
+      delegated += 1;
+    };
+
+    try {
+      getMethod(BashModeEditor.prototype, "handleInput").call(
+        {
+          optionsRef: {
+            isBashModeActive: () => false,
+            isShellRunning: () => true,
+            onExitBashMode() {},
+            onInterrupt() {},
+            onNotify() {
+              warned += 1;
+            },
+            onSubmitCommand() {
+              submitted += 1;
+            },
+            getHistoryEntries() {
+              return [];
+            },
+            resolveGhostSuggestion: async () => null,
+          },
+          keybindingsRef: {
+            matches(data: string, id: string) {
+              return data === "\r" && id === "tui.input.submit";
+            },
+          },
+          getExpandedText() {
+            return "!";
+          },
+          isOneOffBashCommandContext() {
+            return true;
+          },
+        },
+        "\r",
+      );
+    } finally {
+      CustomEditor.prototype.handleInput = superHandleInput;
+    }
+
+    // Empty one-off commands are detected before the shell-running guard:
+    // a bash-off bare `!` must fall back to pi's own submit handling
+    // instead of being swallowed by the "already running" warning.
+    assert.equal(delegated, 1);
+    assert.equal(submitted, 0);
+    assert.equal(warned, 0);
   } finally {
     links.cleanup();
   }
@@ -1598,6 +1669,68 @@ test("bash editor command-z undoes deleted text for supported encodings only", a
   }
 });
 
+test("bash editor v2 forward-mode routes printable input to the PTY stdin", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { KeybindingsManager } = await import(
+      new URL(
+        "../node_modules/@earendil-works/pi-coding-agent/dist/core/keybindings.js",
+        import.meta.url,
+      ).href
+    );
+    const keybindings = KeybindingsManager.create();
+    const forwarded: string[] = [];
+    const editor = new BashModeEditor(
+      { requestRender() {}, terminal: { columns: 80, rows: 24 } },
+      {},
+      keybindings,
+      {
+        keybindings,
+        isBashModeActive: () => true,
+        isShellRunning: () => true,
+        onExitBashMode() {},
+        onSubmitCommand() {},
+        onInterrupt() {},
+        onForwardInput: (data) => {
+          forwarded.push(data);
+        },
+        forwardWhileRunning: () => true,
+        onNotify() {},
+        getHistoryEntries: () => [],
+        resolveGhostSuggestion: async () => null,
+      },
+    );
+
+    for (const char of "hello") editor.handleInput(char);
+    assert.deepEqual(forwarded, ["h", "e", "l", "l", "o"]);
+    assert.equal(editor.getText(), "", "forwarded input must not enter the editor");
+
+    // A single Unicode code point (emoji is two UTF-16 units) must forward.
+    editor.handleInput("😀");
+    assert.deepEqual(forwarded, ["h", "e", "l", "l", "o", "😀"]);
+
+    // Enter (\r) and EOF (\x04) must forward while a line-oriented program
+    // runs (AE1); Ctrl-C (app.clear) stays an interrupt, never forwarded.
+    editor.handleInput("\r");
+    editor.handleInput("\x04");
+    assert.deepEqual(
+      forwarded,
+      ["h", "e", "l", "l", "o", "😀", "\r", "\x04"],
+      "Enter/EOF must reach the child stdin in forward-mode",
+    );
+    editor.handleInput("\x03");
+    assert.deepEqual(
+      forwarded,
+      ["h", "e", "l", "l", "o", "😀", "\r", "\x04"],
+      "interrupt must not be forwarded",
+    );
+  } finally {
+    links.cleanup();
+  }
+});
+
 test("bash editor command-z resets shell history and updates ghost state", async () => {
   const links = ensureEditorModuleLinks();
 
@@ -1884,7 +2017,7 @@ test("bash editor enter submits the typed command without accepting ghost text",
   }
 });
 
-test("one-off bang submit does not accept ghost text before submitting", async () => {
+test("one-off bang submit routes through the managed shell without bash mode", async () => {
   const links = ensureEditorModuleLinks();
 
   try {
@@ -1897,6 +2030,7 @@ test("one-off bang submit does not accept ghost text before submitting", async (
     );
 
     let delegated = 0;
+    let submittedCommand = "";
     const superHandleInput = CustomEditor.prototype.handleInput;
     CustomEditor.prototype.handleInput = function handleInput() {
       delegated += 1;
@@ -1908,6 +2042,17 @@ test("one-off bang submit does not accept ghost text before submitting", async (
           ghost: { value: "!git diff --staged", source: "project-history" },
           optionsRef: {
             isBashModeActive: () => false,
+            isShellRunning: () => false,
+            onExitBashMode() {},
+            onInterrupt() {},
+            onNotify() {},
+            onSubmitCommand(command: string) {
+              submittedCommand = command;
+            },
+            getHistoryEntries() {
+              return [];
+            },
+            resolveGhostSuggestion: async () => null,
           },
           keybindingsRef: {
             matches(_data: string, id: string) {
@@ -1920,14 +2065,17 @@ test("one-off bang submit does not accept ghost text before submitting", async (
           isOneOffBashCommandContext() {
             return true;
           },
-          isShellCompletionContext() {
-            return true;
-          },
           acceptGhostSuggestion() {
             throw new Error(
               "enter should not accept ghost text for one-off bash commands",
             );
           },
+          clearGhostSuggestion() {},
+          setText() {},
+          refreshGhostSuggestion() {},
+          shellHistoryIndex: -1,
+          shellHistoryItems: [],
+          shellHistoryDraft: "",
         },
         "enter",
       );
@@ -1935,6 +2083,176 @@ test("one-off bang submit does not accept ghost text before submitting", async (
       CustomEditor.prototype.handleInput = superHandleInput;
     }
 
+    assert.equal(delegated, 0);
+    assert.equal(submittedCommand, "git diff");
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("one-off double-bang submit strips both bang characters", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    let submittedCommand = "";
+
+    getMethod(BashModeEditor.prototype, "handleInput").call(
+      {
+        optionsRef: {
+          isBashModeActive: () => false,
+          isShellRunning: () => false,
+          onExitBashMode() {},
+          onInterrupt() {},
+          onNotify() {},
+          onSubmitCommand(command: string) {
+            submittedCommand = command;
+          },
+        },
+        keybindingsRef: {
+          matches(_data: string, id: string) {
+            return id === "tui.input.submit";
+          },
+        },
+        getExpandedText() {
+          return "!!cmd";
+        },
+        isOneOffBashCommandContext() {
+          return true;
+        },
+        acceptGhostSuggestion() {
+          return false;
+        },
+        clearGhostSuggestion() {},
+        setText() {},
+        refreshGhostSuggestion() {},
+        shellHistoryIndex: -1,
+        shellHistoryItems: [],
+        shellHistoryDraft: "",
+      },
+      "enter",
+    );
+
+    assert.equal(submittedCommand, "cmd");
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("bash mode on strips the bang from one-off commands too", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    let submittedCommand = "";
+
+    getMethod(BashModeEditor.prototype, "handleInput").call(
+      {
+        optionsRef: {
+          isBashModeActive: () => true,
+          isShellRunning: () => false,
+          onExitBashMode() {},
+          onInterrupt() {},
+          onNotify() {},
+          onSubmitCommand(command: string) {
+            submittedCommand = command;
+          },
+        },
+        keybindingsRef: {
+          matches(_data: string, id: string) {
+            return id === "tui.input.submit";
+          },
+        },
+        getExpandedText() {
+          return "!git status";
+        },
+        acceptGhostSuggestion() {
+          return false;
+        },
+        clearGhostSuggestion() {},
+        setText() {},
+        refreshGhostSuggestion() {},
+        shellHistoryIndex: -1,
+        shellHistoryItems: [],
+        shellHistoryDraft: "",
+      },
+      "enter",
+    );
+
+    assert.equal(submittedCommand, "git status");
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("one-off newline keeps multi-line bang input in the editor", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { CustomEditor } = await import(
+      new URL(
+        "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/custom-editor.js",
+        import.meta.url,
+      ).href
+    );
+
+    let delegated = 0;
+    let submitted = 0;
+    const superHandleInput = CustomEditor.prototype.handleInput;
+    CustomEditor.prototype.handleInput = function handleInput() {
+      delegated += 1;
+    };
+
+    try {
+      getMethod(BashModeEditor.prototype, "handleInput").call(
+        {
+          optionsRef: {
+            isBashModeActive: () => false,
+            isShellRunning: () => false,
+            onExitBashMode() {},
+            onInterrupt() {},
+            onNotify() {},
+            onSubmitCommand() {
+              submitted += 1;
+            },
+            getHistoryEntries() {
+              return [];
+            },
+            resolveGhostSuggestion: async () => null,
+          },
+          keybindingsRef: {
+            matches(_data: string, id: string) {
+              return id === "tui.input.newLine";
+            },
+          },
+          getExpandedText() {
+            return "!cmd";
+          },
+          isOneOffBashCommandContext() {
+            return true;
+          },
+          isShellCompletionContext() {
+            return true;
+          },
+          scheduleGhostUpdate() {},
+          acceptGhostSuggestion() {
+            return false;
+          },
+          clearGhostSuggestion() {},
+          setText() {},
+          refreshGhostSuggestion() {},
+          shellHistoryIndex: -1,
+          shellHistoryItems: [],
+          shellHistoryDraft: "",
+        },
+        "enter",
+      );
+    } finally {
+      CustomEditor.prototype.handleInput = superHandleInput;
+    }
+
+    assert.equal(submitted, 0);
     assert.equal(delegated, 1);
   } finally {
     links.cleanup();
@@ -2052,7 +2370,7 @@ test("managed shell session sources the project init script before ready", async
     transcriptMaxLines: 100,
     transcriptMaxBytes: 64 * 1024,
   });
-  const session = new ManagedShellSession(
+  const session = new PtyManagedShellSession(
     shellPath,
     cwd,
     store,
@@ -2063,6 +2381,9 @@ test("managed shell session sources the project init script before ready", async
 
   try {
     await session.ensureReady();
+    // v2 has no persistent shell: initScript runs as a preamble of every
+    // command (documented divergence), so the cwd lands after a command.
+    await session.runCommand(":");
     assert.equal(session.state.cwd, childDir);
   } finally {
     session.dispose();

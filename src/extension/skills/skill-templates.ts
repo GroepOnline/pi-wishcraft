@@ -3,7 +3,7 @@
  * Writes `~/.pi/agent/skills/<name>/SKILL.md` then opens $EDITOR.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SelectItem } from "@earendil-works/pi-tui";
 
@@ -177,15 +177,24 @@ export function writeSkillFromTemplate(
   name: string,
   template: SkillTemplateId,
   skillsRoot: string = getAgentPath("skills"),
+  options: { overwrite?: boolean } = {},
 ): { filePath: string } {
   const safe = sanitizeSkillName(name);
   const dir = join(skillsRoot, safe);
   const filePath = join(dir, "SKILL.md");
-  if (existsSync(filePath)) {
+  if (!options.overwrite && existsSync(filePath)) {
     throw new SkillNameError(`Skill already exists: ${safe}`);
   }
   mkdirSync(dir, { recursive: true });
-  writeFileSync(filePath, renderSkillTemplate(template, safe), "utf8");
+  if (options.overwrite && existsSync(filePath)) {
+    // Write the replacement next to the original and atomically rename it
+    // over SKILL.md; a failed write leaves the existing skill untouched.
+    const tmp = join(dir, `.SKILL.md.${process.pid}.tmp`);
+    writeFileSync(tmp, renderSkillTemplate(template, safe), "utf8");
+    renameSync(tmp, filePath);
+  } else {
+    writeFileSync(filePath, renderSkillTemplate(template, safe), "utf8");
+  }
   invalidateSkillCache();
   return { filePath };
 }

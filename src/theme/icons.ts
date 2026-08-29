@@ -124,6 +124,13 @@ export interface SeparatorChars {
   asciiLeft: string;
   asciiRight: string;
   dot: string;
+  bluntLeft: string;
+  bluntRight: string;
+  roundedLeft: string;
+  roundedRight: string;
+  diamond: string;
+  doubleLeft: string;
+  doubleRight: string;
 }
 
 export const NERD_SEPARATORS: SeparatorChars = {
@@ -138,6 +145,13 @@ export const NERD_SEPARATORS: SeparatorChars = {
   asciiLeft: ">",
   asciiRight: "<",
   dot: "·",
+  bluntLeft: "▌",
+  bluntRight: "▐",
+  roundedLeft: "\uE0B6",
+  roundedRight: "\uE0B4",
+  diamond: "◇",
+  doubleLeft: "»",
+  doubleRight: "«",
 };
 
 export const ASCII_SEPARATORS: SeparatorChars = {
@@ -152,6 +166,13 @@ export const ASCII_SEPARATORS: SeparatorChars = {
   asciiLeft: ">",
   asciiRight: "<",
   dot: ".",
+  bluntLeft: "[",
+  bluntRight: "]",
+  roundedLeft: "(",
+  roundedRight: ")",
+  diamond: "*",
+  doubleLeft: ">",
+  doubleRight: "<",
 };
 
 export function hasNerdFonts(): boolean {
