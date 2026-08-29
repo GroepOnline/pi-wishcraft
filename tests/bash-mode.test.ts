@@ -1949,7 +1949,7 @@ test("bash editor enter submits the typed command without accepting ghost text",
   }
 });
 
-test("one-off bang submit does not accept ghost text before submitting", async () => {
+test("one-off bang submit routes through the managed shell without bash mode", async () => {
   const links = ensureEditorModuleLinks();
 
   try {
@@ -1962,6 +1962,7 @@ test("one-off bang submit does not accept ghost text before submitting", async (
     );
 
     let delegated = 0;
+    let submittedCommand = "";
     const superHandleInput = CustomEditor.prototype.handleInput;
     CustomEditor.prototype.handleInput = function handleInput() {
       delegated += 1;
@@ -1973,6 +1974,17 @@ test("one-off bang submit does not accept ghost text before submitting", async (
           ghost: { value: "!git diff --staged", source: "project-history" },
           optionsRef: {
             isBashModeActive: () => false,
+            isShellRunning: () => false,
+            onExitBashMode() {},
+            onInterrupt() {},
+            onNotify() {},
+            onSubmitCommand(command: string) {
+              submittedCommand = command;
+            },
+            getHistoryEntries() {
+              return [];
+            },
+            resolveGhostSuggestion: async () => null,
           },
           keybindingsRef: {
             matches(_data: string, id: string) {
@@ -1985,14 +1997,17 @@ test("one-off bang submit does not accept ghost text before submitting", async (
           isOneOffBashCommandContext() {
             return true;
           },
-          isShellCompletionContext() {
-            return true;
-          },
           acceptGhostSuggestion() {
             throw new Error(
               "enter should not accept ghost text for one-off bash commands",
             );
           },
+          clearGhostSuggestion() {},
+          setText() {},
+          refreshGhostSuggestion() {},
+          shellHistoryIndex: -1,
+          shellHistoryItems: [],
+          shellHistoryDraft: "",
         },
         "enter",
       );
@@ -2000,7 +2015,57 @@ test("one-off bang submit does not accept ghost text before submitting", async (
       CustomEditor.prototype.handleInput = superHandleInput;
     }
 
-    assert.equal(delegated, 1);
+    assert.equal(delegated, 0);
+    assert.equal(submittedCommand, "git diff");
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("one-off double-bang submit strips both bang characters", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    let submittedCommand = "";
+
+    getMethod(BashModeEditor.prototype, "handleInput").call(
+      {
+        optionsRef: {
+          isBashModeActive: () => false,
+          isShellRunning: () => false,
+          onExitBashMode() {},
+          onInterrupt() {},
+          onNotify() {},
+          onSubmitCommand(command: string) {
+            submittedCommand = command;
+          },
+        },
+        keybindingsRef: {
+          matches(_data: string, id: string) {
+            return id === "tui.input.submit";
+          },
+        },
+        getExpandedText() {
+          return "!!cmd";
+        },
+        isOneOffBashCommandContext() {
+          return true;
+        },
+        acceptGhostSuggestion() {
+          return false;
+        },
+        clearGhostSuggestion() {},
+        setText() {},
+        refreshGhostSuggestion() {},
+        shellHistoryIndex: -1,
+        shellHistoryItems: [],
+        shellHistoryDraft: "",
+      },
+      "enter",
+    );
+
+    assert.equal(submittedCommand, "cmd");
   } finally {
     links.cleanup();
   }

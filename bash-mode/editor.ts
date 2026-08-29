@@ -279,7 +279,7 @@ export class BashModeEditor extends CustomEditor {
       }
 
       if (
-        bashMode &&
+        (bashMode || this.isOneOffBashCommandContext()) &&
         this.keybindingsRef.matches(data, "tui.input.submit") &&
         !this.keybindingsRef.matches(data, "tui.input.newLine")
       ) {
@@ -288,7 +288,12 @@ export class BashModeEditor extends CustomEditor {
           return;
         }
 
-        const command = this.getExpandedText().trim();
+        // One-off bang prompts run the text after the prefix; anything else
+        // submits verbatim. Without this the bang would hit bash history
+        // expansion (`!cmd` = replay a previous command) instead of `cmd`.
+        const raw = this.getExpandedText().trim();
+        const oneOff = getOneOffBashCommandContext(raw);
+        const command = oneOff ? oneOff.command : raw;
         if (!command) return;
         this.clearGhostSuggestion();
         resetShellHistoryBrowse(this);
