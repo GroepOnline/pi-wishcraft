@@ -98,8 +98,8 @@ test("help mode: navigation keys do not move selection", () => {
   assert.equal(idle.selectedIndex, help.selectedIndex);
 });
 
-test("studio entrypoint stays fail-closed while panes are placeholders", async () => {
-  assert.equal(SKILL_STUDIO_PANES_READY, false);
+test("studio entrypoint opens once registry-backed panes are connected", async () => {
+  assert.equal(SKILL_STUDIO_PANES_READY, true);
   const notices: Array<[string, string]> = [];
   let customCalls = 0;
   const rt: any = { enabled: true, currentCtx: null };
@@ -118,9 +118,9 @@ test("studio entrypoint stays fail-closed while panes are placeholders", async (
 
   await openSkillStudio(rt, ctx);
 
-  assert.equal(customCalls, 0);
-  assert.equal(rt.currentCtx, null);
-  assert.deepEqual(notices, [["Skill Studio is not available until its panes are connected", "warning"]]);
+  assert.equal(customCalls, 1);
+  assert.equal(rt.currentCtx, ctx);
+  assert.deepEqual(notices, []);
 });
 
 test("studio modules contain only English operator strings", () => {

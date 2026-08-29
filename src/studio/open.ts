@@ -6,13 +6,14 @@
 
 import type { RuntimeState } from "../extension/core/types.ts";
 import { createStudioComponent } from "./component.ts";
+import { loadSkillStudioCatalog, invalidateSkillCache } from "../extension/skills/skill-registry.ts";
 
 /**
  * Keep the operator command fail-closed until list/detail/actions/advice are
  * actually wired into the fullscreen component. The scaffold stays available
  * to tests and follow-up implementation without exposing a misleading command.
  */
-export const SKILL_STUDIO_PANES_READY = false;
+export const SKILL_STUDIO_PANES_READY = true;
 
 export async function openSkillStudio(
   rt: RuntimeState,
@@ -30,15 +31,12 @@ export async function openSkillStudio(
     ctx.ui.notify("Skill Studio is not available in RPC mode", "warning");
     return;
   }
-  if (!SKILL_STUDIO_PANES_READY) {
-    ctx.ui.notify("Skill Studio is not available until its panes are connected", "warning");
-    return;
-  }
-
   rt.currentCtx = ctx;
+  invalidateSkillCache();
+  const entries = loadSkillStudioCatalog(process.cwd());
 
   await ctx.ui.custom(
     (_tui: any, theme: any, _keybindings: any, done: (value: string | null) => void) =>
-      createStudioComponent(theme, done),
+      createStudioComponent(theme, done, undefined, entries),
   );
 }
