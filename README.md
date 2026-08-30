@@ -21,8 +21,7 @@ Guides live in [`docs/`](docs/index.md). This is the Pi extension contract: what
 ## Quick start tutorial
 
 Install, restart Pi (or run `/reload`), then press `alt+p` for the Deck. Try `/signal menu`, `/skills`, `/ideas`, and `ctrl+shift+b`. Full setup: [docs/configuration.md](docs/configuration.md).
-
-## v2 Platform (in this release)
+**Portfolio boundary:** Wishcraft owns the operator cockpit and lightweight idea capture. Promote durable work to [`pi-missions`](https://github.com/GroepOnline/pi-missions), then use [`pi-agent-orchestrator`](https://github.com/GroepOnline/pi-agent-orchestrator) when parallel/isolated execution adds value: `idea -> mission -> orchestration run`.
 
 ## Install
 
@@ -222,11 +221,12 @@ No shell commands — pure in-process regex. Evaluated before command hooks. `wi
 ```
 
 
+Privacy/network boundary: ideas, settings, usage ledgers, and normal cockpit state stay local; there is no package-owned telemetry backend. Optional exchange-rate/DeepWiki features and operator-defined hooks cross the network/process boundary only when used.
 ## Limits
 
 - No mouse on the live footer. Pi core owns that surface.
 - No second `alt+i` product. Ports stay on `alt+i`; other detail is `→` in the navigator.
-- ChefGroep status keys (`powerline.preset`, `powerline.tps`, `powerline.ports`) exist for other extensions. They are not the public pitch.
+- Compatibility status keys (`powerline.preset`, `powerline.tps`, `powerline.ports`) are available to peer extensions; normal Wishcraft use does not require them.
 - The legacy `@groeponline/pi-powerline-footer` package is deprecated in favor of `@groeponline/pi-wishcraft`.
 - Tags are not rewritten. 0.19.x through current stay on the timeline.
 
