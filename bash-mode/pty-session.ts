@@ -119,6 +119,8 @@ interface RunningCommand {
   buffer: string;
   /** Trailing partial escape sequence carried across chunks. */
   escapeTail: string;
+  /** Wrapper result observed on stdout; publication waits for child close. */
+  pendingResult: PtyRunResult | null;
   resolve: (result: PtyRunResult) => void;
   settled: boolean;
 }
@@ -179,6 +181,7 @@ export class PtyShellSession {
         done,
         buffer: "",
         escapeTail: "",
+        pendingResult: null,
         resolve: (result) => {
           if (running.settled) return;
           running.settled = true;
@@ -224,9 +227,8 @@ export class PtyShellSession {
       child.stderr.on("data", (chunk: string) => this.handleChunk(String(chunk)));
       child.on("error", (error) => {
         // spawn itself failed (script removed between probe and spawn, dead
-        // SHELL path): surface the reason, then settle as a normal failure.
-        // The first script-path failure also flips the probe cache so the
-        // next command degrades to pipes instead of silently failing again.
+        // SHELL path): surface the reason, but do not publish completion until
+        // the matching child emits close. That preserves strict child ownership.
         console.warn(
           "[wishcraft] spawn failed:",
           error instanceof Error ? error.message : String(error),
@@ -234,20 +236,24 @@ export class PtyShellSession {
         if (usePty) {
           _resetScriptAvailableForTests();
         }
-        running.resolve({ exitCode: 1, cwd: this.state.cwd });
+        running.pendingResult = { exitCode: 1, cwd: this.state.cwd };
       });
       child.on("close", (code, signal) => {
-        this.child = null;
-        // No sentinel observed. An operator interrupt never lets the command
-        // complete, so it maps to 130 regardless of how `script` exits.
+        if (this.child === child) {
+          this.child = null;
+        }
+        // Completion is published only after this exact child closes, so a
+        // later run cannot have its child reference cleared by this callback.
         if (this.interrupted) {
           running.resolve({ exitCode: 130, cwd: this.state.cwd });
           return;
         }
-        running.resolve({
-          exitCode: getCloseExitCode(code, signal),
-          cwd: this.state.cwd,
-        });
+        running.resolve(
+          running.pendingResult ?? {
+            exitCode: getCloseExitCode(code, signal),
+            cwd: this.state.cwd,
+          },
+        );
       });
     });
   }
@@ -322,10 +328,10 @@ export class PtyShellSession {
         if (firstColon !== -1) {
           const exitCode = Number.parseInt(rest.slice(0, firstColon), 10);
           const cwd = rest.slice(firstColon + 1);
-          running.resolve({
+          running.pendingResult = {
             exitCode: Number.isFinite(exitCode) ? exitCode : 1,
             cwd: cwd || this.state.cwd,
-          });
+          };
           return;
         }
         continue;
