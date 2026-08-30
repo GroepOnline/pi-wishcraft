@@ -179,6 +179,20 @@ test("PtyShellSession falls back to pipe execution when script is unavailable", 
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("PtyShellSession does not publish completion before its child closes", async () => {
+  const dir = makeTempDir();
+  const session = new PtyShellSession({
+    cwd: dir,
+    onOutput: () => {},
+    onStateChange: () => {},
+    scriptAvailable: () => false,
+  });
+  await session.runCommand("true");
+  assert.equal(session.childPid(), null);
+  session.dispose();
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("PtyShellSession dispose kills a running child without orphans", { skip: !SCRIPT_AVAILABLE }, async () => {
   const dir = makeTempDir();
   const session = new PtyShellSession({
