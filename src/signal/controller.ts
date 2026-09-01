@@ -6,7 +6,7 @@
  */
 
 import {
-  allowedChannels,
+  channelsForMotion,
   defaultMotionFor,
   getMotion,
   type MotionEvent,
@@ -61,17 +61,17 @@ export function setSignalEvent(
   runtime.tick = 0;
   runtime.startedAt = Date.now();
   runtime.activity = options.activity ?? activityForEvent(event);
-  runtime.active = event !== "idle";
-
-  if (
-    event === "idle" ||
-    !allowedChannels(event, policy).includes("signal")
-  ) {
-    runtime.active = false;
-    return;
-  }
 
   const def = getMotion(runtime.motionId);
+  // The chosen motion's own channel declaration decides whether the rail
+  // runs — not the event table. `CHANNEL_MATRIX` still picks the default
+  // motion per event, but an explicit choice (preset signature or an
+  // `appearance.motion` override) is never vetoed by the matrix afterwards.
+  // The a11y policy (screen-reader, full→reduced, functional, toggles)
+  // filters both paths identically via `channelsForMotion`.
+  runtime.active =
+    def !== undefined && channelsForMotion(def, policy).includes("signal");
+  if (!runtime.active) return;
   // Wrap subscribe so a throw doesn't leave runtime.active=true with
   // release=null (a leaked state that would survive stopSignal).
   let release: (() => void) | null = null;

@@ -23,6 +23,7 @@ import {
   MotionScheduler,
 } from "../src/motion/index.ts";
 import type { MotionEvent, MotionPolicy } from "../src/motion/index.ts";
+import { channelsForMotion } from "../src/motion/policy.ts";
 import type { RenderScheduler } from "../src/render/timer.ts";
 
 function harness() {
@@ -146,6 +147,24 @@ test("toggles switch off single channels", () => {
   };
   assert.equal(allowedChannels("streaming", policy).includes("signal"), false);
   assert.equal(allowedChannels("streaming", policy).includes("workingGlyph"), true);
+});
+
+
+test("motion channel policy preserves a11y levels and toggles", () => {
+  const motion = getMotion("ember-relay");
+  assert.ok(motion);
+
+  assert.deepEqual(channelsForMotion(motion, DEFAULT_MOTION_POLICY), ["workingGlyph", "signal"]);
+  assert.deepEqual(channelsForMotion(motion, { ...DEFAULT_MOTION_POLICY, screenReader: true }), []);
+  assert.deepEqual(channelsForMotion(motion, { ...DEFAULT_MOTION_POLICY, level: "off" }), []);
+  assert.deepEqual(channelsForMotion(motion, { ...DEFAULT_MOTION_POLICY, level: "functional" }), ["workingGlyph"]);
+  assert.deepEqual(channelsForMotion(motion, { ...DEFAULT_MOTION_POLICY, level: "reduced" }), ["workingGlyph"]);
+
+  const signalDisabled: MotionPolicy = {
+    ...DEFAULT_MOTION_POLICY,
+    toggles: { ...DEFAULT_MOTION_POLICY.toggles, signal: false },
+  };
+  assert.deepEqual(channelsForMotion(motion, signalDisabled), ["workingGlyph"]);
 });
 
 test("cadence stays inside the documented bands", () => {

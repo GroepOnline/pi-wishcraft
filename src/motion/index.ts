@@ -36,6 +36,7 @@ export {
   allowedChannels,
   allowsColorTransition,
   cadenceFor,
+  channelsForMotion,
   describeMotionEvent,
   effectiveLevel,
   prefersAsciiGlyphs,
