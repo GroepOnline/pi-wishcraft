@@ -14,6 +14,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSy
 import { basename, dirname, join, relative } from "node:path";
 import { getAgentDir, getAgentPath } from "../../paths/agent-dirs.ts";
 import { parseSkillFrontmatter, stripFrontmatter } from "../../core/frontmatter.ts";
+import { loadGlobalSkillRegistry } from "./global-registry.ts";
 
 /** Category: where the skill came from. */
 export type SkillCategory = "global" | "project" | "prompts" | "extra";
@@ -39,6 +40,14 @@ export interface SkillEntry {
   frontmatterKeys: string[];
   /** Frontmatter trigger value (e.g. /test, /showcase). */
   trigger: string | null;
+  /** Machine-side ChefGroep routing metadata when the global registry is installed. */
+  routingCategory?: string;
+  routingFamily?: string;
+  metaSkill?: string | null;
+  role?: string | null;
+  routerParent?: string | null;
+  mounts?: string[];
+  registryDrift?: boolean;
   /** Diagnostic message (core diagnostics, or empty description). */
   warning?: string;
 }
@@ -108,6 +117,7 @@ export function setSkillCacheInvalidationHandler(handler: (() => void) | null): 
 
 const usageCache = new Map<string, SkillUsage>();
 let usageLoaded = false;
+let usageLoadedFrom: string | null = null;
 
 /** Drop the discovery cache (the next read scans again). */
 export function invalidateSkillCache(): void {
@@ -340,11 +350,24 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
   );
   cachedAt = now;
   cachedCwd = cwd;
-  cachedEntries = [
+  const localEntries = [
     ...deduped.filter((e) => !looseNames.has(e.name)),
     ...loose,
     ...rejected,
-  ].sort((a, b) => a.name.localeCompare(b.name));
+  ];
+
+  // Enrich local Pi entries with routing metadata, but do not append
+  // registry-only skills here: generic Pi catalog/count semantics stay local.
+  const registry = loadGlobalSkillRegistry();
+  const registryByName = new Map(registry.map((r) => [r.name, r] as const));
+  for (const entry of localEntries) {
+    const r = registryByName.get(entry.name);
+    if (!r) continue;
+    entry.routingCategory = r.category; entry.routingFamily = r.family;
+    entry.metaSkill = r.metaSkill; entry.role = r.role; entry.routerParent = r.routerParent;
+    entry.mounts = r.mounts; entry.registryDrift = r.drift;
+  }
+  cachedEntries = localEntries.sort((a, b) => a.name.localeCompare(b.name));
   cachedPathMap = new Map(cachedEntries.map((e) => [e.name, e.filePath] as const));
   cachedTriggerMap = new Map(
     cachedEntries
@@ -352,6 +375,32 @@ export function loadSkillCatalog(cwd: string = process.cwd()): SkillEntry[] {
       .map((e) => [e.trigger!, e.filePath] as const),
   );
   return cachedEntries;
+}
+
+/** Full machine-side catalog for Skill Studio only. */
+export function loadSkillStudioCatalog(cwd: string = process.cwd()): SkillEntry[] {
+  const local = loadSkillCatalog(cwd).map((e) => ({ ...e }));
+  const localNames = new Set(local.map((e) => e.name));
+  const registryOnly: SkillEntry[] = loadGlobalSkillRegistry()
+    .filter((r) => !localNames.has(r.name))
+    .map((r) => {
+      let sizeBytes = 0, lineCount = 0, mtimeMs = 0;
+      let warning: string | undefined;
+      try {
+        const content = readFileSync(r.filePath, "utf8");
+        sizeBytes = Buffer.byteLength(content, "utf8");
+        lineCount = content.split("\n").length;
+        mtimeMs = statSync(r.filePath).mtimeMs;
+      } catch { warning = "registry source not readable on this host"; }
+      return {
+        name: r.name, description: r.description, filePath: r.filePath, baseDir: dirname(r.filePath),
+        isDirectorySkill: basename(r.filePath) === "SKILL.md", category: "extra" as SkillCategory,
+        disableModelInvocation: false, sizeBytes, lineCount, mtimeMs, frontmatterKeys: [], trigger: null, warning,
+        routingCategory: r.category, routingFamily: r.family, metaSkill: r.metaSkill, role: r.role,
+        routerParent: r.routerParent, mounts: r.mounts, registryDrift: r.drift,
+      };
+    });
+  return [...local, ...registryOnly].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Compat: name → file path (for inline-invocation $skill). */
@@ -376,10 +425,13 @@ function usageFile(): string {
 }
 
 function loadUsage(): void {
-  if (usageLoaded) return;
+  const file = usageFile();
+  if (usageLoaded && usageLoadedFrom === file) return;
   usageLoaded = true;
+  usageLoadedFrom = file;
+  usageCache.clear();
   try {
-    const raw = readFileSync(usageFile(), "utf8");
+    const raw = readFileSync(file, "utf8");
     const parsed = JSON.parse(raw) as Record<string, SkillUsage>;
     for (const [name, u] of Object.entries(parsed)) {
       usageCache.set(name, { count: u.count ?? 0, lastUsed: u.lastUsed ?? 0 });

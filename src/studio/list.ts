@@ -13,6 +13,11 @@ export interface ListRow {
   category: SkillCategory;
   filePath: string;
   warning?: string;
+  routingCategory?: string;
+  routingFamily?: string;
+  role?: string | null;
+  routerParent?: string | null;
+  registryDrift?: boolean;
 }
 
 export function badgeForCategory(category: SkillCategory): string {
@@ -36,6 +41,11 @@ export function buildListRows(entries: readonly SkillEntry[]): ListRow[] {
     category: entry.category,
     filePath: entry.filePath,
     warning: entry.warning,
+    routingCategory: entry.routingCategory,
+    routingFamily: entry.routingFamily,
+    role: entry.role,
+    routerParent: entry.routerParent,
+    registryDrift: entry.registryDrift,
   }));
 }
 
@@ -43,6 +53,6 @@ export function filterListRows(rows: readonly ListRow[], query: string): ListRow
   const q = query.trim().toLowerCase();
   if (q.length === 0) return [...rows];
   return rows.filter(
-    (row) => row.name.toLowerCase().includes(q) || row.description.toLowerCase().includes(q),
+    (row) => row.name.toLowerCase().includes(q) || row.description.toLowerCase().includes(q) || row.routingCategory?.toLowerCase().includes(q) || row.routingFamily?.toLowerCase().includes(q),
   );
 }

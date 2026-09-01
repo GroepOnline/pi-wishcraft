@@ -15,13 +15,9 @@ export const ansi: AnsiColors = {
 // ponytail: NO_COLOR (de-facto standard — present and non-empty) disables all
 // wishcraft color so the status bar stays plain text in no-color terminals
 // and color-blind pipelines. Computed lazily so test env changes take effect.
-let _colorEnabled: boolean | undefined;
 export function colorEnabled(): boolean {
-  if (_colorEnabled === undefined) {
-    const v = process.env.NO_COLOR;
-    _colorEnabled = !(v != null && v !== "");
-  }
-  return _colorEnabled;
+  const v = process.env.NO_COLOR;
+  return !(v != null && v !== "");
 }
 
 function hexToRgb(hex: string): [number, number, number] {
