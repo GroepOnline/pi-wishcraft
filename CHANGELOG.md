@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.4.15] - 2026-09-05
+
 ### Added
 - Codebase dependency graph (dot + mermaid + navigation guide) and four wishcraft agent skills (`wishcraft-codebase`, `wishcraft-ui-components`, `wishcraft-hot-path-rules`, `wishcraft-testing`) shipped as operator-facing SKILL.md docs.
 
