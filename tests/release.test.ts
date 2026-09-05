@@ -408,6 +408,12 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
   assert.match(promote, /gh workflow run release\.yml --ref "\$TAG"/);
   assert.doesNotMatch(promote, /REMOTE_SHA="\$\(gh api[^)]*\) \|\| true/);
   assert.doesNotMatch(promote, /TAG_JSON="\$\(gh api[^)]*\) \|\| true/);
+  // The CHANGELOG heading check must not use `grep -q`: it exits on the first
+  // match, closing the pipe on printf while the large CHANGELOG is still being
+  // written, and the EPIPE fails the pipeline under pipefail even though the
+  // heading matched (1.4.16 promotion failure).
+  assert.doesNotMatch(promote, /grep -Fqx/);
+  assert.match(promote, /grep -Fix "## \[\$VERSION\] - \$\(date -u \+%F\)" > \/dev\/null/);
 
   // Verify may dispatch promotion only for bot-verified release candidates.
   const verify = readFileSync(join(root, ".github/workflows/test.yml"), "utf8");
