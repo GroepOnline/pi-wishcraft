@@ -73,12 +73,17 @@ jobs:
           VERSION="$(node scripts/release.mjs next auto)"
           BASE_SHORT="${GITHUB_SHA:0:12}"
           BRANCH="release-candidate/v${VERSION}-${BASE_SHORT}"
+          NOTES="$(node scripts/release.mjs unreleased-notes)"
           REMOTE_SHA="$(git ls-remote --heads origin "refs/heads/$BRANCH" | awk '{print $1}')"
           if [ -n "$REMOTE_SHA" ]; then
             git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" --force
             node scripts/release.mjs candidate-check "$BRANCH" "$REMOTE_SHA" "$GITHUB_SHA" >/dev/null
             CANDIDATE_SHA="$REMOTE_SHA"
             echo "Reusing existing candidate $BRANCH at $CANDIDATE_SHA"
+          elif [ -z "$NOTES" ]; then
+            echo "No [Unreleased] notes on main; nothing to release — skipping candidate."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
           else
             node scripts/release.mjs "$VERSION"
             CANDIDATE_SHA="$(git rev-parse HEAD)"
@@ -89,7 +94,9 @@ jobs:
           echo "sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Dispatch Verify on exact candidate ref
-        if: steps.current.outputs.superseded != 'true'
+        if: >-
+          steps.current.outputs.superseded != 'true'
+          && steps.candidate.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CANDIDATE_BRANCH: ${{ steps.candidate.outputs.branch }}
