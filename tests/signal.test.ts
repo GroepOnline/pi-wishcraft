@@ -111,12 +111,17 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   assert.equal(lines.length, 3, "sigil must be 3 rows");
   assert.match(lines[0]!, /streaming/);
   assert.match(lines[0]!, /#/);
-  // ASCII fallback: 1-row comet, no honest sigil at 12 cols.
-  assert.match(stripAnsi(renderActivity(signal, spec, true)), /o/);
+  // ASCII fallback: 1-row box-drawing comet (o head, ━╾>= trail).
+  // Motion frames are a color-font feature — ASCII terminals get the
+  // clean comet so the rail stays legible without Nerd glyphs.
   const asciiRail = stripAnsi(renderActivity(signal, spec, true));
+  assert.match(asciiRail, /o/);
   assert.match(asciiRail, /streaming/);
-  const trailBehind = asciiRail.indexOf("o") > asciiRail.indexOf(">");
-  assert.ok(trailBehind, "ASCII trail must trail the head");
+  const headIndex = asciiRail.indexOf("o");
+  const trailIndex = asciiRail.indexOf(">");
+  assert.notEqual(headIndex, -1, "ASCII head must be present");
+  assert.notEqual(trailIndex, -1, "ASCII trail must be present");
+  assert.ok(headIndex > trailIndex, "ASCII trail must trail the head");
 });
 
 test("Signal renders left, center, and right lanes on one line", () => {
