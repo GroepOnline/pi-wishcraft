@@ -10,6 +10,23 @@ import {
   type StudioState,
 } from "../src/studio/state.ts";
 import { openSkillStudio, SKILL_STUDIO_PANES_READY } from "../src/studio/open.ts";
+import { createStudioComponent, renderStudioFrame } from "../src/studio/component.ts";
+import type { SkillEntry } from "../src/extension/skills/skill-registry.ts";
+
+const fakeEntry: SkillEntry = {
+  name: "doctor-skill",
+  description: "Runs doctor checks",
+  filePath: "/tmp/doctor-skill/SKILL.md",
+  baseDir: "/tmp/doctor-skill",
+  isDirectorySkill: false,
+  category: "global",
+  disableModelInvocation: false,
+  sizeBytes: 128,
+  lineCount: 6,
+  mtimeMs: 0,
+  frontmatterKeys: ["name"],
+  trigger: null,
+} as SkillEntry;
 
 const makeKey = (k: StudioKeyEvent["key"], char?: string): StudioKeyEvent => ({ key: k, char });
 
@@ -120,6 +137,84 @@ test("studio entrypoint opens once registry-backed panes are connected", async (
 
   assert.equal(customCalls, 1);
   assert.equal(rt.currentCtx, ctx);
+  assert.deepEqual(notices, []);
+});
+
+test("studio entrypoint stays closed without UI and in RPC mode", async () => {
+  const rt: any = { enabled: true, currentCtx: null };
+  const notices: Array<[string, string]> = [];
+  const makeCtx = (overrides: Record<string, unknown>): any => ({
+    hasUI: true,
+    mode: "interactive",
+    ui: {
+      notify(message: string, level: string) {
+        notices.push([message, level]);
+      },
+      async custom() {
+        throw new Error("studio must not open");
+      },
+    },
+    ...overrides,
+  });
+
+  await openSkillStudio(rt, makeCtx({ hasUI: false }));
+  await openSkillStudio(rt, makeCtx({ mode: "rpc" }));
+
+  assert.equal(rt.currentCtx, null);
+  assert.deepEqual(notices, [["Skill Studio is not available in RPC mode", "warning"]]);
+});
+
+test("renderStudioFrame draws the wired list, detail, actions, and advice panes", () => {
+  const theme: any = {
+    fg(_role: string, text: string) {
+      return text;
+    },
+  };
+  const lines = renderStudioFrame(theme, 100, createStudioState(), {
+    entries: [fakeEntry],
+    usage: new Map([["doctor-skill", { count: 3, lastUsed: 0 }]]),
+    advicePane: { state: "ok", text: "Looks healthy", error: null } as any,
+    adviceMode: "integrate",
+  });
+  const text = lines.join("\n");
+
+  assert.match(text, /SKILLS · 1\/1/);
+  assert.match(text, /DETAIL · doctor-skill/);
+  assert.match(text, /ACTIONS/);
+  assert.match(text, /AI ADVICE · integrate/);
+  assert.match(text, /Looks healthy/);
+});
+
+test("component keys route to pane callbacks and refresh the entries", async () => {
+  const theme: any = { fg(_role: string, text: string) { return text; } };
+  const notices: string[] = [];
+  let doctorRuns = 0;
+  let editTargets: string[] = [];
+  let exitValues: Array<string | null> = [];
+  const component = createStudioComponent(theme, (value) => exitValues.push(value), undefined, {
+    entries: [fakeEntry],
+    onDoctor: () => {
+      doctorRuns += 1;
+    },
+    onEdit: (target) => {
+      editTargets.push(target.name);
+    },
+    onRefresh: () => [fakeEntry],
+    onError: (error) => notices.push(String(error)),
+  });
+
+  component.handleInput("2");
+  component.handleInput("d");
+  await Promise.resolve();
+  await Promise.resolve();
+  component.handleInput("e");
+  await Promise.resolve();
+  await Promise.resolve();
+  component.handleInput("q");
+
+  assert.equal(doctorRuns, 1);
+  assert.deepEqual(editTargets, ["doctor-skill"]);
+  assert.deepEqual(exitValues, [null]);
   assert.deepEqual(notices, []);
 });
 

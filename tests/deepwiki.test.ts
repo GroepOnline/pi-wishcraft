@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createServer, type Server } from "node:http";
@@ -76,6 +76,22 @@ test("cache: disk file is created under the expected path", async () => {
   assert.ok(existsSync(file));
   const raw = JSON.parse(readFileSync(file, "utf8"));
   assert.equal(raw.data.content, "x");
+});
+
+test("cache: LRU eviction keeps the cache within its entry cap", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dw-cache-"));
+  const repos = [
+    { owner: "o", repo: "a" },
+    { owner: "o", repo: "b" },
+    { owner: "o", repo: "c" },
+  ];
+  for (const [index, repo] of repos.entries()) {
+    await writeCacheEntry(dir, repo, { content: repo.repo }, { ttlMs: 60_000, now: 1_000 + index, maxEntries: 2 });
+  }
+  const files = join(dir, "o");
+  assert.equal(readdirSync(files).filter((name) => name.endsWith(".json")).length, 2);
+  assert.ok(!existsSync(join(files, "a.json")), "oldest entry is evicted");
+  assert.ok(existsSync(join(files, "c.json")));
 });
 
 test("resolveCacheDir: defaults to ~/.pi/agent/wishcraft-cache/deepwiki when no override", () => {
