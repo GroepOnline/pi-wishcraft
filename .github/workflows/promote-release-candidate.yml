@@ -84,7 +84,11 @@ jobs:
             [ "$PACKAGE_VERSION" = "$VERSION" ] || { echo "package.json version mismatch." >&2; exit 1; }
             [ "$LOCK_VERSION" = "$VERSION" ] || { echo "package-lock root version mismatch." >&2; exit 1; }
             [ "$LOCK_ROOT_VERSION" = "$VERSION" ] || { echo "package-lock package version mismatch." >&2; exit 1; }
-            printf '%s\n' "$CHANGELOG" | grep -Fqx "## [$VERSION] - $(date -u +%F)" || {
+            # grep WITHOUT -q: -q exits on the first match, closing the pipe on
+            # printf while the (large) CHANGELOG is still being written — the
+            # resulting EPIPE fails the pipeline under pipefail even though the
+            # heading matched.
+            printf '%s\n' "$CHANGELOG" | grep -Fix "## [$VERSION] - $(date -u +%F)" > /dev/null || {
               echo "CHANGELOG release heading missing." >&2; exit 1;
             }
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
