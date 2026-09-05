@@ -178,6 +178,17 @@ export function extractChangelogNotes(changelog, version) {
   return (next === -1 ? rest : rest.slice(0, next)).trim();
 }
 
+/** Body under `## [Unreleased]` up to the next heading. Empty when absent or
+ * whitespace-only — the signal that there is nothing worth releasing. */
+export function extractUnreleasedNotes(changelog) {
+  const heading = /^## \[Unreleased\][ \t]*\n/m;
+  const match = heading.exec(changelog);
+  if (!match) return "";
+  const rest = changelog.slice(match.index + match[0].length);
+  const next = rest.search(/^## \[/m);
+  return (next === -1 ? rest : rest.slice(0, next)).trim();
+}
+
 function main() {
   const { flags, kind: kindArg } = parseArgs(process.argv.slice(2));
   const headSubject = git("git log -1 --pretty=%s");
@@ -217,6 +228,17 @@ function main() {
     );
   }
 
+  // No [Unreleased] notes means nothing changed that deserves a release.
+  // Cutting anyway is how empty X.Y.Z versions with empty CHANGELOG sections
+  // shipped in the past. --force is the explicit escape hatch for humans.
+  const changelog = readFileSync(changelogPath, "utf8");
+  const notes = extractUnreleasedNotes(changelog);
+  if (!notes && !flags.has("--force")) {
+    console.log("No [Unreleased] notes in CHANGELOG.md; nothing to release.");
+    console.log("Add release notes or pass --force to cut an empty release.");
+    return;
+  }
+
   pkg.version = next;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
   if (existsSync(lockPath)) {
@@ -227,7 +249,6 @@ function main() {
   }
 
   const date = new Date().toISOString().slice(0, 10);
-  const changelog = readFileSync(changelogPath, "utf8");
   const rolled = rewriteUnreleasedHeading(changelog, next, date);
   if (rolled.rewritten) {
     writeFileSync(changelogPath, rolled.changelog);
@@ -265,6 +286,9 @@ if (invokedAsCli) {
       if (!version) throw new Error("usage: node scripts/release.mjs notes <version>");
       const changelog = readFileSync(changelogPath, "utf8");
       process.stdout.write(extractChangelogNotes(changelog, version) + "\n");
+    } else if (process.argv[2] === "unreleased-notes") {
+      const notes = extractUnreleasedNotes(readFileSync(changelogPath, "utf8"));
+      if (notes) process.stdout.write(notes + "\n");
     } else if (process.argv[2] === "next") {
       const kindArg = process.argv[3] ?? "auto";
       const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));

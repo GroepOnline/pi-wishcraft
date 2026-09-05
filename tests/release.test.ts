@@ -16,6 +16,7 @@ import {
   chooseBump,
   existingTagAction,
   extractChangelogNotes,
+  extractUnreleasedNotes,
   parseLatestVersionTag,
   parseReleaseCandidateBranch,
   resolveReleaseVersion,
@@ -464,6 +465,55 @@ test("release.mjs notes prints the CHANGELOG section for a shipped version", () 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /Queue archive cutoff/);
   assert.doesNotMatch(result.stdout, /## \[0\.22\.1\]/);
+});
+
+test("extractUnreleasedNotes returns the notes-driven release signal", () => {
+  const changelog = `# Changelog
+
+## [Unreleased]
+
+### Fixed
+- Release pipeline no longer cuts empty releases.
+
+## [1.2.3] - 2026-08-20
+
+### Added
+- Shipped.
+`;
+  assert.equal(
+    extractUnreleasedNotes(changelog),
+    "### Fixed\n- Release pipeline no longer cuts empty releases.",
+  );
+  assert.equal(extractUnreleasedNotes("# Changelog\n\n## [Unreleased]\n\n## [1.2.3]\n"), "");
+  assert.equal(extractUnreleasedNotes("# Changelog\n\n## [Unreleased]\n   \n\n## [1.2.3]\n"), "");
+  assert.equal(extractUnreleasedNotes("# Changelog\n\n## [1.2.3]\n"), "");
+  assert.match(extractUnreleasedNotes("# Changelog\n\n## [Unreleased]\n\n- Only tail.\n"), /Only tail\./);
+});
+
+test("release.mjs unreleased-notes prints the current Unreleased notes", () => {
+  const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
+  const result = spawnSync(
+    process.execPath,
+    ["scripts/release.mjs", "unreleased-notes"],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const notes = extractUnreleasedNotes(changelog);
+  assert.equal(result.stdout, notes ? `${notes}\n` : "");
+});
+
+test("release.mjs refuses to cut a release without Unreleased notes unless forced", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  // The CI prepare step must gate candidate creation on real notes, and the
+  // Verify dispatch must honor the skip so an empty release can never ship.
+  assert.match(workflow, /NOTES="\$\(node scripts\/release\.mjs unreleased-notes\)"/);
+  assert.match(workflow, /elif \[ -z "\$NOTES" \]/);
+  assert.match(workflow, /No \[Unreleased\] notes on main; nothing to release/);
+  assert.match(workflow, /steps\.candidate\.outputs\.skip != 'true'/);
+  // The local script carries the same gate behind an explicit escape hatch.
+  const script = readFileSync(join(root, "scripts/release.mjs"), "utf8");
+  assert.match(script, /No \[Unreleased\] notes in CHANGELOG\.md; nothing to release\./);
+  assert.match(script, /!flags\.has\("--force"\)/);
 });
 
 test("github-release.sh fails closed without GITHUB_TOKEN", () => {

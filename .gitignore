@@ -135,4 +135,5 @@ Pods/
 # Local agent adapter state (never product code)
 .codex/
 .pi/
+.commandcode/
 node_modules/
