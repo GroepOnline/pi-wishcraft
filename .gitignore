@@ -137,3 +137,10 @@ Pods/
 .pi/
 .commandcode/
 node_modules/
+
+# Local agent adapter state (never product code)
+.claude/
+.devin/
+.factory/
+.jules/
+.remember/
