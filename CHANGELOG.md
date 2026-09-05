@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.4.16] - 2026-09-05
+
 ### Fixed
 - Release pipeline no longer cuts empty releases: candidate preparation (and the local `release` script, behind `--force`) now requires actual `[Unreleased]` notes in the CHANGELOG before bumping, so notes-only and docs-only merges to main no longer publish versions with empty release sections.
 
