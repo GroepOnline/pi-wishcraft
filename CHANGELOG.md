@@ -4,7 +4,27 @@
 
 ## [1.4.13] - 2026-09-05
 
+### Added
+- Skill Studio panes wired end-to-end (`/studio`): the fullscreen workbench now connects the registry-backed list, a detail pane (health, category override, usage count, frontmatter keys, model-invocation flag, and resolved local references with ✓/✗), actions (create from template, edit in-app with cache invalidation, doctor), and AI advice with explain/integrate/examples/improve modes — streamed through the advise engine with DeepWiki wiki context and insert-into-editor. The fail-closed placeholder gate is lifted; the entrypoint keeps its guards (closed without UI, warning + closed in RPC mode).
+- DeepWiki disk cache gains bounded LRU eviction (`maxEntries`, default 64) on top of the existing TTL + stale-fallback behavior.
+- Tests: studio pane render, key routing + refresh, entrypoint guards, and LRU eviction covered; 723 passing.
+
 ## [1.4.12] - 2026-09-05
+
+### Added
+- Skill Studio: browse the ChefGroep global skill registry alongside local skills (`loadSkillStudioCatalog`): registry-only skills surface with routing metadata and a "registry source not readable" warning when the file is unavailable on this host.
+- Motion rail: impressive adaptive rail with motion-driven routing (#83).
+
+### Changed
+- AGENTS.md rewritten to the current architecture (#80).
+- Compound Engineering overlay example clarified: explainer archival and sweep state paths now reference `<docs_root>` (#68); devDependency `@earendil-works/pi-coding-agent` bumped to 0.84.3.
+
+### Removed
+- Dead agent-tools (patch, ripgrep) with no runtime consumers (#81).
+
+### Fixed
+- Rail/render fixes shipped with the studio registry work (#79).
+- Tests: `session_compact_failed` regression coverage — clearing compacting state, settling the signal, and blocking post-compact queue items with the error (#68).
 
 ## [1.4.11] - 2026-08-30
 
