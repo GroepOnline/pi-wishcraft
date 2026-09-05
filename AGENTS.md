@@ -118,6 +118,12 @@ CI workflows (`.github/workflows/`):
 - `release.yml` — reuses test.yml, prepares release-candidate branch
 - `promote-release-candidate.yml` — promotes verified SHA to main, tags, dispatches publish
 
+Release behavior:
+- **Every main merge with `[Unreleased]` CHANGELOG notes cuts a release automatically** (verify → candidate → promote → tag → npm). Notes-less merges skip candidate creation entirely — no more empty versions.
+- Notes live under `## [Unreleased]` in CHANGELOG.md; the release commit rolls them into the new version heading.
+- `[skip release]` skips the release when it appears in the **commit subject** — squash-merge builds that subject from the commit subject lines, so a `[skip release]` in a PR title is NOT preserved. Careful: the guard substring-matches the whole commit message, so don't write the literal tag in prose either.
+- Manual escape hatch: `node scripts/release.mjs <version> --force` cuts a release with empty notes (deliberate, local only).
+
 ## Code Conventions & Common Patterns
 
 ### Module Structure
