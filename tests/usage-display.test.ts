@@ -245,6 +245,35 @@ test("cache_read percent and both formats handle zero input without NaN", () => 
 
 // ── queue segment ──────────────────────────────────────────────────────────
 
+// ── budget segment ───────────────────────────────────────────────────────
+
+test("budget segment renders daily usage with a fill bar when a limit is set", () => {
+  const ctx = createSegmentContext(
+    {},
+    { tokenBudget: { dailyLimit: 100000, dailyUsed: 50000 } },
+  );
+  const rendered = renderSegment("budget", ctx);
+  assert.equal(stripAnsi(rendered.content), "budget 50% ▓▓▓▓░░░░");
+});
+
+test("budget segment hides without a configured daily limit", () => {
+  const rendered = renderSegment("budget", createSegmentContext());
+  assert.equal(rendered.visible, false);
+  assert.equal(rendered.content, "");
+});
+
+test("budget segment clamps overspend at 100%", () => {
+  const ctx = createSegmentContext(
+    {},
+    { tokenBudget: { dailyLimit: 1000, dailyUsed: 5000 } },
+  );
+  const content = stripAnsi(renderSegment("budget", ctx).content);
+  assert.match(content, /budget 100%/);
+  assert.ok(content.includes("▓▓▓▓▓▓▓▓"), "the fill bar must be fully spent");
+});
+
+// ── queue segment ─────────────────────────────────────────────────────────
+
 test("queue segment hides when empty", () => {
   const ctx = createSegmentContext();
   assert.deepEqual(renderSegment("queue", ctx), {

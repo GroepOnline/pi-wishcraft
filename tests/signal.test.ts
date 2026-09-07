@@ -53,7 +53,7 @@ function schedulerHarness() {
   };
 }
 
-test("Signal leases the shared scheduler only while active", () => {
+test("Signal leases the ambient channel while resting and signal while active", () => {
   const harness = schedulerHarness();
   const signal = createSignalRuntime(0);
   const policy = {
@@ -62,16 +62,38 @@ test("Signal leases the shared scheduler only while active", () => {
   };
 
   assert.equal(harness.scheduler.activeCount, 0);
+  setSignalEvent(signal, harness.scheduler, policy, "idle");
+  assert.equal(signal.active, false);
+  assert.equal(signal.idleAnimated, true);
+  assert.equal(harness.scheduler.activeCount, 1);
+  assert.deepEqual(harness.scheduler.activeChannels(), ["ambient"]);
+
+  harness.advance(300);
+  assert.equal(signal.tick, 1, "the ambient clock must tick while resting");
+
   setSignalEvent(signal, harness.scheduler, policy, "streaming");
+  assert.equal(signal.active, true);
+  assert.equal(signal.idleAnimated, false);
   assert.equal(harness.scheduler.activeCount, 1);
   assert.equal(harness.scheduler.activeChannels()[0], "signal");
-  assert.equal(harness.pending, true);
 
-  harness.advance();
+  harness.advance(300);
   assert.equal(signal.tick, 1);
 
   stopSignal(signal, harness.scheduler, policy);
   assert.equal(signal.active, false);
+  assert.equal(signal.idleAnimated, true, "resting resumes ambient breathing");
+  assert.equal(harness.scheduler.activeCount, 1);
+  assert.deepEqual(harness.scheduler.activeChannels(), ["ambient"]);
+
+  // Reduced motion drops ambient entirely: zero consumers, static rail.
+  const reduced = {
+    ...DEFAULT_MOTION_POLICY,
+    level: "reduced" as const,
+    toggles: { ...DEFAULT_MOTION_POLICY.toggles },
+  };
+  stopSignal(signal, harness.scheduler, reduced);
+  assert.equal(signal.idleAnimated, false);
   assert.equal(harness.scheduler.activeCount, 0);
   assert.equal(harness.scheduler.running, false);
   assert.equal(harness.pending, false);
@@ -123,16 +145,20 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   assert.ok(headIndex > trailIndex, "ASCII trail must trail the head");
 });
 
-test("idle Signal is stable without a scheduler-driven clock", () => {
+test("idle breathes from the ambient tick, not the wall clock", () => {
   const signal = createSignalRuntime(0);
+  signal.idleAnimated = true;
   const spec = getStructuralPreset("lanternwake").signal;
   const originalNow = Date.now;
   try {
     Date.now = () => 1;
-    const first = renderActivity(signal, spec, false, 160);
+    const first = stripAnsi(renderActivity(signal, spec, false, 160));
     Date.now = () => 9_999_999;
-    const second = renderActivity(signal, spec, false, 160);
-    assert.equal(first, second);
+    const second = stripAnsi(renderActivity(signal, spec, false, 160));
+    assert.equal(first, second, "the same ambient tick must render identically regardless of clock");
+    signal.tick = 24;
+    const later = stripAnsi(renderActivity(signal, spec, false, 160));
+    assert.notEqual(first, later, "a different ambient tick must change the breathing rail");
   } finally {
     Date.now = originalNow;
   }

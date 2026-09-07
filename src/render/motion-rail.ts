@@ -1,11 +1,13 @@
 /**
  * Compact Signal rail. It is deliberately a single terminal row: the rail
  * reports agent state, it never displaces the footer while a response streams.
- * Idle has no scheduler consumer; active work leases the shared scheduler.
+ * Full-motion idle leases the scheduler's ambient channel and breathes from
+ * that tick. Reduced and off motion stay a static marker with no consumer.
+ * Active work leases the signal channel.
  */
 
-import { getMotion } from "../motion/catalog.ts";
-import { frameAt, lanternGlow, sweepPhase, sweepReturning, trailGlyph } from "../motion/frames.ts";
+import { defaultMotionFor, getMotion } from "../motion/catalog.ts";
+import { frameAt, framesOf, lanternGlow, sweepPhase, sweepReturning, trailGlyph } from "../motion/frames.ts";
 import { fatBand } from "./motion-candidates.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
@@ -55,6 +57,14 @@ function railCellColor(distance: number, p: RailPalette): string {
   return fgGradientCode("accent", "sep", Math.min(distance, p.trailDepth + 1) / (p.trailDepth + 1));
 }
 
+function clamp01(value: number): number {
+  return value < 0 ? 0 : value > 1 ? 1 : value;
+}
+
+function scene(duration: number, tick: number): number {
+  return (((tick % duration) + duration) % duration) / duration;
+}
+
 export function renderActivity(
   runtime: SignalRuntime,
   spec: SignalSpec,
@@ -99,7 +109,9 @@ export function renderActivity(
 
   let rail: string;
   if (!runtime.active) {
-    rail = renderIdleRail(railWidth, ascii, track, dim);
+    rail = runtime.idleAnimated && !ascii
+      ? renderBreathingRail(runtime.tick, railWidth, dim, model, hot)
+      : renderIdleRail(railWidth, ascii, track, dim);
   } else if (runtime.event === "compact") {
     rail = renderCompactRail(runtime.tick, railWidth, ascii, headGlyph, cellColor);
   } else if (runtime.motionId === "fat-band") {
@@ -114,10 +126,41 @@ export function renderActivity(
   return `${paint(left, edge)}${rail}${paint(right, edge)} ${paint(label, runtime.active ? hot : dim)}`;
 }
 
-/** Idle rail. Do not derive idle state from Date.now(): there is
- * intentionally no idle animation clock, so a clock-derived rail otherwise
- * changes only when an unrelated repaint happens. The center marker makes
- * ready glanceable. */
+/**
+ * Resting rail on the ambient tick. A warm radial glow breathes and
+ * shimmers per cell. The same tick always paints the same rail, so tests
+ * can advance `runtime.tick` without sampling the wall clock.
+ */
+function renderBreathingRail(
+  tick: number,
+  width: number,
+  dim: string,
+  model: string,
+  hot: string,
+): string {
+  const idleDef = getMotion(defaultMotionFor("idle"));
+  const idleFrames = idleDef ? framesOf(idleDef) : ["◌", "◎", "◈", "⬡", "◈", "◎"];
+  const phase = scene(96, tick);
+  const center = (width - 1) / 2;
+  const built: string[] = [];
+  for (let i = 0; i < width; i++) {
+    const radial = Math.cos(((i - center) / Math.max(1, center)) * Math.PI * 0.5);
+    const shimmer = 0.22 * Math.sin(phase * Math.PI * 2 + i * 0.9);
+    const level = clamp01(radial * 0.9 + 0.1 + shimmer);
+    if (level <= 0.45) {
+      built.push(paint("─", dim));
+      continue;
+    }
+    const frameIdx = Math.floor(level * (idleFrames.length - 1)) % idleFrames.length;
+    const glyph = cellGlyph(idleFrames[frameIdx] ?? "", "·");
+    const color = level > 0.72 ? hot : model;
+    built.push(paint(glyph, color));
+  }
+  return built.join("");
+}
+
+/** Static idle rail. Reduced and off motion never lease a consumer, so the
+ * marker must not change between unrelated repaints. */
 function renderIdleRail(
   width: number,
   ascii: boolean,
