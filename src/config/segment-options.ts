@@ -2,6 +2,15 @@ import { normalizeCostCurrency } from "../usage/rates.ts";
 import { isRecord } from "./primitives.ts";
 import type { StatusLineSegmentOptions } from "./types.ts";
 
+/**
+ * Normalizes raw segment configuration into supported status-line segment options.
+ *
+ * Invalid values are ignored, numeric limits are normalized, string values are trimmed,
+ * and non-empty template overrides are preserved for supported option groups.
+ *
+ * @param raw - Raw segment configuration to normalize
+ * @returns The validated and normalized segment options
+ */
 export function normalizeSegmentOptions(
   raw: Record<string, unknown>,
 ): StatusLineSegmentOptions {

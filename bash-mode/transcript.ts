@@ -4,6 +4,13 @@ function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
 }
 
+/**
+ * Extracts the end of a string within a UTF-8 byte limit.
+ *
+ * @param value - The source string
+ * @param maxBytes - The maximum number of UTF-8 bytes to include
+ * @returns The UTF-8-safe tail of `value`
+ */
 function utf8Tail(value: string, maxBytes: number): string {
   if (maxBytes <= 0) return "";
   const bytes = Buffer.from(value, "utf8");
@@ -14,6 +21,12 @@ function utf8Tail(value: string, maxBytes: number): string {
   return bytes.subarray(start).toString("utf8");
 }
 
+/**
+ * Normalizes lines by removing carriage returns and splitting embedded newline characters.
+ *
+ * @param lines - The lines to normalize
+ * @returns The normalized lines
+ */
 function compactLines(lines: string[]): string[] {
   const normalized: string[] = [];
   for (const line of lines) {

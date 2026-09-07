@@ -61,6 +61,13 @@ import {
   setBashModeActive,
 } from "../commands/bash-mode-actions.ts";
 
+/**
+ * Initializes the custom editor, autocomplete providers, footer, and powerline widgets for the runtime.
+ *
+ * @param pi - Extension API used to execute powerline actions.
+ * @param rt - Mutable runtime state used by the editor and its integrations.
+ * @param ctx - UI and runtime context used to register editor components and handlers.
+ */
 export function setupCustomEditor(
   pi: ExtensionAPI,
   rt: RuntimeState,
