@@ -325,6 +325,8 @@ export interface StatusLineSegmentOptions {
   tps?: SegmentFormatOption & {
     /** Sliding rate window length in ms (default 1000; wider = smoother, e.g. 2000 for fast models). */
     windowMs?: number;
+    /** Show both rates, generated tokens only, or prompt/input throughput only. */
+    mode?: "both" | "out" | "in";
   };
 }
 

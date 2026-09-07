@@ -86,7 +86,7 @@ You can also set it in the agent settings file (`~/.pi/agent/settings.json` by d
 | `full` | Everything: hostname, model, path (abbreviated), full git incl commit + ↑/↓, totals, context total, elapsed + clock |
 | `nerd` | Maximum detail for Nerd Font users: qualified model, full tokens + cache, commit, totals, seconds clock |
 | `ascii` | Safe for any terminal: branch + short commit + ↑/↓, tokens, cost, context% (no Nerd glyphs) |
-| `chef` | Fork default: muted colors, slash separators, live TPS in/out + open-ports + subagent-cost segments |
+| `chef` | Fork default: muted colors, slash separators, compact live state rail, session age, TPS in/out, protocol-labelled open ports, generated tokens, cache, subagent cost |
 
 **Environment:** `POWERLINE_NERD_FONTS=1` to force Nerd Fonts, `=0` for ASCII.
 

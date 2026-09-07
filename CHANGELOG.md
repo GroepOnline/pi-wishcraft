@@ -6,10 +6,17 @@
 - Bash forward-mode privacy notice (issue #71): the first keystroke forwarded to a running command raises an info notice that typed input may echo into the transcript; documented in `docs/bash-mode.md`.
 - Managed PTY suite is now script-gated (issue #73): PTY-core tests skip when `script(1)` is missing instead of silently passing in degraded pipe mode, the basic run asserts a real PTY transport, and the explicit pipe-mode tests still cover the fallback.
 
+### Changed
+- Signal rail is now a compact single-line state surface. `ready` is stable and costs no animation frames; thinking, streaming, tools, and compaction use a bounded directional trail without expanding the footer to three rows.
+- Chef preset now includes session age, generated-token throughput, and cache-read information when present. The port counter names its protocol (`tcp` or `tcp+udp`) instead of displaying an ambiguous bare count.
+
 ### Fixed
 - Bash paste-while-running (issue #72): a bracketed paste performed while a command runs is stripped of its markers and forwarded to the child stdin — including split delivery across input chunks — instead of silently queuing in the editor buffer behind the command.
 - PTY/transcript memory bounds (from jan `fix/runtime-pty-bounds`): a single unterminated output line is capped at a 64 KiB UTF-8 tail with a one-time notice, the partial-escape tail is bounded, and the active transcript command trims head lines/bytes within limits instead of growing unbounded.
 - Segment-options spread hygiene (CodeFactor #86–89): `normalizeSegmentOptions` assigns fields imperatively instead of spreading conditional empty objects.
+- Motion frames that contain multiple terminal columns no longer expand a rail cell and shift the footer layout while they animate.
+- Idle rail no longer samples `Date.now()` without a corresponding repaint clock, eliminating stale or apparently random idle frames.
+- TPS now reports `--` until a live two-sample rate exists, rather than falsely presenting idle telemetry as `0`; the existing `both`/`out`/`in` setting is validated and honored.
 
 ## [1.4.16] - 2026-09-05
 
