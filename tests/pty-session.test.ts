@@ -225,3 +225,27 @@ test("filterPtyOutput neutralizes a trailing partial escape (reassembly is the s
   const a = filterPtyOutput("text\x1b[", { color: true });
   assert.equal(a, "text[");
 });
+
+
+test("PtyShellSession bounds a giant unterminated output line", async () => {
+  const dir = makeTempDir();
+  const lines: string[] = [];
+  const session = new PtyShellSession({
+    cwd: dir,
+    onOutput: (line) => lines.push(line),
+    onStateChange: () => {},
+    scriptAvailable: () => false,
+  });
+
+  const result = await session.runCommand(
+    `node -e "process.stdout.write('x'.repeat(200000))"`,
+  );
+  assert.equal(result.exitCode, 0);
+  assert.ok(lines.includes("[wishcraft] output line truncated; keeping tail"));
+  const payload = lines.find((line) => /^x+$/.test(line));
+  assert.ok(payload, `expected bounded output tail: ${JSON.stringify(lines.map((line) => line.length))}`);
+  assert.ok(Buffer.byteLength(payload!, "utf8") <= 64 * 1024);
+  assert.ok(payload!.endsWith("x"));
+  session.dispose();
+  rmSync(dir, { recursive: true, force: true });
+});

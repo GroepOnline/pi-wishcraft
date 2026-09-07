@@ -43,6 +43,8 @@ export class BashModeEditor extends CustomEditor {
   private ghostAbort: AbortController | null = null;
   private ghostToken = 0;
   private ghostSchedule: ReturnType<typeof setTimeout> | null = null;
+  /** A bracketed paste was split across input chunks while forwarding. */
+  private forwardPasteOpen = false;
 
   constructor(
     tui: any,
@@ -124,9 +126,31 @@ export class BashModeEditor extends CustomEditor {
       return;
     }
 
+    // v2 forward-mode gate, shared by the paste branch (issue #72) and the
+    // per-keystroke forward further down: while a command runs, input
+    // belongs to the child stdin, never to the editor buffer behind it.
+    const forwardActive =
+      this.optionsRef.isBashModeActive() &&
+      this.optionsRef.isShellRunning() &&
+      (this.optionsRef.forwardWhileRunning?.() ?? false) &&
+      this.optionsRef.onForwardInput != null;
+    if (!forwardActive) this.forwardPasteOpen = false;
+
     const pasteInProgress =
-      data.includes("\x1b[200~") || Reflect.get(this, "isInPaste") === true;
+      data.includes("\x1b[200~") ||
+      data.includes("\x1b[201~") ||
+      Reflect.get(this, "isInPaste") === true ||
+      (forwardActive && this.forwardPasteOpen);
     if (pasteInProgress) {
+      if (forwardActive) {
+        if (data.includes("\x1b[200~")) this.forwardPasteOpen = true;
+        if (data.includes("\x1b[201~")) this.forwardPasteOpen = false;
+        const payload = data
+          .replaceAll("\x1b[200~", "")
+          .replaceAll("\x1b[201~", "");
+        if (payload) this.optionsRef.onForwardInput?.(payload);
+        return;
+      }
       super.handleInput(data);
       if (Reflect.get(this, "isInPaste") === true) {
         return;
@@ -169,15 +193,14 @@ export class BashModeEditor extends CustomEditor {
       // (\x04) must also forward — line-oriented stdin programs (read,
       // sudo, git rebase -i) cannot proceed without a line terminator.
       // Opt-in via forwardWhileRunning so v1 run-blocked behavior unchanged.
+      // (forwardActive is computed above; bracketed pastes take the paste
+      // branch, which forwards the stripped payload too.)
       if (
-        bashMode &&
-        this.optionsRef.isShellRunning() &&
-        (this.optionsRef.forwardWhileRunning?.() ?? false) &&
-        this.optionsRef.onForwardInput != null &&
+        forwardActive &&
         !isKeyRelease(data) &&
         (isPrintableInput(data) || data === "\r" || data === "\n" || data === "\x04")
       ) {
-        this.optionsRef.onForwardInput(data);
+        this.optionsRef.onForwardInput?.(data);
         return;
       }
 

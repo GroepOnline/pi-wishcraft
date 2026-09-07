@@ -8,126 +8,129 @@ export function normalizeSegmentOptions(
   const options: StatusLineSegmentOptions = {};
 
   if (isRecord(raw.model)) {
-    options.model = {
-      ...(typeof raw.model.showThinkingLevel === "boolean"
-        ? { showThinkingLevel: raw.model.showThinkingLevel }
-        : {}),
-      ...(raw.model.display === "name" || raw.model.display === "qualified"
-        ? { display: raw.model.display }
-        : {}),
-    };
+    const model: NonNullable<StatusLineSegmentOptions["model"]> = {};
+    if (typeof raw.model.showThinkingLevel === "boolean") {
+      model.showThinkingLevel = raw.model.showThinkingLevel;
+    }
+    if (raw.model.display === "name" || raw.model.display === "qualified") {
+      model.display = raw.model.display;
+    }
+    options.model = model;
   }
 
   if (isRecord(raw.path)) {
-    options.path = {
-      ...(raw.path.mode === "basename" ||
+    const path: NonNullable<StatusLineSegmentOptions["path"]> = {};
+    if (
+      raw.path.mode === "basename" ||
       raw.path.mode === "abbreviated" ||
       raw.path.mode === "full"
-        ? { mode: raw.path.mode }
-        : {}),
-      ...(typeof raw.path.maxLength === "number" &&
+    ) {
+      path.mode = raw.path.mode;
+    }
+    if (
+      typeof raw.path.maxLength === "number" &&
       Number.isFinite(raw.path.maxLength) &&
       raw.path.maxLength > 0
-        ? { maxLength: Math.floor(raw.path.maxLength) }
-        : {}),
-    };
+    ) {
+      path.maxLength = Math.floor(raw.path.maxLength);
+    }
+    options.path = path;
   }
 
   if (isRecord(raw.git)) {
-    options.git = {
-      ...(typeof raw.git.showBranch === "boolean"
-        ? { showBranch: raw.git.showBranch }
-        : {}),
-      ...(typeof raw.git.showStaged === "boolean"
-        ? { showStaged: raw.git.showStaged }
-        : {}),
-      ...(typeof raw.git.showUnstaged === "boolean"
-        ? { showUnstaged: raw.git.showUnstaged }
-        : {}),
-      ...(typeof raw.git.showUntracked === "boolean"
-        ? { showUntracked: raw.git.showUntracked }
-        : {}),
-      ...(raw.git.polling === "full" ||
+    const git: NonNullable<StatusLineSegmentOptions["git"]> = {};
+    if (typeof raw.git.showBranch === "boolean") git.showBranch = raw.git.showBranch;
+    if (typeof raw.git.showStaged === "boolean") git.showStaged = raw.git.showStaged;
+    if (typeof raw.git.showUnstaged === "boolean") {
+      git.showUnstaged = raw.git.showUnstaged;
+    }
+    if (typeof raw.git.showUntracked === "boolean") {
+      git.showUntracked = raw.git.showUntracked;
+    }
+    if (
+      raw.git.polling === "full" ||
       raw.git.polling === "branch" ||
       raw.git.polling === "off"
-        ? { polling: raw.git.polling }
-        : {}),
-      ...(typeof raw.git.hostIcon === "boolean"
-        ? { hostIcon: raw.git.hostIcon }
-        : {}),
-      ...(typeof raw.git.showAheadBehind === "boolean"
-        ? { showAheadBehind: raw.git.showAheadBehind }
-        : {}),
-      ...(typeof raw.git.showCommit === "boolean"
-        ? { showCommit: raw.git.showCommit }
-        : {}),
-      ...(typeof raw.git.maxCommitSubjectLength === "number" &&
+    ) {
+      git.polling = raw.git.polling;
+    }
+    if (typeof raw.git.hostIcon === "boolean") git.hostIcon = raw.git.hostIcon;
+    if (typeof raw.git.showAheadBehind === "boolean") {
+      git.showAheadBehind = raw.git.showAheadBehind;
+    }
+    if (typeof raw.git.showCommit === "boolean") git.showCommit = raw.git.showCommit;
+    if (
+      typeof raw.git.maxCommitSubjectLength === "number" &&
       Number.isFinite(raw.git.maxCommitSubjectLength) &&
       raw.git.maxCommitSubjectLength > 0
-        ? { maxCommitSubjectLength: Math.floor(raw.git.maxCommitSubjectLength) }
-        : {}),
-    };
+    ) {
+      git.maxCommitSubjectLength = Math.floor(raw.git.maxCommitSubjectLength);
+    }
+    options.git = git;
   }
 
   if (isRecord(raw.time)) {
-    options.time = {
-      ...(raw.time.format === "12h" || raw.time.format === "24h"
-        ? { format: raw.time.format }
-        : {}),
-      ...(typeof raw.time.showSeconds === "boolean"
-        ? { showSeconds: raw.time.showSeconds }
-        : {}),
-    };
+    const time: NonNullable<StatusLineSegmentOptions["time"]> = {};
+    if (raw.time.format === "12h" || raw.time.format === "24h") {
+      time.format = raw.time.format;
+    }
+    if (typeof raw.time.showSeconds === "boolean") {
+      time.showSeconds = raw.time.showSeconds;
+    }
+    options.time = time;
   }
 
   if (isRecord(raw.cost)) {
     const currency = normalizeCostCurrency(raw.cost.currency);
-    options.cost = {
-      ...(raw.cost.subscriptionDisplay === "subscription" ||
+    const cost: NonNullable<StatusLineSegmentOptions["cost"]> = {};
+    if (
+      raw.cost.subscriptionDisplay === "subscription" ||
       raw.cost.subscriptionDisplay === "reported-cost" ||
       raw.cost.subscriptionDisplay === "both"
-        ? { subscriptionDisplay: raw.cost.subscriptionDisplay }
-        : {}),
-      ...(currency ? { currency } : {}),
-    };
+    ) {
+      cost.subscriptionDisplay = raw.cost.subscriptionDisplay;
+    }
+    if (currency) cost.currency = currency;
+    options.cost = cost;
   }
 
   if (isRecord(raw.context)) {
-    options.context = {
-      ...(raw.context.format === "full" || raw.context.format === "percent"
-        ? { format: raw.context.format }
-        : {}),
-    };
+    const context: NonNullable<StatusLineSegmentOptions["context"]> = {};
+    if (raw.context.format === "full" || raw.context.format === "percent") {
+      context.format = raw.context.format;
+    }
+    options.context = context;
   }
 
   if (isRecord(raw.cache_read)) {
-    options.cache_read = {
-      ...(raw.cache_read.format === "tokens" ||
+    const cacheRead: NonNullable<StatusLineSegmentOptions["cache_read"]> = {};
+    if (
+      raw.cache_read.format === "tokens" ||
       raw.cache_read.format === "percent" ||
       raw.cache_read.format === "both"
-        ? { format: raw.cache_read.format }
-        : {}),
-    };
+    ) {
+      cacheRead.format = raw.cache_read.format;
+    }
+    options.cache_read = cacheRead;
   }
 
   if (isRecord(raw.openPorts)) {
-    options.openPorts = {
-      ...(typeof raw.openPorts.includeUdp === "boolean"
-        ? { includeUdp: raw.openPorts.includeUdp }
-        : {}),
-      ...(typeof raw.openPorts.host === "string" && raw.openPorts.host.trim()
-        ? { host: raw.openPorts.host.trim() }
-        : {}),
-    };
+    const openPorts: NonNullable<StatusLineSegmentOptions["openPorts"]> = {};
+    if (typeof raw.openPorts.includeUdp === "boolean") {
+      openPorts.includeUdp = raw.openPorts.includeUdp;
+    }
+    if (typeof raw.openPorts.host === "string" && raw.openPorts.host.trim()) {
+      openPorts.host = raw.openPorts.host.trim();
+    }
+    options.openPorts = openPorts;
   }
 
   if (isRecord(raw.tps)) {
-    options.tps = {
-      ...(typeof raw.tps.windowMs === "number" &&
-      Number.isFinite(raw.tps.windowMs)
-        ? { windowMs: Math.min(5000, Math.max(500, Math.floor(raw.tps.windowMs))) }
-        : {}),
-    };
+    const tps: NonNullable<StatusLineSegmentOptions["tps"]> = {};
+    if (typeof raw.tps.windowMs === "number" && Number.isFinite(raw.tps.windowMs)) {
+      tps.windowMs = Math.min(5000, Math.max(500, Math.floor(raw.tps.windowMs)));
+    }
+    options.tps = tps;
   }
 
   // Generic `template` override for every segment option group:

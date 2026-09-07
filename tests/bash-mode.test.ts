@@ -222,7 +222,7 @@ test("transcript store truncates oldest commands at command boundaries", () => {
   assert.equal(snapshot.truncatedCommands, 1);
 });
 
-test("transcript store keeps the active command even when it alone exceeds limits", () => {
+test("transcript store trims the active command head when it alone exceeds limits", () => {
   const store = new BashTranscriptStore({
     transcriptMaxLines: 3,
     transcriptMaxBytes: 1024,
@@ -233,7 +233,8 @@ test("transcript store keeps the active command even when it alone exceeds limit
   const snapshot = store.getSnapshot();
   assert.equal(snapshot.commands.length, 1);
   assert.equal(snapshot.commands[0]?.id, "a");
-  assert.deepEqual(snapshot.commands[0]?.output, ["1", "2", "3", "4"]);
+  assert.deepEqual(snapshot.commands[0]?.output, ["2", "3", "4"]);
+  assert.equal(snapshot.commands[0]?.truncated, true);
 });
 
 test("ghost suggestion prefers project history over global history", async () => {
@@ -1726,6 +1727,57 @@ test("bash editor v2 forward-mode routes printable input to the PTY stdin", asyn
       ["h", "e", "l", "l", "o", "😀", "\r", "\x04"],
       "interrupt must not be forwarded",
     );
+  } finally {
+    links.cleanup();
+  }
+});
+
+test("bash editor v2 forward-mode routes a bracketed paste to the PTY stdin", async () => {
+  const links = ensureEditorModuleLinks();
+
+  try {
+    const { BashModeEditor } = await import("../bash-mode/editor.ts");
+    const { KeybindingsManager } = await import(
+      new URL(
+        "../node_modules/@earendil-works/pi-coding-agent/dist/core/keybindings.js",
+        import.meta.url,
+      ).href
+    );
+    const keybindings = KeybindingsManager.create();
+    const forwarded: string[] = [];
+    const editor = new BashModeEditor(
+      { requestRender() {}, terminal: { columns: 80, rows: 24 } },
+      {},
+      keybindings,
+      {
+        keybindings,
+        isBashModeActive: () => true,
+        isShellRunning: () => true,
+        onExitBashMode() {},
+        onSubmitCommand() {},
+        onInterrupt() {},
+        onForwardInput: (data) => {
+          forwarded.push(data);
+        },
+        forwardWhileRunning: () => true,
+        onNotify() {},
+        getHistoryEntries: () => [],
+        resolveGhostSuggestion: async () => null,
+      },
+    );
+
+    // Issue #72: a paste while a command runs must reach the child stdin,
+    // never queue silently in the editor buffer behind the command.
+    editor.handleInput("\x1b[200~echo secret\x1b[201~");
+    assert.deepEqual(forwarded, ["echo secret"]);
+    assert.equal(editor.getText(), "", "pasted text must not enter the editor");
+
+    // Split delivery across input chunks forwards each stripped part.
+    editor.handleInput("\x1b[200~part1");
+    editor.handleInput("part2");
+    editor.handleInput("part3\x1b[201~");
+    assert.deepEqual(forwarded, ["echo secret", "part1", "part2", "part3"]);
+    assert.equal(editor.getText(), "");
   } finally {
     links.cleanup();
   }
