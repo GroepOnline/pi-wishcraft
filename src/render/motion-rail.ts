@@ -1,11 +1,17 @@
 /**
- * Compact Signal rail. It is deliberately a single terminal row: the rail
- * reports agent state, it never displaces the footer while a response streams.
- * Idle has no scheduler consumer; active work leases the shared scheduler.
+ * Signal rail. One terminal row that reports the agent's state:
+ *   resting      — a slow breathing glow on the shared ambient clock
+ *   streaming    — the lane's own motion frames sweep the rail with a
+ *                  hot head, cooling wake, and faint sparks ahead
+ *   compacting   — two heads squeeze inward with a thermal core
+ *
+ * The rail never grows taller than one row: the footer stays put while
+ * a response streams. Reduced-motion policy drops both the ambient and
+ * the signal channel, leaving a stable dim marker.
  */
 
-import { getMotion } from "../motion/catalog.ts";
-import { frameAt, sweepPosition, trailGlyph } from "../motion/frames.ts";
+import { defaultMotionFor, getMotion } from "../motion/catalog.ts";
+import { frameAt, framesOf, sweepPosition, trailGlyph } from "../motion/frames.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
@@ -15,10 +21,19 @@ function paint(text: string, color: string): string {
   return `${color}${text}${ansi.reset}`;
 }
 
-/** Generators such as writing-reveal may contain several columns. A rail cell
- * must always occupy exactly one column or its layout drifts under animation. */
+/** A rail cell must always occupy exactly one column — multi-column frames
+ * (e.g. writing-reveal's growing dashes) are clipped to their first glyph
+ * so the layout never drifts under animation. */
 function cellGlyph(value: string, fallback: string): string {
   return Array.from(value)[0] ?? fallback;
+}
+
+function clamp01(value: number): number {
+  return value < 0 ? 0 : value > 1 ? 1 : value;
+}
+
+function scene(duration: number, tick: number): number {
+  return (((tick % duration) + duration) % duration) / duration;
 }
 
 export function renderActivity(
@@ -29,22 +44,24 @@ export function renderActivity(
 ): string {
   const label = runtime.activity || "ready";
   const dim = getFgAnsiCode("sep");
-  const hot = getFgAnsiCode("accent");
   const model = getFgAnsiCode("model");
   const path = getFgAnsiCode("path");
+  const hot = getFgAnsiCode("accent");
   const track = ascii ? "-" : "─";
-  // A footer rail is state indication, not a hero animation. Keep it readable
-  // on wide terminals and leave enough room for actual operational segments.
+  // A footer rail is state indication, not a hero animation. Bounded so
+  // operational segments keep their width on wide terminals.
   const railWidth = Math.max(12, Math.min(22, Math.round(width * 0.1)));
   const def = getMotion(runtime.motionId);
   const direction = def?.generator?.direction === "reverse" ? "reverse" : "forward";
   const trailDepth = Math.max(2, Math.min(6, def?.generator?.trail ?? 4));
   const headFallback = ascii ? "o" : "●";
-  const headGlyph = (tick: number, distance: number) => {
+  const frames = def && !ascii ? framesOf(def) : null;
+  const headGlyph = (tick: number, distance: number): string => {
     if (ascii) return distance === 0 ? headFallback : trailGlyph(distance, true);
-    return def ? cellGlyph(frameAt(def, tick - distance), headFallback) : headFallback;
+    const frame = frames?.[Math.max(0, tick - distance) % frames.length];
+    return cellGlyph(frame ?? headFallback, headFallback);
   };
-  const cellColor = (distance: number) => {
+  const cellColor = (distance: number): string => {
     if (distance === 0) return hot;
     if (distance === 1) return model;
     if (distance === 2) return path;
@@ -53,31 +70,113 @@ export function renderActivity(
 
   let rail: string;
   if (!runtime.active) {
-    // Do not derive idle state from Date.now(): there is intentionally no idle
-    // animation clock, so a clock-derived rail otherwise changes only when an
-    // unrelated repaint happens. The center marker makes ready glanceable.
-    const center = Math.floor(railWidth / 2);
-    rail = Array.from({ length: railWidth }, (_, index) =>
-      paint(index === center ? (ascii ? "." : "⋄") : track, dim),
-    ).join("");
+    rail = runtime.idleAnimated && !ascii
+      ? renderIdleRail(runtime.tick, railWidth, dim, model, hot)
+      : renderStaticRail(railWidth, ascii, dim);
   } else if (runtime.event === "compact") {
     rail = renderCompactRail(runtime.tick, railWidth, ascii, headGlyph, cellColor);
   } else {
-    const pos = sweepPosition(runtime.tick, railWidth, true, direction);
-    rail = Array.from({ length: railWidth }, (_, index) => {
-      const distance = direction === "forward" ? pos - index : index - pos;
-      if (distance === 0) return paint(headGlyph(runtime.tick, 0), cellColor(0));
-      if (distance > 0 && distance <= trailDepth) {
-        return paint(headGlyph(runtime.tick, distance), cellColor(distance));
-      }
-      return paint(track, dim);
-    }).join("");
+    rail = renderSweepRail(
+      runtime.tick, railWidth, ascii, direction, trailDepth,
+      headGlyph, cellColor, frames, dim, track,
+    );
   }
 
   const edge = runtime.active ? hot : dim;
   const left = `${spec.caps.leftOpen ?? ""}${spec.separators.left}`;
   const right = `${spec.separators.right}${spec.caps.leftClose ?? ""}`;
   return `${paint(left, edge)}${rail}${paint(right, edge)} ${paint(label, runtime.active ? hot : dim)}`;
+}
+
+/**
+ * Resting rail: a warm radial glow that slowly breathes and shimmers per
+ * cell. Driven purely by the ambient tick — deterministic in tests, alive
+ * in the terminal, and zero cost when motion is reduced or off.
+ */
+function renderIdleRail(
+  tick: number,
+  width: number,
+  dim: string,
+  model: string,
+  hot: string,
+): string {
+  const idleDef = getMotion(defaultMotionFor("idle"));
+  const idleFrames = idleDef ? framesOf(idleDef) : ["◌", "◎", "◈", "⬡", "◈", "◎"];
+  const phase = scene(96, tick); // one full breath in ~96 ambient ticks
+  const center = (width - 1) / 2;
+  const built: string[] = [];
+  for (let i = 0; i < width; i++) {
+    // A calm ember in the middle: quiet track on the flanks, a warm glow
+    // that slowly breathes and shimmers around the centre. Only cells
+    // above the glow threshold carry the idle frames — the rest stay as
+    // plain track so the rail never reads as one cycling glyph wall.
+    const radial = Math.cos(((i - center) / Math.max(1, center)) * Math.PI * 0.5);
+    const shimmer = 0.22 * Math.sin(phase * Math.PI * 2 + i * 0.9);
+    const level = clamp01(radial * 0.9 + 0.1 + shimmer);
+    if (level <= 0.45) {
+      built.push(paint("─", dim));
+      continue;
+    }
+    const frameIdx = Math.floor(level * (idleFrames.length - 1)) % idleFrames.length;
+    const glyph = cellGlyph(idleFrames[frameIdx] ?? "", "·");
+    const color = level > 0.72 ? hot : model;
+    built.push(paint(glyph, color));
+  }
+  return built.join("");
+}
+
+function renderStaticRail(
+  width: number,
+  ascii: boolean,
+  dim: string,
+): string {
+  const center = Math.floor(width / 2);
+  const track = ascii ? "-" : "─";
+  return Array.from({ length: width }, (_, index) =>
+    paint(index === center ? (ascii ? "." : "⋄") : track, dim),
+  ).join("");
+}
+
+function renderSweepRail(
+  tick: number,
+  width: number,
+  ascii: boolean,
+  direction: "forward" | "reverse",
+  trailDepth: number,
+  headGlyph: (tick: number, distance: number) => string,
+  cellColor: (distance: number) => string,
+  frames: string[] | null,
+  dim: string,
+  track: string,
+): string {
+  const pos = sweepPosition(tick, width, true, direction);
+  const built: string[] = [];
+  for (let i = 0; i < width; i++) {
+    const distance = direction === "forward" ? pos - i : i - pos;
+    if (distance === 0) {
+      built.push(paint(headGlyph(tick, 0), cellColor(0)));
+      continue;
+    }
+    if (distance > 0 && distance <= trailDepth) {
+      built.push(paint(headGlyph(tick, distance), cellColor(distance)));
+      continue;
+    }
+    // Sparks ahead of the head: a deterministic 1-in-N twinkle so the
+    // sweep feels alive without random jitter between frames.
+    const ahead = -distance;
+    const spark =
+      !ascii &&
+      frames !== null &&
+      ahead >= 1 &&
+      ahead <= 3 &&
+      (tick * 7 + i * 13) % 8 < (ahead === 1 ? 2 : 1);
+    built.push(
+      spark
+        ? paint(cellGlyph(frames[(tick + i) % frames.length]!, "·"), dim)
+        : paint(track, dim),
+    );
+  }
+  return built.join("");
 }
 
 function renderCompactRail(

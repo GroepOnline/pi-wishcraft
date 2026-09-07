@@ -161,6 +161,21 @@ function contextFillBar(
   return `${filledRun}${emptyRun}`;
 }
 
+export const budgetSegment: StatusLineSegment = {
+  id: "budget",
+  render(ctx) {
+    const budget = ctx.tokenBudget;
+    if (!budget || !budget.dailyLimit || budget.dailyLimit <= 0) {
+      return { content: "", visible: false };
+    }
+    const percent = Math.max(0, Math.min(100, (budget.dailyUsed / budget.dailyLimit) * 100));
+    const level = tokenBudgetLevel(budget.dailyUsed, budget.dailyLimit);
+    const bar = contextFillBar(percent, (semantic) => color(ctx, semantic, ""));
+    const text = `budget ${Math.round(percent)}%`;
+    return { content: `${color(ctx, costColorForBudget(level.level), text)} ${bar}`, visible: true };
+  },
+};
+
 export const contextTotalSegment: StatusLineSegment = {
   id: "context_total",
   render(ctx) {
