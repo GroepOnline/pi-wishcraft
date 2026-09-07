@@ -4,8 +4,8 @@
 
 `preset: "chef"` is the GroepOnline fork's default look: muted colors (no rainbow), slash separators, and two extra right-side segments:
 
-- `tps`: live tokens/sec over a rolling 1-second window (EMA-free, no spikes), now reporting **output and input** rates separately (`⇡out ⇣in`) so you can see generation speed and incoming prompt tokens at a glance. A rocket/bolt icon lights up while streaming (override with env `POWERLINE_TPS`).
-- `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6). Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral).
+- `tps`: live tokens/sec over a rolling 1-second window (EMA-free, no spikes), reporting **output and input** rates separately (`⇡out ⇣in`) so you can see generation speed and incoming prompt tokens at a glance. It shows `--` until two live samples exist, rather than pretending an idle session runs at zero. Set `segmentOptions.tps.mode` to `both`, `out`, or `in`; override with `POWERLINE_TPS` when needed.
+- `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6) rendered as `21 tcp`. Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral), rendered as `tcp+udp`.
 
 ### Open-port process owners
 

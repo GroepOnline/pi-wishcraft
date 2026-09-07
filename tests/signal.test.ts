@@ -102,18 +102,15 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   signal.tick = 2;
   const spec = getStructuralPreset("lanternwake").signal;
 
-  // Non-ASCII: 3-row lantern sigil (lanternwake + streaming falls to the
-  // sigil branch). The 1-row directional comet was retired in favour of
-  // the multi-row sigil — the new visual contract. Lantern is pure `#`
-  // blocks: no braille, no shade blocks, no font assumptions.
+  // The rail is always one row. A streaming response must never turn the
+  // footer into a three-line block or push the operational segments down.
   const rail = stripAnsi(renderActivity(signal, spec, false));
-  const lines = rail.split("\n");
-  assert.equal(lines.length, 3, "sigil must be 3 rows");
-  assert.match(lines[0]!, /streaming/);
-  assert.match(lines[0]!, /#/);
-  // ASCII fallback: 1-row box-drawing comet (o head, ━╾>= trail).
-  // Motion frames are a color-font feature — ASCII terminals get the
-  // clean comet so the rail stays legible without Nerd glyphs.
+  assert.doesNotMatch(rail, /\n/);
+  assert.match(rail, /streaming/);
+  assert.match(rail, /[◇◈◆]/);
+
+  // ASCII is a real one-cell directional comet. Its trail remains behind
+  // the head even when the configured motion uses a non-ASCII frame.
   const asciiRail = stripAnsi(renderActivity(signal, spec, true));
   assert.match(asciiRail, /o/);
   assert.match(asciiRail, /streaming/);
@@ -122,6 +119,21 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   assert.notEqual(headIndex, -1, "ASCII head must be present");
   assert.notEqual(trailIndex, -1, "ASCII trail must be present");
   assert.ok(headIndex > trailIndex, "ASCII trail must trail the head");
+});
+
+test("idle Signal is stable without a scheduler-driven clock", () => {
+  const signal = createSignalRuntime(0);
+  const spec = getStructuralPreset("lanternwake").signal;
+  const originalNow = Date.now;
+  try {
+    Date.now = () => 1;
+    const first = renderActivity(signal, spec, false, 160);
+    Date.now = () => 9_999_999;
+    const second = renderActivity(signal, spec, false, 160);
+    assert.equal(first, second);
+  } finally {
+    Date.now = originalNow;
+  }
 });
 
 test("Signal renders left, center, and right lanes on one line", () => {

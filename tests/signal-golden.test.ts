@@ -72,8 +72,8 @@ function render(nowAsciiPos: number): string {
 const GOLDEN: Record<string, string> = {
   // Single primary lane joined by the styled separator; directional comet rail
   // (fixed o head, box-drawing trail behind only, light ─ track, no caps).
-  // Rail width is adaptive (~20% of terminal); this capture pins width=100 → 20 cells.
-  "minimal ready": "!path / !git / ◇━╾>=o-----------------╼━◇ ready / !context_pct",
+  // The compact state rail occupies 10% of the terminal, bounded to 12..22 cells.
+  "minimal ready": "!path / !git / ◇━╾>=o---------╼━◇ ready / !context_pct",
 };
 
 test("U12 golden: v2 render entry pins the post-cutover baseline", () => {
