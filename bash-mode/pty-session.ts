@@ -22,6 +22,38 @@ import { basename, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
 
+const MAX_PENDING_LINE_BYTES = 64 * 1024;
+const MAX_ESCAPE_TAIL_CHARS = 4096;
+const TRUNCATED_LINE_NOTICE = "[wishcraft] output line truncated; keeping tail";
+
+/**
+ * Restricts a string to its trailing UTF-8 bytes without splitting a multibyte character.
+ *
+ * @param value - The string to restrict
+ * @param maxBytes - The maximum number of UTF-8 bytes to retain
+ * @returns The UTF-8-safe trailing portion of `value`
+ */
+function utf8Tail(value: string, maxBytes: number): string {
+  if (maxBytes <= 0) return "";
+  const bytes = Buffer.from(value, "utf8");
+  if (bytes.length <= maxBytes) return value;
+  let start = bytes.length - maxBytes;
+  while (start < bytes.length && (bytes[start]! & 0xc0) === 0x80) start += 1;
+  return bytes.subarray(start).toString("utf8");
+}
+
+/**
+ * Limits a partial terminal escape sequence to the configured character bound while preserving its introducer.
+ *
+ * @param value - The partial escape sequence to limit
+ * @returns The original value or a bounded value with its escape introducer preserved
+ */
+function boundedEscapeTail(value: string): string {
+  if (value.length <= MAX_ESCAPE_TAIL_CHARS) return value;
+  const prefixLength = value.startsWith("\x1b") && value.length > 1 ? 2 : 1;
+  return value.slice(0, prefixLength) + value.slice(-(MAX_ESCAPE_TAIL_CHARS - prefixLength));
+}
+
 /**
  * Fresh per-command completion delimiter. The wrapper prints it after the
  * sourced script ends; because it is unpredictable, a command cannot forge
@@ -121,6 +153,8 @@ interface RunningCommand {
   escapeTail: string;
   /** Wrapper result observed on stdout; publication waits for child close. */
   pendingResult: PtyRunResult | null;
+  /** Emit at most one notice when a single output line exceeds the pending cap. */
+  lineTruncated: boolean;
   resolve: (result: PtyRunResult) => void;
   settled: boolean;
 }
@@ -182,6 +216,7 @@ export class PtyShellSession {
         buffer: "",
         escapeTail: "",
         pendingResult: null,
+        lineTruncated: false,
         resolve: (result) => {
           if (running.settled) return;
           running.settled = true;
@@ -308,8 +343,9 @@ export class PtyShellSession {
     let work = merged;
     const partial = /(?:\x1b(?:\[[0-9;?]*[ -/]*|\][^\x07\x1b]*|[P^_][^\x07\x1b]*))$|\x1b$/.exec(work);
     if (partial) {
-      running.escapeTail = partial[0];
-      work = work.slice(0, work.length - running.escapeTail.length);
+      const rawTail = partial[0];
+      running.escapeTail = boundedEscapeTail(rawTail);
+      work = work.slice(0, work.length - rawTail.length);
     }
 
     const color = this.color && this.state.mode === "pty";
@@ -317,7 +353,13 @@ export class PtyShellSession {
 
     running.buffer += filtered;
     const parts = running.buffer.split("\n");
-    running.buffer = parts.pop() ?? "";
+    const remainder = parts.pop() ?? "";
+    const boundedRemainder = utf8Tail(remainder, MAX_PENDING_LINE_BYTES);
+    if (boundedRemainder !== remainder && !running.lineTruncated) {
+      running.lineTruncated = true;
+      this.onOutput(TRUNCATED_LINE_NOTICE);
+    }
+    running.buffer = boundedRemainder;
 
     for (const rawLine of parts) {
       const line = rawLine.replace(/\r$/, "");

@@ -31,6 +31,24 @@ import type {
   GhostSuggestion,
 } from "./types.ts";
 
+const BRACKETED_PASTE_START = "\x1b[200~";
+const BRACKETED_PASTE_END = "\x1b[201~";
+
+function splitTrailingPasteMarkerPrefix(value: string): [string, string] {
+  let tail = "";
+  for (const marker of [BRACKETED_PASTE_START, BRACKETED_PASTE_END]) {
+    const max = Math.min(marker.length - 1, value.length);
+    for (let length = max; length > tail.length; length -= 1) {
+      const candidate = value.slice(-length);
+      if (marker.startsWith(candidate)) {
+        tail = candidate;
+        break;
+      }
+    }
+  }
+  return tail ? [value.slice(0, -tail.length), tail] : [value, ""];
+}
+
 export class BashModeEditor extends CustomEditor {
   private readonly keybindingsRef: KeybindingsManager;
   private readonly optionsRef: BashModeEditorOptions;
@@ -43,6 +61,10 @@ export class BashModeEditor extends CustomEditor {
   private ghostAbort: AbortController | null = null;
   private ghostToken = 0;
   private ghostSchedule: ReturnType<typeof setTimeout> | null = null;
+  /** A bracketed paste was split across input chunks while forwarding. */
+  private forwardPasteOpen = false;
+  /** Trailing prefix of a bracketed-paste delimiter awaiting the next input chunk. */
+  private forwardPasteMarkerTail = "";
 
   constructor(
     tui: any,
@@ -112,6 +134,25 @@ export class BashModeEditor extends CustomEditor {
   }
 
   handleInput(data: string): void {
+    // v2 forward-mode gate, shared by the paste branch (issue #72) and the
+    // per-keystroke forward further down: while a command runs, input
+    // belongs to the child stdin, never to the editor buffer behind it.
+    const forwardActive =
+      this.optionsRef.isBashModeActive() &&
+      this.optionsRef.isShellRunning() &&
+      (this.optionsRef.forwardWhileRunning?.() ?? false) &&
+      this.optionsRef.onForwardInput != null;
+    if (!forwardActive) {
+      this.forwardPasteOpen = false;
+      this.forwardPasteMarkerTail = "";
+    } else {
+      data = this.forwardPasteMarkerTail + data;
+      const [complete, tail] = splitTrailingPasteMarkerPrefix(data);
+      data = complete;
+      this.forwardPasteMarkerTail = tail;
+      if (!data) return;
+    }
+
     const droppedPathText = droppedPathTextFromInput(data);
     if (droppedPathText !== null) {
       this.insertTextAtCursor(droppedPathText);
@@ -125,8 +166,23 @@ export class BashModeEditor extends CustomEditor {
     }
 
     const pasteInProgress =
-      data.includes("\x1b[200~") || Reflect.get(this, "isInPaste") === true;
+      data.includes(BRACKETED_PASTE_START) ||
+      data.includes(BRACKETED_PASTE_END) ||
+      Reflect.get(this, "isInPaste") === true ||
+      (forwardActive && this.forwardPasteOpen);
     if (pasteInProgress) {
+      if (forwardActive) {
+        const startIndex = data.lastIndexOf(BRACKETED_PASTE_START);
+        const endIndex = data.lastIndexOf(BRACKETED_PASTE_END);
+        if (startIndex !== -1 || endIndex !== -1) {
+          this.forwardPasteOpen = startIndex > endIndex;
+        }
+        const payload = data
+          .replaceAll(BRACKETED_PASTE_START, "")
+          .replaceAll(BRACKETED_PASTE_END, "");
+        if (payload) this.optionsRef.onForwardInput?.(payload);
+        return;
+      }
       super.handleInput(data);
       if (Reflect.get(this, "isInPaste") === true) {
         return;
@@ -169,15 +225,14 @@ export class BashModeEditor extends CustomEditor {
       // (\x04) must also forward — line-oriented stdin programs (read,
       // sudo, git rebase -i) cannot proceed without a line terminator.
       // Opt-in via forwardWhileRunning so v1 run-blocked behavior unchanged.
+      // (forwardActive is computed above; bracketed pastes take the paste
+      // branch, which forwards the stripped payload too.)
       if (
-        bashMode &&
-        this.optionsRef.isShellRunning() &&
-        (this.optionsRef.forwardWhileRunning?.() ?? false) &&
-        this.optionsRef.onForwardInput != null &&
+        forwardActive &&
         !isKeyRelease(data) &&
         (isPrintableInput(data) || data === "\r" || data === "\n" || data === "\x04")
       ) {
-        this.optionsRef.onForwardInput(data);
+        this.optionsRef.onForwardInput?.(data);
         return;
       }
 

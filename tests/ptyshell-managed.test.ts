@@ -29,7 +29,21 @@ function makeSession(
   return session;
 }
 
-test("managed v2: runs a command and records exit code + output in the transcript", async () => {
+const SCRIPT_AVAILABLE = await (async () => {
+  try {
+    const { execFileSync } = await import("node:child_process");
+    execFileSync("script", ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+// Issue #73: the PTY-core tests below only prove the PTY path when a real
+// script(1) exists — on a script-less host they would silently pass in
+// degraded pipe mode. Gate them; the explicit pipe-mode tests at the
+// bottom of this file cover the fallback.
+test("managed v2: runs a command and records exit code + output in the transcript", { skip: !SCRIPT_AVAILABLE }, async () => {
   const transcript = makeTranscript();
   const session = new PtyManagedShellSession(
     "/bin/sh",
@@ -41,6 +55,7 @@ test("managed v2: runs a command and records exit code + output in the transcrip
   );
   await session.runCommand("printf 'hello\\nworld\\n'");
   assert.equal(session.state.lastExitCode, 0);
+  assert.equal(session.supportsForwardMode(), true, "PTY-core test must run on a real PTY, not pipe fallback (#73)");
   const snapshot = transcript.getSnapshot();
   assert.equal(snapshot.commands.length, 1);
   assert.equal(snapshot.commands[0].command, "printf 'hello\\nworld\\n'");
@@ -49,7 +64,7 @@ test("managed v2: runs a command and records exit code + output in the transcrip
   session.dispose();
 });
 
-test("managed v2: carries cwd between commands via the sentinel", async () => {
+test("managed v2: carries cwd between commands via the sentinel", { skip: !SCRIPT_AVAILABLE }, async () => {
   const session = makeSession({ cwd: "/tmp" });
   await session.runCommand("pwd");
   assert.equal(session.state.cwd, "/tmp");
@@ -63,14 +78,14 @@ test("managed v2: carries cwd between commands via the sentinel", async () => {
   session.dispose();
 });
 
-test("managed v2: a failing command reports a non-zero exit code", async () => {
+test("managed v2: a failing command reports a non-zero exit code", { skip: !SCRIPT_AVAILABLE }, async () => {
   const session = makeSession();
   await session.runCommand("exit 7");
   assert.equal(session.state.lastExitCode, 7);
   session.dispose();
 });
 
-test("managed v2: interrupt maps a sleeping command to exit 130", async () => {
+test("managed v2: interrupt maps a sleeping command to exit 130", { skip: !SCRIPT_AVAILABLE }, async () => {
   const session = makeSession();
   const run = session.runCommand("sleep 30");
   await new Promise((resolve) => setTimeout(resolve, 300));
@@ -80,7 +95,7 @@ test("managed v2: interrupt maps a sleeping command to exit 130", async () => {
   session.dispose();
 }, { timeout: 10_000 });
 
-test("managed v2: running guard rejects a second command", async () => {
+test("managed v2: running guard rejects a second command", { skip: !SCRIPT_AVAILABLE }, async () => {
   const session = makeSession();
   const run = session.runCommand("sleep 30");
   await new Promise((resolve) => setTimeout(resolve, 300));
@@ -90,7 +105,7 @@ test("managed v2: running guard rejects a second command", async () => {
   session.dispose();
 }, { timeout: 10_000 });
 
-test("managed v2: initScript runs as a preamble of each command", async () => {
+test("managed v2: initScript runs as a preamble of each command", { skip: !SCRIPT_AVAILABLE }, async () => {
   const transcript = makeTranscript();
   const session = new PtyManagedShellSession(
     "/bin/sh",
@@ -109,7 +124,7 @@ test("managed v2: initScript runs as a preamble of each command", async () => {
   session.dispose();
 });
 
-test("managed v2: dispose during a run kills the child", async () => {
+test("managed v2: dispose during a run kills the child", { skip: !SCRIPT_AVAILABLE }, async () => {
   const session = makeSession();
   const run = session.runCommand("sleep 30");
   await new Promise((resolve) => setTimeout(resolve, 300));
@@ -118,7 +133,7 @@ test("managed v2: dispose during a run kills the child", async () => {
   assert.equal(session.state.running, false);
 }, { timeout: 10_000 });
 
-test("managed v2: runCommand after dispose rejects and finishes the transcript with exit 1", async () => {
+test("managed v2: runCommand after dispose rejects and finishes the transcript with exit 1", { skip: !SCRIPT_AVAILABLE }, async () => {
   const transcript = makeTranscript();
   const session = new PtyManagedShellSession(
     "/bin/sh",
@@ -134,7 +149,7 @@ test("managed v2: runCommand after dispose rejects and finishes the transcript w
   assert.equal(record?.exitCode, 1, "error path must finish the transcript record");
 });
 
-test("managed v2: onCommandSuccess fires only for exit 0 with (command, cwd)", async () => {
+test("managed v2: onCommandSuccess fires only for exit 0 with (command, cwd)", { skip: !SCRIPT_AVAILABLE }, async () => {
   const calls: Array<[string, string]> = [];
   const transcript = makeTranscript();
   const session = new PtyManagedShellSession(
@@ -156,7 +171,7 @@ test("managed v2: onCommandSuccess fires only for exit 0 with (command, cwd)", a
   session.dispose();
 });
 
-test("managed v2: supportsForwardMode is true (editor forward-mode enabled)", () => {
+test("managed v2: supportsForwardMode is true (editor forward-mode enabled)", { skip: !SCRIPT_AVAILABLE }, () => {
   const session = makeSession();
   assert.equal(session.supportsForwardMode(), true);
   session.dispose();

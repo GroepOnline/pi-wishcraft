@@ -4,6 +4,29 @@ function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
 }
 
+/**
+ * Extracts the end of a string within a UTF-8 byte limit.
+ *
+ * @param value - The source string
+ * @param maxBytes - The maximum number of UTF-8 bytes to include
+ * @returns The UTF-8-safe tail of `value`
+ */
+function utf8Tail(value: string, maxBytes: number): string {
+  if (maxBytes <= 0) return "";
+  const bytes = Buffer.from(value, "utf8");
+  if (bytes.length <= maxBytes) return value;
+
+  let start = bytes.length - maxBytes;
+  while (start < bytes.length && (bytes[start]! & 0xc0) === 0x80) start += 1;
+  return bytes.subarray(start).toString("utf8");
+}
+
+/**
+ * Normalizes lines by removing carriage returns and splitting embedded newline characters.
+ *
+ * @param lines - The lines to normalize
+ * @returns The normalized lines
+ */
 function compactLines(lines: string[]): string[] {
   const normalized: string[] = [];
   for (const line of lines) {
@@ -119,8 +142,50 @@ export class BashTranscriptStore {
       this.commandIndex.delete(removed.id);
       this.totalLines = Math.max(0, this.totalLines - removed.output.length);
       this.totalBytes = Math.max(0, this.totalBytes - removed.outputBytes);
-      this.truncatedCommands += 1;
-      removed.truncated = true;
+      this.markTruncated(removed);
     }
+
+    // A single active command used to bypass both global limits because there
+    // was no older command to evict. Trim that command from the head instead:
+    // bash mode is a tail-oriented live view, so the newest output is the
+    // useful part and memory remains bounded even for multi-megabyte logs.
+    const oldest = this.commands[0];
+    if (!oldest) return;
+
+    while (oldest.output.length > 0 && this.totalLines > this.settings.transcriptMaxLines) {
+      this.dropOldestLine(oldest);
+    }
+    while (oldest.output.length > 1 && this.totalBytes > this.settings.transcriptMaxBytes) {
+      this.dropOldestLine(oldest);
+    }
+
+    if (oldest.output.length === 1 && this.totalBytes > this.settings.transcriptMaxBytes) {
+      const previous = oldest.output[0]!;
+      const previousBytes = byteLength(previous) + 1;
+      const bytesOutsideLine = Math.max(0, this.totalBytes - previousBytes);
+      const lineBudget = Math.max(0, this.settings.transcriptMaxBytes - bytesOutsideLine - 1);
+      const tail = utf8Tail(previous, lineBudget);
+      const tailBytes = byteLength(tail) + 1;
+      oldest.output[0] = tail;
+      oldest.outputBytes = Math.max(0, oldest.outputBytes - previousBytes + tailBytes);
+      this.totalBytes = Math.max(0, this.totalBytes - previousBytes + tailBytes);
+      this.markTruncated(oldest);
+    }
+  }
+
+  private dropOldestLine(command: BashCommandRecord): void {
+    const removed = command.output.shift();
+    if (removed === undefined) return;
+    const removedBytes = byteLength(removed) + 1;
+    command.outputBytes = Math.max(0, command.outputBytes - removedBytes);
+    this.totalLines = Math.max(0, this.totalLines - 1);
+    this.totalBytes = Math.max(0, this.totalBytes - removedBytes);
+    this.markTruncated(command);
+  }
+
+  private markTruncated(command: BashCommandRecord): void {
+    if (command.truncated) return;
+    command.truncated = true;
+    this.truncatedCommands += 1;
   }
 }

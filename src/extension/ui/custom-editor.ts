@@ -61,6 +61,13 @@ import {
   setBashModeActive,
 } from "../commands/bash-mode-actions.ts";
 
+/**
+ * Initializes the custom editor, autocomplete providers, footer, and powerline widgets for the runtime.
+ *
+ * @param pi - Extension API used to execute powerline actions.
+ * @param rt - Mutable runtime state used by the editor and its integrations.
+ * @param ctx - UI and runtime context used to register editor components and handlers.
+ */
 export function setupCustomEditor(
   pi: ExtensionAPI,
   rt: RuntimeState,
@@ -105,6 +112,10 @@ export function setupCustomEditor(
   ctx.ui.setWidget("powerline-last-prompt", undefined);
 
   let autocompleteFixed = false;
+  let forwardPrivacyNotified = false;
+  // Issue #71: forwarded keystrokes echo back via the PTY into the
+  // transcript — warn once per run so password-style prompts don't
+  // silently persist sensitive input. Reset on submit (next run).
   const previousEditorFactory =
     typeof ctx.ui.getEditorComponent === "function"
       ? ctx.ui.getEditorComponent()
@@ -123,7 +134,10 @@ export function setupCustomEditor(
       onExitBashMode: () => {
         void setBashModeActive(rt, false, ctx);
       },
-      onSubmitCommand: (command) => void runShellCommand(rt, command, ctx),
+      onSubmitCommand: (command) => {
+        forwardPrivacyNotified = false;
+        void runShellCommand(rt, command, ctx);
+      },
       editorBoundaryShortcuts: {
         start: rt.resolvedShortcuts.editorStart,
         end: rt.resolvedShortcuts.editorEnd,
@@ -133,6 +147,13 @@ export function setupCustomEditor(
         ctx.ui.notify("Sent interrupt to shell", "info");
       },
       onForwardInput: (data) => {
+        if (!forwardPrivacyNotified) {
+          forwardPrivacyNotified = true;
+          ctx.ui.notify(
+            "Forwarding keystrokes to the running command — typed input may echo into the transcript.",
+            "info",
+          );
+        }
         rt.shellSession?.writeStdin?.(data);
       },
       forwardWhileRunning: () => rt.shellSession?.supportsForwardMode() ?? false,

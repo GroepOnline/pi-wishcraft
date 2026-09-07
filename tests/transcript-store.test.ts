@@ -59,3 +59,29 @@ test("recentCommands: default count keeps all when fewer commands exist", () => 
   store.finishCommand("cmd-1", 0);
   assert.equal(store.recentCommands(4).commands.length, 1);
 });
+
+test("active command stays within line and byte limits while preserving newest output", () => {
+  const store = new BashTranscriptStore({ transcriptMaxLines: 3, transcriptMaxBytes: 24 });
+  store.startCommand("cmd-1", "noisy", "/tmp");
+  for (let i = 0; i < 10; i += 1) store.appendOutput("cmd-1", `line-${i}`);
+
+  const snapshot = store.getSnapshot();
+  assert.equal(snapshot.commands.length, 1);
+  assert.deepEqual(snapshot.commands[0].output, ["line-7", "line-8", "line-9"]);
+  assert.ok(snapshot.totalLines <= 3);
+  assert.ok(snapshot.totalBytes <= 24);
+  assert.equal(snapshot.commands[0].truncated, true);
+  assert.equal(snapshot.truncatedCommands, 1);
+});
+
+test("single oversized UTF-8 line is byte-bounded without broken characters", () => {
+  const store = new BashTranscriptStore({ transcriptMaxLines: 10, transcriptMaxBytes: 17 });
+  store.startCommand("cmd-1", "unicode", "/tmp");
+  store.appendOutput("cmd-1", "😀".repeat(20));
+
+  const snapshot = store.getSnapshot();
+  assert.ok(snapshot.totalBytes <= 17);
+  assert.ok(snapshot.commands[0].output[0].endsWith("😀"));
+  assert.ok(!snapshot.commands[0].output[0].includes("�"));
+  assert.equal(snapshot.commands[0].truncated, true);
+});

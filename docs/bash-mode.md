@@ -24,6 +24,8 @@ The managed shell is persistent for the current pi session. Command output appea
 
 Commands run under a real PTY via `script(1)` (no native dependency), so programs that read stdin work: printable input typed while a command runs is forwarded to the process, and `ctrl+c` interrupts it. SGR color survives into the transcript when the terminal supports it; `NO_COLOR` renders plain text. When `script(1)` is missing, each command degrades to plain pipe execution with a one-time warning (no color, no interactive stdin).
 
+Privacy: forwarded keystrokes echo back through the PTY into the transcript (issue #71), so typing into a password-style prompt persists it in the transcript store. The first forward per run raises an info notice; avoid secrets at interactive prompts or clear the transcript afterwards. Pasted text while a command runs goes to the child stdin too (issue #72) — it never queues silently in the editor.
+
 ## Shell ghost suggestions
 
 Bash mode is ghost-first. Successful per-project shell history is the primary source, while deterministic path and git continuations can still extend an existing command. Shell-native completion probes are disabled so `!command` predictions never spawn interactive shell completion subprocesses.
