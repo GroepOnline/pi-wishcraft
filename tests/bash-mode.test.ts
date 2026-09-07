@@ -1778,6 +1778,27 @@ test("bash editor v2 forward-mode routes a bracketed paste to the PTY stdin", as
     editor.handleInput("part3\x1b[201~");
     assert.deepEqual(forwarded, ["echo secret", "part1", "part2", "part3"]);
     assert.equal(editor.getText(), "");
+
+    // Delimiter bytes may themselves be split across input events. Neither
+    // opening nor closing marker fragments may leak to child stdin.
+    editor.handleInput("\x1b[20");
+    assert.deepEqual(forwarded, ["echo secret", "part1", "part2", "part3"]);
+    editor.handleInput("0~split-open");
+    assert.deepEqual(forwarded, ["echo secret", "part1", "part2", "part3", "split-open"]);
+
+    editor.handleInput("split-close\x1b[20");
+    assert.deepEqual(
+      forwarded,
+      ["echo secret", "part1", "part2", "part3", "split-open", "split-close"],
+    );
+    editor.handleInput("1~");
+    editor.handleInput("\x1b[A");
+    assert.deepEqual(
+      forwarded,
+      ["echo secret", "part1", "part2", "part3", "split-open", "split-close"],
+      "split closing marker must close paste mode without forwarding marker bytes",
+    );
+    assert.equal(editor.getText(), "");
   } finally {
     links.cleanup();
   }
