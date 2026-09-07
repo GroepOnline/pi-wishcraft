@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.4.17] - 2026-09-07
+
 ### Added
 - Bash forward-mode privacy notice (issue #71): the first keystroke forwarded to a running command raises an info notice that typed input may echo into the transcript; documented in `docs/bash-mode.md`.
 - Managed PTY suite is now script-gated (issue #73): PTY-core tests skip when `script(1)` is missing instead of silently passing in degraded pipe mode, the basic run asserts a real PTY transport, and the explicit pipe-mode tests still cover the fallback.
