@@ -13,6 +13,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555.svg" alt="MIT license"></a>
 </p>
 
+<p align="center"><img src="https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/docs/images/wishcraft-cockpit-map.svg" alt="Wishcraft cockpit map showing Signal, Deck, idea capture, skills, managed shell and local guardrails around Pi" width="100%"><br><sub>A map of the shipped operator surfaces. Pi remains the agent runtime.</sub></p>
+
 ## Start in 10 seconds
 
 ```bash
@@ -232,7 +234,6 @@ Privacy/network boundary: ideas, settings, usage ledgers, and normal cockpit sta
 ## vNext Direction
 
 Wishcraft is Pi's animated operator layer. See the [release plan](docs/design/vnext-release-plan.md) and [design corpus](docs/index.md#design-system--vnext-specifications).
-
 ## Docs
 
 - [Commands](docs/commands.md)
