@@ -44,11 +44,7 @@ Pi stays the engine. Wishcraft adds the operator layer around it: live status, o
 
 Kongming lanterns started as battlefield signals and later carried wishes. Wishcraft keeps both ideas in one place: telemetry while the work is moving, and thoughts you can park until you are ready for them.
 
-## Where it fits
-
-Wishcraft owns the **cockpit and lightweight capture** layer. Promote durable work to [`pi-missions`](https://github.com/GroepOnline/pi-missions); use [`pi-agent-orchestrator`](https://github.com/GroepOnline/pi-agent-orchestrator) when that mission needs parallel or isolated execution.
-
-`idea → mission → orchestration run`
+**Portfolio boundary:** Wishcraft owns the operator cockpit and lightweight idea capture. Promote durable work to [`pi-missions`](https://github.com/GroepOnline/pi-missions), then use [`pi-agent-orchestrator`](https://github.com/GroepOnline/pi-agent-orchestrator) when parallel or isolated execution adds value: `idea -> mission -> orchestration run`.
 
 Guides live in [`docs/`](docs/index.md).
 
@@ -93,12 +89,6 @@ Activates on load. `/signal` toggles it. `/signal <preset>` switches the informa
 /vibe star trek       themed working messages
 ```
 
-Queue:
-
-- `# <text>` current project; `# @global`, `# @current`, `# @alias`
-- `/idea`, `/ideas`, `/queue` for capture, send, retry, clear, archive
-- `/ideas` overlay: `reviewStatus` (`idea` / `in-progress` / `done`), tags, Run with skill X
-
 Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
 
 ```json
@@ -126,10 +116,6 @@ Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
 ```
 
 `chef` is muted colors, slash separators, live TPS in/out, and TCP port count. Built-in presets: `default`, `minimal`, `compact`, `full`, `nerd`, `ascii`, `chef`. Custom segments, labels, layout, and presets are documented in [docs/configuration.md](docs/configuration.md). For every setting at its default, see [`examples/settings.example.json`](examples/settings.example.json).
-
-Nerd Fonts auto-detect for iTerm, WezTerm, Kitty, Ghostty, and Alacritty; ASCII otherwise. `POWERLINE_NERD_FONTS=0` forces ASCII.
-
-Context turns warning above 70% and error above 90%. TPS is tokens in the last ~1s, not a session average. `/tps` reads that ring; it does not start a second sampler.
 
 Daily token budget (never blocks a turn):
 
