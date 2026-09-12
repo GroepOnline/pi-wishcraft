@@ -168,14 +168,22 @@ export function createDeckComponent(
         return;
       }
 
-      // ←/tab returns focus to the NAVIGATION column in one press; from there
-      // ↑↓ moves the nav selection and any other key drops back into the list.
+      // ←/tab moves focus to the NAVIGATION column in one press; from there
+      // ↑↓ walks the routes and → (or any other key) drops back into the
+      // list. The focused pane is highlighted in the frame (◉/○ markers)
+      // so ↑↓ never appears to "go right" while the list has focus.
       if (
         !state.composerOpen &&
         !state.skillCreate &&
-        (matchesKey(data, "left") || matchesKey(data, "tab"))
+        (matchesKey(data, "left") ||
+          matchesKey(data, "tab") ||
+          matchesKey(data, "shift+tab"))
       ) {
         state = { ...state, navMode: true };
+        return;
+      }
+      if (state.navMode && matchesKey(data, "right")) {
+        state = { ...state, navMode: false };
         return;
       }
       if (state.navMode) {
@@ -313,12 +321,16 @@ export function createDeckComponent(
     length: number,
   ): boolean {
     if (length <= 0) return false;
+    // Clamp first: the catalog can shrink (filter/refresh) while the stored
+    // cursor still points past the end. Without this, ↑ from a stale cursor
+    // lands out of range and the highlight appears stuck.
+    const cursor = Math.min(Math.max(0, state[key]), length - 1);
     if (matchesKey(data, "up")) {
-      state = { ...state, [key]: Math.max(0, state[key] - 1) };
+      state = { ...state, [key]: Math.max(0, cursor - 1) };
       return true;
     }
     if (matchesKey(data, "down")) {
-      state = { ...state, [key]: Math.min(length - 1, state[key] + 1) };
+      state = { ...state, [key]: Math.min(length - 1, cursor + 1) };
       return true;
     }
     return false;

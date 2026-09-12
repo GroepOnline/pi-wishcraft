@@ -26,21 +26,19 @@ export function shouldSkipRelease(message) {
 }
 
 export function chooseBump(subjects) {
-  // Conservative by default: a normal `feat:` lands as a patch bump, not a
-  // minor. Minor-race (1.4 -> 1.5 -> 1.6 -> 1.7 in days) was the failure
-  // here: every feat PR burned a minor while the real feature depth was a
-  // few patches. Only an explicit breaking `!:`/"breaking change" is
-  // auto-promoted to major; minor stays an explicit manual choice
-  // (`node scripts/release.mjs minor`).
-  let level = "patch";
+  // Org policy: every user-visible main change ships as +0.1 minor — small
+  // fixes and additions alike. Only an explicit breaking `!:`/"breaking
+  // change" auto-promotes to major. Patch stays an explicit manual choice
+  // (`node scripts/release.mjs patch`).
   for (const raw of subjects) {
     const subject = raw.trim();
     if (!subject || /^chore:\s*release\b/i.test(subject)) continue;
     if (/^(\w+)(\([^)]+\))?!:/.test(subject) || /breaking change/i.test(subject)) {
       return "major";
     }
+    return "minor";
   }
-  return level;
+  return "patch";
 }
 
 function git(command) {
