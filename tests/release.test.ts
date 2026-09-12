@@ -157,17 +157,18 @@ test("release candidate metadata binds version, parent and release-only files", 
   /Unexpected release candidate files/);
 });
 
-test("chooseBump is conservative: feat bumps patch, breaking bumps major", () => {
-  assert.equal(chooseBump(["docs: roadmap", "fix: hooks timeout"]), "patch");
-  // feat no longer auto-promotes to minor (minor-race prevention);
+test("chooseBump ships +0.1 minor for any user-visible change", () => {
+  assert.equal(chooseBump(["docs: roadmap", "fix: hooks timeout"]), "minor");
+  // Small fixes and additions alike burn a minor per org policy;
   // explicit breaking still promotes to major.
   assert.equal(
     chooseBump(["docs: catalog", "feat: wishcraft 0.19 — skills manager v2"]),
-    "patch",
+    "minor",
   );
-  assert.equal(chooseBump(["feat(config): labels", "fix: debris"]), "patch");
+  assert.equal(chooseBump(["feat(config): labels", "fix: debris"]), "minor");
   assert.equal(chooseBump(["feat!: drop old settings shape"]), "major");
-  assert.equal(chooseBump(["fix: foo", "chore: release 0.18.0"]), "patch");
+  assert.equal(chooseBump(["fix: foo", "chore: release 0.18.0"]), "minor");
+  assert.equal(chooseBump(["chore: release 0.18.0"]), "patch");
 });
 
 test("shouldSkipRelease guards release commits and opt-out", () => {
@@ -177,18 +178,17 @@ test("shouldSkipRelease guards release commits and opt-out", () => {
 });
 
 test("resolveReleaseVersion maps auto from subjects onto the current version", () => {
-  // feat no longer auto-promotes to minor — patch is the conservative
-  // default so consecutive feature PRs don't burn minor versions.
+  // Org policy: feat and fix both ship +0.1 minor.
   assert.deepEqual(
     resolveReleaseVersion("0.18.0", "auto", [
       "feat: wishcraft 0.19 — skills manager v2",
       "docs: drop leftover merge conflict marker from ROADMAP",
     ]),
-    { kind: "patch", next: "0.18.1" },
+    { kind: "minor", next: "0.19.0" },
   );
   assert.deepEqual(resolveReleaseVersion("0.19.0", "auto", ["docs: typo"]), {
-    kind: "patch",
-    next: "0.19.1",
+    kind: "minor",
+    next: "0.20.0",
   });
 });
 
