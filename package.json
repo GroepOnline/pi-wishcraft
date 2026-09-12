@@ -1,6 +1,6 @@
 {
   "name": "@groeponline/pi-wishcraft",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Operator cockpit for Pi: live powerline status, searchable skills, idea queue, sticky Bash, hooks, policy controls, and session UX.",
   "type": "module",
   "files": [
