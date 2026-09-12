@@ -167,6 +167,7 @@ test("chooseBump ships +0.1 minor for any user-visible change", () => {
   );
   assert.equal(chooseBump(["feat(config): labels", "fix: debris"]), "minor");
   assert.equal(chooseBump(["feat!: drop old settings shape"]), "major");
+  assert.equal(chooseBump(["fix: foo", "breaking change: new schema"]), "major");
   assert.equal(chooseBump(["fix: foo", "chore: release 0.18.0"]), "minor");
   assert.equal(chooseBump(["chore: release 0.18.0"]), "patch");
 });
