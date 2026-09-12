@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Per-package preview container (`preview/Dockerfile` + `preview/smoke.sh` + `preview.yml` workflow): builds the npm artifact and smoke-tests the exact files pi loads; images push to GHCR on main.
+
 ## [1.8.0] - 2026-09-12
 
 ### Fixed
