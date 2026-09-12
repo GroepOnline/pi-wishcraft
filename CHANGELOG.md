@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Deck dashboard focus model: the focused pane is now marked with ◉/○ so ↓ on the skills workbench no longer looks like it "goes right" — ↑↓ moves the focused pane, ←/tab focuses NAVIGATION, → returns to the list, and the footer advertises both. List cursors clamp from the current position, so a stale cursor after filtering/refresh moves one row instead of sticking.
+
 ## [1.4.17] - 2026-09-07
 
 ### Added
