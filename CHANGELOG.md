@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-09-13
+
 ### Fixed
 - Release bump scan: `chooseBump` now scans every commit subject, so a breaking marker later in the list still promotes to major instead of silently shipping a minor.
 
