@@ -99,7 +99,8 @@ Pi core renders the footer as static text, so live click is not possible; action
 - `/tps`: overlay of the live 1s window (same ring as the segment). `/tps <value>` sets `POWERLINE_TPS`
 - `/usage`: session / today / week overlay from `~/.pi/agent/wishcraft-usage.json`
 - `/open-ports`: list listening ports and pick one
-- `/powerline doctor`: diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, and queue file health
+- `/powerline doctor`: diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, queue file health, and `package.identity`
+- `/powerline version`: `{ version, source_sha }` from `package.json` (SHA only when release-stamped). See [release.md](./release.md).
 - `/powerline export`: export the current preset + effective layout + labels as a JSON snippet (Enter copies it to the clipboard)
 - `alt+p`: **Wishcraft Deck** — operator overlay (Home, Signal, Skills, Ideas, Guardrails, Appearance, …). `g` then a jump key (`h` home, `s` signal, `a` appearance). Escape closes. `/signal menu` still opens Navigate / Configure / Status.
 - `alt+i`: **powerline info**: full open-ports list
