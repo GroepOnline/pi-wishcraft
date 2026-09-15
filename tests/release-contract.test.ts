@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   BUILD_SHA_ENV,
@@ -14,7 +14,19 @@ import {
 } from "../scripts/verify-release-tag.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
-const workflow = readFileSync(path.join(root, ".github/workflows/release.yml"), "utf8");
+const workflowsDir = path.join(root, ".github/workflows");
+const workflow = readFileSync(path.join(workflowsDir, "release.yml"), "utf8");
+const HOSTED_RUNNER = /^\s*runs-on:\s*.*(ubuntu-latest|macos-latest|windows-latest)/;
+
+test("workflows do not use GitHub-hosted runners", () => {
+  for (const name of readdirSync(workflowsDir)) {
+    if (!name.endsWith(".yml")) continue;
+    const text = readFileSync(path.join(workflowsDir, name), "utf8");
+    for (const line of text.split("\n")) {
+      assert.doesNotMatch(line, HOSTED_RUNNER, `${name}: ${line}`);
+    }
+  }
+});
 
 test("workflow verifies tag equals version and attaches SHA256SUMS without changing npm publish", () => {
   assert.match(workflow, /tags:\s*\n\s+-\s*["']v\*/);

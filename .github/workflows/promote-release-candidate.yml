@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   promote:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, heavy]
     timeout-minutes: 10
     permissions:
       contents: write
