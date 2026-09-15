@@ -69,6 +69,9 @@ test("doctor reports valid global settings and default config as ok", () =>
     assert.equal(checkByName(checks, "settings.powerline").status, "ok");
     assert.equal(checkByName(checks, "config").status, "ok");
     assert.equal(checkByName(checks, "preset").status, "ok");
+    const identity = checkByName(checks, "package.identity");
+    assert.equal(identity.status, "ok");
+    assert.match(identity.detail, /^\d+\.\d+\.\d+ source_sha=/);
   }));
 
 test("doctor flags missing settings files and an unknown preset", () =>

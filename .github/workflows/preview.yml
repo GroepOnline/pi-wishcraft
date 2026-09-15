@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   preview:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
