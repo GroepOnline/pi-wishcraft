@@ -15,6 +15,39 @@
 - Idle stopped sampling `Date.now()` with no repaint of its own — the ticking ambient clock makes the rest state deterministic and coherent.
 - TPS no longer presents idle telemetry as a fake `0`.
 
+## [1.10.0] - 2026-09-13
+
+### Fixed
+- Release bump scan: `chooseBump` now scans every commit subject, so a breaking marker later in the list still promotes to major instead of silently shipping a minor.
+
+## [1.9.0] - 2026-09-12
+
+### Added
+- Per-package preview container (`preview/Dockerfile` + `preview/smoke.sh` + `preview.yml` workflow): builds the npm artifact and smoke-tests the exact files pi loads; images push to GHCR on main.
+
+## [1.8.0] - 2026-09-12
+
+### Fixed
+- Deck dashboard focus model: the focused pane is now marked with ◉/○ so ↓ on the skills workbench no longer looks like it "goes right" — ↑↓ moves the focused pane, ←/tab focuses NAVIGATION, → returns to the list, and the footer advertises both. List cursors clamp from the current position, so a stale cursor after filtering/refresh moves one row instead of sticking.
+
+## [1.4.17] - 2026-09-07
+
+### Added
+- Bash forward-mode privacy notice (issue #71): the first keystroke forwarded to a running command raises an info notice that typed input may echo into the transcript; documented in `docs/bash-mode.md`.
+- Managed PTY suite is now script-gated (issue #73): PTY-core tests skip when `script(1)` is missing instead of silently passing in degraded pipe mode, the basic run asserts a real PTY transport, and the explicit pipe-mode tests still cover the fallback.
+
+### Changed
+- Signal rail is now a compact single-line state surface. `ready` is stable and costs no animation frames; thinking, streaming, tools, and compaction use a bounded directional trail without expanding the footer to three rows.
+- Chef preset now includes session age, generated-token throughput, and cache-read information when present. The port counter names its protocol (`tcp` or `tcp+udp`) instead of displaying an ambiguous bare count.
+
+### Fixed
+- Bash paste-while-running (issue #72): a bracketed paste performed while a command runs is stripped of its markers and forwarded to the child stdin — including split delivery across input chunks — instead of silently queuing in the editor buffer behind the command.
+- PTY/transcript memory bounds (from jan `fix/runtime-pty-bounds`): a single unterminated output line is capped at a 64 KiB UTF-8 tail with a one-time notice, the partial-escape tail is bounded, and the active transcript command trims head lines/bytes within limits instead of growing unbounded.
+- Segment-options spread hygiene (CodeFactor #86–89): `normalizeSegmentOptions` assigns fields imperatively instead of spreading conditional empty objects.
+- Motion frames that contain multiple terminal columns no longer expand a rail cell and shift the footer layout while they animate.
+- Idle rail no longer samples `Date.now()` without a corresponding repaint clock, eliminating stale or apparently random idle frames.
+- TPS now reports `--` until a live two-sample rate exists, rather than falsely presenting idle telemetry as `0`; the existing `both`/`out`/`in` setting is validated and honored.
+
 ## [1.4.16] - 2026-09-05
 
 ### Fixed
