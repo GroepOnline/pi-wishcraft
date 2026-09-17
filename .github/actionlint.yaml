@@ -1,0 +1,4 @@
+self-hosted-runner:
+  # Fleet runner labels used by release.yml / test.yml runs-on selectors.
+  labels:
+    - heavy
