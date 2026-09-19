@@ -272,6 +272,29 @@ test("budget segment clamps overspend at 100%", () => {
   assert.ok(content.includes("▓▓▓▓▓▓▓▓"), "the fill bar must be fully spent");
 });
 
+test("budget bar follows the label thresholds: warning below 100%, error only at 100%", () => {
+  // Pin contextWarn/contextError to distinct hex colors so the exact ANSI
+  // escape identifies which semantic the bar cells were painted with. The
+  // bar emits `<color><reset><cells><reset>` — the escape right before the
+  // filled cells names the semantic used for the bar run.
+  const colors = { contextWarn: "#123456", contextError: "#654321" };
+  const warnBar = "\x1b[38;2;18;52;86m\x1b[0m▓";
+  const errorBar = "\x1b[38;2;101;67;33m\x1b[0m▓";
+
+  const at95 = renderSegment(
+    "budget",
+    createSegmentContext({}, { tokenBudget: { dailyLimit: 1000, dailyUsed: 950 }, colors }),
+  ).content;
+  assert.ok(at95.includes(warnBar), "at 95% the bar cells must stay warning-colored");
+  assert.ok(!at95.includes(errorBar), "at 95% the bar must not turn error-colored");
+
+  const at100 = renderSegment(
+    "budget",
+    createSegmentContext({}, { tokenBudget: { dailyLimit: 1000, dailyUsed: 1000 }, colors }),
+  ).content;
+  assert.ok(at100.includes(errorBar), "at 100% the bar must be error-colored");
+});
+
 // ── queue segment ─────────────────────────────────────────────────────────
 
 test("queue segment hides when empty", () => {

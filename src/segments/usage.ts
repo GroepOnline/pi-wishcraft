@@ -139,10 +139,6 @@ function contextFillBar(
   percent: number,
   colorFn: (semantic: "context" | "contextWarn" | "contextError") => string,
 ): string {
-  const CELLS = 8;
-  // Clamp to the bar's cell count: percentages above 100 must not grow the
-  // status line, and negative percentages must not underflow the empty run.
-  const filled = Math.max(0, Math.min(CELLS, Math.round((percent / 100) * CELLS)));
   let semantic: "context" | "contextWarn" | "contextError";
   if (percent > 90) {
     semantic = "contextError";
@@ -151,8 +147,25 @@ function contextFillBar(
   } else {
     semantic = "context";
   }
+  return fillBar(percent, semantic, colorFn);
+}
+
+/**
+ * Draw the 8-cell bar for an already-resolved semantic color. Thresholds are
+ * the caller's contract: the budget segment uses its own (80/100) so the bar
+ * never disagrees with the label color next to it.
+ */
+function fillBar(
+  percent: number,
+  semantic: "context" | "contextWarn" | "contextError",
+  colorFn: (semantic: "context" | "contextWarn" | "contextError") => string,
+): string {
+  const CELLS = 8;
+  // Clamp to the bar's cell count: percentages above 100 must not grow the
+  // status line, and negative percentages must not underflow the empty run.
+  const filled = Math.max(0, Math.min(CELLS, Math.round((percent / 100) * CELLS)));
   // Filled cells are left-aligned, so we can emit them as one colored run,
-  // then the empty cells as another — just two color codes total, not one per cell.
+  // then the empty cells as another: just two color codes total, not one per cell.
   const filledColor = colorFn(semantic);
   const emptyColor = colorFn("context");
   const reset = colorEnabled() ? ansi.reset : "";
@@ -170,7 +183,13 @@ export const budgetSegment: StatusLineSegment = {
     }
     const percent = Math.max(0, Math.min(100, (budget.dailyUsed / budget.dailyLimit) * 100));
     const level = tokenBudgetLevel(budget.dailyUsed, budget.dailyLimit);
-    const bar = contextFillBar(percent, (semantic) => color(ctx, semantic, ""));
+    // The bar must follow the same threshold contract as the label
+    // (costColorForBudget via tokenBudgetLevel: warning from 80%, error only
+    // at 100%): reusing the context bar's 70/90 thresholds would color the
+    // bar error while the label next to it still reads warning.
+    const semantic: "context" | "contextWarn" | "contextError" =
+      level.level >= 100 ? "contextError" : level.level >= 80 ? "contextWarn" : "context";
+    const bar = fillBar(percent, semantic, (s) => color(ctx, s, ""));
     const text = `budget ${Math.round(percent)}%`;
     return { content: `${color(ctx, costColorForBudget(level.level), text)} ${bar}`, visible: true };
   },
