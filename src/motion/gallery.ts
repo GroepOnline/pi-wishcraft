@@ -4,7 +4,7 @@
  */
 
 import { MOTION_CATALOG } from "./catalog.ts";
-import { frameAt, framesOf, sweepPosition, trailGlyph } from "./frames.ts";
+import { frameAt, framesOf, sweepPhase, trailGlyph } from "./frames.ts";
 import type { MotionDef } from "./types.ts";
 
 export const GALLERY_CATEGORIES = [
@@ -57,13 +57,18 @@ export function previewStrip(
   const inner = Math.max(8, width);
   const head = frameAt(def, tick, ascii);
   const direction = def.generator?.direction ?? "forward";
-  const pos = sweepPosition(tick, inner, true, direction);
+  const ease = def.generator?.ease ?? "linear";
+  const trail = def.generator?.trail ?? 2;
+  // Same eased ping-pong phase as the status rail, so the gallery previews
+  // the real traversal: decelerate, turn, glide back — no teleport wrap.
+  const pos = sweepPhase(tick, inner, true, direction, ease);
   let out = "";
   for (let i = 0; i < inner; i++) {
-    const distance = Math.abs(i - pos);
-    if (distance === 0) out += head;
-    else if (distance <= (def.generator?.trail ?? 2)) out += trailGlyph(distance, ascii);
-    else out += ascii ? "-" : "─";
+    const distance = direction === "forward" ? pos - i : i - pos;
+    if (distance > -0.5 && distance <= 0.5) out += head;
+    else if (distance > 0.5 && distance <= trail + 0.5) {
+      out += trailGlyph(Math.round(distance), ascii);
+    } else out += ascii ? "-" : "─";
   }
   return out;
 }

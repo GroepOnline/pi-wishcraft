@@ -60,8 +60,48 @@ export function lanternGlow(nowMs: number): number {
   return 0.55 * breathe + 0.45 * ripple;
 }
 
+export type SweepEase = "linear" | "pulse" | "breathe";
+
 /**
- * Position of a travelling head across `width` cells. Returns -1 when the
+ * Eased traversal progress. `linear` keeps a constant velocity, `pulse`
+ * accelerates through the middle and settles at the edges, `breathe`
+ * dwells longest at the ends before turning. All curves are symmetric so
+ * the ping-pong turn at each edge stays continuous — no teleport wrap.
+ */
+function easeProgress(s: number, ease: SweepEase): number {
+  if (ease === "pulse") return (1 - Math.cos(Math.PI * s)) / 2;
+  if (ease === "breathe") {
+    // easeInOutQuart: long dwell at the ends, quick through the middle
+    return s < 0.5 ? 8 * s * s * s * s : 1 - 8 * (1 - s) ** 4;
+  }
+  return s;
+}
+
+/**
+ * Fractional position of a travelling head across `width` cells on a
+ * ping-pong traversal (no teleport wrap: the head decelerates, turns at
+ * the edge and glides back). Returns -1 when not animating. The fractional
+ * part lets color ramps fade between cells while glyphs round to one column.
+ */
+export function sweepPhase(
+  tick: number,
+  width: number,
+  animating: boolean,
+  direction: "forward" | "reverse" = "forward",
+  ease: SweepEase = "linear",
+): number {
+  if (!animating || width <= 1) return animating && width === 1 ? 0 : -1;
+  const span = width - 1;
+  const period = 2 * span;
+  const phase = ((tick % period) + period) % period;
+  const s = phase <= span ? phase / span : (period - phase) / span;
+  const eased = easeProgress(s, ease) * span;
+  return direction === "reverse" ? span - eased : eased;
+}
+
+/**
+ * Position of a travelling head across `width` cells. Ping-pong traversal:
+ * the head bounces at the edges instead of wrapping. Returns -1 when the
  * motion is not animating, so callers can render a still rail.
  */
 export function sweepPosition(
@@ -69,10 +109,10 @@ export function sweepPosition(
   width: number,
   animating: boolean,
   direction: "forward" | "reverse" = "forward",
+  ease: SweepEase = "linear",
 ): number {
-  if (!animating || width <= 0) return -1;
-  const step = ((tick % width) + width) % width;
-  return direction === "reverse" ? width - 1 - step : step;
+  const phase = sweepPhase(tick, width, animating, direction, ease);
+  return phase < 0 ? -1 : Math.round(phase);
 }
 
 /**

@@ -111,11 +111,13 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
 
   // ASCII is a real one-cell directional comet. Its trail remains behind
   // the head even when the configured motion uses a non-ASCII frame.
+  // Eased sweeps (ember-relay pulses) decelerate near the rail edge, so the
+  // trail may be any depth glyph — what matters is direction: behind the head.
   const asciiRail = stripAnsi(renderActivity(signal, spec, true));
   assert.match(asciiRail, /o/);
   assert.match(asciiRail, /streaming/);
   const headIndex = asciiRail.indexOf("o");
-  const trailIndex = asciiRail.indexOf(">");
+  const trailIndex = asciiRail.search(/[=>]/);
   assert.notEqual(headIndex, -1, "ASCII head must be present");
   assert.notEqual(trailIndex, -1, "ASCII trail must be present");
   assert.ok(headIndex > trailIndex, "ASCII trail must trail the head");

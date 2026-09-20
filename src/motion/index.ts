@@ -48,6 +48,7 @@ export {
   frameAtElapsed,
   framesOf,
   lanternGlow,
+  sweepPhase,
   sweepPosition,
   trailGlyph,
 } from "./frames.ts";

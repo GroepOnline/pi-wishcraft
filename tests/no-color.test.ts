@@ -48,3 +48,33 @@ test("unset NO_COLOR keeps color enabled", { concurrency: false }, async () => {
     assert.equal(colorEnabled(), true);
   });
 });
+
+test("fgGradientCode ramps between palette tokens and respects NO_COLOR", { concurrency: false }, async () => {
+  await withNoColor(undefined, async () => {
+    const { fgGradientCode, getFgAnsiCode } = await importFreshColors("grad-on");
+    // Endpoints land exactly on the palette colors (accent is truecolor
+    // hex; sep is approximated in truecolor from its 256-code).
+    assert.equal(fgGradientCode("accent", "sep", 0), getFgAnsiCode("accent"));
+    assert.equal(fgGradientCode("accent", "sep", 1), "\x1b[38;2;128;128;128m");
+    // Midpoint is a distinct interpolated truecolor code between endpoints.
+    const mid = fgGradientCode("accent", "sep", 0.5);
+    assert.match(mid, /^\x1b\[38;2;\d+;\d+;\d+m$/);
+    const channels = (code: string): [number, number, number] => {
+      const m = code.match(/^\x1b\[38;2;(\d+);(\d+);(\d+)m$/)!;
+      return [Number(m[1]), Number(m[2]), Number(m[3])];
+    };
+    const a = channels(getFgAnsiCode("accent"));
+    const b = channels(fgGradientCode("accent", "sep", 1));
+    const m = channels(mid);
+    for (let i = 0; i < 3; i++) {
+      assert.ok(m[i]! > Math.min(a[i]!, b[i]!) && m[i]! < Math.max(a[i]!, b[i]!), `channel ${i} not interpolated`);
+    }
+    // Out-of-range t clamps instead of extrapolating.
+    assert.equal(fgGradientCode("accent", "sep", -3), fgGradientCode("accent", "sep", 0));
+    assert.equal(fgGradientCode("accent", "sep", 9), fgGradientCode("accent", "sep", 1));
+  });
+  await withNoColor("1", async () => {
+    const { fgGradientCode } = await importFreshColors("grad-off");
+    assert.equal(fgGradientCode("accent", "sep", 0.5), "");
+  });
+});

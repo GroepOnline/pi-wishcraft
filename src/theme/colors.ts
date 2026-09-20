@@ -68,3 +68,44 @@ export function getFgAnsiCode(color: ColorName): string {
   if (!colorEnabled()) return "";
   return ansiCodeCache.get(color as string) ?? "";
 }
+
+/** Approximate RGB for a 256-color palette code (greyscale + cube). */
+function ansi256ToRgb(code: number): [number, number, number] {
+  if (code >= 232) {
+    const v = 8 + (code - 232) * 10;
+    return [v, v, v];
+  }
+  if (code >= 16) {
+    const c = code - 16;
+    const step = [0, 95, 135, 175, 215, 255];
+    return [step[Math.floor(c / 36) % 6]!, step[Math.floor(c / 6) % 6]!, step[c % 6]!];
+  }
+  return [128, 128, 128];
+}
+
+export function paletteRgb(color: ColorName): [number, number, number] {
+  const val = PALETTE[color];
+  if (typeof val === "string" && val.startsWith("#")) return hexToRgb(val);
+  if (typeof val === "number") return ansi256ToRgb(val);
+  return [128, 128, 128];
+}
+
+/**
+ * Truecolor gradient between two palette tokens. Returns "" when color is
+ * disabled so callers paint plain text, exactly like getFgAnsiCode.
+ */
+export function fgGradientCode(
+  from: ColorName,
+  to: ColorName,
+  t: number,
+): string {
+  if (!colorEnabled()) return "";
+  const clamped = t < 0 ? 0 : t > 1 ? 1 : t;
+  const a = paletteRgb(from);
+  const b = paletteRgb(to);
+  return ansi.getFgAnsi(
+    Math.round(a[0] + (b[0] - a[0]) * clamped),
+    Math.round(a[1] + (b[1] - a[1]) * clamped),
+    Math.round(a[2] + (b[2] - a[2]) * clamped),
+  );
+}
