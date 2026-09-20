@@ -21,6 +21,39 @@ function cellGlyph(value: string, fallback: string): string {
   return Array.from(value)[0] ?? fallback;
 }
 
+interface RailPalette {
+  /** Truecolor ramp when color is on and glyphs are not ASCII. */
+  trueColor: boolean;
+  trailDepth: number;
+  headRgb: [number, number, number];
+  /** Lantern flicker factors; 1 / 0 disable the flicker for non-ember heads. */
+  flickerScale: number;
+  flickerWhite: number;
+  hot: string;
+  model: string;
+  path: string;
+  dim: string;
+}
+
+/** Color for a rail cell at `distance` behind the travelling head. */
+function railCellColor(distance: number, p: RailPalette): string {
+  if (!p.trueColor) {
+    if (distance === 0) return p.hot;
+    if (distance === 1) return p.model;
+    if (distance === 2) return p.path;
+    return p.dim;
+  }
+  if (distance <= 0.5) {
+    const rgb = p.headRgb.map((channel) =>
+      Math.min(255, Math.round(channel * p.flickerScale + (255 - channel) * p.flickerWhite)),
+    ) as [number, number, number];
+    return ansi.getFgAnsi(rgb[0], rgb[1], rgb[2]);
+  }
+  // Smooth wake: fade the hot head back to the dim track by fractional
+  // distance, so trail cells cool off instead of stepping through tiers.
+  return fgGradientCode("accent", "sep", Math.min(distance, p.trailDepth + 1) / (p.trailDepth + 1));
+}
+
 export function renderActivity(
   runtime: SignalRuntime,
   spec: SignalSpec,
@@ -45,31 +78,23 @@ export function renderActivity(
     if (ascii) return distance === 0 ? headFallback : trailGlyph(distance, true);
     return def ? cellGlyph(frameAt(def, tick - Math.round(distance)), headFallback) : headFallback;
   };
-  const trueColor = colorEnabled() && !ascii;
-  const headRgb = paletteRgb("accent");
   // Lantern tie-in: ember/heat heads flicker with the welcome lantern's
   // breathe-plus-ripple curve, so the signature flame lives in the rail.
   const lantern =
     def?.generator?.geometry === "ember" || def?.generator?.geometry === "heat";
   const glow = lantern ? 0.84 + 0.16 * lanternGlow(Date.now()) : 1;
-  const flicker = (rgb: [number, number, number]): [number, number, number] =>
-    rgb.map((channel) =>
-      Math.min(255, Math.round(channel * glow + (255 - channel) * 0.09 * ((glow - 0.84) / 0.16))),
-    ) as [number, number, number];
-  const cellColor = (distance: number): string => {
-    if (!trueColor) {
-      if (distance === 0) return hot;
-      if (distance === 1) return model;
-      if (distance === 2) return path;
-      return dim;
-    }
-    const intensity = 1 - Math.min(distance, trailDepth + 1) / (trailDepth + 1);
-    if (distance <= 0.5) {
-      const rgb = flicker(headRgb);
-      return ansi.getFgAnsi(rgb[0], rgb[1], rgb[2]);
-    }
-    return fgGradientCode("accent", "sep", 1 - intensity);
+  const palette: RailPalette = {
+    trueColor: colorEnabled() && !ascii,
+    trailDepth,
+    headRgb: paletteRgb("accent"),
+    flickerScale: glow,
+    flickerWhite: lantern ? 0.09 * ((glow - 0.84) / 0.16) : 0,
+    hot,
+    model,
+    path,
+    dim,
   };
+  const cellColor = (distance: number): string => railCellColor(distance, palette);
 
   let rail: string;
   if (!runtime.active) {
