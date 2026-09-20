@@ -98,35 +98,59 @@ export function renderActivity(
 
   let rail: string;
   if (!runtime.active) {
-    // Do not derive idle state from Date.now(): there is intentionally no idle
-    // animation clock, so a clock-derived rail otherwise changes only when an
-    // unrelated repaint happens. The center marker makes ready glanceable.
-    const center = Math.floor(railWidth / 2);
-    rail = Array.from({ length: railWidth }, (_, index) =>
-      paint(index === center ? (ascii ? "." : "⋄") : track, dim),
-    ).join("");
+    rail = renderIdleRail(railWidth, ascii, track, dim);
   } else if (runtime.event === "compact") {
     rail = renderCompactRail(runtime.tick, railWidth, ascii, headGlyph, cellColor);
   } else {
-    // Eased ping-pong sweep: the head decelerates at the edges and glides
-    // back instead of teleporting from the last cell to the first.
-    const pos = sweepPhase(runtime.tick, railWidth, true, direction, ease);
-    rail = Array.from({ length: railWidth }, (_, index) => {
-      const distance = direction === "forward" ? pos - index : index - pos;
-      if (distance > -0.5 && distance <= 0.5) {
-        return paint(headGlyph(runtime.tick, 0), cellColor(0));
-      }
-      if (distance > 0.5 && distance <= trailDepth + 0.5) {
-        return paint(headGlyph(runtime.tick, Math.round(distance)), cellColor(distance));
-      }
-      return paint(track, dim);
-    }).join("");
+    rail = renderSweepRail(runtime.tick, railWidth, direction, ease, trailDepth, track, headGlyph, cellColor, dim);
   }
 
   const edge = runtime.active ? hot : dim;
   const left = `${spec.caps.leftOpen ?? ""}${spec.separators.left}`;
   const right = `${spec.separators.right}${spec.caps.leftClose ?? ""}`;
   return `${paint(left, edge)}${rail}${paint(right, edge)} ${paint(label, runtime.active ? hot : dim)}`;
+}
+
+/** Idle rail. Do not derive idle state from Date.now(): there is
+ * intentionally no idle animation clock, so a clock-derived rail otherwise
+ * changes only when an unrelated repaint happens. The center marker makes
+ * ready glanceable. */
+function renderIdleRail(
+  width: number,
+  ascii: boolean,
+  track: string,
+  dim: string,
+): string {
+  const center = Math.floor(width / 2);
+  return Array.from({ length: width }, (_, index) =>
+    paint(index === center ? (ascii ? "." : "⋄") : track, dim),
+  ).join("");
+}
+
+/** Eased ping-pong sweep: the head decelerates at the edges and glides back
+ * instead of teleporting from the last cell to the first. */
+function renderSweepRail(
+  tick: number,
+  width: number,
+  direction: "forward" | "reverse",
+  ease: "linear" | "pulse" | "breathe",
+  trailDepth: number,
+  track: string,
+  headGlyph: (tick: number, distance: number) => string,
+  cellColor: (distance: number) => string,
+  dim: string,
+): string {
+  const pos = sweepPhase(tick, width, true, direction, ease);
+  return Array.from({ length: width }, (_, index) => {
+    const distance = direction === "forward" ? pos - index : index - pos;
+    if (distance > -0.5 && distance <= 0.5) {
+      return paint(headGlyph(tick, 0), cellColor(0));
+    }
+    if (distance > 0.5 && distance <= trailDepth + 0.5) {
+      return paint(headGlyph(tick, Math.round(distance)), cellColor(distance));
+    }
+    return paint(track, dim);
+  }).join("");
 }
 
 function renderCompactRail(
