@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-09-20
+
 ### Fixed
 - Deck navigation (reported by Joep): ↑↓ walking the route column is now sticky. Previously ↓ arriving at a list route (Skills, Appearance, Motion, Ideas) was silently consumed by the center list, so walking down the left column appeared to jump sideways into the right pane mid-walk. Focus only crosses columns on an explicit ←/tab (nav) or → (list).
 
