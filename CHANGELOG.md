@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- Deck navigation (reported by Joep): ↑↓ walking the route column is now sticky. Previously ↓ arriving at a list route (Skills, Appearance, Motion, Ideas) was silently consumed by the center list, so walking down the left column appeared to jump sideways into the right pane mid-walk. Focus only crosses columns on an explicit ←/tab (nav) or → (list).
+
+### Changed
+- Motion sweeps traverse on an eased ping-pong instead of a wrapping step: the head decelerates at the rail edges, turns, and glides back — no teleport from the last cell to the first. Each motion's `ease` curve (`linear` / `pulse` / `breathe`) now actually shapes traversal velocity; fractional head positions drive a truecolor trail ramp (hot head cooling to the dim track) replacing the four discrete color steps, and ember/heat heads flicker with the welcome lantern's breathe-plus-ripple curve. Gallery previews render the same eased traversal.
+
 ## [1.10.0] - 2026-09-13
 
 ### Fixed

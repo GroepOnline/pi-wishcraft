@@ -300,11 +300,17 @@ export function createDeckComponent(
       if (matchesKey(data, "up")) {
         const next = Math.max(0, state.selectedNav - 1);
         setRoute(DECK_ROUTE_DEFS[next]?.id ?? state.route);
+        // Sticky focus: once ↑↓ drives the nav column it keeps driving the
+        // nav column. Without this, ↓ arriving at a list route (skills,
+        // appearance, motion, ideas) is silently consumed by the center
+        // list and focus appears to jump sideways mid-walk.
+        state = { ...state, navMode: true };
         return;
       }
       if (matchesKey(data, "down")) {
         const next = Math.min(DECK_ROUTE_DEFS.length - 1, state.selectedNav + 1);
         setRoute(DECK_ROUTE_DEFS[next]?.id ?? state.route);
+        state = { ...state, navMode: true };
         return;
       }
 
