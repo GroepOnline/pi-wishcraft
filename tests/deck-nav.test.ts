@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -22,6 +22,11 @@ const theme = {
 
 function makeHarness(initialRoute: any) {
   const cwd = mkdtempSync(join(tmpdir(), "deck-nav-"));
+  mkdirSync(join(cwd, ".pi", "skills", "demo"), { recursive: true });
+  writeFileSync(
+    join(cwd, ".pi", "skills", "demo", "SKILL.md"),
+    "---\nname: demo\ndescription: fixture skill for nav tests\n---\nbody\n",
+  );
   const notifications: string[] = [];
   const ctx: any = {
     cwd,
@@ -101,6 +106,22 @@ test("tab also focuses nav; footer advertises the focus model", () => {
   const listFooter = deckFooter({ route: "motion", navMode: false } as DeckNavState);
   assert.match(listFooter, /←\/tab nav/);
   assert.match(listFooter, /→ list/);
+});
+
+test("↓ walking nav never hands focus to a route list", () => {
+  const h = makeHarness("home");
+  h.component.handleInput(DOWN); // home -> signal
+  h.component.handleInput(DOWN); // signal -> skills
+  // The skills list must not steal ↓ from the nav walk: the route cursor
+  // keeps going DOWN the left column instead of jumping into the center.
+  h.component.handleInput(DOWN);
+  assert.match(h.frame(), /ACTIVE ROUTE: IDEAS/);
+  assert.match(h.frame(), /◉ NAVIGATION/);
+  // → then enters the list explicitly, ↓ drives the skill cursor.
+  h.component.handleInput(RIGHT);
+  const body = h.frame();
+  assert.match(body, /◉ ACTIVE ROUTE: IDEAS/);
+  assert.match(body, /○ NAVIGATION/);
 });
 
 test("↑↓ moves the appearance cursor and clamps at the ends", () => {
