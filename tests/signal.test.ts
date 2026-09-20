@@ -318,3 +318,31 @@ function segmentContext(): SegmentContext {
 function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;]*m/g, "");
 }
+
+test("rail wake trails the head on both ping-pong legs", () => {
+  const spec = getStructuralPreset("lanternwake").signal;
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "braille-wave"; // frames-kind signal motion
+  signal.activity = "streaming";
+  signal.active = true;
+  // width 80 -> rail of 12 cells, span 11, period 22.
+  const cells = (tick: number) => {
+    signal.tick = tick;
+    const rail = stripAnsi(renderActivity(signal, spec, false, 80));
+    return rail.slice(rail.indexOf("╾") + 1, rail.lastIndexOf("╼"));
+  };
+  const braille = /[⠁-⠿]/;
+  // Outbound (tick 4): head travels right, wake to its left.
+  const out = cells(4);
+  const outHead = out.indexOf("⠷"); // frameAt(braille-wave, 4)
+  assert.notEqual(outHead, -1, `head frame missing: ${out}`);
+  assert.ok(braille.test(out.slice(0, outHead)), `outbound wake must sit left of the head: ${out}`);
+  assert.match(out.slice(outHead + 1), /^─+$/, `nothing ahead on the outbound leg: ${out}`);
+  // Return leg (tick 15 > span 11): head travels left, wake to its right.
+  const back = cells(15);
+  const backHead = back.indexOf("⠧"); // frameAt(braille-wave, 15)
+  assert.notEqual(backHead, -1, `head frame missing: ${back}`);
+  assert.match(back.slice(0, backHead), /^─+$/, `nothing ahead on the return leg: ${back}`);
+  assert.ok(braille.test(back.slice(backHead + 1)), `return wake must sit right of the head: ${back}`);
+});

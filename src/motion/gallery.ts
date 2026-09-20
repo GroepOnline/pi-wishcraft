@@ -4,7 +4,7 @@
  */
 
 import { MOTION_CATALOG } from "./catalog.ts";
-import { frameAt, framesOf, sweepPhase, trailGlyph } from "./frames.ts";
+import { frameAt, framesOf, sweepPhase, sweepReturning, trailGlyph } from "./frames.ts";
 import type { MotionDef } from "./types.ts";
 
 export const GALLERY_CATEGORIES = [
@@ -61,10 +61,12 @@ export function previewStrip(
   const trail = def.generator?.trail ?? 2;
   // Same eased ping-pong phase as the status rail, so the gallery previews
   // the real traversal: decelerate, turn, glide back — no teleport wrap.
+  // The wake follows the current leg, staying behind the head both ways.
   const pos = sweepPhase(tick, inner, true, direction, ease);
+  const movingRight = (direction === "forward") !== sweepReturning(tick, inner);
   let out = "";
   for (let i = 0; i < inner; i++) {
-    const distance = direction === "forward" ? pos - i : i - pos;
+    const distance = movingRight ? pos - i : i - pos;
     if (distance > -0.5 && distance <= 0.5) out += head;
     else if (distance > 0.5 && distance <= trail + 0.5) {
       out += trailGlyph(Math.round(distance), ascii);

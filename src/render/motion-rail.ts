@@ -5,7 +5,7 @@
  */
 
 import { getMotion } from "../motion/catalog.ts";
-import { frameAt, lanternGlow, sweepPhase, trailGlyph } from "../motion/frames.ts";
+import { frameAt, lanternGlow, sweepPhase, sweepReturning, trailGlyph } from "../motion/frames.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, fgGradientCode, getFgAnsiCode, paletteRgb } from "../theme/colors.ts";
@@ -141,8 +141,11 @@ function renderSweepRail(
   dim: string,
 ): string {
   const pos = sweepPhase(tick, width, true, direction, ease);
+  // Orient the wake by the current leg, not just the configured direction:
+  // on the return leg the head travels the other way, so "behind" flips.
+  const movingRight = (direction === "forward") !== sweepReturning(tick, width);
   return Array.from({ length: width }, (_, index) => {
-    const distance = direction === "forward" ? pos - index : index - pos;
+    const distance = movingRight ? pos - index : index - pos;
     if (distance > -0.5 && distance <= 0.5) {
       return paint(headGlyph(tick, 0), cellColor(0));
     }

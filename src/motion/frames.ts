@@ -100,6 +100,19 @@ export function sweepPhase(
 }
 
 /**
+ * True during the return leg of a ping-pong traversal — when the head is
+ * travelling back toward its starting edge. Callers orient the trail from
+ * this so the wake always trails the head on both legs.
+ */
+export function sweepReturning(tick: number, width: number): boolean {
+  if (width <= 1) return false;
+  const span = width - 1;
+  const period = 2 * span;
+  const phase = ((tick % period) + period) % period;
+  return phase > span;
+}
+
+/**
  * Position of a travelling head across `width` cells. Ping-pong traversal:
  * the head bounces at the edges instead of wrapping. Returns -1 when the
  * motion is not animating, so callers can render a still rail.

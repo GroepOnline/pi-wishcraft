@@ -50,6 +50,7 @@ export {
   lanternGlow,
   sweepPhase,
   sweepPosition,
+  sweepReturning,
   trailGlyph,
 } from "./frames.ts";
 
