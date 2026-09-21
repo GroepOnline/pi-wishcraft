@@ -13,7 +13,7 @@ import { renderActivity } from "../src/render/motion-rail.ts";
 import { renderStatusLineV2 } from "../src/render/v2-entry.ts";
 import { getStructuralPreset } from "../src/config/structural-presets.ts";
 import { PRESETS } from "../src/config/presets.ts";
-import type { SegmentContext } from "../src/config/types.ts";
+import type { SegmentContext, SignalSpec } from "../src/config/types.ts";
 import { registerCommands } from "../src/extension/commands/commands.ts";
 import {
   clearContributions,
@@ -51,6 +51,24 @@ function schedulerHarness() {
       callback?.();
     },
   };
+}
+
+const TEST_SIGNAL_SPEC: SignalSpec = {
+  layout: "standard",
+  separators: { left: "[", right: "]" },
+  caps: {},
+  animation: "ember-relay",
+};
+
+function activityRail(
+  signal: ReturnType<typeof createSignalRuntime>,
+  ascii: boolean,
+  width: number,
+): string {
+  const rendered = stripAnsi(renderActivity(signal, TEST_SIGNAL_SPEC, ascii, width));
+  const match = /^\[(.*)\] /.exec(rendered);
+  assert.ok(match, `expected a bracketed activity rail, got ${rendered}`);
+  return match[1]!;
 }
 
 test("Signal leases the ambient channel while resting and signal while active", () => {
@@ -115,6 +133,37 @@ test("reduced motion keeps stable Signal text without scheduling frames", () => 
   assert.equal(harness.scheduler.activeCount, 0);
 });
 
+test("idle animation honors the ambient toggle and survives subscription failure", () => {
+  const harness = schedulerHarness();
+  const signal = createSignalRuntime(0);
+  const ambientDisabled = {
+    ...DEFAULT_MOTION_POLICY,
+    toggles: { ...DEFAULT_MOTION_POLICY.toggles, ambient: false },
+  };
+
+  setSignalEvent(signal, harness.scheduler, ambientDisabled, "idle");
+  assert.equal(signal.event, "idle");
+  assert.equal(signal.active, false);
+  assert.equal(signal.idleAnimated, false);
+  assert.equal(signal.release, null);
+  assert.equal(harness.scheduler.activeCount, 0);
+
+  const failingScheduler = {
+    subscribe() {
+      throw new Error("timer unavailable");
+    },
+  } as unknown as MotionScheduler;
+  const fullPolicy = {
+    ...DEFAULT_MOTION_POLICY,
+    toggles: { ...DEFAULT_MOTION_POLICY.toggles },
+  };
+
+  assert.doesNotThrow(() => setSignalEvent(signal, failingScheduler, fullPolicy, "idle"));
+  assert.equal(signal.active, false);
+  assert.equal(signal.idleAnimated, false);
+  assert.equal(signal.release, null);
+});
+
 test("Signal activity uses structural motion and ASCII fallback", () => {
   const signal = createSignalRuntime(0);
   signal.event = "streaming";
@@ -145,6 +194,79 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   assert.ok(headIndex > trailIndex, "ASCII trail must trail the head");
 });
 
+test("Signal rail clips multi-column frames and enforces its width bounds", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "writing-reveal";
+  signal.activity = "streaming";
+  signal.active = true;
+
+  for (const [width, expectedRailWidth] of [
+    [40, 12],
+    [160, 16],
+    [400, 22],
+  ] as const) {
+    for (const tick of [0, 1, 2, 3]) {
+      signal.tick = tick;
+      assert.equal(
+        Array.from(activityRail(signal, false, width)).length,
+        expectedRailWidth,
+        `terminal width ${width}, tick ${tick}`,
+      );
+    }
+  }
+});
+
+test("Signal sweep renders deterministic sparks ahead of the moving head", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "ember-relay";
+  signal.activity = "streaming";
+  signal.active = true;
+
+  signal.tick = 2;
+  assert.equal(activityRail(signal, false, 120), "◇◈◆─────────");
+
+  signal.tick = 3;
+  const withSpark = activityRail(signal, false, 120);
+  assert.equal(withSpark, "◇◈◆◈◈───────");
+  assert.equal(
+    activityRail(signal, false, 120),
+    withSpark,
+    "the same tick must never jitter",
+  );
+});
+
+test("reverse motion keeps its trail behind a right-to-left head", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "knot-bind";
+  signal.activity = "streaming";
+  signal.active = true;
+  signal.tick = 2;
+
+  const rail = activityRail(signal, true, 120);
+  const head = rail.indexOf("o");
+  const trail = rail.indexOf(">");
+  assert.notEqual(head, -1);
+  assert.notEqual(trail, -1);
+  assert.ok(head < trail, `reverse trail must follow the head: ${rail}`);
+});
+
+test("compact motion moves two heads inward without changing rail width", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "compact";
+  signal.motionId = "bar";
+  signal.activity = "compacting";
+  signal.active = true;
+
+  signal.tick = 0;
+  assert.equal(activityRail(signal, false, 120), "▏━━━━━━━━━━▏");
+
+  signal.tick = 1;
+  assert.equal(activityRail(signal, false, 120), "─▎━━━━━━━━▎─");
+});
+
 test("idle breathes from the ambient tick, not the wall clock", () => {
   const signal = createSignalRuntime(0);
   signal.idleAnimated = true;
@@ -162,6 +284,19 @@ test("idle breathes from the ambient tick, not the wall clock", () => {
   } finally {
     Date.now = originalNow;
   }
+});
+
+test("ASCII idle remains a static marker even when ambient animation is active", () => {
+  const signal = createSignalRuntime(0);
+  signal.idleAnimated = true;
+
+  signal.tick = 0;
+  const first = activityRail(signal, true, 120);
+  signal.tick = 48;
+  const later = activityRail(signal, true, 120);
+
+  assert.equal(first, "------.-----");
+  assert.equal(later, first);
 });
 
 test("Signal renders left, center, and right lanes on one line", () => {
