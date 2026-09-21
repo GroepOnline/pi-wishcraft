@@ -176,6 +176,7 @@ function fillBar(
 
 export const budgetSegment: StatusLineSegment = {
   id: "budget",
+  /** Render daily token use, or hide the segment when no positive limit exists. */
   render(ctx) {
     const budget = ctx.tokenBudget;
     if (!budget || !budget.dailyLimit || budget.dailyLimit <= 0) {

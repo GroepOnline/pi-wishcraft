@@ -32,10 +32,17 @@ function clamp01(value: number): number {
   return value < 0 ? 0 : value > 1 ? 1 : value;
 }
 
+/** Map a scheduler tick to a repeating phase in the half-open range [0, 1). */
 function scene(duration: number, tick: number): number {
   return (((tick % duration) + duration) % duration) / duration;
 }
 
+/**
+ * Render the one-line Signal rail and its activity label.
+ *
+ * `width` is the available status-line width used to size the rail. ASCII mode
+ * uses single-column fallback glyphs and a static marker while idle.
+ */
 export function renderActivity(
   runtime: SignalRuntime,
   spec: SignalSpec,
@@ -89,9 +96,8 @@ export function renderActivity(
 }
 
 /**
- * Resting rail: a warm radial glow that slowly breathes and shimmers per
- * cell. Driven purely by the ambient tick — deterministic in tests, alive
- * in the terminal, and zero cost when motion is reduced or off.
+ * Render the idle rail as a warm radial glow for an ambient scheduler tick.
+ * The output is deterministic for a given tick and width.
  */
 function renderIdleRail(
   tick: number,
@@ -137,6 +143,10 @@ function renderStaticRail(
   ).join("");
 }
 
+/**
+ * Render a directional active rail with a trailing wake and optional sparks.
+ * Passing `null` for `frames` leaves cells ahead of the sweep as plain track.
+ */
 function renderSweepRail(
   tick: number,
   width: number,
