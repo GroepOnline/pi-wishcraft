@@ -26,6 +26,7 @@ export interface SignalRuntime {
   release: (() => void) | null;
 }
 
+/** Create an idle Signal runtime with no active scheduler lease. */
 export function createSignalRuntime(now = Date.now()): SignalRuntime {
   return {
     event: "idle",
@@ -50,6 +51,11 @@ export interface SetSignalEventOptions {
   settleOnDone?: boolean;
 }
 
+/**
+ * Update the Signal state for an event and replace its current scheduler lease.
+ * Active events lease the signal channel when policy permits; idle leases the
+ * ambient channel for its breathing rail. Otherwise, the runtime stays static.
+ */
 export function setSignalEvent(
   runtime: SignalRuntime,
   scheduler: MotionScheduler,

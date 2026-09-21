@@ -61,10 +61,17 @@ function clamp01(value: number): number {
   return value < 0 ? 0 : value > 1 ? 1 : value;
 }
 
+/** Map a scheduler tick to a repeating phase in the half-open range [0, 1). */
 function scene(duration: number, tick: number): number {
   return (((tick % duration) + duration) % duration) / duration;
 }
 
+/**
+ * Render the one-line Signal rail and its activity label.
+ *
+ * `width` is the available status-line width used to size the rail. ASCII mode
+ * uses single-column fallback glyphs and a static marker while idle.
+ */
 export function renderActivity(
   runtime: SignalRuntime,
   spec: SignalSpec,
