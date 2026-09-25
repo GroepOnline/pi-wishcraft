@@ -4,10 +4,15 @@
  */
 
 import { detectEnvironment, motionLevelFromEnv } from "../theme/detect.ts";
-import { DEFAULT_MOTION_POLICY, type MotionLevel, type MotionPolicy } from "./types.ts";
+import { describeMotionEvent, effectiveLevel, targetFps } from "./policy.ts";
+import {
+  DEFAULT_MOTION_POLICY,
+  type MotionEvent,
+  type MotionLevel,
+  type MotionPolicy,
+} from "./types.ts";
 
 export type { MotionLevel, MotionPolicy };
-import { effectiveLevel, targetFps } from "./policy.ts";
 
 export const MOTION_LEVELS: readonly MotionLevel[] = [
   "full",
@@ -46,6 +51,36 @@ export function policyFromEnvironment(
 /** Idle FPS for the current policy with no consumers must be 0. */
 export function idleFps(policy: MotionPolicy): number {
   return targetFps(policy, [], []);
+}
+
+/** Stable one-line status for screen readers. No glyphs, no motion. */
+export function screenReaderStatus(input: {
+  model: string;
+  git: string;
+  event: MotionEvent;
+  activity?: string;
+  contextPercent: number;
+  tool?: string;
+}): string {
+  const state = input.activity?.trim() || describeMotionEvent(input.event, input.tool);
+  return `Model: ${input.model} | Git: ${input.git} | State: ${state} | Context: ${input.contextPercent}%`;
+}
+
+export function describeMotionLevel(level: MotionLevel): string {
+  switch (level) {
+    case "full":
+      return "Continuous sweeps, micro-spinners, and transitions";
+    case "reduced":
+      return "Instant state changes; continuous loops replaced by static glyphs";
+    case "functional":
+      return "Task indicators active; decorative ambient motion disabled";
+    case "off":
+      return "Static display; zero animated frames";
+    default: {
+      const exhaustive: never = level;
+      return exhaustive;
+    }
+  }
 }
 
 export function describePolicy(policy: MotionPolicy): string {

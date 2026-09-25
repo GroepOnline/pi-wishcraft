@@ -6,6 +6,7 @@
 
 import { getMotion } from "../motion/catalog.ts";
 import { frameAt, lanternGlow, sweepPhase, sweepReturning, trailGlyph } from "../motion/frames.ts";
+import { fatBand } from "./motion-candidates.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
 import { ansi, colorEnabled, fgGradientCode, getFgAnsiCode, paletteRgb } from "../theme/colors.ts";
@@ -101,6 +102,8 @@ export function renderActivity(
     rail = renderIdleRail(railWidth, ascii, track, dim);
   } else if (runtime.event === "compact") {
     rail = renderCompactRail(runtime.tick, railWidth, ascii, headGlyph, cellColor);
+  } else if (runtime.motionId === "fat-band") {
+    rail = renderFatBandRail(runtime.tick, railWidth, ascii, hot);
   } else {
     rail = renderSweepRail(runtime.tick, railWidth, direction, ease, trailDepth, track, headGlyph, cellColor, dim);
   }
@@ -154,6 +157,18 @@ function renderSweepRail(
     }
     return paint(track, dim);
   }).join("");
+}
+
+/** Topographic streaming rail. One row, so the footer layout does not grow. */
+function renderFatBandRail(tick: number, width: number, ascii: boolean, hot: string): string {
+  const [top] = fatBand(tick, ascii, width);
+  if (!top) return "";
+  if (ascii || !colorEnabled()) return top;
+  const peak = /[▆▇█]/;
+  const body = getFgAnsiCode("model");
+  return Array.from(top)
+    .map((glyph) => paint(glyph, peak.test(glyph) ? hot : body))
+    .join("");
 }
 
 function renderCompactRail(
