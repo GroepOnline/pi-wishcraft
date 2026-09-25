@@ -213,6 +213,7 @@ export const BUILTIN_STATUS_LINE_SEGMENT_IDS = [
   "cost",
   "context_pct",
   "context_total",
+  "budget",
   "time_spent",
   "time",
   "session",
