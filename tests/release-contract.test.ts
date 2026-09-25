@@ -29,10 +29,17 @@ test("workflow verifies tag equals version and attaches SHA256SUMS without chang
   assert.match(workflow, /PI_WISHCRAFT_BUILD_SHA/);
   assert.match(workflow, /run: sh scripts\/npm-publish\.sh/);
   assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
-  const publishJob = workflow.slice(workflow.indexOf("name: test + publish"));
-  const backfillJob = workflow.slice(workflow.indexOf("name: Backfill GitHub Release evidence"));
+  const publishStart = workflow.indexOf("name: test + publish");
+  const backfillStart = workflow.indexOf("name: Backfill GitHub Release evidence");
+  const publishJob = workflow.slice(publishStart, backfillStart);
+  const backfillJob = workflow.slice(backfillStart);
   assert.match(publishJob, /run: sh scripts\/npm-publish\.sh/);
+  assert.match(publishJob, /inputs\.tag != ''/);
+  assert.match(publishJob, /runs-on: ubuntu-latest/);
   assert.doesNotMatch(backfillJob, /npm-publish\.sh|NODE_AUTH_TOKEN/);
+  assert.doesNotMatch(backfillJob, /TAG="\$\{\{ inputs\.tag \}\}"/);
+  assert.match(backfillJob, /INPUT_TAG: \$\{\{ inputs\.tag \}\}/);
+  assert.match(backfillJob, /runs-on: ubuntu-latest/);
 });
 
 test("package.json version is stable X.Y.Z and maps to vX.Y.Z", () => {

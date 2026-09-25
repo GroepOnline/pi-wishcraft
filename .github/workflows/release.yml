@@ -114,7 +114,11 @@ jobs:
   publish:
     name: test + publish
     needs: verify
-    if: startsWith(github.ref, 'refs/tags/v')
+    # A workflow_dispatch carrying inputs.tag is a backfill run (evidence-only);
+    # it must not publish. Only tag pushes and bare dispatches on the tag ref publish.
+    if: >-
+      startsWith(github.ref, 'refs/tags/v')
+      && !(github.event_name == 'workflow_dispatch' && inputs.tag != '')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -179,14 +183,20 @@ jobs:
     steps:
       - name: Resolve tag
         id: rel
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          TAG="${{ inputs.tag }}"
-          case "$TAG" in
+          case "$INPUT_TAG" in
             v[0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "tag ${TAG} is not vX.Y.Z" >&2; exit 1 ;;
+            *) echo "tag ${INPUT_TAG} is not vX.Y.Z" >&2; exit 1 ;;
           esac
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          # Anchored regex: only literal vX.Y.Z may flow into later shell steps.
+          if ! printf '%s' "$INPUT_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "tag ${INPUT_TAG} is not vX.Y.Z" >&2
+            exit 1
+          fi
+          echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ steps.rel.outputs.tag }}
