@@ -15,6 +15,7 @@ import {
 import { filterSkillRows } from "../src/extension/ui/deck/route-bodies.ts";
 import type { DeckNavState, DeckSessionSnapshot } from "../src/extension/ui/deck/types.ts";
 import { DEFAULT_SHORTCUTS } from "../src/extension/core/constants.ts";
+import { createSkillWizard } from "../src/extension/skills/workbench.ts";
 
 const snapshot: DeckSessionSnapshot = {
   modelLabel: "GPT-5.6",
@@ -60,6 +61,7 @@ const navState: DeckNavState = {
   assignEvent: "streaming",
   skillCreate: false,
   skillCreateName: "",
+  skillWizard: null,
   navMode: false,
 };
 
@@ -208,6 +210,33 @@ test("skills route renders the workbench list", () => {
   const body = lines.join("\n");
   assert.match(body, /WORKBENCH/);
   assert.match(body, /wishcraft-tui/);
+});
+
+test("appearance search filters the center list", () => {
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "appearance", searchQuery: "ember relay", selectedAppearance: 0 },
+    DEFAULT_SHORTCUTS,
+  );
+  const body = lines.join("\n");
+  assert.match(body, /Ember Relay/);
+  assert.match(body, /Search \d+/);
+});
+
+test("skills wizard renders inside the deck", () => {
+  const wizard = { ...createSkillWizard(), name: "lantern" };
+  const lines = renderDeckFrame(
+    theme as never,
+    96,
+    snapshot,
+    { ...navState, route: "skills", skillWizard: wizard },
+    DEFAULT_SHORTCUTS,
+  );
+  const body = lines.join("\n");
+  assert.match(body, /NEW SKILL WIZARD/);
+  assert.match(body, /lantern/);
 });
 
 test("appearance route lists structural bases with a cursor", () => {

@@ -5,6 +5,8 @@
  * ---------------------------------------------------------------------------
  */
 
+import type { SkillWizardState } from "../../skills/workbench.ts";
+
 export const DECK_ROUTES = [
   "home",
   "signal",
@@ -94,6 +96,8 @@ export interface DeckNavState {
   assignEvent: import("../../../motion/types.ts").MotionEvent;
   skillCreate: boolean;
   skillCreateName: string;
+  /** Multi-step new-skill wizard. `n` stays the one-field create. */
+  skillWizard: SkillWizardState | null;
   /** True when ↑↓ moves the NAVIGATION column instead of the route list. */
   navMode: boolean;
 }

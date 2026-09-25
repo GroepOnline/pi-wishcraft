@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { detectEnvironment, motionLevelFromEnv } from "../src/theme/detect.ts";
 import {
+  describeMotionLevel,
   describePolicy,
   idleFps,
   isMotionLevel,
   policyFromEnvironment,
+  screenReaderStatus,
 } from "../src/motion/accessibility.ts";
 import { allowedChannels, effectiveLevel, targetFps } from "../src/motion/policy.ts";
 
@@ -48,4 +50,18 @@ test("reduced motion drops continuous signal sweeps", () => {
   assert.ok(!allowedChannels("streaming", policy).includes("signal"));
   assert.equal(targetFps(policy, ["workingGlyph"], ["workingGlyph"]), 3);
   assert.match(describePolicy(policy), /reduced/);
+});
+
+test("screen reader status is a stable sentence and levels are described", () => {
+  assert.equal(
+    screenReaderStatus({
+      model: "gpt",
+      git: "main (clean)",
+      event: "thinking",
+      contextPercent: 12,
+    }),
+    "Model: gpt | Git: main (clean) | State: thinking | Context: 12%",
+  );
+  assert.match(describeMotionLevel("off"), /zero animated frames/i);
+  assert.match(describeMotionLevel("full"), /sweeps/i);
 });

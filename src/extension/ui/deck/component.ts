@@ -19,12 +19,15 @@ import {
   readSkillBody,
 } from "../../skills/skill-registry.ts";
 import { writeSkillFromTemplate } from "../../skills/skill-templates.ts";
+import { createSkillWizard } from "../../skills/workbench.ts";
+import { appearanceDisplayName } from "../../../config/structural-presets.ts";
+import { searchAppearanceConfig } from "./appearance-search.ts";
+import { applyDeckAppearanceHit, reduceSkillWizard } from "./deck-actions.ts";
 import {
   applyOverlayQueryKey,
   isOverlayPrintable,
 } from "../overlay-chrome.ts";
 import type { RuntimeState } from "../../core/types.ts";
-import { appearanceDisplayName } from "../../../config/structural-presets.ts";
 import { filterSkillRows, selectedGalleryMotion } from "./route-bodies.ts";
 import {
   buildDeckSessionSnapshot,
@@ -59,6 +62,7 @@ export function createDeckNavState(
     assignEvent: "streaming",
     skillCreate: false,
     skillCreateName: "",
+    skillWizard: null,
     navMode: false,
   };
 }
@@ -127,6 +131,14 @@ export function createDeckComponent(
           composer = null;
           return;
         }
+        if (state.skillWizard) {
+          state = reduceSkillWizard(state, "escape", {
+            refresh: refreshStaticSnapshot,
+            info: () => {},
+            warn: () => {},
+          });
+          return;
+        }
         if (state.skillCreate) {
           state = { ...state, skillCreate: false, skillCreateName: "" };
           return;
@@ -175,6 +187,7 @@ export function createDeckComponent(
       if (
         !state.composerOpen &&
         !state.skillCreate &&
+        !state.skillWizard &&
         (matchesKey(data, "left") ||
           matchesKey(data, "tab") ||
           matchesKey(data, "shift+tab"))
@@ -196,8 +209,21 @@ export function createDeckComponent(
       }
 
       if (state.route === "appearance") {
-        if (!state.navMode && handleList(data, "selectedAppearance", STRUCTURAL_PRESET_NAMES.length)) return;
+        const query = state.searchQuery.trim();
+        const hits = query ? searchAppearanceConfig(query) : [];
+        const count = query ? hits.length : STRUCTURAL_PRESET_NAMES.length;
+        if (!state.navMode && handleList(data, "selectedAppearance", count)) return;
         if (matchesKey(data, "enter")) {
+          if (query) {
+            applyDeckAppearanceHit(
+              rt,
+              ctx.cwd ?? process.cwd(),
+              hits[state.selectedAppearance],
+              notify,
+              (message) => ctx.ui.notify(message, "warning"),
+            );
+            return;
+          }
           const name = STRUCTURAL_PRESET_NAMES[state.selectedAppearance];
           if (name) {
             const ok = applyAppearanceBase(rt, ctx.cwd ?? process.cwd(), name);
@@ -243,6 +269,14 @@ export function createDeckComponent(
       }
 
       if (state.route === "skills") {
+        if (state.skillWizard) {
+          state = reduceSkillWizard(state, data, {
+            refresh: refreshStaticSnapshot,
+            info: (message) => ctx.ui.notify(message, "info"),
+            warn: (message) => ctx.ui.notify(message, "warning"),
+          });
+          return;
+        }
         if (state.skillCreate) {
           if (matchesKey(data, "enter")) {
             const name = state.skillCreateName.trim();
@@ -272,6 +306,10 @@ export function createDeckComponent(
         }
         if (data === "n") {
           state = { ...state, skillCreate: true, skillCreateName: "" };
+          return;
+        }
+        if (data === "w") {
+          state = { ...state, skillWizard: createSkillWizard() };
           return;
         }
         const snapshot = liveSnapshot();
@@ -345,8 +383,18 @@ export function createDeckComponent(
   function handleSearch(data: string): void {
     const next = applyOverlayQueryKey(state.searchQuery, data);
     if (next !== null) {
-      state = { ...state, searchQuery: next, selectedMotion: 0, selectedSkill: 0 };
-      if (state.route !== "motion" && state.route !== "skills") {
+      state = {
+        ...state,
+        searchQuery: next,
+        selectedMotion: 0,
+        selectedSkill: 0,
+        selectedAppearance: 0,
+      };
+      if (
+        state.route !== "motion" &&
+        state.route !== "skills" &&
+        state.route !== "appearance"
+      ) {
         const matches = filterDeckRoutes(next);
         if (matches.length === 1) {
           state = { ...state, searchOpen: false, searchQuery: "", navMode: false };
@@ -356,7 +404,7 @@ export function createDeckComponent(
       return;
     }
     if (matchesKey(data, "enter")) {
-      if (state.route === "motion" || state.route === "skills") {
+      if (state.route === "motion" || state.route === "skills" || state.route === "appearance") {
         state = { ...state, searchOpen: false };
         return;
       }

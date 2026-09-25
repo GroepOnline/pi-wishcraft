@@ -82,3 +82,10 @@ export function motionIntervalMs(def: MotionDef): number {
 export function motionFrameCount(def: MotionDef): number {
   return framesOf(def).length;
 }
+
+/** Toggle a motion id in a favorites list. Order of first add is kept. */
+export function toggleFavorite(favorites: readonly string[], id: string): string[] {
+  return favorites.includes(id)
+    ? favorites.filter((item) => item !== id)
+    : [...favorites, id];
+}
