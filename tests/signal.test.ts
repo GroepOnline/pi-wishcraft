@@ -217,7 +217,7 @@ test("Signal rail clips multi-column frames and enforces its width bounds", () =
   }
 });
 
-test("Signal sweep renders deterministic sparks ahead of the moving head", () => {
+test("eased sweep keeps a deterministic trail that advances with the tick", () => {
   const signal = createSignalRuntime(0);
   signal.event = "streaming";
   signal.motionId = "ember-relay";
@@ -225,16 +225,14 @@ test("Signal sweep renders deterministic sparks ahead of the moving head", () =>
   signal.active = true;
 
   signal.tick = 2;
-  assert.equal(activityRail(signal, false, 120), "◇◈◆─────────");
+  const early = activityRail(signal, false, 120);
+  assert.equal(early, "◈◆──────────");
+  assert.equal(activityRail(signal, false, 120), early, "the same tick must never jitter");
 
   signal.tick = 3;
-  const withSpark = activityRail(signal, false, 120);
-  assert.equal(withSpark, "◇◈◆◈◈───────");
-  assert.equal(
-    activityRail(signal, false, 120),
-    withSpark,
-    "the same tick must never jitter",
-  );
+  const next = activityRail(signal, false, 120);
+  assert.equal(next, "◈◆◈─────────");
+  assert.notEqual(next, early, "the head and wake advance on the next tick");
 });
 
 test("reverse motion keeps its trail behind a right-to-left head", () => {

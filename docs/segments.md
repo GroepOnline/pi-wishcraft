@@ -102,7 +102,7 @@ The `minimal` and `compact` presets keep these off to stay lean; set `showCommit
 
 ## Segments
 
-`model` · `shell_mode` · `path` · `git` · `subagents` · `queue` · `token_in` · `token_out` · `token_total` · `cost` · `context_pct` · `context_total` · `time_spent` · `time` · `session` · `hostname` · `cache_read` · `cache_write` · `thinking` · `tps` · `open_ports` · `extension_statuses`
+`model` · `shell_mode` · `path` · `git` · `subagents` · `queue` · `token_in` · `token_out` · `token_total` · `cost` · `budget` · `context_pct` · `context_total` · `time_spent` · `time` · `session` · `hostname` · `cache_read` · `cache_write` · `thinking` · `tps` · `open_ports` · `extension_statuses`
 
 ## Separators
 
