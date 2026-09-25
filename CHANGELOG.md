@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-09-25
+
 ### Added
 - Recovered the unmatched vNext gallery motions (ember-trail, lantern-glow, fat-band, and the rest that were not already in the catalog) and the extreme-motion rail candidates (braille wave, boids, chevrons, shimmer, seismograph, fat-band). Assign motion `fat-band` to paint the topographic streaming rail; the default sweep stays a single status row.
 - Deck skills: `w` opens the multi-step new-skill wizard (name, description, template, triggers) and writes `SKILL.md`. `n` remains the one-field create.
