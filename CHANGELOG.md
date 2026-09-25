@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-09-25
+
 ### Added
 - `budget` segment (daily token budget): renders `budget NN%` with a fill bar when `wishcraft.tokenBudget.daily.limit` is set; wired into the `chef`, `full`, and `nerd` presets.
 - Resting animation has a real clock: while idle at full motion, the signal rail leases the scheduler's `ambient` channel and breathes from that tick. `reduced`/`off` motion still renders a stable dim marker with no scheduler consumer.
