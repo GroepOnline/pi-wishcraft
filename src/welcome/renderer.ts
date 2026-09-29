@@ -68,6 +68,8 @@ export function renderWelcomeBox(
   data: WelcomeData,
   termWidth: number,
   bottomLine: string,
+  /** Reveal frames: replaces the left-column art block when provided. */
+  artOverride?: string[],
 ): string[] {
   const layout = getBoxLayout(termWidth);
   if (!layout) {
@@ -107,7 +109,7 @@ export function renderWelcomeBox(
     color: fgOnly,
   };
 
-  const leftLines = buildLeftColumn(leftCtx);
+  const leftLines = artOverride ?? buildLeftColumn(leftCtx);
   const rightLines = buildRightColumn(rightCtx, rightWidgets);
 
   const lines: string[] = [];

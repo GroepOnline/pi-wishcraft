@@ -44,17 +44,29 @@ export {
 } from "./policy.ts";
 
 export {
+  brailleGlyph,
+  brailleWakeGlyph,
   frameAt,
   frameAtElapsed,
+  fractionalTick,
   framesOf,
+  interpTick,
+  isBrailleGeometry,
   lanternGlow,
+  punchEnvelope,
+  rippleRings,
+  sweepMovingRight,
   sweepPhase,
   sweepPosition,
   sweepReturning,
   trailGlyph,
+  type RippleRing,
 } from "./frames.ts";
 
-export { MotionScheduler } from "./scheduler.ts";
+export { buildSweepCells } from "./sweep-cells.ts";
+export type { SweepCell, SweepCellKind, SweepCellsOptions } from "./sweep-cells.ts";
+
+export { MotionScheduler, effectiveIntervalMs } from "./scheduler.ts";
 export type { MotionConsumer, MotionSchedulerOptions } from "./scheduler.ts";
 
 export {

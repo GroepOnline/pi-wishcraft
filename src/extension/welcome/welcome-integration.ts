@@ -7,11 +7,30 @@ import {
   normalizeWelcomeArt,
   type WelcomeArtTheme,
 } from "../../welcome/index.ts";
+import { BOOT_REVEAL_HEARTBEAT_MS, bootRevealActive } from "../../welcome/banner.ts";
 import { estimateInitialContextTokens } from "../../usage/context.ts";
 import { isRecord, readSettings } from "../settings/settings-io.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { pickNextReviewIdea } from "../queue/idea-review.ts";
+
+/**
+ * Drive the header's boot reveal: repaint on a heartbeat while the reveal
+ * window is open, then stop — a bounded one-shot, zero timers afterwards.
+ * The header samples its own elapsed time on every render; this only feeds
+ * it repaints while the ramp is running.
+ */
+function armHeaderRevealTimer(rt: RuntimeState): void {
+  const startedAt = Date.now();
+  const interval = setInterval(() => {
+    if (!bootRevealActive(startedAt, Date.now())) {
+      clearInterval(interval);
+      return;
+    }
+    rt.tuiRef?.requestRender();
+  }, BOOT_REVEAL_HEARTBEAT_MS);
+  if (typeof interval.unref === "function") interval.unref();
+}
 
 interface WelcomeArtSettings {
   art: WelcomeArtTheme;
@@ -57,6 +76,7 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
   );
   const artSettings = readWelcomeArtSettings(ctx);
   header.setArt(artSettings.art, artSettings.animate);
+  header.armBootReveal();
   rt.welcomeHeaderActive = true;
 
   ctx.ui.setHeader(() => {
@@ -69,6 +89,7 @@ export function setupWelcomeHeader(rt: RuntimeState, ctx: any) {
       },
     };
   });
+  armHeaderRevealTimer(rt);
 }
 
 export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
@@ -137,6 +158,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
           );
           const artSettings = readWelcomeArtSettings(ctx);
           welcome.setArt(artSettings.art, artSettings.animate);
+          welcome.armBootReveal();
 
           let countdown = 30;
           let dismissed = false;

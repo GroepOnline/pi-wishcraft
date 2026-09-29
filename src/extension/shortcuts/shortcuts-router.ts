@@ -31,7 +31,7 @@ export function getCurrentEditorText(ctx: any, editor: any): string {
   const editorText = editor?.getExpandedText?.();
   if (typeof editorText === "string" && editorText.length > 0)
     return editorText;
-  return ctx.ui.getEditorText?.() ?? editorText ?? "";
+  return ctx.ui?.getEditorText?.() ?? editorText ?? "";
 }
 
 export function addStashHistoryEntry(rt: RuntimeState, text: string): void {

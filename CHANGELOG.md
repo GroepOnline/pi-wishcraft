@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Added
+- Coverage gate in CI and local `npm test`: the suite fails below 70% line / 60% function coverage (current baseline 84.2% / 81.6%), so coverage can no longer silently regress.
+
+### Fixed
+- Shortcuts router: a missing `ctx.ui` crashed `getCurrentEditorText` with a TypeError; the accessor now falls through safely to the editor text or an empty string.
+
+### Added
+- Release-path contract tests: `scripts/release.mjs` (semver bump, `[skip release]` guard, org bump policy, tag parsing/collisions, CHANGELOG roll and note extraction, lockfile rewrite, release-candidate metadata validation incl. every rejection path) and `scripts/verify-release-tag.mjs` (version sources, tag equality, argument parsing) — previously the least-covered, most operationally critical files in the repo.
+- Extension-layer tests: prompt-history (trim/dedupe/cap, snapshot/restore, tracker idempotence, session-JSONL parsing via `PI_CODING_AGENT_DIR` fixture), stash-history (normalize/push/preview semantics), shortcuts router (per-binding action resolution incl. kitty CSI-u forms and release filtering), bash-mode actions (shell path/cwd/history-merge), and stash shortcuts.
+- OMP-style boot reveal: the welcome header and startup overlay fade their art up from a faint ember over the first ~1.5s after mount (logarithmic ramp on a 90ms heartbeat, ember-noise flicker while catching), then settle into the steady layout — a bounded one-shot, zero timers afterwards. `WelcomeHeader`/`WelcomeComponent` arm it via `armBootReveal()`; pure frames via `renderWelcomeArtWithReveal`.
+- Settings appearance preview: the Deck's Appearance route now renders a live signal-rail preview of the structural preset under the cursor (the preset's own signal spec and animation, one row, deterministic per tick), so you see each base before Enter applies it.
+
+### Changed
+- Motion engine (Mijlpaal B1): sub-tick interpolation — repaints between scheduler heartbeats move the travelling head smoothly instead of stepping one cell per tick. `SignalRuntime` records the heartbeat clock (`lastTickAt`) and `renderActivity` interpolates strictly within one interval, so hand-driven ticks (tests) and stale clocks keep exact integer rendering. Glyph frames stay tick-aligned via a fractional-safe `frameAt`.
+- Shared sweep geometry (`src/motion/sweep-cells.ts`): the status rail, gallery preview strip and composer preview now resolve head/trail/track cells through one `buildSweepCells` builder, so the gallery previews exactly what the rail paints. Rendered output is byte-identical to the previous inline loops (pinned by goldens).
+- Compact rail heads round to whole cells under fractional ticks; lab rails (fat-band) floor fractional ticks before painting.
+- Motion craft (Mijlpaal B2) — same surfaces, richer rendering, no new features or catalog entries:
+  - The travelling wake now rides a perceptual multi-stop ramp (hot → warm → cool → track) mixed in **Oklab** space, instead of a naive two-stop sRGB lerp that rendered muddy midpoints. The cool stop is derived by rotating the warm hue and dipping lightness, so every palette cools credibly without hardcoding a blue; a test pins that wake lightness falls strictly monotonically. Trail brightness decays with an ease-out glow falloff, so the wake cools like embers instead of stepping through tiers.
+  - wave/heat/liquid generator geometries render their wake as a rippling braille sub-cell curve (2×4 dot matrix per cell, still exactly one column) instead of four flat glyph steps; the gallery previews the same curve.
+  - Terminal events (success/warning/error) play a one-shot expanding ripple — two fading rings from the rail center — instead of a plain sweep; finite loop, zero frames once settled.
+  - Every event switch lands with an ignition punch (fast exponential brightness decay from `startedAt`).
+  - Ember/heat heads flicker with layered deterministic value noise (slow breathe + fast crackle, never repeats exactly) instead of two fixed sines.
+- Housekeeping: removed the stray `bun.lock` (npm is the package manager of record), added `engines: node >=22.19` to `package.json`, untracked the local harness log `.auto/log.jsonl`, and corrected the Node-version line and `src/` directory list in AGENTS.md.
+
 ## [1.13.0] - 2026-09-25
 
 ### Added

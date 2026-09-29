@@ -10,6 +10,7 @@ import { DECK_ROUTE_DEFS } from "./routes.ts";
 import type { DeckNavState, DeckRoute, DeckSessionSnapshot } from "./types.ts";
 import {
   appearanceLines,
+  appearanceRailPreview,
   guardrailLines,
   ideasLines,
   motionGalleryLines,
@@ -72,7 +73,7 @@ export function renderDeckFrame(
   lines.push(border(`├${"─".repeat(inner)}┤`));
 
   const nav = navLines(snapshot, state, theme, leftW, state.navMode);
-  const center = centerRouteBody(snapshot, state, theme, centerW, shortcuts, composer, tick);
+  const center = centerRouteBody(snapshot, state, theme, centerW, shortcuts, composer, tick, inner);
   const right = rightRail(snapshot, theme, rightW);
 
   const rowCount = Math.max(nav.length, center.length, right.length, 8);
@@ -127,6 +128,7 @@ function centerRouteBody(
   shortcuts: PowerlineShortcuts,
   composer: ComposerDraft | null = null,
   tick = Date.now(),
+  inner = width,
 ): string[] {
   const listFocused =
     !state.navMode && !state.searchOpen && !state.composerOpen;
@@ -201,9 +203,17 @@ function centerRouteBody(
       );
       body.push("Open /usage for detailed overlay");
       break;
-    case "appearance":
+    case "appearance": {
       body.push(...appearanceLines(snapshot, state));
+      // Live rail preview of the preset under the cursor — see what the
+      // base looks like on the signal rail before applying it.
+      const railPreview = appearanceRailPreview(snapshot, state, tick);
+      if (railPreview) {
+        body.push("");
+        body.push(truncateToWidth(railPreview, inner, "…", true));
+      }
       break;
+    }
     case "motion":
       body.push(...motionGalleryLines(snapshot, state, width, composer, tick));
       break;

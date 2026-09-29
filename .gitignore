@@ -144,3 +144,6 @@ node_modules/
 .factory/
 .jules/
 .remember/
+
+# Local harness state (benchmark logs etc.)
+.auto/log.jsonl

@@ -9,6 +9,8 @@ import {
   composerPreview,
   type ComposerDraft,
 } from "../../../motion/composer.ts";
+import { createSignalRuntime } from "../../../signal/controller.ts";
+import { renderActivity } from "../../../render/motion-rail.ts";
 import { filterMotions, GALLERY_CATEGORIES, previewStrip } from "../../../motion/gallery.ts";
 import { getMotion } from "../../../motion/catalog.ts";
 import { STRUCTURAL_PRESET_NAMES } from "../../../config/types.ts";
@@ -27,6 +29,30 @@ export function filterSkillRows(skills: readonly DeckSkillRow[], query: string):
   return skills.filter((skill) =>
     `${skill.name} ${skill.category} ${skill.description}`.toLowerCase().includes(q),
   );
+}
+
+/**
+ * Live signal preview for the appearance route: renders the candidate
+ * preset's own signal spec with a travelling head at `tick`, so browsing
+ * the preset list shows each base's rail look before applying it.
+ * Pure in (snapshot, state, tick); no dispatch, no persistence.
+ */
+export function appearanceRailPreview(
+  snapshot: DeckSessionSnapshot,
+  state: DeckNavState,
+  tick = Date.now(),
+): string | null {
+  const selected = STRUCTURAL_PRESET_NAMES[state.selectedAppearance];
+  if (!selected) return null;
+  const frameTick = Math.floor(tick / 90);
+  const spec = getStructuralPreset(selected).signal;
+  const runtime = createSignalRuntime(0);
+  runtime.event = "streaming";
+  runtime.motionId = spec.animation;
+  runtime.activity = appearanceDisplayName(selected);
+  runtime.active = true;
+  runtime.tick = frameTick;
+  return renderActivity(runtime, spec, false, 80, 0);
 }
 
 export function appearanceLines(
@@ -51,6 +77,7 @@ export function appearanceLines(
   const selectedDef = selected ? getStructuralPreset(selected) : null;
   const lines = [
     `Active: ${appearanceDisplayName(snapshot.appearanceBase)}`,
+    `Cursor: ${selected ? appearanceDisplayName(selected) : "—"} · enter applies`,
     `Layout ${config.preset} · motion ${snapshot.motionLevel}`,
     selectedDef ? selectedDef.description : "Enter applies the structural base to Signal.",
   ];

@@ -52,7 +52,7 @@ npm run circular
 
 | Directory | Purpose |
 |---|---|
-| `src/` | Extension runtime, organized by domain (core, config, segments, render, signal, motion, theme, welcome, working-vibes, usage, studio, skills, hooks, settings, shortcuts, history, queue, contrib) |
+| `src/` | Extension runtime, organized by domain (core, config, segments, render, signal, motion, theme, welcome, working-vibes, usage, studio, skills, hooks, settings, shortcuts, history, queue, contrib, editor, paths, shell, tools) |
 | `src/extension/` | Pi extension runtime: `core/` (hub, types, constants), `session/` (activation, lifecycle), `ui/` (deck, layout), `commands/`, `shortcuts/`, `queue/`, `welcome/`, `skills/`, `hooks/`, `settings/`, `history/`, `contrib/` |
 | `src/config/` | Powerline config parsing, presets, settings registry, tokens |
 | `src/segments/` | Segment registry and builtin renderers (core, system, usage, custom) |
@@ -245,7 +245,7 @@ function createRuntimeState(hooks: {
 
 | Requirement | Detail |
 |---|---|
-| **Node** | v22.14 system default; Node 24 via nvm for CI and pi CLI (pi requires ≥22.19) |
+| **Node** | ≥22.19 required (pi CLI floor, pinned via `engines`); Node 24 via nvm for CI and pi CLI |
 | **Package manager** | npm (lockfile v3) |
 | **TypeScript** | 5.9.3, strict mode, `NodeNext` module/resolution, `allowImportingTsExtensions`, no build step |
 | **Test runner** | Node built-in `node:test` with `--experimental-strip-types` type stripping |
