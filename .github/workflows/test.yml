@@ -35,7 +35,10 @@ jobs:
           fi
       - name: Typecheck
         run: npm run typecheck
-      - name: Unit tests (coverage threshold: 70% lines / 60% functions)
+      # Quoted: a bare ": " inside an unquoted YAML scalar is read as a nested
+      # mapping, which makes the whole workflow unparseable and fails every run
+      # with zero jobs. Guarded by tests/workflow-yaml.test.ts.
+      - name: "Unit tests (coverage threshold: 70% lines / 60% functions)"
         run: npm test
       - name: Circular dependency check
         run: npm run circular
