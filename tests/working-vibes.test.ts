@@ -15,6 +15,23 @@ async function importFauxProviderTools() {
   return import("@earendil-works/pi-ai/providers/faux");
 }
 
+/**
+ * The system prompt as a provider now receives it.
+ *
+ * `Provider.stream()` takes a branded `TranscriptContext` produced only by
+ * `normalizeContext()`, which folds `systemPrompt` and `tools` into a leading
+ * system message. So a provider no longer sees a `context.systemPrompt` field
+ * — it sees `messages[0]`. Asserting on the field would silently pass against
+ * a prompt that never arrived, so read it the way the SDK delivers it.
+ */
+function systemPromptText(context: {
+  messages?: { role?: string; content?: unknown }[];
+}): string {
+  const first = context.messages?.[0];
+  assert.equal(first?.role, "system", "normalizeContext() must lead with a system message");
+  return typeof first?.content === "string" ? first.content : "";
+}
+
 test("parseVibeGenerateArgs supports multi-word themes", () => {
   assert.deepEqual(parseVibeGenerateArgs(["pirate", "200"]), {
     theme: "pirate",
@@ -61,7 +78,7 @@ test("generateVibesBatch includes a system prompt so faux providers can return t
 
     registration.setResponses([
       (context) => {
-        assert.match(context.systemPrompt ?? "", /loading messages/i);
+        assert.match(systemPromptText(context), /loading messages/i);
         return fauxAssistantMessage(
           "Engaging warp drive...\nRunning diagnostics...",
         );
@@ -216,7 +233,7 @@ test("on-demand vibe generation includes a system prompt for providers that requ
 
     registration.setResponses([
       (context) => {
-        assert.match(context.systemPrompt ?? "", /loading messages/i);
+        assert.match(systemPromptText(context), /loading messages/i);
         return fauxAssistantMessage("Engaging warp drive...");
       },
     ]);

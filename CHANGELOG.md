@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+- **Pi SDK upgraded `0.84.3` -> `0.99.2`** (`@earendil-works/pi-coding-agent`, `pi-ai`, `pi-tui` moved together). These must be bumped as a set: the agent depends on matching `pi-ai`/`pi-tui`, so bumping it alone leaves a version-skewed tree — which is exactly what the queued Dependabot PR #118 does (its lockfile keeps top-level `pi-ai` at `0.84.3` under a `0.99.2` agent). On the coordinated bump npm still nests copies, but at identical versions, so nothing is skewed. One real API change: `Provider.stream()` now takes a branded `TranscriptContext` produced only by `normalizeContext()`, which folds `systemPrompt`/`tools` into a leading system message — `src/working-vibes/provider.ts` now calls it, and the working-vibes tests assert the prompt the way the SDK delivers it (as `messages[0]`) rather than through a `context.systemPrompt` field that no longer exists.
+- Audit findings drop from 3 (1 moderate, 2 high) to 1 inherited high; the `undici` advisories are cleared. The remaining `brace-expansion` finding lives inside the peer package's own tree and has no fix available at any installable version.
+
 ## [1.14.0] - 2026-10-01
 
 ### Added

@@ -8,6 +8,7 @@ import type {
   Model,
   ProviderStreamOptions,
 } from "@earendil-works/pi-ai";
+import { normalizeContext } from "@earendil-works/pi-ai";
 import { VIBE_SYSTEM_PROMPT, vibeState } from "./storage.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -37,7 +38,11 @@ export async function completeVibe(
 
   const baseUrl = (await registry.getProviderAuth(providerId))?.auth.baseUrl;
   const requestModel = baseUrl ? { ...model, baseUrl } : model;
-  return provider.stream(requestModel, context, options).result();
+  // `Provider.stream()` now takes a branded `TranscriptContext`, which only
+  // `normalizeContext()` produces. It folds `systemPrompt` and `tools` into a
+  // leading system message; the brand exists so a raw `Context` cannot reach
+  // provider code unnormalized.
+  return provider.stream(requestModel, normalizeContext(context), options).result();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
