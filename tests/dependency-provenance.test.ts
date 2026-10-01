@@ -149,3 +149,62 @@ test("the peer pins a vulnerable brace-expansion via its published shrinkwrap", 
     "sanity: the first fixed version must compare as not-vulnerable",
   );
 });
+
+/**
+ * The general form of the same trap.
+ *
+ * `brace-expansion` was easy to name. The next inherited advisory will not be,
+ * and the failure mode is always the same: someone writes "inherited, no fix"
+ * in a note, the CI audit is switched to `continue-on-error`, and from then on
+ * nothing new is ever caught. `scripts/audit-gate.mjs` is the gate that stops
+ * that; these assertions make sure the *inputs* it depends on stay honest.
+ */
+test("every accepted advisory is genuinely unreachable, not merely labelled so", () => {
+  const baseline = JSON.parse(readFileSync(join(root, "audit-baseline.json"), "utf8"));
+  const accepted = (baseline.accepted ?? []) as Array<{ name: string; reason: string }>;
+
+  for (const entry of accepted) {
+    // "Inherited" is only credible if it names the mechanism. An advisory we
+    // simply never looked at must not be able to sit in this file.
+    assert.match(
+      entry.reason,
+      /shrinkwrap|overrides|not reachable|no fix available at any installable version/i,
+      `${entry.name}: justify reachability with a mechanism, not an assertion`,
+    );
+    // And the accepted set must stay small enough to review by hand.
+    assert.ok(
+      accepted.length <= 5,
+      `baseline has ${accepted.length} accepted advisories; past a handful it stops being reviewable`,
+    );
+  }
+});
+
+test("a shrinkwrap in our tree can only come from a dependency, never from us", () => {
+  // If we ever ship a shrinkwrap, every consumer's install of this package
+  // becomes authoritative-but-frozen, and the inherited-advisory problem would
+  // apply to *us* as the publisher instead of to the Pi SDK.
+  assert.ok(
+    !existsSync(join(root, "npm-shrinkwrap.json")),
+    "this package must not ship an npm-shrinkwrap.json",
+  );
+});
+
+test("no dependency outside a shrinkwrap owner is unreachable-by-override", () => {
+  // An `overrides` entry only works when the target tree is ours to re-resolve.
+  // Overriding a package that ships its own shrinkwrap is a no-op, so shipping
+  // one would advertise protection that does not exist -- the mistake this
+  // whole file is about. Guard it generically instead of per-package.
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const overrides = (pkg.overrides ?? {}) as Record<string, unknown>;
+  if (Object.keys(overrides).length === 0) return;
+
+  for (const target of Object.keys(overrides)) {
+    const manifest = join(root, "node_modules", target, "package.json");
+    if (!existsSync(manifest)) continue;
+    const dir = join(root, "node_modules", target);
+    assert.ok(
+      !existsSync(join(dir, "npm-shrinkwrap.json")),
+      `override for ${target} cannot take effect: that package ships a shrinkwrap`,
+    );
+  }
+});
