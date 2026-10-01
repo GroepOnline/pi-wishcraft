@@ -16,6 +16,7 @@ export type SettingGroupId =
   | "skills"
   | "harness"
   | "shortcuts"
+  | "shell"
   | "interface";
 
 interface SettingDefinitionBase {
@@ -61,6 +62,7 @@ export const SETTING_GROUPS = [
   { id: "skills", title: "Skills" },
   { id: "harness", title: "Hooks & repairs (harness)" },
   { id: "shortcuts", title: "Shortcuts" },
+  { id: "shell", title: "Shell & bash mode" },
   { id: "interface", title: "Interface" },
 ] as const satisfies readonly SettingGroupDefinition[];
 
@@ -91,6 +93,19 @@ export const SETTINGS_REGISTRY = [
   { id: "status.tps.windowMs", path: "powerline.segmentOptions.tps.windowMs", group: "status", label: "TPS window (ms)", kind: "number", min: 0, defaultValue: SETTING_DEFAULTS["powerline.segmentOptions.tps.windowMs"], hint: "default 1000" },
   { id: "status.tps.mode", path: "powerline.segmentOptions.tps.mode", group: "status", label: "TPS mode", kind: "select", choices: ["both", "out", "in"] },
   { id: "status.tps.label", path: "powerline.segmentLabels.tps", group: "status", label: "TPS label", kind: "text", hint: "empty = no label" },
+  { id: "status.cost.alert", path: "powerline.costAlert", group: "status", label: "Cost alert", kind: "number", min: 0, hint: "USD per session · warns once · 0 = off" },
+  { id: "status.stashSharpS", path: "powerline.stashSharpSShortcut", group: "status", label: "Stash on printable ß", kind: "toggle", hint: "off = ß types normally" },
+  { id: "status.customItemsAuto", path: "powerline.customItemsAuto", group: "status", label: "Auto-promote extension statuses", kind: "toggle", hint: "live extension status keys become segments" },
+  { id: "status.queue.retention", path: "powerline.queue.retentionHours", group: "status", label: "Idea retention (hours)", kind: "number", min: 1, max: 8760, hint: "1–8760 · default 24" },
+  { id: "status.git.branch", path: "powerline.segmentOptions.git.showBranch", group: "status", label: "Git branch", kind: "toggle" },
+  { id: "status.git.staged", path: "powerline.segmentOptions.git.showStaged", group: "status", label: "Git staged count", kind: "toggle" },
+  { id: "status.git.unstaged", path: "powerline.segmentOptions.git.showUnstaged", group: "status", label: "Git unstaged count", kind: "toggle" },
+  { id: "status.git.untracked", path: "powerline.segmentOptions.git.showUntracked", group: "status", label: "Git untracked count", kind: "toggle" },
+  { id: "status.git.polling", path: "powerline.segmentOptions.git.polling", group: "status", label: "Git polling", kind: "select", choices: ["full", "branch", "off"], hint: "full = status on every refresh · off = cheapest" },
+  { id: "status.git.commitLength", path: "powerline.segmentOptions.git.maxCommitSubjectLength", group: "status", label: "Commit subject max", kind: "number", min: 0, hint: "0 = no limit · default 24" },
+  { id: "status.model.thinking", path: "powerline.segmentOptions.model.showThinkingLevel", group: "status", label: "Show thinking level", kind: "toggle" },
+  { id: "status.model.display", path: "powerline.segmentOptions.model.display", group: "status", label: "Model name style", kind: "select", choices: ["name", "qualified"] },
+  { id: "status.ports.host", path: "powerline.segmentOptions.openPorts.host", group: "status", label: "Ports probe host", kind: "text", hint: "SSH host to probe (fleet) · empty = this machine" },
   { id: "welcome.enabled", path: "powerline.welcome", group: "vibes", label: "Welcome overlay", kind: "toggle", defaultValue: SETTING_DEFAULTS["powerline.welcome"], hint: "on = overlay at startup, off = no welcome" },
   { id: "welcome.lanternMotion", path: "wishcraft.welcome.animateLantern", group: "vibes", label: "Animate wishcraft lantern", kind: "toggle", hint: "flicker on the lantern" },
   { id: "vibes.indicatorStyle", path: "wishcraft.workingIndicatorStyle", group: "vibes", label: "Working indicator", kind: "select", choices: ["dots", "pulse", "bar", "ascii"], defaultValue: SETTING_DEFAULTS["wishcraft.workingIndicatorStyle"], hint: "frame style used while the agent is working" },
@@ -98,12 +113,21 @@ export const SETTINGS_REGISTRY = [
   { id: "skills.readHints", path: "wishcraft.readHints", group: "skills", label: "Read hints", kind: "toggle", defaultValue: SETTING_DEFAULTS["wishcraft.readHints"], hint: "off = no continuation hint after partial reads" },
   { id: "harness.hooks", path: "wishcraft.hooksEnabled", group: "harness", label: "Hooks enabled", kind: "toggle", defaultValue: SETTING_DEFAULTS["wishcraft.hooksEnabled"], hint: "gate for configured preToolUse / postToolUse / sessionStart hooks" },
   { id: "harness.repairs", path: "wishcraft.repairsEnabled", group: "harness", label: "Tool-input repairs", kind: "toggle", defaultValue: SETTING_DEFAULTS["wishcraft.repairsEnabled"], hint: "null-for-optional, auto-link, json-array, path aliases" },
+  { id: "harness.policy", path: "wishcraft.policyEnabled", group: "harness", label: "Policy engine", kind: "toggle", hint: "gate for wishcraft.policy deny/inject rules" },
   { id: "budget.dailyTokens", path: "wishcraft.tokenBudget.daily", group: "harness", label: "Daily token budget", kind: "number", min: 0, hint: "colours the cost segment; never blocks. 0 = off" },
   { id: "shortcut.menu", path: "powerlineShortcuts.menu", group: "shortcuts", label: "Menu", kind: "text", hint: "e.g. alt+p" },
   { id: "shortcut.info", path: "powerlineShortcuts.info", group: "shortcuts", label: "Info", kind: "text" },
   { id: "shortcut.stash", path: "powerlineShortcuts.stashHistory", group: "shortcuts", label: "Stash", kind: "text" },
   { id: "shortcut.idea", path: "powerlineShortcuts.ideaCapture", group: "shortcuts", label: "Idea", kind: "text" },
   { id: "shortcut.queue", path: "powerlineShortcuts.queueOpen", group: "shortcuts", label: "Queue", kind: "text" },
+  { id: "shortcut.copy", path: "powerlineShortcuts.copyEditor", group: "shortcuts", label: "Copy editor text", kind: "text", hint: "applied after /reload" },
+  { id: "shortcut.cut", path: "powerlineShortcuts.cutEditor", group: "shortcuts", label: "Cut editor text", kind: "text", hint: "applied after /reload" },
+  { id: "shortcut.editorStart", path: "powerlineShortcuts.editorStart", group: "shortcuts", label: "Editor cursor start", kind: "text", hint: "applied after /reload" },
+  { id: "shortcut.editorEnd", path: "powerlineShortcuts.editorEnd", group: "shortcuts", label: "Editor cursor end", kind: "text", hint: "applied after /reload" },
+  { id: "shell.toggleShortcut", path: "bashMode.toggleShortcut", group: "shell", label: "Bash mode toggle", kind: "text", hint: "e.g. ctrl+shift+b · empty = disabled · next session" },
+  { id: "shell.transcriptLines", path: "bashMode.transcriptMaxLines", group: "shell", label: "Transcript max lines", kind: "number", min: 100, hint: "min 100 · default 2000" },
+  { id: "shell.transcriptBytes", path: "bashMode.transcriptMaxBytes", group: "shell", label: "Transcript max bytes", kind: "number", min: 16384, hint: "min 16 KiB · default 512 KiB" },
+  { id: "shell.initScript", path: "bashMode.initScript", group: "shell", label: "Shell init script", kind: "text", hint: "run when a bash session starts · empty = none" },
   { id: "interface.language", path: "wishcraft.locale", group: "interface", label: "Language", kind: "select", choices: ["en", "nl"], defaultValue: "en", hint: "UI language · applies immediately, no restart" },
 ] as const satisfies readonly SettingDefinition[];
 

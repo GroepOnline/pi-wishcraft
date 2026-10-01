@@ -119,16 +119,23 @@ const KNOWN_POWERLINE_KEYS = new Set([
   "locale",
 ]);
 
-/** Keys directly under `wishcraft` with no registry entry but a live reader. */
+/**
+ * Keys directly under `wishcraft` with no registry entry but a live reader.
+ * `hooks` and `policy` are structured (definitions/rules) so the registry has
+ * no scalar entry for them — without them here the doctor flagged working
+ * configuration as "no reader consumes this key".
+ */
 const KNOWN_WISHCRAFT_EXTRA = new Set([
   "locale",
   "welcome",
   "bashMode",
   "queue",
   "budget",
+  "hooks",
+  "policy",
 ]);
 
-const MANAGED_ROOTS = ["powerline", "wishcraft", "powerlineShortcuts"] as const;
+const MANAGED_ROOTS = ["powerline", "wishcraft", "powerlineShortcuts", "bashMode"] as const;
 
 function readJsonFile(path: string): {
   exists: boolean;
@@ -232,6 +239,10 @@ function knownKeysFor(root: string): string[] {
   } else if (root === "wishcraft") {
     for (const key of KNOWN_WISHCRAFT_EXTRA) known.add(key);
   }
+  // The registry is the known-set for every managed root it touches —
+  // `powerlineShortcuts.copyEditor` and friends have live readers in the
+  // shortcuts router, so a registry entry is what keeps them from being
+  // reported as typos.
   for (const definition of SETTINGS_REGISTRY) {
     const parts = definition.path.split(".");
     if (parts[0] !== root || parts.length < 2) continue;

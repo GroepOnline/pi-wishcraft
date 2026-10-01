@@ -281,11 +281,88 @@ Set `powerline.costAlert` to a USD threshold to get a single warning notificatio
 
 ## Hooks and repairs
 
-Command hooks live under `wishcraft.hooks` in the **global** agent settings file. `wishcraft.hooksEnabled: false` is the kill-switch. See the README Hooks section for three copy-paste examples (bash-guard, write-audit, SessionStart git-status).
+Command hooks live under `wishcraft.hooks` in the **global** agent settings file. `wishcraft.hooksEnabled: false` is the kill-switch. A hook is any command that reads JSON on stdin; exit code 2 denies the tool call, stdout may return a `hookSpecificOutput` payload. Definitions come from the global file only — project `.pi/settings.json` cannot install new hook commands.
 
-Declarative policy rules (`wishcraft.policy`) live in the same global file. They run in-process before command hooks: **deny** blocks a tool call when input matches a regex; **inject** appends context after a matching read/write path. `wishcraft.policyEnabled: false` disables policy without deleting rules. See the README Policy section for two copy-paste examples.
+```json
+{
+  "wishcraft": {
+    "hooksEnabled": true,
+    "hooks": {
+      "preToolUse": [
+        { "matcher": "bash", "hooks": [{ "command": "~/.pi/agent/hooks/bash-guard.sh", "timeout": 5 }] }
+      ],
+      "postToolUse": [
+        { "matcher": "write", "hooks": [{ "command": "~/.pi/agent/hooks/write-audit.sh", "timeout": 5 }] }
+      ],
+      "sessionStart": [
+        { "hooks": [{ "command": "~/.pi/agent/hooks/session-git-status.sh", "timeout": 10 }] }
+      ]
+    }
+  }
+}
+```
 
-Tool-input repairs apply to custom/extension tools only (`wishcraft.repairsEnabled`, default on). `/repairs` prints the counters.
+**Example hook** (exit 2 = deny):
+
+```bash
+#!/usr/bin/env bash
+payload=$(cat)
+cmd=$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))')
+if printf '%s' "$cmd" | grep -Eq '(^|[[:space:]])rm[[:space:]]+(-[a-zA-Z]*[[:space:]]+)*-r[a-zA-Z]*f|-fr[a-zA-Z]*|[[:space:]]/[[:space:]]*$'; then
+  printf '%s\n' '{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"blocked destructive rm"}}'
+  echo "blocked destructive rm" >&2
+  exit 2
+fi
+exit 0
+```
+
+**Another example** (append-only, never blocks):
+
+```bash
+#!/usr/bin/env bash
+mkdir -p "$HOME/.pi/agent/logs"
+cat >> "$HOME/.pi/agent/logs/write-audit.jsonl"
+```
+
+**SessionStart example** (extra context, never blocks):
+
+```bash
+#!/usr/bin/env bash
+status=$(git status --short 2>/dev/null | head -n 40)
+CTX="$status" python3 - <<'PY'
+import json, os
+print(json.dumps({
+  "hookSpecificOutput": {
+    "additionalContext": "git status:\n" + os.environ.get("CTX", "")
+  }
+}))
+PY
+```
+
+Repairs run on custom/extension tools only, before hooks: drop null optionals, parse JSON-string arrays before wrapping, turn `{}` into `[]` on array keys, wrap bare strings, alias `filePath` / `absolutePath` / `target_file` to `path`, unwrap degenerate markdown auto-links. Core tools (`bash`, `read`, `edit`, `write`, `grep`, `find`, `ls`) are never rewritten. `/repairs` prints the counters.
+
+Declarative policy rules (`wishcraft.policy`) live in the same global file. They run in-process before command hooks: **deny** blocks a tool call when input matches a regex; **inject** appends context after a matching read/write path. `wishcraft.policyEnabled: false` disables policy without deleting rules. No shell commands — pure in-process regex.
+
+```json
+{
+  "wishcraft": {
+    "policy": [
+      {
+        "action": "deny",
+        "tool": "bash",
+        "match": "sudo\\s+rm",
+        "reason": "destructive sudo rm"
+      },
+      {
+        "action": "inject",
+        "tool": "read",
+        "pathMatch": "\\.env",
+        "context": "Do not leak secrets from .env files into the conversation."
+      }
+    ]
+  }
+}
+```
 
 ## Token budget
 
@@ -383,6 +460,29 @@ Pi merges two files; the **project** file wins on any key it also defines in the
 | Project | `<cwd>/.pi/settings.json` | global |
 
 `/wishcraft doctor` shows this on one screen: both files' health, every value shadowed by the other file, near-miss keys with a "did you mean" suggestion, and every stored value that validation discards (with the reason and the default that applies instead). The same report is rendered as a section of the Deck's **Diagnostics** route.
+
+## Configure from the prompt
+
+Every registered setting is readable and writable without leaving pi — no editor, no `settings.json` detour:
+
+```text
+/wishcraft get powerline.preset          # stored · global/project/default → effective
+/wishcraft set powerline.preset chef     # validated write, applies immediately
+/wishcraft set motion.level red          # unique prefix → reduced
+/wishcraft set powerline.welcome off     # toggles take on/off
+/wishcraft unset powerline.preset        # back to the default (alias: reset)
+/wishcraft help                          # the grammar, one line
+```
+
+Tab completes subcommands, every registered path, and the values a setting accepts (`choices` for selects, `on · off` for toggles). The same validation runs everywhere — the CLI, `/wishcraft settings`, the setup wizard and the doctor all read one registry, so a value the CLI accepts is a value the overlay accepts.
+
+Deliberate boundaries:
+
+- **Scalars only.** Structured values (`powerline.layout`, `powerline.segments`, `wishcraft.policy`, `powerline.presets`) stay in `settings.json`; the CLI refuses them with a pointer instead of writing a broken shape.
+- **Writes land where the key already exists** (project file if it defines the root, otherwise global) — the same precedence `readSettings` uses.
+- **`get` works even when Signal is disabled**; configuration never depends on the status line.
+
+Settings the CLI and overlay expose, beyond the presets and segment options: the whole `bashMode.*` group (toggle shortcut, transcript limits, init script), all nine `powerlineShortcuts` bindings, `powerline.costAlert`, `powerline.stashSharpSShortcut`, `powerline.customItemsAuto`, `powerline.queue.retentionHours`, `wishcraft.policyEnabled`, and the git/model/ports segment toggles. `examples/settings.example.json` remains the reference for every key at its default.
 
 ## Interface language
 

@@ -21,6 +21,8 @@ import {
   sanitizeSshHost,
   sshCommand,
 } from "../src/segments/system.ts";
+import { resolvePortsPanelOptions } from "../src/extension/ui/ports-panel.ts";
+import { config, setConfig } from "../src/extension/core/state.ts";
 
 const SS_OUTPUT = `Netid  State   Recv-Q Send-Q  Local Address:Port   Peer Address:Process
 tcp    LISTEN  0      4096    127.0.0.1:631       0.0.0.0:*    users:(("cupsd",pid=1234,fd=12))
@@ -262,4 +264,36 @@ test("cache keys separate protocol and host", async () => {
   assert.ok(peekPorts({ host: "also bad" }));
   invalidatePortsCache();
   assert.equal(peekPorts({ host: "also bad" }), null);
+});
+
+test("panel options default from segment config, explicit options win", () => {
+  const saved = config;
+  try {
+    // No openPorts config → local probe, TCP only.
+    setConfig({ ...saved, segmentOptions: {} });
+    assert.deepEqual(resolvePortsPanelOptions({}), {
+      includeUdp: false,
+      host: undefined,
+      title: undefined,
+    });
+
+    // The Deck and the segment read these; the panel must agree with them.
+    setConfig({
+      ...saved,
+      segmentOptions: { openPorts: { includeUdp: true, host: "box2" } },
+    });
+    assert.deepEqual(resolvePortsPanelOptions({}), {
+      includeUdp: true,
+      host: "box2",
+      title: undefined,
+    });
+
+    // Explicit options still override the configured defaults.
+    assert.deepEqual(
+      resolvePortsPanelOptions({ includeUdp: false, host: "box9" }),
+      { includeUdp: false, host: "box9", title: undefined },
+    );
+  } finally {
+    setConfig(saved);
+  }
 });

@@ -34,6 +34,11 @@ import {
 import { runConfigDoctor } from "./config-doctor.ts";
 import { runSetupWizard } from "./setup-wizard.ts";
 import {
+  getWishcraftArgumentCompletions,
+  parseConfigCliArgs,
+  runConfigCli,
+} from "./config-cli.ts";
+import {
   buildConfigGroups,
   type ConfigGroup,
   type ConfigItem,
@@ -118,6 +123,29 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         return row && row.type === "item" ? row : null;
       };
 
+      /**
+       * One write path for every edit (typed, cycled, toggled): persist,
+       * re-read, re-sync locale and groups, repaint the status line when a
+       * powerline key changed, then say what happened. The three callers used
+       * to carry an identical copy of this block.
+       */
+      const persist = (item: ConfigItem, value: ConfigValue, shown: string) => {
+        const ok = writeConfigPath(cwd, item.path, value);
+        settings = readSettings(cwd);
+        syncLocaleFromSettings(settings);
+        groups = buildConfigGroups(settings);
+        if (item.path.startsWith("powerline")) {
+          reloadPowerlineFromSettings(rt, settings);
+        }
+        ctx.ui.notify(
+          ok
+            ? `${settingLabel(item)}: ${shown} (${tr("config.saved", "saved")})`
+            : `${settingLabel(item)} ${tr("config.notSaved", "not saved (settings.json?)")}`,
+          ok ? "info" : "warning",
+        );
+        // The preview reads `config`, so repaint right after it reloaded.
+      };
+
       const applyEdit = (next: string) => {
         const cur = currentItem();
         if (!cur) return;
@@ -137,20 +165,7 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
           }
           value = coerced.value;
         }
-        const ok = writeConfigPath(cwd, item.path, value);
-        settings = readSettings(cwd);
-        syncLocaleFromSettings(settings);
-        groups = buildConfigGroups(settings);
-        if (item.path.startsWith("powerline")) {
-          reloadPowerlineFromSettings(rt, settings);
-        }
-        ctx.ui.notify(
-          ok
-            ? `${settingLabel(item)}: ${displayValue(item, value)} (${tr("config.saved", "saved")})`
-            : `${settingLabel(item)} ${tr("config.notSaved", "not saved (settings.json?)")}`,
-          ok ? "info" : "warning",
-        );
-        // The preview reads `config`, so repaint right after it reloaded.
+        persist(item, value, displayValue(item, value));
       };
 
       const cycleSelect = (item: ConfigItem, forward: boolean) => {
@@ -160,36 +175,16 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const effective = cur ?? item.defaultValue ?? list[0];
         const idx = list.indexOf(String(effective));
         const next = list[(idx + (forward ? 1 : list.length - 1) + list.length) % list.length]!;
-        const ok = writeConfigPath(cwd, item.path, next);
-        settings = readSettings(cwd);
-        syncLocaleFromSettings(settings);
-        groups = buildConfigGroups(settings);
-        if (item.path.startsWith("powerline")) {
-          reloadPowerlineFromSettings(rt, settings);
-        }
-        ctx.ui.notify(
-          ok
-            ? `${settingLabel(item)}: ${next} (${tr("config.saved", "saved")})`
-            : `${settingLabel(item)} ${tr("config.notSaved", "not saved")}`,
-          ok ? "info" : "warning",
-        );
+        persist(item, next, next);
       };
 
       const toggle = (item: ConfigItem) => {
         const cur = readConfigPath(settings, item.path);
         const next = nextToggleValue(item, cur);
-        const ok = writeConfigPath(cwd, item.path, next);
-        settings = readSettings(cwd);
-        syncLocaleFromSettings(settings);
-        groups = buildConfigGroups(settings);
-        if (item.path.startsWith("powerline")) {
-          reloadPowerlineFromSettings(rt, settings);
-        }
-        ctx.ui.notify(
-          ok
-            ? `${settingLabel(item)}: ${next ? tr("config.on", "on") : tr("config.off", "off")} (${tr("config.saved", "saved")})`
-            : `${settingLabel(item)} ${tr("config.notSaved", "not saved")}`,
-          ok ? "info" : "warning",
+        persist(
+          item,
+          next,
+          next ? tr("config.on", "on") : tr("config.off", "off"),
         );
       };
 
@@ -368,20 +363,43 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
   );
 }
 
-/** Register /wishcraft — opens the Deck; `settings`/`config` open the flat list. */
+/**
+ * Register /wishcraft.
+ *
+ * Grammar, in priority order:
+ *   get|set|unset|help …  → config CLI (works even with Signal disabled —
+ *                           configuration must never depend on the UI)
+ *   settings|config       → the flat settings TUI
+ *   setup | doctor        → wizard / diagnosis overlays
+ *   <route>               → the Deck at that route
+ *   (empty)               → the Deck at home
+ */
 export function registerWishcraftConfigCommand(pi: ExtensionAPI, rt: RuntimeState): void {
   pi.registerCommand("wishcraft", {
     description: tr(
       "cmd.wishcraft.desc",
-      "Open the Wishcraft Deck, or settings/config/setup/doctor",
+      "Wishcraft Deck · get/set/unset a setting · settings/setup/doctor",
     ),
+    getArgumentCompletions(argumentPrefix: string) {
+      return getWishcraftArgumentCompletions(argumentPrefix);
+    },
     handler: async (args: string, ctx: any) => {
+      rt.currentCtx = ctx;
+      const trimmed = args?.trim() ?? "";
+
+      // The config CLI is deliberately checked before the UI gate: `get`
+      // answers a question and `set` edits settings.json — neither needs a
+      // single pixel of the status line.
+      const cliArgs = parseConfigCliArgs(trimmed);
+      if (cliArgs) {
+        runConfigCli(rt, ctx, ctx.cwd ?? process.cwd(), cliArgs);
+        return;
+      }
+
       if (!rt.enabled || !ctx.hasUI) {
         ctx.ui.notify(tr("cmd.signalDisabled", "Signal UI is disabled"), "info");
         return;
       }
-      rt.currentCtx = ctx;
-      const trimmed = args?.trim() ?? "";
       if (trimmed === "config" || trimmed === "settings") {
         await showWishcraftConfig(rt, ctx);
         return;

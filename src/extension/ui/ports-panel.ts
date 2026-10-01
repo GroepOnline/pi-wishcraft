@@ -19,6 +19,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, type SelectItem, SelectList } from "@earendil-works/pi-tui";
 
 import { tr } from "../../i18n/index.ts";
+import { config } from "../core/state.ts";
 import {
   filterPorts,
   formatAddresses,
@@ -39,6 +40,24 @@ export interface PortsPanelOptions {
   host?: string;
   /** Overrides the default panel heading. */
   title?: string;
+}
+
+/**
+ * Fill unset options from `powerline.segmentOptions.openPorts` so every entry
+ * point (alt+i, /open-ports, the classic menu) probes the same target as the
+ * status segment and the Deck's Ports route. Explicit options still win.
+ */
+export function resolvePortsPanelOptions(
+  options: PortsPanelOptions = {},
+): Required<Pick<PortsPanelOptions, "includeUdp">> &
+  Pick<PortsPanelOptions, "host" | "title"> {
+  const openPorts = config.segmentOptions?.openPorts;
+  return {
+    includeUdp:
+      options.includeUdp ?? openPorts?.includeUdp === true,
+    host: options.host ?? openPorts?.host,
+    title: options.title,
+  };
 }
 
 const NONE_VALUE = "__none__";
@@ -98,8 +117,9 @@ export async function showPortsPanel(
   ctx: any,
   options: PortsPanelOptions = {},
 ): Promise<void> {
-  const includeUdp = options.includeUdp === true;
-  const host = options.host;
+  const resolved = resolvePortsPanelOptions(options);
+  const includeUdp = resolved.includeUdp;
+  const host = resolved.host;
 
   let probe: PortsProbeResult = await probeListeningPorts({ includeUdp, host });
 
@@ -128,7 +148,7 @@ export async function showPortsPanel(
         );
       };
 
-      const title = () => `${options.title ?? defaultTitle(probe.host)} — ${summaryLine()}`;
+      const title = () => `${resolved.title ?? defaultTitle(probe.host)} — ${summaryLine()}`;
 
       const hint = () => {
         const parts = [

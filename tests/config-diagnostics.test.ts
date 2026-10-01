@@ -242,6 +242,88 @@ test("the Deck body renders sections and stays inside its line budget", () => {
   }
 });
 
+test("keys with live readers are never flagged as unknown", () => {
+  const box = sandbox();
+  try {
+    // Regression: the registry *is* the known-set. `wishcraft.hooks` and
+    // `wishcraft.policy` are structured (no scalar entry) and the four
+    // editor shortcuts only gained registry entries later — all of them have
+    // live readers, so flagging them as "no reader consumes this key" sent
+    // operators chasing working configuration.
+    writeJson(box.globalPath, {
+      wishcraft: {
+        hooks: { sessionStart: [{ command: "echo hi" }] },
+        policy: [{ deny: { tool: "bash" } }],
+        policyEnabled: true,
+      },
+      powerlineShortcuts: {
+        copyEditor: "ctrl+alt+c",
+        cutEditor: "ctrl+alt+x",
+        editorStart: "super+shift+up",
+        editorEnd: "super+shift+down",
+      },
+    });
+    const report = buildConfigDiagnostics(box.projectDir);
+    assert.deepEqual(report.unknownKeys, []);
+  } finally {
+    box.cleanup();
+  }
+});
+
+test("bashMode is a managed root: known keys diagnosed, typos flagged", () => {
+  const box = sandbox();
+  try {
+    writeJson(box.globalPath, {
+      bashMode: {
+        toggleShortcut: "ctrl+shift+b",
+        transcriptMaxLines: 3000,
+        initScript: ". ~/.bash_profile",
+        transcripMaxLines: 100,
+      },
+    });
+    const report = buildConfigDiagnostics(box.projectDir);
+
+    // The known keys land in the settings table…
+    const toggle = report.settings.find((s) => s.id === "shell.toggleShortcut");
+    assert.ok(toggle);
+    assert.equal(toggle!.source, "global");
+    assert.equal(toggle!.effective, "ctrl+shift+b");
+    const lines = report.settings.find((s) => s.id === "shell.transcriptLines");
+    assert.ok(lines);
+    assert.equal(lines!.stored, 3000);
+
+    // …while the typo is reported with a did-you-mean.
+    const unknown = report.unknownKeys.find(
+      (k) => k.path === "bashMode.transcripMaxLines",
+    );
+    assert.ok(unknown, "typo must be flagged");
+    assert.equal(unknown!.suggestion, "bashMode.transcriptMaxLines");
+  } finally {
+    box.cleanup();
+  }
+});
+
+test("bashMode conflicts between global and project are detected", () => {
+  const box = sandbox();
+  try {
+    writeJson(box.globalPath, {
+      bashMode: { transcriptMaxLines: 2000 },
+    });
+    writeJson(box.projectPath, {
+      bashMode: { transcriptMaxLines: 5000 },
+    });
+    const report = buildConfigDiagnostics(box.projectDir);
+    const conflict = report.conflicts.find(
+      (c) => c.path === "bashMode.transcriptMaxLines",
+    );
+    assert.ok(conflict, "bashMode was invisible to conflict detection");
+    assert.equal(conflict!.globalValue, "2000");
+    assert.equal(conflict!.projectValue, "5000");
+  } finally {
+    box.cleanup();
+  }
+});
+
 test("doctor items are copyable one-liners with a severity marker", () => {
   const box = sandbox();
   try {

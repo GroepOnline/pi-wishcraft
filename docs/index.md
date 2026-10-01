@@ -4,8 +4,8 @@ This package is a Pi.dev extension, not a standalone website. The README is the 
 
 ## Guides
 
-- [Commands & interactivity](./commands.md) — `/powerline`, `/tps`, `/usage`, `/queue`, `/idea`, `/wishcraft` (settings, setup, doctor), placement, presets, keybinds, and the navigable overlay.
-- [Configuration](./configuration.md) — where settings live, interface language, first-run setup, custom items, hooks, repairs, token budget, labels, templates, layout, cost alert, and display formats.
+- [Commands & interactivity](./commands.md) — `/powerline`, `/tps`, `/usage`, `/queue`, `/idea`, `/wishcraft` (get/set/unset, settings, setup, doctor), placement, presets, keybinds, and the navigable overlay.
+- [Configuration](./configuration.md) — configure from the prompt, where settings live, interface language, first-run setup, custom items, hooks, repairs, token budget, labels, templates, layout, cost alert, and display formats.
 - [Bash mode](./bash-mode.md) — sticky shell, ghost suggestions, and shell config.
 - [Stash & shortcuts](./stash-and-shortcuts.md) — editor stash, prompt history, clipboard/navigation shortcuts, and shortcut config.
 - [Skill manager](./skill-manager.md) — browsing, inserting, `/skills doctor`, and `/skills new` templates.

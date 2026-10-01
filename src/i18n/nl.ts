@@ -13,6 +13,7 @@ export const NL: Record<string, string> = {
   "group.skills": "Skills",
   "group.harness": "Hooks & herstel (harness)",
   "group.shortcuts": "Sneltoetsen",
+  "group.shell": "Shell & bash-modus",
   "group.interface": "Interface",
 
   // ── Interface ───────────────────────────────────────────────────────────
@@ -47,6 +48,26 @@ export const NL: Record<string, string> = {
   "setting.status.tps.mode.label": "TPS-modus",
   "setting.status.tps.label.label": "TPS-label",
   "setting.status.tps.label.hint": "leeg = geen label",
+  "setting.status.cost.alert.label": "Kostenwaarschuwing",
+  "setting.status.cost.alert.hint": "USD per sessie · waarschuwt eenmaal · 0 = uit",
+  "setting.status.stashSharpS.label": "Stash op ß",
+  "setting.status.stashSharpS.hint": "uit = ß typt normaal",
+  "setting.status.customItemsAuto.label": "Extensiestatus automatisch tonen",
+  "setting.status.customItemsAuto.hint": "live extensiestatussen worden segmenten",
+  "setting.status.queue.retention.label": "Idee-retentie (uren)",
+  "setting.status.queue.retention.hint": "1–8760 · standaard 24",
+  "setting.status.git.branch.label": "Git-branch",
+  "setting.status.git.staged.label": "Git staged-aantal",
+  "setting.status.git.unstaged.label": "Git unstaged-aantal",
+  "setting.status.git.untracked.label": "Git untracked-aantal",
+  "setting.status.git.polling.label": "Git-verversing",
+  "setting.status.git.polling.hint": "full = status bij elke verversing · off = goedkoopst",
+  "setting.status.git.commitLength.label": "Max. commit-onderwerp",
+  "setting.status.git.commitLength.hint": "0 = geen limiet · standaard 24",
+  "setting.status.model.thinking.label": "Denkniveau tonen",
+  "setting.status.model.display.label": "Modelnaam-stijl",
+  "setting.status.ports.host.label": "Poortverkenning host",
+  "setting.status.ports.host.hint": "SSH-host om te verkennen (fleet) · leeg = deze machine",
 
   // ── Welcome & vibes ─────────────────────────────────────────────────────
   "setting.welcome.enabled.label": "Welkom-overlay",
@@ -70,6 +91,9 @@ export const NL: Record<string, string> = {
   "setting.harness.repairs.label": "Tool-input herstel",
   "setting.harness.repairs.hint":
     "null-for-optional, auto-link, json-array, pad-aliasen",
+  "setting.harness.policy.label": "Beleidsengine",
+  "setting.harness.policy.hint":
+    "schakelaar voor wishcraft.policy regels (deny/inject)",
   "setting.budget.dailyTokens.label": "Dagelijks tokenbudget",
   "setting.budget.dailyTokens.hint":
     "kleurt de kostenweergave; blokkeert nooit. 0 = uit",
@@ -81,6 +105,26 @@ export const NL: Record<string, string> = {
   "setting.shortcut.stash.label": "Stash",
   "setting.shortcut.idea.label": "Idee",
   "setting.shortcut.queue.label": "Wachtrij",
+  "setting.shortcut.copy.label": "Kopiëren editor",
+  "setting.shortcut.copy.hint": "van kracht na /reload",
+  "setting.shortcut.cut.label": "Knippen editor",
+  "setting.shortcut.cut.hint": "van kracht na /reload",
+  "setting.shortcut.editorStart.label": "Cursor naar begin",
+  "setting.shortcut.editorStart.hint": "van kracht na /reload",
+  "setting.shortcut.editorEnd.label": "Cursor naar eind",
+  "setting.shortcut.editorEnd.hint": "van kracht na /reload",
+
+  // ── Shell & bash mode ──────────────────────────────────────────────────
+  "setting.shell.toggleShortcut.label": "Bash-modus schakelaar",
+  "setting.shell.toggleShortcut.hint":
+    "bijv. ctrl+shift+b · leeg = uit · volgende sessie",
+  "setting.shell.transcriptLines.label": "Transcript max. regels",
+  "setting.shell.transcriptLines.hint": "min 100 · standaard 2000",
+  "setting.shell.transcriptBytes.label": "Transcript max. bytes",
+  "setting.shell.transcriptBytes.hint": "min 16 KiB · standaard 512 KiB",
+  "setting.shell.initScript.label": "Shell-init script",
+  "setting.shell.initScript.hint":
+    "draait bij het starten van een bash-sessie · leeg = geen",
 
   // ── Shared state words ──────────────────────────────────────────────────
   "common.on": "aan",
@@ -198,6 +242,31 @@ export const NL: Record<string, string> = {
   "config.restartNeeded": "herstart nodig om effect te hebben",
   "config.nan": '{label}: "{given}" is geen getal — niets weggeschreven.',
 
+  // ── Config CLI (/wishcraft get|set|unset) ──────────────────────────────
+  "cli.source.project": "projectinstellingen",
+  "cli.source.global": "globale instellingen",
+  "cli.source.default": "standaard",
+  "cli.notStored": "niet opgeslagen",
+  "cli.usingDefault": "niet opgeslagen — standaard wordt gebruikt",
+  "cli.structured": "gestructureerde waarde — wijzig in settings.json",
+  "cli.structuredHint":
+    "Gestructureerde waarden (layout, segments, policy…) wijzig je in settings.json.",
+  "cli.unknownSetting": 'Onbekende instelling "{path}".',
+  "cli.didYouMean": "Bedoelde je {path}?",
+  "cli.effective": "effectief",
+  "cli.noEffective": "—",
+  "cli.toggleUsage": '"{label}" is een schakelaar — typ: on of off.',
+  "cli.notSaved": "{path} kon niet worden geschreven — settings.json schrijfbaar?",
+  "cli.cleared": "gewist (standaard van kracht)",
+  "cli.needPath": "Gebruik: /wishcraft get <instelling>",
+  "cli.needPathSet": "Gebruik: /wishcraft set <instelling> <waarde>",
+  "cli.needPathUnset": "Gebruik: /wishcraft unset <instelling>",
+  "cli.needValue": "Gebruik: /wishcraft set {path} <waarde> — {expected}",
+  "cli.numberValue": "<getal>",
+  "cli.textValue": "<tekst>",
+  "cli.saved": "{label} = {value} (opgeslagen in {target})",
+  "cli.removed": "{label} verwijderd — effectieve waarde: {value}",
+
   // ── Validation ──────────────────────────────────────────────────────────
   "validation.select": '"{label}" verwacht een van: {choices}. Gegeven: "{given}".',
   "validation.number": '"{label}" verwacht een getal tussen {bounds}. Gegeven: "{given}".',
@@ -281,6 +350,6 @@ export const NL: Record<string, string> = {
 
   // ── Commands ────────────────────────────────────────────────────────────
   "cmd.wishcraft.desc":
-    "Open de Wishcraft Deck, of settings/config/setup/doctor",
+    "Wishcraft Deck · get/set/unset een instelling · settings/setup/doctor",
   "cmd.signalDisabled": "Signal-UI staat uit",
 };
