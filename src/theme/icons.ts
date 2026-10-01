@@ -1,4 +1,4 @@
-import { loadThemeConfig } from "./theme.ts";
+import { loadThemeConfig, type PowerlineThemeConfig } from "./theme.ts";
 
 export interface IconSet {
   pi: string;
@@ -185,10 +185,25 @@ export function hasNerdFonts(): boolean {
   return supported.some((t) => currentTerm.includes(t));
 }
 
+/**
+ * Memoised icon set.
+ *
+ * `getIcons()` is called ~19x per paint (once per segment that renders an
+ * icon), and each call rebuilt the whole set by spreading and sanitising. The
+ * cache is keyed on the resolved config object, which `loadThemeConfig`
+ * already returns by identity within its TTL window — so a theme.json edit is
+ * still picked up on the next reload without this ever going stale.
+ */
+let cachedIcons: IconSet | null = null;
+let cachedIconsConfig: PowerlineThemeConfig | null = null;
+
 export function getIcons(): IconSet {
-  const defaults = hasNerdFonts() ? NERD_ICONS : ASCII_ICONS;
   const config = loadThemeConfig();
-  return { ...defaults, ...sanitizeUserIconOverrides(config.icons) };
+  if (cachedIcons && cachedIconsConfig === config) return cachedIcons;
+  const defaults = hasNerdFonts() ? NERD_ICONS : ASCII_ICONS;
+  cachedIcons = { ...defaults, ...sanitizeUserIconOverrides(config.icons) };
+  cachedIconsConfig = config;
+  return cachedIcons;
 }
 
 export function getSeparatorChars(): SeparatorChars {
