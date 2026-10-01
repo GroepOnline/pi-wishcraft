@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  PORTS_CACHE_TTL_MS,
   filterPorts,
   formatAddresses,
   formatOwner,
@@ -14,9 +15,15 @@ import {
   portsTableHeader,
   portsTableLines,
   probeListeningPorts,
+  readPorts,
+  requestPorts,
+  subscribePortsUpdates,
   summarizePorts,
 } from "../src/segments/ports.ts";
+import { parseProcNetListening } from "../src/segments/ports-proc.ts";
 import {
+  countListeningPorts,
+  listOpenPortProcesses,
   parseOpenPortProcesses,
   sanitizeSshHost,
   sshCommand,
@@ -264,6 +271,86 @@ test("cache keys separate protocol and host", async () => {
   assert.ok(peekPorts({ host: "also bad" }));
   invalidatePortsCache();
   assert.equal(peekPorts({ host: "also bad" }), null);
+});
+
+test("readPorts is the render-path reader: never blocks, reports unknown when cold", async () => {
+  invalidatePortsCache();
+  const cold = readPorts();
+  assert.equal(cold.total, null, "no probe has landed yet");
+  assert.equal(cold.stale, true);
+  assert.deepEqual(cold.rows, []);
+
+  // Reading schedules a background refresh; listeners hear about it once.
+  const landed = new Promise<void>((resolve) => {
+    const unsub = subscribePortsUpdates(() => {
+      unsub();
+      resolve();
+    });
+  });
+  readPorts();
+  await landed;
+
+  const warm = readPorts();
+  assert.equal(warm.stale, false);
+  assert.ok(warm.total !== null && warm.total >= 0);
+  assert.equal(warm.rows.length, warm.total);
+});
+
+test("readPorts serves stale rows past the TTL instead of blanking the number", async () => {
+  invalidatePortsCache();
+  const result = await requestPorts();
+  const rows = result.rows.length;
+  // Age the memo beyond PORTS_CACHE_TTL_MS.
+  await new Promise((resolve) => setTimeout(resolve, PORTS_CACHE_TTL_MS + 50));
+  const stale = readPorts();
+  assert.equal(stale.stale, true, "expired, so a refresh is scheduled");
+  assert.equal(stale.total, rows, "but the last known value stays on screen");
+});
+
+test("the status segment and its legacy helpers share one probe", async () => {
+  invalidatePortsCache();
+  await requestPorts();
+  assert.equal(countListeningPorts(), readPorts().total);
+  assert.equal(listOpenPortProcesses().length, readPorts().total);
+});
+
+test("/proc/net rows decode hex addresses into the shared row shape", () => {
+  const tcp = [
+    "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode",
+    "   0: 0100007F:1F90 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 1234 1 1",
+    "   1: 00000000:0016 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 5678 1 1",
+  ].join("\n");
+  const rows = parseProcNetListening(tcp, "tcp", false);
+  assert.deepEqual(
+    rows.map((row) => [row.proto, row.port, row.addresses[0], row.state]),
+    [
+      ["tcp", 8080, "127.0.0.1", "LISTEN"],
+      ["tcp", 22, "0.0.0.0", "LISTEN"],
+    ],
+  );
+  assert.equal(rows[0]!.process, null, "/proc exposes no owner");
+
+  // Non-LISTEN tcp rows are skipped; udp rows are all "bound".
+  const header = tcp.split("\n")[0]!;
+  const established = `${header}\n   2: 0100007F:1F90 0100007F:B0B0 01 00000000:00000000 00:00000000 00000000 1000 0 9 1 1`;
+  assert.deepEqual(parseProcNetListening(established, "tcp", false), []);
+  assert.equal(parseProcNetListening(established, "udp", false).length, 1);
+});
+
+test("/proc/net IPv6 binds compress to the same address form ss prints", () => {
+  // `00000000000000000000000001000000` is ::1 in the kernel's little-endian
+  // word order — without decoding it every IPv6 bind looked externally
+  // reachable.
+  const text = [
+    "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode",
+    "   0: 00000000000000000000000001000000:1F90 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 9 1 1",
+  ].join("\n");
+  const rows = parseProcNetListening(text, "tcp", true);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.port, 8080);
+  assert.equal(rows[0]!.addresses[0], "::1");
+  assert.equal(summarizePorts(rows).loopback, 1);
+  assert.equal(summarizePorts(rows).exposed, 0);
 });
 
 test("panel options default from segment config, explicit options win", () => {

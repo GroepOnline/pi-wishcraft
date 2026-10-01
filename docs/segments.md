@@ -5,22 +5,24 @@
 `preset: "chef"` is the GroepOnline fork's default look: muted colors (no rainbow), slash separators, and two extra right-side segments:
 
 - `tps`: live tokens/sec over a rolling 1-second window (EMA-free, no spikes), reporting **output and input** rates separately (`⇡out ⇣in`) so you can see generation speed and incoming prompt tokens at a glance. It shows `--` until two live samples exist, rather than pretending an idle session runs at zero. Set `segmentOptions.tps.mode` to `both`, `out`, or `in`; override with `POWERLINE_TPS` when needed.
-- `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6) rendered as `21 tcp`. Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral), rendered as `tcp+udp`.
+- `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6) rendered as `21 tcp`. Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral), rendered as `tcp+udp`. The count is probed **in the background** and cached for 5s, so painting the bar never waits on `ss`; it shows `?` until the first probe lands.
 - `budget`: daily token-budget usage (`budget 62% ▓▓▓▓░░░░`) when `wishcraft.tokenBudget.daily.limit` is configured. Warns through the same threshold colors as the cost segment.
 
-### Open ports: one parser, three surfaces
+### Open ports: one probe, one parser, three surfaces
 
-Every surface reads the same parse of `ss`/`netstat` output (`src/segments/ports.ts`), so the count, the detail rows and the panel always agree:
+Every surface reads the **same async probe and the same parse** (`src/segments/ports.ts`), so the count, the detail rows and the panel can never disagree or race each other:
 
 | Surface | How | Shows |
 |---|---|---|
-| `open_ports` segment | sync probe, 3s timeout, 2s cache | `21 tcp` / `21 tcp+udp`, `?` when unreachable |
-| Segment detail (`/signal menu` → Navigate → `open_ports` → `→`) | cached process list | `tcp:3000 → node (12345)` |
-| `alt+i` and Deck → **Ports** (`g p`) | **async** probe, 5s shared cache | aligned `PROTO PORT ADDRESS OWNER` table + summary |
+| `open_ports` segment | reads the shared cache, schedules a background refresh | `21 tcp` / `21 tcp+udp`, `?` until the first probe lands or when unreachable |
+| Segment detail (`/signal menu` → Navigate → `open_ports` → `→`) | reads the shared cache, rebuilds when a probe completes | `tcp:3000 → node (12345)` |
+| `alt+i` and Deck → **Ports** (`g p`) | awaits the shared probe (5s cache) | aligned `PROTO PORT ADDRESS OWNER` table + summary |
 
 Rows are deduped per protocol+port, dual-stack binds (IPv4 + IPv6) collapse to one row with both addresses, IPv6 brackets are stripped so `::1` counts as loopback, and a port with no visible owner is marked `(unknown)` rather than crashing or guessing.
 
-The `alt+i` panel and the Deck's Ports route both **probe asynchronously with a bounded timeout** — the panel previously ran `execSync` with no timeout, so a wedged `ss` (or an SSH host that never answered) froze the whole TUI. In the panel: start typing to filter on port, address or owner, `r` re-probes, Enter copies the selected row.
+**Nothing spawns a process from a paint.** The segment and the detail view read the memoised value and schedule a refresh; when it completes, listeners repaint the status line and refresh the open detail. A stale-but-known count stays on screen rather than flicking to `?`. Concurrent surfaces asking at once share a single probe (in-flight de-duplication).
+
+The `alt+i` panel previously ran `execSync` with no timeout, so a wedged `ss` (or an SSH host that never answered) froze the whole TUI; the ladder is now `ss` → `ss` (headered) → `netstat` → `/proc/net`, every rung bounded, all asynchronous. In the panel: start typing to filter on port, address or owner, `r` re-probes, Enter copies the selected row.
 
 The summary line leads each view, e.g. `21 tcp · 12 exposed · 9 loopback · local`. **Exposed** means bound to a non-loopback address — reachable from another machine; `loopback` means `127.0.0.1`/`::1` only.
 
@@ -38,7 +40,7 @@ The summary line leads each view, e.g. `21 tcp · 12 exposed · 9 loopback · lo
 }
 ```
 
-`host` accepts a hostname, `user@host`, or IPv4 address (validated to prevent shell injection). The probe is best-effort: it runs `ssh` in `BatchMode` with a 3-second connect timeout, so it requires passwordless/agent SSH and the host to already be in `known_hosts`. When the probe can't run (no `ss`/`netstat` remotely, unreachable host, missing key), the segment shows `?` instead of a misleading `0`. The detail view and `alt+i` full list reuse the same remote probe.
+`host` accepts a hostname, `user@host`, or IPv4 address (validated to prevent shell injection). The probe is best-effort: it runs `ssh` in `BatchMode` with a 3-second connect timeout, so it requires passwordless/agent SSH and the host to already be in `known_hosts`. When the probe can't run (no `ss`/`netstat` remotely, unreachable host, missing key), the segment shows `?` instead of a misleading `0`. The detail view and `alt+i` full list reuse the same remote probe, and `/proc/net` is only consulted for a local probe (a remote `/proc` is not reachable).
 
 ## Thinking level display
 

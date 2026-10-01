@@ -92,14 +92,16 @@ Segment fields:
 
 - `type` (required): `command` | `env` | `static`
 - `command` (command type): shell command to run; output is trimmed
-- `cacheMs` (command type, optional): cache output for N ms to avoid re-spawning a shell every paint
+- `cacheMs` (command type, optional): how long to reuse the previous output before re-running. Defaults to `1000`ms; clamped to `100`–`300000`ms
 - `env` (env type): environment variable to read
 - `fallback` (env type, optional): text shown when the variable is unset (omit to hide the segment)
 - `text` (static type): fixed text
 - `prefix` (optional): text shown before the value
 - `color` (optional): Pi theme color (`warning`, `accent`, ...) or hex (`#RRGGBB`)
 
-If a command fails or an env var is unset without a fallback, the segment renders nothing.
+Command segments run **in the background**, never inside a paint: the status line shows the previous output (or nothing on the very first frame) and repaints when the command finishes. A hung command is capped at 5s and its output at 512 characters.
+
+If a command fails or an env var is unset without a fallback, the segment renders nothing. A failed command is reported as a fault marker (`!custom:<id>`) on the next paint rather than being silently hidden.
 
 ## Custom presets
 

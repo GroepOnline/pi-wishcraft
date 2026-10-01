@@ -6,6 +6,10 @@ import {
   renderSegment,
   countListeningPorts,
 } from "../src/segments/index.ts";
+import {
+  invalidatePortsCache,
+  probeListeningPorts,
+} from "../src/segments/ports.ts";
 import { tpsSamples } from "../src/usage/tps-ring.ts";
 
 const PRESETS_FOR_TEST = ["default", "chef"] as const;
@@ -133,13 +137,22 @@ test("tps starts as unavailable (no fake session-average after reload)", () => {
   assert.ok(!/50000/.test(text), `must not echo raw output: ${text}`);
 });
 
-test("countListeningPorts returns unique ports (dedupes IPv4/IPv6)", () => {
+test("countListeningPorts reports unknown before the first probe, then a unique count", async () => {
+  invalidatePortsCache();
+  // Render-path safety: with a cold cache the reader reports unknown (-1)
+  // instead of spawning `ss` synchronously from the paint.
+  assert.equal(countListeningPorts(), -1);
+
+  await probeListeningPorts();
   const n = countListeningPorts();
   assert.equal(typeof n, "number");
   assert.ok(n >= 0 && Number.isInteger(n), `expected integer >= 0, got ${n}`);
 });
 
-test("segmentLabels override tps/open_ports text", () => {
+test("segmentLabels override tps/open_ports text", async () => {
+  // The open_ports segment reads the async probe cache; warm it so the
+  // rendered text is a real count rather than the cold-cache `?` marker.
+  await probeListeningPorts();
   const theme: any = { fg: (_c: string, t: string) => t };
   const base: any = {
     theme,

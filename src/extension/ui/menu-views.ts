@@ -14,9 +14,10 @@ import type {
 import { getPreset, PRESETS, registerCustomPresets } from "../../config/presets.ts";
 import { SEPARATOR_STYLES } from "../../config/primitives.ts";
 import {
-  countListeningPorts,
+  ensureOpenPortProcesses,
   listOpenPortProcesses,
 } from "../../segments/system.ts";
+import { subscribePortsUpdates } from "../../segments/ports.ts";
 // The open-ports panel lives with its own parser/probe so the `alt+i` view and
 // the Deck's Ports route share one implementation. Re-exported here because
 // the shortcut handler and the classic menu both import it from this module.
@@ -120,8 +121,14 @@ export async function configurePowerline(
         openPorts: { ...config.segmentOptions?.openPorts, includeUdp: !now },
       },
     });
+    // Toggling UDP changes the probe key, so the new count is not cached yet.
+    // Probe before publishing: publishing the unknown marker (`?`) would leave
+    // the status export stale until some unrelated render happened to refresh.
+    await ensureOpenPortProcesses(!now, host);
     publishPowerlineStatuses(ctx, {
-      ports: formatPortsStatusValue(countListeningPorts(!now, host)),
+      ports: formatPortsStatusValue(
+        listOpenPortProcesses(!now, host).length,
+      ),
     });
     ctx.ui.notify(`Open-ports UDP: ${!now ? "on" : "off"}`, "info");
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
@@ -376,6 +383,19 @@ export async function showSegmentNavigator(
             )
           : buildSegmentDetailLines(id, segCtx);
 
+      // The ports detail reads the shared async probe cache. Warm it when the
+      // detail opens, and rebuild + repaint when the probe lands so the list
+      // is never stuck on the pre-probe (empty) rows.
+      const unsubPortsUpdates = subscribePortsUpdates(() => {
+        if (detailId !== "open_ports") return;
+        detailLines = buildDetail("open_ports");
+        tui.requestRender();
+      });
+      void ensureOpenPortProcesses(
+        config.segmentOptions?.openPorts?.includeUdp === true,
+        config.segmentOptions?.openPorts?.host,
+      );
+
       const openDetail = (id: string) => {
         if (id === "__none__") return;
         snapshot();
@@ -474,6 +494,7 @@ export async function showSegmentNavigator(
             ? renderDetail(innerWidth)
             : renderList(innerWidth);
         },
+        dispose: () => unsubPortsUpdates(),
         invalidate: () => selectList.invalidate(),
         handleInput: (data: string) => {
           if (detailId !== null) {

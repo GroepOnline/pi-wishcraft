@@ -12,10 +12,13 @@ export {
   portsTableHeader,
   portsTableLines,
   probeListeningPorts,
+  readPorts,
   requestPorts,
+  subscribePortsUpdates,
   summarizePorts,
   type ListeningPort,
   type PortsProbeResult,
+  type PortsRenderSnapshot,
   type PortsSummary,
 } from "./ports.ts";
 export { SEGMENTS, renderSegment } from "./registry.ts";
