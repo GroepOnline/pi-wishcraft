@@ -251,7 +251,7 @@ function createRuntimeState(hooks: {
 | **Test runner** | Node built-in `node:test` with `--experimental-strip-types` type stripping |
 | **Circular import check** | `madge --circular src index.ts bash-mode queue` (via `npm run circular`) |
 | **Import style** | `.ts` extensions on all imports, `node:`-prefixed builtins |
-| **Pi CLI** | Installed at `^0.84.0`; wrapped to run under Node 24 via nvm |
+| **Pi CLI** | Installed at `^0.99.2` (`pi-coding-agent`, `pi-ai`, `pi-tui` move together — the agent depends on matching `pi-ai`/`pi-tui`, so bumping one alone splits the tree); wrapped to run under Node 24 via nvm |
 | **Docker** | `fuse-overlayfs` storage driver for nested VM testing |
 | **Compound Engineering** | `.compound-engineering/` overlay; portable skills via `~/.agents/skills/ce-*`; native Cursor plugin disabled |
 
