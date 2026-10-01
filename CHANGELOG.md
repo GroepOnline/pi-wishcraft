@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-10-01
+
 ### Added
 - **Configure from the prompt**: `/wishcraft get|set|unset <setting>` — every registered setting is readable and writable from the pi CLI, no editor involved. `get` reports stored value → owning file (project/global/default) → effective value, with a ⚠ explanation when validation discards it. `set` validates against the same registry the settings TUI and wizard use (unique choice prefixes: `set motion.level red` → `reduced`; toggles take `on`/`off`; numbers checked against declared `min`/`max`), applies immediately (status line repaints; shortcuts/bash settings after `/reload`), and writes to the file that already owns the key. `unset` (alias `reset`) returns to the default. Tab completes subcommands, all registered paths, and each setting's values. Structured values (layout, segments, policy) are refused with a pointer to settings.json rather than written in a broken shape; `get` works even with Signal disabled.
 - Settings registry +19 entries and a new **Shell & bash mode** group: the whole `bashMode.*` surface (toggle shortcut, transcript max lines/bytes, init script), the four missing `powerlineShortcuts` bindings (`copyEditor`, `cutEditor`, `editorStart`, `editorEnd`), `powerline.costAlert`, `powerline.stashSharpSShortcut`, `powerline.customItemsAuto`, `powerline.queue.retentionHours`, `wishcraft.policyEnabled`, git segment toggles (branch/staged/unstaged/untracked/polling/commit length), model segment options (thinking level, name style), and the fleet `openPorts.host`. All of them are now editable in `/wishcraft settings`, validated by the doctor, and covered by NL translations.
