@@ -21,7 +21,9 @@
 pi install npm:@groeponline/pi-wishcraft
 ```
 
-Reload Pi, then press `alt+p` to open the Deck. Two flows make Wishcraft click fastest:
+Reload Pi, then press `alt+p` to open the Deck. First run? `/wishcraft setup` asks four questions — language, status preset, motion level, welcome overlay — reviews them, and writes one `settings.json`.
+
+Two flows make Wishcraft click fastest:
 
 ```text
 # remember to benchmark the new provider path
@@ -29,6 +31,8 @@ Reload Pi, then press `alt+p` to open the Deck. Two flows make Wishcraft click f
 ```
 
 The `#` line is captured as an idea instead of being sent as a prompt — your active run keeps going. Then `/skills` opens the picker: search, inspect and insert a skill without leaving the session.
+
+> **Upgrading?** This project was published under the name `@groeponline/pi-powerline-footer`. That package name is deprecated on npm and no longer receives updates — install `@groeponline/pi-wishcraft` instead. Settings keys are unchanged, so an existing `settings.json` keeps working; drop the old entry from your Pi config when you switch.
 
 ## Why Wishcraft
 
@@ -52,6 +56,7 @@ Kongming lanterns started as battlefield signals and later carried wishes. Wishc
 | Read hints | Appends a one-line continuation hint after a partial `read`, so the model knows the next offset. Opt-out: `wishcraft.readHints: false`. |
 | Policy | In-process deny/inject rules in global settings. No spawn. Kill-switch: `wishcraft.policyEnabled`. |
 | Working indicator | Four deterministic styles (`dots`, `pulse`, `bar`, `ascii`) with accessibility-aware static fallbacks. |
+| Interface language | English (default) or Dutch, switchable live via `wishcraft.locale`. English is compiled into every call site, so a missing translation falls back instead of blanking a surface. |
 | Welcome art | `lantern`, `balloon`, and `normal` opening artwork, each with a different silhouette and narrow-terminal fallback. |
 
 Pi owns the footer chrome, feed scrolling, and input. Wishcraft supplies widgets, overlays, and the bash/stash/editor integrations. The bar is not clickable; actions are commands and overlays.
@@ -109,6 +114,14 @@ Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
 
 `chef` is muted colors, slash separators, live TPS in/out, and TCP port count. Built-in presets: `default`, `minimal`, `compact`, `full`, `nerd`, `ascii`, `chef`. For every setting at its default, see [`examples/settings.example.json`](examples/settings.example.json).
 
+Interface language (`en` | `nl`) applies immediately, no restart:
+
+```json
+{ "wishcraft": { "locale": "nl" } }
+```
+
+Set `PI_WISHCRAFT_LOCALE` to pick a language before settings are read.
+
 Daily token budget (never blocks a turn):
 
 ```json
@@ -128,8 +141,6 @@ Privacy/network boundary: ideas, settings, usage ledgers, and normal cockpit sta
 - No mouse on the live footer. Pi core owns that surface.
 - No second `alt+i` product. Ports stay on `alt+i`; other detail is `→` in the navigator.
 - Compatibility status keys (`powerline.preset`, `powerline.tps`, `powerline.ports`) are available to peer extensions; normal Wishcraft use does not require them.
-- The legacy `@groeponline/pi-powerline-footer` package is deprecated in favor of `@groeponline/pi-wishcraft`.
-- Tags are not rewritten. 0.19.x through current stay on the timeline.
 
 ## vNext direction
 
