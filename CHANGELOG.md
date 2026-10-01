@@ -2,11 +2,15 @@
 
 ## [Unreleased]
 
+### Fixed
+- **The remaining `npm audit` finding was half ours.** The 1.15.0 note recorded that `brace-expansion` "has no fix available at any installable version" — that was wrong on both counts, and it buried a fixable bug under a false exemption. There are two copies in the tree and they have different causes. The top-level one (pulled in via `madge` → `minimatch`) was sitting on 5.0.9 through a stale lockfile pin and is ours: it is now 5.0.12. The copy nested under `@earendil-works/pi-coding-agent` really is out of reach, but not because no fix exists — `brace-expansion@5.0.12` satisfies the `^5.0.8` range the peer's own `minimatch` declares, so the peer can fix it with a lockfile bump alone, no API change. It is unreachable from here for a different reason: the peer publishes an `npm-shrinkwrap.json`, which is authoritative for consumers, and npm installs that pinned tree verbatim without re-resolving it. Confirmed empirically that `overrides` cannot reach it — both a top-level `"brace-expansion": "^5.0.12"` and a path-scoped `"@earendil-works/pi-coding-agent": { "brace-expansion": "^5.0.12" }` left the nested copy at 5.0.9 — so no override is shipped rather than one that would advertise a guarantee it cannot keep.
+- `tests/dependency-provenance.test.ts` guards the distinction: it fails if a vulnerable copy appears anywhere outside the peer's subtree (that one is ours, and names `npm audit fix`), if an unreachable override is ever added, and if the peer's shrinkwrap moves to a fixed version (the finding is then gone and the CHANGELOG needs updating). Each guard was verified against an injected regression rather than only against the passing state.
+
 ## [1.15.0] - 2026-10-01
 
 ### Changed
 - **Pi SDK upgraded `0.84.3` -> `0.99.2`** (`@earendil-works/pi-coding-agent`, `pi-ai`, `pi-tui` moved together). These must be bumped as a set: the agent depends on matching `pi-ai`/`pi-tui`, so bumping it alone leaves a version-skewed tree — which is exactly what the queued Dependabot PR #118 does (its lockfile keeps top-level `pi-ai` at `0.84.3` under a `0.99.2` agent). On the coordinated bump npm still nests copies, but at identical versions, so nothing is skewed. One real API change: `Provider.stream()` now takes a branded `TranscriptContext` produced only by `normalizeContext()`, which folds `systemPrompt`/`tools` into a leading system message — `src/working-vibes/provider.ts` now calls it, and the working-vibes tests assert the prompt the way the SDK delivers it (as `messages[0]`) rather than through a `context.systemPrompt` field that no longer exists.
-- Audit findings drop from 3 (1 moderate, 2 high) to 1 inherited high; the `undici` advisories are cleared. The remaining `brace-expansion` finding lives inside the peer package's own tree and has no fix available at any installable version.
+- Audit findings drop from 3 (1 moderate, 2 high) to 1 high; the `undici` advisories are cleared. The remaining `brace-expansion` finding is inherited from the peer package's own dependency tree. (Corrected after release: the claim that it had no fix at any installable version was wrong — see [Unreleased].)
 
 ## [1.14.0] - 2026-10-01
 
