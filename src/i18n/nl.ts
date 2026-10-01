@@ -1,0 +1,286 @@
+/**
+ * Dutch message overrides.
+ *
+ * English literals live at the call site (`tr("key", "English")`) and act as
+ * the fallback, so this file only carries what actually differs. Keep keys in
+ * the same namespace order as the modules that use them; `tests/i18n.test.ts`
+ * guards against malformed templates and values that would silently do nothing.
+ */
+export const NL: Record<string, string> = {
+  // ── Settings groups ─────────────────────────────────────────────────────
+  "group.status": "Statusbalk",
+  "group.vibes": "Welkom & vibes",
+  "group.skills": "Skills",
+  "group.harness": "Hooks & herstel (harness)",
+  "group.shortcuts": "Sneltoetsen",
+  "group.interface": "Interface",
+
+  // ── Interface ───────────────────────────────────────────────────────────
+  "setting.interface.language.label": "Taal",
+  "setting.interface.language.hint":
+    "UI-taal · direct van kracht, geen herstart nodig",
+
+  // ── Status bar ──────────────────────────────────────────────────────────
+  "setting.status.preset.label": "Preset",
+  "setting.appearance.base.label": "Structurele basis",
+  "setting.appearance.base.hint":
+    "kleuren en beweging van Signal; de layout-preset blijft apart",
+  "setting.motion.level.label": "Bewegingsniveau",
+  "setting.motion.level.hint": "full · reduced · functional · off",
+  "setting.status.separator.label": "Scheidingsteken",
+  "setting.status.placement.label": "Positie",
+  "setting.status.path.mode.label": "Padweergave",
+  "setting.status.path.maxLength.label": "Max. padlengte",
+  "setting.status.path.maxLength.hint": "0 = onbeperkt",
+  "setting.status.time.format.label": "Tijdsformaat",
+  "setting.status.time.seconds.label": "Seconden zichtbaar",
+  "setting.status.git.hostIcons.label": "Git-hostpictogrammen",
+  "setting.status.git.aheadBehind.label": "Git vooruit/achter",
+  "setting.status.git.latestCommit.label": "Laatste commit",
+  "setting.status.context.format.label": "Contextformaat",
+  "setting.status.cacheRead.format.label": "Cache-leesformaat",
+  "setting.status.cost.display.label": "Kostenweergave",
+  "setting.status.cost.currency.label": "Valuta",
+  "setting.status.ports.udp.label": "Poorten: ook UDP",
+  "setting.status.tps.windowMs.label": "TPS-venster (ms)",
+  "setting.status.tps.windowMs.hint": "standaard 1000",
+  "setting.status.tps.mode.label": "TPS-modus",
+  "setting.status.tps.label.label": "TPS-label",
+  "setting.status.tps.label.hint": "leeg = geen label",
+
+  // ── Welcome & vibes ─────────────────────────────────────────────────────
+  "setting.welcome.enabled.label": "Welkom-overlay",
+  "setting.welcome.enabled.hint": "aan = overlay bij start, uit = geen welkom",
+  "setting.welcome.lanternMotion.label": "Lantaarn animeren",
+  "setting.welcome.lanternMotion.hint": "flakeren op de lantaarn",
+  "setting.vibes.indicatorStyle.label": "Werk-indicator",
+  "setting.vibes.indicatorStyle.hint":
+    "framestijl zolang de agent aan het werk is",
+
+  // ── Skills ──────────────────────────────────────────────────────────────
+  "setting.skills.inline.label": "Inline /command en $skill uitklappen",
+  "setting.skills.inline.hint": "herstart nodig om effect te hebben",
+  "setting.skills.readHints.label": "Leeshints",
+  "setting.skills.readHints.hint": "uit = geen vervolghint na gedeelte lezen",
+
+  // ── Harness ─────────────────────────────────────────────────────────────
+  "setting.harness.hooks.label": "Hooks actief",
+  "setting.harness.hooks.hint":
+    "schakelaar voor preToolUse / postToolUse / sessionStart hooks",
+  "setting.harness.repairs.label": "Tool-input herstel",
+  "setting.harness.repairs.hint":
+    "null-for-optional, auto-link, json-array, pad-aliasen",
+  "setting.budget.dailyTokens.label": "Dagelijks tokenbudget",
+  "setting.budget.dailyTokens.hint":
+    "kleurt de kostenweergave; blokkeert nooit. 0 = uit",
+
+  // ── Shortcuts ───────────────────────────────────────────────────────────
+  "setting.shortcut.menu.label": "Menu",
+  "setting.shortcut.menu.hint": "bijv. alt+p",
+  "setting.shortcut.info.label": "Info",
+  "setting.shortcut.stash.label": "Stash",
+  "setting.shortcut.idea.label": "Idee",
+  "setting.shortcut.queue.label": "Wachtrij",
+
+  // ── Shared state words ──────────────────────────────────────────────────
+  "common.on": "aan",
+  "common.off": "uit",
+
+  // ── Deck chrome ─────────────────────────────────────────────────────────
+  "deck.nav": "NAVIGATIE",
+  "deck.activeRoute": "ACTIEVE ROUTE: {route}",
+  "deck.home.currentSession": "HUIDIGE SESSIE",
+  "deck.home.nextIntent": "VOLGENDE STAP",
+  "deck.home.noIntent": "geen wachtende stap",
+  "deck.home.rightNow": "JUIST NU",
+  "deck.home.workload": "ideeën {ideas} · wachtrij {queue}",
+  "deck.home.bash": "bash",
+  "deck.home.policy": "beleid",
+  "deck.home.shell": "shell",
+  "deck.home.shellIdle": "niet gestart",
+  "deck.home.quickKeys": "SNELTOETSEN",
+  "deck.home.keyDeck": "deck",
+  "deck.home.keyIdea": "idee",
+  "deck.home.keyBash": "bash-opdracht",
+  "deck.home.keyInfo": "info",
+  "deck.rail.activity": "ACTIVITEIT",
+  "deck.rail.noActivity": "geen recente activiteit",
+  "deck.rail.skills": "SKILLS GEZOND",
+  "deck.rail.healthy": "{n} gezond",
+  "deck.rail.warnings": "{n} waarschuwingen",
+  "deck.rail.guardrails": "HEKWERKEN",
+  "deck.rail.policy": "Beleid: {state} ({n})",
+  "deck.rail.workload": "ideeën {ideas} · wachtrij {queue}",
+  "deck.rail.bash": "bash",
+  "deck.rail.alerts": "AANDACHT",
+  "deck.rail.alertSkills": "{n} skills vragen aandacht",
+  "deck.rail.alertPolicy": "hekwerken staan uit",
+  "deck.rail.alertContext": "context {pct}% vol",
+
+  // ── Deck footer ─────────────────────────────────────────────────────────
+  "deck.footer.composer": "←→ bijstellen · ↑↓ veld · enter toepassen · esc terug",
+  "deck.footer.wizard": "typ · enter volgende · [ ] sjabloon · esc terug",
+  "deck.footer.create": "typ een naam · enter aanmaken · esc annuleren",
+  "deck.footer.nav": "↑↓ route · → lijst · / Zoeken · g h Start · Esc Sluiten",
+  "deck.footer.appearance":
+    "↑↓ basis kiezen · enter toepassen · ←/tab nav · → lijst · / Zoeken · Esc Sluiten",
+  "deck.footer.motion":
+    "↑↓ animatie · t gebeurtenis · e composer · enter toepassen · ←/tab nav · Esc Sluiten",
+  "deck.footer.skills":
+    "↑↓ skill · enter invoegen · n nieuw · w wizard · / filter · ←/tab nav · Esc Sluiten",
+  "deck.footer.ideas":
+    "↑↓ idee · enter status · / filter · ←/tab nav · → lijst · Esc Sluiten",
+  "deck.footer.ports":
+    "↑↓ selecteren · enter kopiëren · r opnieuw · / filter · ←/tab nav · Esc Sluiten",
+  "deck.footer.default":
+    "/ Zoeken · g h Start · g s Signaal · g i Ideeën · ? Help · Esc Sluiten",
+  "deck.diag.envHint":
+    "Draai /signal doctor voor het volledige omgevingsrapport",
+  "deck.moreRows": "… nog {n} meer — ↑↓ om te scrollen",
+  "deck.moreHidden": "… {n} verborgen",
+  "deck.ideas.header": "{ideas} ideeën · {queue} wachtend",
+  "deck.ideas.filtered": "{n} treffer voor '{q}'",
+  "deck.ideas.capture": "Vastleggen met # of /ideas",
+  "deck.ideas.noMatch": "Geen ideeën die passen",
+  "deck.ideas.none": "Nog geen ideeën vastgelegd",
+  "deck.ideas.above": "… {n} erboven",
+  "deck.ideas.below": "… {n} eronder",
+  "deck.ideas.statusIdea": "[idee]",
+  "deck.ideas.statusDoing": "[bezig]",
+  "deck.ideas.statusDone": "[klaar]",
+  "deck.ideas.set": "Idee → {status}",
+  "deck.ideas.removed": "Idee verwijderd: {text}",
+  "deck.ideas.removeFailed": "Idee kon niet worden verwijderd",
+  "deck.guard.policy": "Beleid: {state} ({n} regels)",
+  "deck.guard.none": "Geen declaratieve regels in wishcraft.policy",
+  "deck.guard.more": "… nog {n}",
+  "deck.ports.probing": "Luisterende poorten aan het verkennen…",
+  "deck.ports.hint": "druk op r om opnieuw te verkennen",
+  "deck.ports.none": "Geen luisterende poorten",
+  "deck.ports.exposed": "{n} bereikbaar vanaf andere machines",
+
+  // ── Deck routes ─────────────────────────────────────────────────────────
+  "deck.home.label": "Start",
+  "deck.home.desc": "Sessieoverzicht en volgende stap",
+  "deck.signal.label": "Signaal",
+  "deck.signal.desc": "Layout van de lanes en live activiteit",
+  "deck.skills.label": "Skills",
+  "deck.skills.desc": "Catalogus en gezondheidscontrole",
+  "deck.ideas.label": "Ideeën",
+  "deck.ideas.desc": "Vastgelegde intenties en wachtrij",
+  "deck.guardrails.label": "Hekwerken",
+  "deck.guardrails.desc": "Beleidsregels en afdwinging",
+  "deck.shell.label": "Shell",
+  "deck.shell.desc": "Terminal en bash-modus",
+  "deck.ports.label": "Poorten",
+  "deck.ports.desc": "Luisterende sockets, eigenaars en bereikbaarheid",
+  "deck.usage.label": "Verbruik",
+  "deck.usage.desc": "Context- en tokenmetingen",
+  "deck.appearance.label": "Uiterlijk",
+  "deck.appearance.desc": "Presets, palet en chrome",
+  "deck.motion.label": "Beweging",
+  "deck.motion.desc": "Animatiegalerij en gevoeligheid",
+  "deck.shortcuts.label": "Sneltoetsen",
+  "deck.shortcuts.desc": "Toetsenbordnavigatie",
+  "deck.diagnostics.label": "Diagnose",
+  "deck.diagnostics.desc": "Omgeving, capabilities en configuratie",
+
+  // ── Config overlay ──────────────────────────────────────────────────────
+  "config.title": "Wishcraft · configuratie",
+  "config.hint.editing": "waarde=typen · enter=opslaan · esc=annuleren",
+  "config.hint.browsing": "↑↓ · enter=wijzigen (←→ wisselt) · esc=sluiten",
+  "config.saved": "opgeslagen",
+  "config.notSaved": "niet opgeslagen (settings.json?)",
+  "config.on": "aan",
+  "config.off": "uit",
+  "config.empty": "—",
+  "config.preview": "live statusbalk",
+  "config.restartNeeded": "herstart nodig om effect te hebben",
+  "config.nan": '{label}: "{given}" is geen getal — niets weggeschreven.',
+
+  // ── Validation ──────────────────────────────────────────────────────────
+  "validation.select": '"{label}" verwacht een van: {choices}. Gegeven: "{given}".',
+  "validation.number": '"{label}" verwacht een getal tussen {bounds}. Gegeven: "{given}".',
+  "validation.boolean": '"{label}" is een schakelaar: zet op aan of uit, niet "{given}".',
+  "validation.text": '"{label}" verwacht tekst. Gegeven: {kind}.',
+  "validation.defaultValue": "Standaard wordt gebruikt: {value}.",
+
+  // ── Config diagnostics ──────────────────────────────────────────────────
+  "diag.title": "Configuratie-diagnose",
+  "diag.subheading": "waar elke waarde vandaan komt",
+  "diag.sources": "Bronnen",
+  "diag.conflicts": "Conflicten",
+  "diag.unknownKeys": "Onbekende sleutels",
+  "diag.settings": "Instellingen",
+  "diag.globalFile": "globaal",
+  "diag.projectFile": "project",
+  "diag.fileMissing": "niet aanwezig (standaarden in gebruik)",
+  "diag.fileValid": "geldig JSON",
+  "diag.fileInvalid": "ONGELDIG JSON — wordt genegeerd",
+  "diag.noConflicts": "geen conflicten",
+  "diag.noUnknown": "geen onbekende sleutels",
+  "diag.didYouMean": "bedoelde je",
+  "diag.notRead": "geen lezer consumeert deze sleutel",
+  "diag.projectWins": "project overschrijft globaal",
+  "diag.summary": "{total} instellingen · {stored} opgeslagen · {defaulted} standaard · {invalid} ongeldig",
+  "diag.more": "… nog {n} meer — draai /wishcraft doctor",
+  "diag.doctorHint": "↑↓ navigeren · enter kopieren · esc sluiten",
+
+  // ── Setup wizard ────────────────────────────────────────────────────────
+  "wizard.title": "Wishcraft · eerste setup",
+  "wizard.subtitle": "Vier keuzes, daarna meteen aan de slag.",
+  "wizard.step": "Stap {n} van {total}",
+  "wizard.review": "Klaar om te schrijven",
+  "wizard.apply": "Schrijf naar settings.json",
+  "wizard.hint": "←→ wijzigen · enter=volgende · esc=sluiten",
+  "wizard.hintLast": "enter=opslaan · esc=sluiten",
+  "wizard.done": "Setup klaar — alles opgeslagen",
+  "wizard.failed": "Setup niet opgeslagen (settings.json?)",
+
+  // ── Welcome ─────────────────────────────────────────────────────────────
+  "welcome.signals": "Signalen & wensen",
+  "welcome.tagline": "Schrijf het op, laat het stijgen, houd je focus helder.",
+  "welcome.title": " pi-wishcraft ",
+  "welcome.countdown": "Druk op een toets om verder te gaan ({n}s)",
+  "welcome.whatsNew": "Wat is nieuw",
+  "welcome.firstRun": "Aan de slag",
+  "welcome.firstRun.1": "# <idee> — leg een gedachte vast zonder te onderbreken",
+  "welcome.firstRun.2": "alt+p — open de Deck: instellingen, skills, beweging",
+  "welcome.firstRun.3": "/wishcraft setup — kies taal, preset en beweging",
+  "welcome.shortcuts": "Snelkoppelingen",
+  "welcome.shortcuts.idea": "idee vastleggen in de wachtrij",
+  "welcome.shortcuts.deck": "powerline-overlay openen",
+  "welcome.shortcuts.bash": "vaste bash-sessie",
+  "welcome.shortcuts.stash": "concept parkeren/herstellen",
+  "welcome.system": "Actieve horizon",
+  "welcome.system.model": "Model",
+  "welcome.system.tokens": "initiële prompt-tokens",
+  "welcome.system.loaded": "skills/extensies geladen",
+  "welcome.queue.items": "wachtende items klaar",
+  "welcome.queue.capture": "typ",
+  "welcome.queue.captureTail": "om een gedachte vast te leggen",
+  "welcome.queue.stashed": "concept geparkeerd (Alt+S om te herstellen)",
+  "welcome.queue.park": "druk op",
+  "welcome.queue.parkTail": "om een concept te parkeren",
+  "welcome.queue.ready": "dromen- en missiewachtrij klaar",
+  "welcome.sessions": "Recente sessies",
+  "welcome.sessions.none": "geen recente sessies",
+
+  // ── Open ports panel ────────────────────────────────────────────────────
+  "ports.title": "Open poorten",
+  "ports.titleHost": "Open poorten · {host}",
+  "ports.noMatch": "geen treffer voor '{q}'",
+  "ports.copied": "Poort: {row}",
+  "ports.hintNav": "↑↓ selecteren · enter kopiëren · esc sluiten",
+  "ports.hintRefresh": "r verversen",
+  "ports.hintFilter": "filter '{q}' · ctrl+u wissen",
+  "ports.hintType": "typ om te filteren",
+  "ports.probing": "luisterende poorten aan het verkennen…",
+  "ports.none": "geen luisterende poorten",
+  "ports.hintUdp": "UDP staat uit — druk op r nadat Poorten incl. UDP aan staat",
+
+  // ── Commands ────────────────────────────────────────────────────────────
+  "cmd.wishcraft.desc":
+    "Open de Wishcraft Deck, of settings/config/setup/doctor",
+  "cmd.signalDisabled": "Signal-UI staat uit",
+};

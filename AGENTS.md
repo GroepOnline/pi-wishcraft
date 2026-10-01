@@ -52,7 +52,7 @@ npm run circular
 
 | Directory | Purpose |
 |---|---|
-| `src/` | Extension runtime, organized by domain (core, config, segments, render, signal, motion, theme, welcome, working-vibes, usage, studio, skills, hooks, settings, shortcuts, history, queue, contrib, editor, paths, shell, tools) |
+| `src/` | Extension runtime, organized by domain (core, config, segments, render, signal, motion, theme, welcome, working-vibes, usage, studio, skills, hooks, settings, shortcuts, history, queue, contrib, editor, paths, shell, tools, i18n) |
 | `src/extension/` | Pi extension runtime: `core/` (hub, types, constants), `session/` (activation, lifecycle), `ui/` (deck, layout), `commands/`, `shortcuts/`, `queue/`, `welcome/`, `skills/`, `hooks/`, `settings/`, `history/`, `contrib/` |
 | `src/config/` | Powerline config parsing, presets, settings registry, tokens |
 | `src/segments/` | Segment registry and builtin renderers (core, system, usage, custom) |

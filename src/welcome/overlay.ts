@@ -6,6 +6,7 @@ import { fgOnly } from "../theme/colors.ts";
 import type { WelcomeData } from "./types.ts";
 import type { LoadedCounts, RecentSession } from "./types.ts";
 import { renderWelcomeArtWithReveal, BOOT_REVEAL_MS } from "./banner.ts";
+import { tr } from "../i18n/index.ts";
 import type { WelcomeArtTheme } from "./welcome-art.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -64,6 +65,11 @@ export class WelcomeComponent implements Component {
     this.mountedAt = startedAt;
   }
 
+  /** Swap the panel heading (the first-run flow uses "Getting started"). */
+  setWhatsNewTitle(title: string): void {
+    this.data.whatsNewTitle = title;
+  }
+
   invalidate(): void {}
 
   render(termWidth: number): string[] {
@@ -82,7 +88,7 @@ export class WelcomeComponent implements Component {
     );
 
     // Bottom line with countdown
-    const countdownText = ` Press any key to continue (${this.countdown}s) `;
+    const countdownText = ` ${tr("welcome.countdown", "Press any key to continue ({n}s)", { n: this.countdown })} `;
     const countdownStyled = dim(countdownText);
     const bottomContentWidth = boxWidth - 2;
     const countdownVisLen = visibleWidth(countdownText);

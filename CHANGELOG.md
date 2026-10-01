@@ -3,16 +3,30 @@
 ## [Unreleased]
 
 ### Added
-- Coverage gate in CI and local `npm test`: the suite fails below 70% line / 60% function coverage (current baseline 84.2% / 81.6%), so coverage can no longer silently regress.
-
-### Fixed
-- Shortcuts router: a missing `ctx.ui` crashed `getCurrentEditorText` with a TypeError; the accessor now falls through safely to the editor text or an empty string.
-
-### Added
+- **Deck → Ports route** (`g p`, twelfth route): the same open-ports table `alt+i` shows, probed asynchronously off the render path and read from a shared 5s cache, so the route never spawns a process during a frame.
+- **Open-ports panel rebuild** (`alt+i`): leads with a summary (`21 tcp · 12 exposed · 9 loopback · local`), renders aligned `PROTO PORT ADDRESS OWNER` rows instead of raw `ss` output, filters as you type on port/address/owner, `r` re-probes, Enter copies the selected row, and fails soft with a readable reason instead of an error toast. Used by `alt+i`, the classic menu and the new Deck route.
+- Shared listening-ports parser (`src/segments/ports.ts`): one parse of `ss`/`netstat` output feeds the segment count, the segment detail, the panel and the Deck route, so they can no longer disagree. Dual-stack binds collapse to one row, IPv6 brackets are stripped (an `[::1]` bind previously would have been reported as *exposed*), and `ss`/`netstat`/macOS dotted-address variants are all handled.
+- **Deck idea actions**: `enter` cycles the review status (idea → in-progress → done) and `d` removes the idea, straight from the Ideas route — the same states the `/ideas` overlay offers.
+- `/` now filters the Ideas list in place (it already filtered skills, appearance and motion).
+- Interface language: a new `Language` setting (`wishcraft.locale`, `en` | `nl`) localises the operator UI — Deck routes and chrome, the settings registry's labels/hints/group titles, the configuration overlay, the welcome overlay and its widgets, the setup wizard, and the diagnostics copy. English is compiled in at each call site (`tr(key, "English")`), so a missing or unknown locale can only ever fall back to English, never blank a surface; the default stays `en` and no existing golden output changes.
+- `/wishcraft setup` — first-run wizard: four questions (language, status preset, motion level, welcome overlay), a review screen, then one write to `settings.json`. The step model is pure and separately tested.
+- `/wishcraft doctor` — configuration diagnosis as a one-screen list, also rendered as a section of the Deck's Diagnostics route: which settings file is winning, values shadowed between global and project, near-miss keys with a "did you mean" suggestion, and every stored value that validation throws away — with an explanation of why and which default applies.
+- Live status-line preview inside the configuration overlay: every toggle/cycle/edit repaints the real status line under the list, so a setting's effect is visible instead of inferred.
+- Per-setting inline warning markers and contextual hints in the configuration overlay: an invalid stored value is flagged in place rather than silently replaced by its default.
+- Settings validation now reports *why* a value is rejected (`explainSettingValue`, `validationProblem`) with localised, actionable copy — including the valid choices and the default that is applied — instead of a bare boolean. Numeric settings gained declared `min`/`max` bounds.
+- First-run welcome: an operator who has never run Wishcraft sees three short next steps under a "Getting started" heading instead of a wall of changelog bullets; later sessions keep the changelog delta under its own heading.
+- Coverage gate in CI and local `npm test`: the suite fails below 70% line / 60% function coverage (current baseline 84.7% / 82.6%), so coverage can no longer silently regress.
 - Release-path contract tests: `scripts/release.mjs` (semver bump, `[skip release]` guard, org bump policy, tag parsing/collisions, CHANGELOG roll and note extraction, lockfile rewrite, release-candidate metadata validation incl. every rejection path) and `scripts/verify-release-tag.mjs` (version sources, tag equality, argument parsing) — previously the least-covered, most operationally critical files in the repo.
 - Extension-layer tests: prompt-history (trim/dedupe/cap, snapshot/restore, tracker idempotence, session-JSONL parsing via `PI_CODING_AGENT_DIR` fixture), stash-history (normalize/push/preview semantics), shortcuts router (per-binding action resolution incl. kitty CSI-u forms and release filtering), bash-mode actions (shell path/cwd/history-merge), and stash shortcuts.
 - OMP-style boot reveal: the welcome header and startup overlay fade their art up from a faint ember over the first ~1.5s after mount (logarithmic ramp on a 90ms heartbeat, ember-noise flicker while catching), then settle into the steady layout — a bounded one-shot, zero timers afterwards. `WelcomeHeader`/`WelcomeComponent` arm it via `armBootReveal()`; pure frames via `renderWelcomeArtWithReveal`.
 - Settings appearance preview: the Deck's Appearance route now renders a live signal-rail preview of the structural preset under the cursor (the preset's own signal spec and animation, one row, deterministic per tick), so you see each base before Enter applies it.
+
+### Fixed
+- **Settings edited from `/wishcraft settings` did nothing.** Every `status.*` setting writes to `powerline.segmentOptions.<segment>.<option>`, but `parsePowerlineConfig` only ever read the hand-edited top-level buckets (`powerline.tps.*`, `powerline.path.*`, …). A dozen settings — path mode and max length, time format/seconds, git host icons/ahead-behind/latest commit, context format, cache-read format, cost display/currency, UDP ports, TPS window/mode/label — were persisted and then silently ignored. The parser now merges both shapes per segment (nested wins), so the settings UI, hand-edited configs, and the menu's `openPorts` toggle all agree.
+- The coverage gate was not actually enforcing anything: `--test-coverage-lines`/`--test-coverage-functions` do nothing without `--experimental-test-coverage`, so `npm test` printed thresholds while collecting no coverage. The flag is now part of the script and a deliberately impossible threshold demonstrably fails the run.
+- `tr()` did not interpolate its English fallback, so the default locale printed raw `{route}` placeholders in Deck headings.
+- Dutch catalog drift: two message keys referenced from the configuration overlay had differently-named entries, and several entries had no caller.
+- Shortcuts router: a missing `ctx.ui` crashed `getCurrentEditorText` with a TypeError; the accessor now falls through safely to the editor text or an empty string.
 
 ### Changed
 - Motion engine (Mijlpaal B1): sub-tick interpolation — repaints between scheduler heartbeats move the travelling head smoothly instead of stepping one cell per tick. `SignalRuntime` records the heartbeat clock (`lastTickAt`) and `renderActivity` interpolates strictly within one interval, so hand-driven ticks (tests) and stale clocks keep exact integer rendering. Glyph frames stay tick-aligned via a fractional-safe `frameAt`.
@@ -24,6 +38,13 @@
   - Terminal events (success/warning/error) play a one-shot expanding ripple — two fading rings from the rail center — instead of a plain sweep; finite loop, zero frames once settled.
   - Every event switch lands with an ignition punch (fast exponential brightness decay from `startedAt`).
   - Ember/heat heads flicker with layered deterministic value noise (slow breathe + fast crackle, never repeats exactly) instead of two fixed sines.
+- **The Deck frame is bounded**: the center pane and right rail clip at a fixed row budget with an overflow count, and Ideas/Guardrails window around the cursor. A long queue or a large policy list previously grew the box past the bottom of the terminal.
+- **Right rail is now a decision aid**: leads with the latest activity, shows workload (ideas/queue, bash) and only spends space on an **ATTENTION** block when something is actually wrong (skill warnings, guardrails off, context ≥ 90%).
+- Deck home route body reworked into four scannable blocks — session (activity, context bar, look), right now (ideas/queue, bash and policy state, shell), next intent, and quick keys — instead of a thin session stub.
+- Welcome startup: skill/extension/session discovery now happens inside the overlay's delay instead of on the session-start critical path, and the panel heading/bullets resolve through one helper.
+- Deck copy is localised: route descriptions, body headings, list headers, alerts and the per-route footer hints now resolve through `tr()`, keeping their English wording as the fallback.
+- `sanitizeSshHost`/`sshCommand` moved to `src/segments/probe-shell.ts` (re-exported from `segments/system.ts`) so the ports parser and the segments can share them without an import cycle.
+- Dotted setting-path helpers moved to `src/extension/settings/config-paths.ts` so the wizard and diagnostics can share them without importing the overlay (keeps the dependency graph acyclic).
 - Housekeeping: removed the stray `bun.lock` (npm is the package manager of record), added `engines: node >=22.19` to `package.json`, untracked the local harness log `.auto/log.jsonl`, and corrected the Node-version line and `src/` directory list in AGENTS.md.
 
 ## [1.13.0] - 2026-09-25

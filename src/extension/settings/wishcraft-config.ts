@@ -13,9 +13,26 @@ import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { RuntimeState } from "../core/types.ts";
 import { openWishcraftDeck } from "../ui/deck/index.ts";
 import { parseDeckRouteArg } from "../ui/deck/routes.ts";
-import { readSettings, writeSettingKey } from "../settings/settings-io.ts";
-import { isRecord } from "../settings/settings-io.ts";
+import { readSettings } from "../settings/settings-io.ts";
+import {
+  effectiveSettingValue,
+  explainSettingValue,
+  settingHint,
+  settingLabel,
+  validationProblem,
+} from "../../config/settings-registry.ts";
+import { syncLocaleFromSettings, tr } from "../../i18n/index.ts";
+import { renderPowerlinePrimaryLines } from "../ui/status-line-renderers.ts";
 import { reloadPowerlineFromSettings } from "./appearance-write.ts";
+import {
+  coerceConfigValue,
+  displayValue,
+  nextToggleValue,
+  readConfigPath,
+  writeConfigPath,
+} from "./config-paths.ts";
+import { runConfigDoctor } from "./config-doctor.ts";
+import { runSetupWizard } from "./setup-wizard.ts";
 import {
   buildConfigGroups,
   type ConfigGroup,
@@ -25,113 +42,46 @@ import {
 
 export type { ConfigGroup, ConfigItem, ConfigValue };
 export { buildConfigGroups };
-
-/** Nested read: "wishcraft.hooksEnabled" → settings.wishcraft.hooksEnabled. */
-export function readConfigPath(settings: Record<string, unknown>, path: string): ConfigValue {
-  let cur: unknown = settings;
-  for (const part of path.split(".")) {
-    if (!isRecord(cur)) return null;
-    cur = cur[part];
-  }
-  if (typeof cur === "boolean" || typeof cur === "string" || typeof cur === "number")
-    return cur;
-  return null;
-}
-
-/** True for path segments that would mutate Object.prototype. */
-export function isUnsafeConfigKey(key: string): boolean {
-  return key === "__proto__" || key === "constructor" || key === "prototype";
-}
-
-/**
- * Set `parts` (after the root key) on `root`. Returns false and leaves
- * `root` unchanged when a segment is `__proto__`, `constructor`, or `prototype`.
- */
-export function assignNestedConfigValue(
-  root: Record<string, unknown>,
-  parts: string[],
-  value: ConfigValue,
-): boolean {
-  for (const part of parts) {
-    if (part === "__proto__" || part === "constructor" || part === "prototype") {
-      return false;
-    }
-  }
-  let node = root;
-  for (let i = 0; i < parts.length; i++) {
-    const key = parts[i]!;
-    // Guard in this loop so CodeQL sees the key check next to the assignment.
-    if (key === "__proto__" || key === "constructor" || key === "prototype") {
-      return false;
-    }
-    if (i === parts.length - 1) {
-      if (value === null) delete node[key];
-      else node[key] = value;
-    } else {
-      if (!isRecord(node[key])) node[key] = {};
-      node = node[key] as Record<string, unknown>;
-    }
-  }
-  return true;
-}
-
-/** Nested write (new object per level) + persist to settings.json.
- * An empty string for a text field means "clear" — the key is removed from settings
- * so the code falls through to the default. */
-export function writeConfigPath(
-  cwd: string,
-  path: string,
-  value: ConfigValue,
-): boolean {
-  const parts = path.split(".");
-  const rootKey = parts[0]!;
-  if (!rootKey || parts.some(isUnsafeConfigKey)) {
-    return false;
-  }
-  return writeSettingKey(cwd, rootKey, (existing) => {
-    // Shorthand string under powerline (e.g. "chef") is a preset name: keep it.
-    const node: Record<string, unknown> = isRecord(existing)
-      ? existing
-      : rootKey === "powerline" && typeof existing === "string"
-        ? { preset: existing }
-        : {};
-    if (!assignNestedConfigValue(node, parts.slice(1), value)) {
-      return existing;
-    }
-    return node;
-  });
-}
+// Path helpers live next door (and are re-exported here to keep the import
+// path stable for tests and existing callers).
+export {
+  assignNestedConfigValue,
+  coerceConfigValue,
+  displayValue,
+  isUnsafeConfigKey,
+  nextToggleValue,
+  readConfigPath,
+  writeConfigPath,
+  type CoerceResult,
+} from "./config-paths.ts";
 
 // ---------------------------------------------------------------------------
 // Overlay
 // ---------------------------------------------------------------------------
 
-const LIST_ROWS = 14;
+const LIST_ROWS = 12;
 
 function isPrintable(data: string): boolean {
   return data.length === 1 && data >= " " && data <= "~";
 }
 
-/** Value shown for a config item given its stored value. */
-export function displayValue(item: ConfigItem, value: ConfigValue): string {
-  const effective = value ?? item.defaultValue ?? null;
-  if (effective === null || effective === "") return item.kind === "toggle" ? "off" : "—";
-  if (item.kind === "toggle") return effective === true ? "on" : "off";
-  return String(effective);
-}
-
-/** Next stored boolean after toggling `item` from its current effective value. */
-export function nextToggleValue(item: ConfigItem, value: ConfigValue): boolean {
-  const effective = value ?? item.defaultValue ?? false;
-  return effective !== true;
-}
-
-function coerce(item: ConfigItem, current: ConfigValue, next: string): ConfigValue {
-  if (item.kind === "number") {
-    const n = Number.parseInt(next, 10);
-    return Number.isFinite(n) ? n : current;
+/**
+ * Current status line as rows for the overlay preview.
+ *
+ * Fault-isolated: the preview is decoration, so a render failure must never
+ * take the settings editor down with it.
+ */
+export function safeStatusPreview(
+  rt: RuntimeState,
+  width: number,
+  theme: Theme,
+): string[] {
+  if (!rt.currentCtx) return [];
+  try {
+    return renderPowerlinePrimaryLines(rt, width, theme);
+  } catch {
+    return [];
   }
-  return next;
 }
 
 export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<void> {
@@ -174,17 +124,33 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const { item } = cur;
         let value: ConfigValue;
         if (item.kind === "toggle") value = next === "on";
-        else value = coerce(item, readConfigPath(settings, item.path), next);
+        else {
+          const coerced = coerceConfigValue(
+            item,
+            readConfigPath(settings, item.path),
+            next,
+          );
+          if (!coerced.ok) {
+            ctx.ui.notify(coerced.reason, "warning");
+            tui.requestRender();
+            return;
+          }
+          value = coerced.value;
+        }
         const ok = writeConfigPath(cwd, item.path, value);
         settings = readSettings(cwd);
+        syncLocaleFromSettings(settings);
         groups = buildConfigGroups(settings);
         if (item.path.startsWith("powerline")) {
           reloadPowerlineFromSettings(rt, settings);
         }
         ctx.ui.notify(
-          ok ? `${item.label}: ${displayValue(item, value)} (saved)` : `${item.label} not saved (settings.json?)`,
+          ok
+            ? `${settingLabel(item)}: ${displayValue(item, value)} (${tr("config.saved", "saved")})`
+            : `${settingLabel(item)} ${tr("config.notSaved", "not saved (settings.json?)")}`,
           ok ? "info" : "warning",
         );
+        // The preview reads `config`, so repaint right after it reloaded.
       };
 
       const cycleSelect = (item: ConfigItem, forward: boolean) => {
@@ -196,12 +162,15 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const next = list[(idx + (forward ? 1 : list.length - 1) + list.length) % list.length]!;
         const ok = writeConfigPath(cwd, item.path, next);
         settings = readSettings(cwd);
+        syncLocaleFromSettings(settings);
         groups = buildConfigGroups(settings);
         if (item.path.startsWith("powerline")) {
           reloadPowerlineFromSettings(rt, settings);
         }
         ctx.ui.notify(
-          ok ? `${item.label}: ${next} (saved)` : `${item.label} not saved`,
+          ok
+            ? `${settingLabel(item)}: ${next} (${tr("config.saved", "saved")})`
+            : `${settingLabel(item)} ${tr("config.notSaved", "not saved")}`,
           ok ? "info" : "warning",
         );
       };
@@ -211,12 +180,15 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         const next = nextToggleValue(item, cur);
         const ok = writeConfigPath(cwd, item.path, next);
         settings = readSettings(cwd);
+        syncLocaleFromSettings(settings);
         groups = buildConfigGroups(settings);
         if (item.path.startsWith("powerline")) {
           reloadPowerlineFromSettings(rt, settings);
         }
         ctx.ui.notify(
-          ok ? `${item.label}: ${next ? "on" : "off"} (saved)` : `${item.label} not saved`,
+          ok
+            ? `${settingLabel(item)}: ${next ? tr("config.on", "on") : tr("config.off", "off")} (${tr("config.saved", "saved")})`
+            : `${settingLabel(item)} ${tr("config.notSaved", "not saved")}`,
           ok ? "info" : "warning",
         );
       };
@@ -227,7 +199,10 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
           const lines: string[] = [];
           lines.push(border(`╭${"─".repeat(innerWidth)}╮`));
           lines.push(
-            wrapRow(theme.fg("accent", theme.bold("Wishcraft · configuration")), innerWidth),
+            wrapRow(
+              theme.fg("accent", theme.bold(tr("config.title", "Wishcraft · configuration"))),
+              innerWidth,
+            ),
           );
           lines.push(border(`├${"─".repeat(innerWidth)}┤`));
 
@@ -245,17 +220,62 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
             }
             const isSel = i === selected;
             const value = readConfigPath(settings, row.item.path);
+            const label = settingLabel(row.item);
+            // A stored value that fails validation is marked inline instead of
+            // being silently replaced by the default — the operator can see
+            // the damage before opening the diagnostics route.
+            const stored = value !== null;
+            const storedInvalid =
+              stored && !explainSettingValue(row.item, value).ok;
+            const flag = storedInvalid ? "⚠ " : "";
             const shown = editing && isSel ? editBuffer + "▏" : displayValue(row.item, value);
             const prefix = isSel ? (editing ? "✎ " : "→ ") : "  ";
             const name = isSel
-              ? theme.fg("accent", `${prefix}${row.item.label}`)
-              : theme.fg("text", `${prefix}${row.item.label}`);
+              ? theme.fg(storedInvalid ? "warning" : "accent", `${prefix}${flag}${label}`)
+              : theme.fg(storedInvalid ? "warning" : "text", `${prefix}${flag}${label}`);
             const val = theme.fg(editing && isSel ? "accent" : "muted", shown);
-            const pad = " ".repeat(Math.max(1, innerWidth - row.item.label.length - shown.length - 8));
+            const pad = " ".repeat(Math.max(1, innerWidth - label.length - shown.length - 8));
             lines.push(wrapRow(`${name}${pad}${val}`, innerWidth));
           }
           if (start > 0 || end < rows.length) {
             lines.push(wrapRow(theme.fg("dim", `(${selected}/${rows.length})`), innerWidth));
+          }
+
+          // Contextual hint for the selected setting: why it exists, or the
+          // validation problem that is currently being tolerated.
+          const selRow = rows[selected];
+          if (selRow?.type === "item") {
+            const storedValue = readConfigPath(settings, selRow.item.path);
+            const problem =
+              storedValue !== null
+                ? validationProblem(
+                    selRow.item,
+                    storedValue,
+                    effectiveSettingValue(selRow.item, storedValue),
+                  )
+                : null;
+            const hint =
+              problem ??
+              settingHint(selRow.item) ??
+              (selRow.item.restartRequired
+                ? tr("config.restartNeeded", "restart required to take effect")
+                : null);
+            if (hint) lines.push(wrapRow(theme.fg("dim", hint), innerWidth));
+          }
+
+          // Live status line: every change repaints this, so the operator sees
+          // the real result instead of guessing what a setting does.
+          const preview = safeStatusPreview(rt, innerWidth, theme);
+          if (preview.length > 0) {
+            lines.push(
+              wrapRow(
+                theme.fg("dim", `── ${tr("config.preview", "live status line")} ──`),
+                innerWidth,
+              ),
+            );
+            for (const line of preview) {
+              lines.push(wrapRow(line, innerWidth));
+            }
           }
 
           lines.push(border(`├${"─".repeat(innerWidth)}┤`));
@@ -264,8 +284,8 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
               theme.fg(
                 "dim",
                 editing
-                  ? "type=value · enter=save · esc=cancel"
-                  : "↑↓ · enter=select/edit (←→ cycles) · esc=close",
+                  ? tr("config.hint.editing", "type=value · enter=save · esc=cancel")
+                  : tr("config.hint.browsing", "↑↓ · enter=select/edit (←→ cycles) · esc=close"),
               ),
               innerWidth,
             ),
@@ -351,16 +371,27 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
 /** Register /wishcraft — opens the Deck; `settings`/`config` open the flat list. */
 export function registerWishcraftConfigCommand(pi: ExtensionAPI, rt: RuntimeState): void {
   pi.registerCommand("wishcraft", {
-    description: "Open the Wishcraft Deck, or settings/config for the flat list",
+    description: tr(
+      "cmd.wishcraft.desc",
+      "Open the Wishcraft Deck, or settings/config/setup/doctor",
+    ),
     handler: async (args: string, ctx: any) => {
       if (!rt.enabled || !ctx.hasUI) {
-        ctx.ui.notify("Signal UI is disabled", "info");
+        ctx.ui.notify(tr("cmd.signalDisabled", "Signal UI is disabled"), "info");
         return;
       }
       rt.currentCtx = ctx;
       const trimmed = args?.trim() ?? "";
       if (trimmed === "config" || trimmed === "settings") {
         await showWishcraftConfig(rt, ctx);
+        return;
+      }
+      if (trimmed === "setup") {
+        await runSetupWizard(rt, ctx);
+        return;
+      }
+      if (trimmed === "doctor" || trimmed === "diagnose") {
+        await runConfigDoctor(rt, ctx);
         return;
       }
       await openWishcraftDeck(rt, ctx, parseDeckRouteArg(trimmed));

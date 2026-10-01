@@ -372,3 +372,49 @@ Opt-in; defaults match the historical rendering.
   }
 }
 ```
+
+## Where settings live
+
+Pi merges two files; the **project** file wins on any key it also defines in the global file.
+
+| Scope | Path | Wins over |
+|---|---|---|
+| Global | `~/.pi/agent/settings.json` | — |
+| Project | `<cwd>/.pi/settings.json` | global |
+
+`/wishcraft doctor` shows this on one screen: both files' health, every value shadowed by the other file, near-miss keys with a "did you mean" suggestion, and every stored value that validation discards (with the reason and the default that applies instead). The same report is rendered as a section of the Deck's **Diagnostics** route.
+
+## Interface language
+
+```json
+{ "wishcraft": { "locale": "nl" } }
+```
+
+`en` (default) or `nl`. The setting appears as **Language** under *Interface* in `/wishcraft settings`, and applies immediately — no restart. Anything unknown, malformed, or region-tagged (`nl-NL`, `en_US`) resolves safely, and a message with no translation falls back to its built-in English string, so switching locale can never blank a surface. Set `PI_WISHCRAFT_LOCALE` to pick a language before settings are read.
+
+Localised surfaces: Deck route names and chrome, settings labels/hints/group titles, the configuration overlay, the welcome overlay and its widgets, the setup wizard, and the diagnostics copy. Segment values, model names, branch names and other data are data — they stay as-is.
+
+## First-run setup
+
+```text
+/wishcraft setup
+```
+
+Four questions — language, status preset, motion level, welcome overlay — then a review screen and one write to `settings.json`. Every step is also editable later from `/wishcraft settings`.
+
+On the very first launch the welcome panel shows three next steps under **Getting started** instead of a changelog wall. Later launches show the usual changelog delta under **What's new**.
+
+## Segment options: two accepted shapes
+
+Segment options may be written either hand-edited at the top level of `powerline`, or nested under `powerline.segmentOptions` (the shape the settings UI writes):
+
+```json
+{
+  "powerline": {
+    "tps": { "windowMs": 2000 },
+    "segmentOptions": { "path": { "mode": "abbreviated" } }
+  }
+}
+```
+
+Both are read; when a segment appears in both places the nested `segmentOptions` copy wins for the keys it defines.

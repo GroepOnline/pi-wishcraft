@@ -4,6 +4,7 @@ import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 import { registerCustomPresets } from "../../config/presets.ts";
 import { registerCustomSegments } from "../../segments/index.ts";
 import { readSettings } from "../settings/settings-io.ts";
+import { syncLocaleFromSettings } from "../../i18n/index.ts";
 import { registerSessionLifecycle } from "./session-lifecycle.ts";
 import { registerCommands } from "../commands/commands.ts";
 import { setupHooks } from "../hooks/index.ts";
@@ -17,6 +18,10 @@ import {
 
 export default function powerlineFooter(pi: ExtensionAPI) {
   const startupSettings = readSettings();
+  // Ambient UI language: resolved before anything renders, so the very first
+  // frame of the status line and welcome overlay is already in the right
+  // language. Unknown or unset values resolve to English.
+  syncLocaleFromSettings(startupSettings);
   setConfig(parsePowerlineConfig(startupSettings.powerline, PRESET_NAMES));
   registerCustomSegments(config.segments);
   registerCustomPresets(config.presets);

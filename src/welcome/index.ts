@@ -4,7 +4,11 @@ export { WelcomeHeader } from "./banner.ts";
 export { discoverLoadedCounts } from "./discover.ts";
 export { getRecentSessions } from "./sessions.ts";
 export { WhatsNewWidget } from "./widgets/whats-new-widget.ts";
-export { discoverWhatsNew, parseChangelogDelta } from "./whats-new.ts";
+export {
+  discoverWhatsNew,
+  hasSeenVersion,
+  parseChangelogDelta,
+} from "./whats-new.ts";
 export {
   DEFAULT_WELCOME_ART,
   WELCOME_ART_THEMES,

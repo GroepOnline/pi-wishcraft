@@ -21,7 +21,21 @@ import {
   getStructuralPreset,
 } from "../../../config/structural-presets.ts";
 import { config } from "../../core/state.ts";
+import { tr } from "../../../i18n/index.ts";
+import {
+  formatPortsSummary,
+  peekPorts,
+  portsTableLines,
+  summarizePorts,
+} from "../../../segments/ports.ts";
 import type { DeckNavState, DeckSessionSnapshot, DeckSkillRow } from "./types.ts";
+
+/** Localised review-status badge for an idea row. */
+function ideaStatusBadge(status: string): string {
+  if (status === "done") return tr("deck.ideas.statusDone", "[done]");
+  if (status === "in-progress") return tr("deck.ideas.statusDoing", "[in-progress]");
+  return tr("deck.ideas.statusIdea", "[idea]");
+}
 
 export function filterSkillRows(skills: readonly DeckSkillRow[], query: string): DeckSkillRow[] {
   const q = query.trim().toLowerCase();
@@ -214,35 +228,146 @@ export function skillsWorkbenchLines(
   return lines;
 }
 
+const IDEA_WINDOW = 8;
+const GUARDRAIL_MAX = 10;
+
+/**
+ * The ports route's probe options, derived from config. Shared by the renderer
+ * (to read the cache) and the component (to kick off the probe) so both always
+ * ask for the same thing.
+ */
+export function deckPortsOptions(): { includeUdp: boolean; host?: string } {
+  return {
+    includeUdp: config.segmentOptions?.openPorts?.includeUdp === true,
+    host: config.segmentOptions?.openPorts?.host,
+  };
+}
+
+/** Ideas for the current route, filtered by the Deck's `/` search. */
+export function filteredIdeas(
+  snapshot: DeckSessionSnapshot,
+  state: DeckNavState,
+): DeckSessionSnapshot["ideas"] {
+  const query = state.route === "ideas" ? state.searchQuery.trim().toLowerCase() : "";
+  if (!query) return snapshot.ideas;
+  return snapshot.ideas.filter(
+    (idea) =>
+      idea.text.toLowerCase().includes(query) ||
+      idea.reviewStatus.toLowerCase().includes(query),
+  );
+}
+
+/**
+ * Ideas route: filterable by the Deck's `/` search, windowed around the
+ * cursor (the window *is* the scroll — ↑↓ moves it), and bounded so a long
+ * queue cannot grow the frame past the screen.
+ */
 export function ideasLines(snapshot: DeckSessionSnapshot, state: DeckNavState): string[] {
+  const query = state.route === "ideas" ? state.searchQuery.trim().toLowerCase() : "";
+  const ideas = filteredIdeas(snapshot, state);
+
   const lines = [
-    `${snapshot.ideaCount} ideas · ${snapshot.queueCount} queued`,
-    "Capture with # or /ideas",
+    tr("deck.ideas.header", "{ideas} ideas · {queue} queued", {
+      ideas: snapshot.ideaCount,
+      queue: snapshot.queueCount,
+    }),
+    query
+      ? tr("deck.ideas.filtered", "{n} match '{q}'", { n: ideas.length, q: state.searchQuery })
+      : tr("deck.ideas.capture", "Capture with # or /ideas"),
+    "",
   ];
-  if (snapshot.ideas.length === 0) {
-    lines.push("No captured ideas");
+
+  if (ideas.length === 0) {
+    lines.push(
+      query
+        ? tr("deck.ideas.noMatch", "No ideas match this search")
+        : tr("deck.ideas.none", "No captured ideas"),
+    );
     return lines;
   }
-  const cursor = Math.min(state.selectedIdea, snapshot.ideas.length - 1);
-  snapshot.ideas.forEach((idea, i) => {
+
+  const cursor = Math.min(state.selectedIdea, ideas.length - 1);
+  const start = Math.max(0, Math.min(ideas.length - IDEA_WINDOW, cursor - Math.floor(IDEA_WINDOW / 2)));
+  const end = Math.min(ideas.length, start + IDEA_WINDOW);
+  if (start > 0) {
+    lines.push(tr("deck.ideas.above", "… {n} above", { n: start }));
+  }
+  for (let i = start; i < end; i++) {
+    const idea = ideas[i]!;
     const marker = i === cursor ? "→" : " ";
-    lines.push(`${marker}[${idea.reviewStatus}] ${idea.text}`);
-  });
+    lines.push(`${marker}${ideaStatusBadge(idea.reviewStatus)} ${idea.text}`);
+  }
+  if (end < ideas.length) {
+    lines.push(tr("deck.ideas.below", "… {n} below", { n: ideas.length - end }));
+  }
   return lines;
 }
 
 export function guardrailLines(snapshot: DeckSessionSnapshot): string[] {
   const lines = [
-    `Policy: ${snapshot.policyEnabled ? "ENABLED" : "OFF"} (${snapshot.policyRuleCount} rules)`,
+    tr("deck.guard.policy", "Policy: {state} ({n} rules)", {
+      state: tr(
+        snapshot.policyEnabled ? "common.on" : "common.off",
+        snapshot.policyEnabled ? "ENABLED" : "OFF",
+      ),
+      n: snapshot.policyRuleCount,
+    }),
     snapshot.policySummary,
+    "",
   ];
   if (snapshot.guardrailRules.length === 0) {
-    lines.push("No declarative rules in wishcraft.policy");
+    lines.push(tr("deck.guard.none", "No declarative rules in wishcraft.policy"));
     return lines;
   }
-  for (const rule of snapshot.guardrailRules) {
+  const shown = snapshot.guardrailRules.slice(0, GUARDRAIL_MAX);
+  for (const rule of shown) {
     lines.push(`${rule.action} ${rule.tool} · ${rule.reason}`);
   }
+  if (snapshot.guardrailRules.length > shown.length) {
+    lines.push(
+      tr("deck.guard.more", "… {n} more", {
+        n: snapshot.guardrailRules.length - shown.length,
+      }),
+    );
+  }
+  return lines;
+}
+
+/**
+ * Ports route body. Reads the shared probe cache so the Deck never spawns
+ * `ss` during a render; the component kicks off the async probe when the
+ * route is entered (and on `r`).
+ */
+export function portsLines(
+  width: number,
+  options: { includeUdp: boolean; host?: string },
+): string[] {
+  const probe = peekPorts(options);
+  if (!probe) {
+    return [
+      tr("deck.ports.probing", "Probing listening sockets…"),
+      "",
+      tr("deck.ports.hint", "press r to re-probe"),
+    ];
+  }
+  if (probe.rows.length === 0) {
+    return [
+      probe.error ?? tr("deck.ports.none", "No listening sockets"),
+      "",
+      tr("deck.ports.hint", "press r to re-probe"),
+    ];
+  }
+
+  const summary = summarizePorts(probe.rows);
+  const lines = [
+    formatPortsSummary(summary, probe.host, options.includeUdp),
+    "",
+    ...portsTableLines(probe.rows, width, 12),
+    "",
+    tr("deck.ports.exposed", "{n} reachable from other machines", {
+      n: summary.exposed,
+    }),
+  ];
   return lines;
 }
 

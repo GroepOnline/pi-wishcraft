@@ -8,9 +8,21 @@
 - `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6) rendered as `21 tcp`. Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral), rendered as `tcp+udp`.
 - `budget`: daily token-budget usage (`budget 62% ▓▓▓▓░░░░`) when `wishcraft.tokenBudget.daily.limit` is configured. Warns through the same threshold colors as the cost segment.
 
-### Open-port process owners
+### Open ports: one parser, three surfaces
 
-`alt+p` opens the Wishcraft Deck. The classic Navigate / Configure / Status menu is `/signal menu`. Open the segment detail view (`/signal menu` → Navigate → `open_ports` → `→`) to see **which process owns each listening port**. It best-effort parses `ss -tulnp` (falling back to `netstat -tulnp`), so the row list shows `tcp:3000 → node (12345)` per port; a port without a visible owner is marked `(unknown)`. The result is cached for 2 seconds so opening detail stays cheap. The full `alt+i` ports list shows the raw `ss -p` process column as well.
+Every surface reads the same parse of `ss`/`netstat` output (`src/segments/ports.ts`), so the count, the detail rows and the panel always agree:
+
+| Surface | How | Shows |
+|---|---|---|
+| `open_ports` segment | sync probe, 3s timeout, 2s cache | `21 tcp` / `21 tcp+udp`, `?` when unreachable |
+| Segment detail (`/signal menu` → Navigate → `open_ports` → `→`) | cached process list | `tcp:3000 → node (12345)` |
+| `alt+i` and Deck → **Ports** (`g p`) | **async** probe, 5s shared cache | aligned `PROTO PORT ADDRESS OWNER` table + summary |
+
+Rows are deduped per protocol+port, dual-stack binds (IPv4 + IPv6) collapse to one row with both addresses, IPv6 brackets are stripped so `::1` counts as loopback, and a port with no visible owner is marked `(unknown)` rather than crashing or guessing.
+
+The `alt+i` panel and the Deck's Ports route both **probe asynchronously with a bounded timeout** — the panel previously ran `execSync` with no timeout, so a wedged `ss` (or an SSH host that never answered) froze the whole TUI. In the panel: start typing to filter on port, address or owner, `r` re-probes, Enter copies the selected row.
+
+The summary line leads each view, e.g. `21 tcp · 12 exposed · 9 loopback · local`. **Exposed** means bound to a non-loopback address — reachable from another machine; `loopback` means `127.0.0.1`/`::1` only.
 
 ### Fleet open-ports (SSH probe)
 

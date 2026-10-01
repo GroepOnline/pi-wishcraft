@@ -1,3 +1,4 @@
+import { tr } from "../../i18n/index.ts";
 import type { WelcomeWidget, WidgetRenderContext } from "../types.ts";
 
 export const SessionsWidget: WelcomeWidget = {
@@ -6,10 +7,10 @@ export const SessionsWidget: WelcomeWidget = {
     const { data, dim, bold, color } = ctx;
     const lines: string[] = [];
     
-    lines.push(` ${bold(color("accent", "Recent Crafts"))}`);
-    
+    lines.push(` ${bold(color("accent", tr("welcome.sessions", "Recent Crafts")))}`);
+
     if (data.recentSessions.length === 0) {
-      lines.push(` ${dim("No recent sessions")}`);
+      lines.push(` ${dim(tr("welcome.sessions.none", "No recent sessions"))}`);
     } else {
       for (const session of data.recentSessions.slice(0, 3)) {
         lines.push(

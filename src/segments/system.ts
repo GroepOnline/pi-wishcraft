@@ -120,32 +120,11 @@ export const extensionStatusesSegment: StatusLineSegment = {
   },
 };
 
-/**
- * Validate a fleet SSH target (hostname, `user@host`, or IPv4). Rejects spaces
- * and shell metacharacters so it can't be used to inject flags/commands into
- * the `ssh` invocation.
- */
-export function sanitizeSshHost(value: string | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const host = value.trim();
-  return /^[A-Za-z0-9._@-]+$/.test(host) && host.length > 0 ? host : null;
-}
-
-/**
- * Wrap a probe command for a remote host, or return it unchanged for local
- * probing. Remote commands are quoted so the local shell can't reinterpret the
- * inner `2>/dev/null`; `BatchMode` fails fast (no password prompt) on hosts
- * that require interactive auth or an unknown host key.
- */
-export function sshCommand(
-  host: string | undefined,
-  remoteCmd: string,
-): string | null {
-  if (!host) return remoteCmd;
-  const safe = sanitizeSshHost(host);
-  if (!safe) return null;
-  return `ssh -o ConnectTimeout=3 -o BatchMode=yes ${safe} ${JSON.stringify(remoteCmd)} 2>/dev/null`;
-}
+// Fleet-probe shell helpers live next to the shared ports parser; re-exported
+// here so existing importers of `segments/system.ts` are unaffected.
+export { sanitizeSshHost, sshCommand } from "./probe-shell.ts";
+import { sshCommand } from "./probe-shell.ts";
+import { parseListeningPorts } from "./ports.ts";
 
 export function countListeningPorts(includeUdp = false, host?: string): number {
   // ponytail: count UNIQUE TCP listening ports (dedupes IPv4/IPv6 dual-stack and
@@ -247,65 +226,26 @@ export interface OpenPortProcess {
   process: string | null;
 }
 
-function parseSsProcess(line: string): string | null {
-  // iproute2 `ss -p`: users:(("name",pid=NNN,fd=NN)); older versions omit `pid=`.
-  const m = /users:\(+\s*"([^"]*)",\s*(?:pid=)?(\d+)/.exec(line);
-  if (!m) return null;
-  return `${m[1]} (${m[2]})`;
-}
-
 /**
  * Parse `ss -tulnp` / `netstat -tulnp` output into a deduped, port-sorted
- * list of (proto, port → process). Dual-stack binds (IPv4 + IPv6 for the same
- * port) collapse to one entry, preferring whichever row has a visible owner.
+ * list of (proto, port → process).
+ *
+ * A thin projection over the shared `parseListeningPorts` parser, so the
+ * segment detail, the `alt+i` list and the Deck ports route all interpret
+ * `ss` output identically.
  */
 export function parseOpenPortProcesses(text: string): OpenPortProcess[] {
-  const entries: OpenPortProcess[] = [];
-  for (const raw of text.split("\n")) {
-    const line = raw.trim();
-    if (!line) continue;
-    if (/^(Netid|Proto|State|Local|Active)/i.test(line)) continue;
-
-    const tokens = line.split(/\s+/);
-    if (tokens.length < 6) continue;
-
-    // ss puts the socket State (LISTEN/UNCONN) in column 1; netstat has a
-    // numeric Recv-Q there. That tells us which local-address column to use.
-    const isSsRow = !/^\d+$/.test(tokens[1] ?? "");
-    const local = isSsRow ? tokens[4] : tokens[3];
-    const portMatch = local ? /(?::|\.)(\d+)$/.exec(local) : null;
-    if (!portMatch) continue;
-
-    let process: string | null = null;
-    if (isSsRow) {
-      process = parseSsProcess(line);
-    } else {
-      // netstat has no State column for UDP, so PID/name is always last.
-      const last = tokens[tokens.length - 1];
-      const procMatch = /^(\d+)\/(.+)$/.exec(last);
-      process = procMatch ? `${procMatch[2]} (${procMatch[1]})` : null;
-    }
-
-    entries.push({
-      port: Number(portMatch[1]),
-      proto: tokens[0].toLowerCase().startsWith("udp") ? "udp" : "tcp",
-      address: local.replace(/(?::|\.)(\d+)$/, ""),
-      process,
-    });
-  }
-
-  const byKey = new Map<string, OpenPortProcess>();
-  for (const entry of entries) {
-    const key = `${entry.proto}:${entry.port}`;
-    const existing = byKey.get(key);
-    if (!existing || (existing.process === null && entry.process !== null)) {
-      byKey.set(key, entry);
-    }
-  }
-  return [...byKey.values()].sort(
-    (a, b) =>
-      a.port - b.port || (a.proto === b.proto ? 0 : a.proto === "tcp" ? -1 : 1),
-  );
+  return parseListeningPorts(text).map((row) => ({
+    port: row.port,
+    proto: row.proto,
+    address: row.addresses[0] ?? "",
+    process:
+      row.process === null
+        ? null
+        : row.pid !== null
+          ? `${row.process} (${row.pid})`
+          : row.process,
+  }));
 }
 
 const openPortProcessesCache = new Map<

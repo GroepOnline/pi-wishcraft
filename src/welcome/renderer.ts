@@ -1,5 +1,6 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { ansi, colorEnabled, fgOnly, getFgAnsiCode } from "../theme/colors.ts";
+import { tr } from "../i18n/index.ts";
 import { centerText, fitToWidth, getBoxLayout } from "./layout.ts";
 import type { WelcomeData, WelcomeWidget, WidgetRenderContext } from "./types.ts";
 import { DEFAULT_WELCOME_ART, renderWelcomeArt } from "./welcome-art.ts";
@@ -41,8 +42,12 @@ function buildRightColumn(
   const separator = ` ${dim(hChar.repeat(Math.max(1, ctx.width - 2)))}`;
   const lines: string[] = [];
 
-  lines.push(` ${bold(fgOnly("accent", "Signals & Wishes"))}`);
-  lines.push(` ${dim("Write it down, let it rise, keep your focus clear.")}`);
+  lines.push(
+    ` ${bold(fgOnly("accent", tr("welcome.signals", "Signals & Wishes")))}`,
+  );
+  lines.push(
+    ` ${dim(tr("welcome.tagline", "Write it down, let it rise, keep your focus clear."))}`,
+  );
   lines.push(separator);
 
   const renderedWidgets: string[][] = [];
@@ -81,7 +86,7 @@ export function renderWelcomeBox(
   const hChar = "─";
   const v = dim("│");
   const tl = dim("╭");
-  const tr = dim("╮");
+  const trCorner = dim("╮");
   const bl = dim("╰");
   const br = dim("╯");
 
@@ -114,13 +119,13 @@ export function renderWelcomeBox(
 
   const lines: string[] = [];
 
-  const title = " pi-wishcraft ";
+  const title = tr("welcome.title", " pi-wishcraft ");
   const titlePrefix = dim(hChar.repeat(3));
   const titleStyled = titlePrefix + fgOnly("model", title);
   const titleVisLen = 3 + visibleWidth(title);
   const afterTitle = boxWidth - 2 - titleVisLen;
   const afterTitleText = afterTitle > 0 ? dim(hChar.repeat(afterTitle)) : "";
-  lines.push(tl + titleStyled + afterTitleText + tr);
+  lines.push(tl + titleStyled + afterTitleText + trCorner);
 
   const maxRows = Math.max(leftLines.length, rightLines.length);
   for (let i = 0; i < maxRows; i++) {

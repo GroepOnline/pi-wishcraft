@@ -28,7 +28,18 @@ import {
   isOverlayPrintable,
 } from "../overlay-chrome.ts";
 import type { RuntimeState } from "../../core/types.ts";
-import { filterSkillRows, selectedGalleryMotion } from "./route-bodies.ts";
+import {
+  invalidatePortsCache,
+  probeListeningPorts,
+  requestPorts,
+} from "../../../segments/ports.ts";
+import { tr } from "../../../i18n/index.ts";
+import {
+  deckPortsOptions,
+  filterSkillRows,
+  filteredIdeas,
+  selectedGalleryMotion,
+} from "./route-bodies.ts";
 import {
   buildDeckSessionSnapshot,
   buildDeckStaticSnapshot,
@@ -42,6 +53,14 @@ function appearanceIndex(base: string): number {
   const idx = (STRUCTURAL_PRESET_NAMES as readonly string[]).indexOf(base);
   return idx >= 0 ? idx : 0;
 }
+
+/** Routes where `/` filters the list in place instead of jumping routes. */
+const LIST_SEARCH_ROUTES: readonly DeckRoute[] = [
+  "motion",
+  "skills",
+  "appearance",
+  "ideas",
+];
 
 export function createDeckNavState(
   route: DeckRoute,
@@ -92,6 +111,7 @@ export function createDeckComponent(
       refreshStaticSnapshot();
     }
     const jumpingToAppearance = route === "appearance" && state.route !== "appearance";
+    if (route === "ports") startPortsProbe();
     state = {
       ...state,
       route,
@@ -108,6 +128,22 @@ export function createDeckComponent(
 
   const notify = (ok: boolean, okText: string, failText: string) => {
     ctx.ui.notify(ok ? okText : failText, ok ? "info" : "warning");
+  };
+
+  /**
+   * Ports are probed off the render path: the route body only ever reads the
+   * shared cache, and this kicks off (or re-runs) the async probe so a slow
+   * fleet host can never stall a frame.
+   */
+  const startPortsProbe = (force = false): void => {
+    const options = deckPortsOptions();
+    const run = force
+      ? (async () => {
+          invalidatePortsCache();
+          return probeListeningPorts(options);
+        })()
+      : requestPorts(options);
+    void run.then(() => rt.tuiRef?.requestRender());
   };
 
   return {
@@ -332,7 +368,50 @@ export function createDeckComponent(
       }
 
       if (state.route === "ideas") {
-        if (!state.navMode && handleList(data, "selectedIdea", liveSnapshot().ideas.length)) return;
+        const ideas = filteredIdeas(liveSnapshot(), state);
+        if (!state.navMode && handleList(data, "selectedIdea", ideas.length)) return;
+        const cursor = Math.min(state.selectedIdea, Math.max(0, ideas.length - 1));
+        const idea = ideas[cursor];
+        if (!idea?.id) return;
+
+        if (matchesKey(data, "enter")) {
+          // idea → in-progress → done → idea: the same three states the
+          // `/ideas` review overlay offers, one keypress away.
+          const next =
+            idea.reviewStatus === "idea"
+              ? "in-progress"
+              : idea.reviewStatus === "in-progress"
+                ? "done"
+                : "idea";
+          rt.queueStore.update(idea.id, { reviewStatus: next as never });
+          ctx.ui.notify(
+            tr("deck.ideas.set", "Idea → {status}", { status: next }),
+            "info",
+          );
+          return;
+        }
+        if (data === "d") {
+          const removed = rt.queueStore.clear(idea.id);
+          state = { ...state, selectedIdea: Math.max(0, cursor - 1) };
+          ctx.ui.notify(
+            removed
+              ? tr("deck.ideas.removed", "Idea removed: {text}", {
+                  text: removed.text.slice(0, 40),
+                })
+              : tr("deck.ideas.removeFailed", "Idea could not be removed"),
+            removed ? "info" : "warning",
+          );
+          return;
+        }
+        return;
+      }
+
+      if (state.route === "ports") {
+        if (data === "r" || data === "R") {
+          startPortsProbe(true);
+          return;
+        }
+        if (!state.navMode) return;
       }
 
       if (matchesKey(data, "up")) {
@@ -389,12 +468,11 @@ export function createDeckComponent(
         selectedMotion: 0,
         selectedSkill: 0,
         selectedAppearance: 0,
+        selectedIdea: 0,
       };
-      if (
-        state.route !== "motion" &&
-        state.route !== "skills" &&
-        state.route !== "appearance"
-      ) {
+      // List routes consume the query as their own filter; every other route
+      // uses it to jump to a matching route.
+      if (!LIST_SEARCH_ROUTES.includes(state.route)) {
         const matches = filterDeckRoutes(next);
         if (matches.length === 1) {
           state = { ...state, searchOpen: false, searchQuery: "", navMode: false };
@@ -404,7 +482,7 @@ export function createDeckComponent(
       return;
     }
     if (matchesKey(data, "enter")) {
-      if (state.route === "motion" || state.route === "skills" || state.route === "appearance") {
+      if (LIST_SEARCH_ROUTES.includes(state.route)) {
         state = { ...state, searchOpen: false };
         return;
       }

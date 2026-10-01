@@ -3,6 +3,33 @@ import { isRecord } from "./primitives.ts";
 import type { StatusLineSegmentOptions } from "./types.ts";
 
 /**
+ * Reconcile the two places segment options may live under `powerline`.
+ *
+ * Hand-edited configs historically used top-level buckets (`powerline.tps.*`,
+ * `powerline.path.*`), while the settings UI and `SETTINGS_REGISTRY` write to
+ * `powerline.segmentOptions.<segment>.*`. The parser only ever read the former,
+ * so every segment option edited through `/wishcraft settings` was written
+ * correctly and then silently ignored. Merge per segment so both shapes work;
+ * the nested (UI-written) bucket wins on conflict.
+ */
+export function mergeSegmentOptionSources(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const nested = raw.segmentOptions;
+  if (!isRecord(nested)) return raw;
+
+  const merged: Record<string, unknown> = { ...raw };
+  for (const [segment, options] of Object.entries(nested)) {
+    if (!isRecord(options)) continue;
+    const topLevel = raw[segment];
+    merged[segment] = isRecord(topLevel)
+      ? { ...topLevel, ...options }
+      : options;
+  }
+  return merged;
+}
+
+/**
  * Normalizes raw segment configuration into supported status-line segment options.
  *
  * Invalid values are ignored, numeric limits are normalized, string values are trimmed,

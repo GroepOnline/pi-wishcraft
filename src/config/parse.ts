@@ -15,7 +15,7 @@ import {
   normalizeSeparator,
 } from "./primitives.ts";
 import { normalizeDisabledSegments, normalizeLayout } from "./segment-ids.ts";
-import { normalizeSegmentOptions } from "./segment-options.ts";
+import { normalizeSegmentOptions, mergeSegmentOptionSources } from "./segment-options.ts";
 import type {
   AppearanceMixConfig,
   CustomSegmentConfig,
@@ -136,7 +136,7 @@ export function parsePowerlineConfig(
     layout,
     invalidLayoutSegments,
     separator: normalizeSeparator(value.separator),
-    segmentOptions: normalizeSegmentOptions(value),
+    segmentOptions: normalizeSegmentOptions(mergeSegmentOptionSources(value)),
     placement,
     invalidPlacement,
     welcome:

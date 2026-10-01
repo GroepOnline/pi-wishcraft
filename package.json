@@ -51,7 +51,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test-coverage-lines=70 --test-coverage-functions=60 --test tests/**/*.test.ts",
+    "test": "node --experimental-strip-types --experimental-test-coverage --test-coverage-lines=70 --test-coverage-functions=60 --test tests/**/*.test.ts",
     "release": "node scripts/release.mjs",
     "prepublishOnly": "tsc --noEmit && node scripts/verify-package.mjs && npm run verify:pi-package",
     "verify:package": "node scripts/verify-package.mjs && node scripts/verify-pi-package-contract.mjs",

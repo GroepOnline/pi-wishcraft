@@ -70,9 +70,13 @@ const theme = {
   bold: (text: string) => text,
 };
 
-test("deck exposes eleven routes", () => {
-  assert.equal(DECK_ROUTES.length, 11);
-  assert.equal(DECK_ROUTE_DEFS.length, 11);
+test("deck exposes twelve routes", () => {
+  assert.equal(DECK_ROUTES.length, 12);
+  assert.equal(DECK_ROUTE_DEFS.length, 12);
+  // Every route needs a unique jump key so `g <key>` never collides.
+  const jumpKeys = DECK_ROUTE_DEFS.map((route) => route.jumpKey);
+  assert.equal(new Set(jumpKeys).size, jumpKeys.length);
+  assert.equal(deckRouteByJump("p"), "ports");
 });
 
 test("parseDeckRouteArg resolves named routes", () => {

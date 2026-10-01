@@ -102,10 +102,12 @@ Pi core renders the footer as static text, so live click is not possible; action
 - `/powerline doctor`: diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, queue file health, and `package.identity`
 - `/powerline version`: `{ version, source_sha }` from `package.json` (SHA only when release-stamped). See [release.md](./release.md).
 - `/powerline export`: export the current preset + effective layout + labels as a JSON snippet (Enter copies it to the clipboard)
-- `alt+p`: **Wishcraft Deck** — operator overlay (Home, Signal, Skills, Ideas, Guardrails, Appearance, …). `g` then a jump key (`h` home, `s` signal, `a` appearance). Escape closes. `/signal menu` still opens Navigate / Configure / Status.
-- `alt+i`: **powerline info**: full open-ports list
+- `alt+p`: **Wishcraft Deck** — operator overlay (Home, Signal, Skills, Ideas, Guardrails, Shell, Ports, Usage, Appearance, Motion, Shortcuts, Diagnostics). `g` then a jump key (`h` home, `s` signal, `a` appearance, `p` ports). Long lists window around the cursor (↑↓ scrolls, the frame never grows past the screen). On **Ideas**: `enter` cycles idea → in-progress → done, `d` removes, `/` filters. Escape closes. `/signal menu` still opens Navigate / Configure / Status.
+- `alt+i`: **powerline info** — the open-ports panel: async probe (bounded timeout, never blocks the UI), summary line, aligned `PROTO PORT ADDRESS OWNER` table, type to filter, `r` re-probe, Enter copies
 - `/wishcraft [route]`: open the Deck at a named route (`appearance`, `skills`, …)
-- `/wishcraft settings`: flat settings TUI, including `powerline.appearance.base` and `powerline.motionLevel`
+- `/wishcraft settings`: flat settings TUI, including `powerline.appearance.base` and `powerline.motionLevel` — shows a live status-line preview, the current setting's hint, and a ⚠ marker on any stored value that fails validation
+- `/wishcraft setup`: first-run wizard — language, status preset, motion level, welcome overlay, then one write to `settings.json`
+- `/wishcraft doctor`: configuration diagnosis on one screen — which settings file wins, shadowed values, near-miss keys, and every value validation discarded (also a section of the Deck's Diagnostics route)
 - Deck **Motion**: gallery + composer. `t` picks the event, Enter applies, `e` opens the composer
 - Deck **Skills**: workbench list with health; Enter inserts the skill body
 

@@ -118,6 +118,11 @@ export class WelcomeHeader implements Component {
     this.mountedAt = startedAt;
   }
 
+  /** Swap the panel heading (the first-run flow uses "Getting started"). */
+  setWhatsNewTitle(title: string): void {
+    this.data.whatsNewTitle = title;
+  }
+
   invalidate(): void {}
 
   render(termWidth: number): string[] {
