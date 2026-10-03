@@ -11,7 +11,6 @@ import {
   formatPeerGuardNotice,
   formatPeerGuardWarning,
   maybeNotifyPeerGuard,
-  missingSymbolError,
   requirePeerSymbol,
   resetPeerGuardNotice,
   type PeerPackage,
@@ -168,8 +167,17 @@ test("requirePeerSymbol passes values through and throws an actionable error whe
   }
 });
 
-test("missingSymbolError stays useful for symbols outside the catalog", () => {
-  const error = missingSymbolError("totallyUnknownSymbol");
+test("the guard's error stays useful for symbols outside the catalog", () => {
+  // Reached through requirePeerSymbol, the only caller: an unknown symbol
+  // still has to name itself and the floor.
+  const error = (() => {
+    try {
+      requirePeerSymbol(undefined, "totallyUnknownSymbol");
+      return new Error("expected a throw");
+    } catch (e) {
+      return e as Error;
+    }
+  })();
   assert.ok(error.message.includes("totallyUnknownSymbol"));
   assert.ok(error.message.includes(PEER_FLOOR_VERSION));
 });

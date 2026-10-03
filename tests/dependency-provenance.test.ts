@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 // Root cause of the remaining `npm audit` finding.
@@ -88,29 +88,11 @@ function isVulnerable(version: string): boolean {
 }
 
 /** Every `brace-expansion` package.json reachable in our installed tree. */
-function findCopies(nmDir: string, acc: string[] = []): string[] {
-  if (!existsSync(nmDir)) return acc;
-  const visit = (pkgDir: string) => {
-    const manifest = join(pkgDir, "package.json");
-    if (existsSync(manifest)) {
-      const pkg = JSON.parse(readFileSync(manifest, "utf8"));
-      if (pkg.name === "brace-expansion") acc.push(manifest);
-    }
-    findCopies(join(pkgDir, "node_modules"), acc);
-  };
-  for (const entry of readdirSync(nmDir)) {
-    if (entry === ".bin") continue;
-    const child = join(nmDir, entry);
-    if (!statSync(child).isDirectory()) continue;
-    if (entry.startsWith("@")) {
-      for (const scoped of readdirSync(child)) {
-        visit(join(child, scoped));
-      }
-      continue;
-    }
-    visit(child);
-  }
-  return acc;
+function findCopies(nmDir: string): string[] {
+  if (!existsSync(nmDir)) return [];
+  return readdirSync(nmDir, { recursive: true })
+    .filter((p) => p.endsWith("brace-expansion/package.json"))
+    .map((p) => join(nmDir, p));
 }
 
 test("no vulnerable brace-expansion copy exists outside the peer's shrinkwrap", () => {
