@@ -130,7 +130,7 @@ export function findMissingPeerSymbols(
 }
 
 /** The live peer namespaces, collected for the runtime check. */
-export function collectPeerExports(): Record<PeerPackage, unknown> {
+function collectPeerExports(): Record<PeerPackage, unknown> {
   return {
     "@earendil-works/pi-ai": piAi,
     "@earendil-works/pi-coding-agent": piCodingAgent,
@@ -166,7 +166,7 @@ export function formatPeerGuardNotice(
 }
 
 /** Actionable error for a call site that cannot degrade gracefully. */
-export function missingSymbolError(symbol: string): Error {
+function missingSymbolError(symbol: string): Error {
   const requirement = PEER_SYMBOL_REQUIREMENTS.find(
     (r) => r.symbol === symbol,
   );

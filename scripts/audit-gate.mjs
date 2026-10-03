@@ -108,31 +108,18 @@ function advisoryId(via) {
 }
 
 /** Is this install path covered by one of the entry's approved paths? */
-function nodeApproved(approved, node) {
-  return approved.some(
-    (p) => node === p || node.startsWith(`${p}/`),
-  );
-}
+const approved = (paths, node) => paths.some((p) => node === p || node.startsWith(`${p}/`));
 
 for (const vuln of reported) {
-  const advisories = (vuln.via || []).filter((v) => typeof v === "object");
   const acceptedForName = accepted.filter((e) => e.name === vuln.name);
 
-  if (advisories.length === 0) {
-    // Transitive-only entry (`via` lists package names): the real advisories
-    // live on the direct entry, so a name-level exemption is all that makes
-    // sense here.
-    if (!acceptedForName.length) {
-      failures.push(
-        `new ${vuln.severity} advisory: ${vuln.name}@${vuln.range} (${vuln.nodes?.join(", ") || "unknown path"})`,
-      );
-    }
-    continue;
-  }
-
-  // Match at the advisory level: an accepted package does not cover a new
-  // advisory against that same package.
-  for (const adv of advisories.filter((v) => BLOCKING_SEVERITIES.has(v.severity))) {
+  // `via` entries that are plain package names carry no advisory of their own;
+  // that advisory is counted on its own package entry, so skip those.
+  for (const adv of (vuln.via || []).filter(
+    (v) => typeof v === "object" && BLOCKING_SEVERITIES.has(v.severity),
+  )) {
+    // Match at the advisory level: an accepted package does not cover a new
+    // advisory against that same package.
     const id = advisoryId(adv);
     const match = id ? acceptedForName.find((e) => e.id === id) : undefined;
     if (!match) {
@@ -144,7 +131,7 @@ for (const vuln of reported) {
     // npm groups findings by package name, so an accepted advisory also
     // covers any other copy of that package. The exemption is only for the
     // install path(s) the baseline lists: a second vulnerable copy is ours.
-    const unapproved = (vuln.nodes || []).filter((n) => !nodeApproved(match.nodes || [], n));
+    const unapproved = (vuln.nodes || []).filter((n) => !approved(match.nodes || [], n));
     if (unapproved.length) {
       failures.push(
         `accepted ${vuln.name} ${id} reports an unapproved affected node: ${unapproved.join(", ")} -- fix that copy (npm audit fix), or add its path with a reason`,

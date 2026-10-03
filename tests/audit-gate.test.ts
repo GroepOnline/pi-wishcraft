@@ -27,14 +27,29 @@ import { join } from "node:path";
 const root = join(import.meta.dirname, "..");
 const script = join(root, "scripts", "audit-gate.mjs");
 
-function runGate(baseline: unknown) {
+/**
+ * Run the gate. With `auditJson` given, a stubbed `npm` on PATH answers the
+ * gate with it instead of the live registry, so the decision logic is
+ * testable offline.
+ */
+function runGate(baseline: unknown, auditJson?: unknown) {
   const dir = mkdtempSync(join(tmpdir(), "audit-gate-"));
   try {
     const file = join(dir, "baseline.json");
     writeFileSync(file, JSON.stringify(baseline, null, 2));
+    const env = { ...process.env };
+    if (auditJson) {
+      const audit = join(dir, "audit.json");
+      writeFileSync(audit, JSON.stringify(auditJson));
+      const stub = join(dir, "npm");
+      writeFileSync(stub, `#!/bin/sh\ncat '${audit}'\n`);
+      chmodSync(stub, 0o755);
+      env.PATH = `${dir}:${process.env.PATH}`;
+    }
     const result = spawnSync(process.execPath, [script, file], {
       cwd: root,
       encoding: "utf8",
+      env,
     });
     return {
       status: result.status,
@@ -85,35 +100,6 @@ test("the committed baseline is valid and every entry is justified", () => {
   }
 });
 
-/**
- * Drive the gate against a stubbed `npm` that emits `json` as its audit
- * answer, so advisory-level matching and error handling are testable offline.
- */
-function runGateWithAudit(baseline: unknown, auditJson: unknown) {
-  const dir = mkdtempSync(join(tmpdir(), "audit-gate-"));
-  try {
-    const file = join(dir, "baseline.json");
-    writeFileSync(file, JSON.stringify(baseline, null, 2));
-    const stub = join(dir, "npm");
-    writeFileSync(stub, `#!/bin/sh
-cat '${join(dir, "audit.json")}'\n`);
-    writeFileSync(join(dir, "audit.json"), JSON.stringify(auditJson));
-    chmodSync(stub, 0o755);
-    const result = spawnSync(process.execPath, [script, file], {
-      cwd: root,
-      encoding: "utf8",
-      env: { ...process.env, PATH: `${dir}:${process.env.PATH}` },
-    });
-    return {
-      status: result.status,
-      stdout: result.stdout ?? "",
-      stderr: result.stderr ?? "",
-    };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
-
 /** A blocking vuln entry the way `npm audit --json` reports it. */
 function auditWith(
   via: Array<Record<string, unknown>>,
@@ -136,7 +122,6 @@ function auditWith(
 
 function advisory(id: string, severity = "high", range = ">=4.0.0 <5.0.11") {
   return {
-    source: 1240107,
     name: "brace-expansion",
     title: `synthetic advisory ${id}`,
     url: `https://github.com/advisories/${id}`,
@@ -196,7 +181,7 @@ test("the gate exits 2 when npm audit answers with an error envelope", () => {
   // An audit that failed to run (registry down, config error) must never be
   // read as "zero findings": with a trimmed baseline that would be a green
   // gate over an audit that never executed.
-  const result = runGateWithAudit(realBaseline(), {
+  const result = runGate(realBaseline(), {
     error: {
       code: "EALLOWSCRIPTS",
       summary: "--allow-scripts is not allowed in project-scoped installs.",
@@ -211,7 +196,7 @@ test("the gate exits 2 when npm audit answers with an error envelope", () => {
 test("a new high advisory on an already-accepted package fails the gate", () => {
   // The baseline tolerates two specific advisories by id. A third one for the
   // same package must be named as new, not swallowed by the package match.
-  const result = runGateWithAudit(
+  const result = runGate(
     realBaseline(),
     auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
@@ -228,7 +213,7 @@ test("a second vulnerable copy of an accepted package fails the gate", () => {
   // npm groups findings by package name, so the exempted GHSA also arrives
   // with our own top-level copy as an affected node. The exemption is bound to
   // the peer's install path, so that extra node must fail the gate.
-  const result = runGateWithAudit(
+  const result = runGate(
     realBaseline(),
     auditWith(
       [
@@ -250,7 +235,7 @@ test("an accepted advisory that stops being high/critical is reported as stale",
   // Severity downgrades are silent: the advisory keeps reporting, so a
   // reported-ids check would keep the exemption alive. Only blocking
   // advisories count, so the entry has to come off the baseline.
-  const result = runGateWithAudit(
+  const result = runGate(
     realBaseline(),
     auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "moderate", ">=4.0.0 <5.0.11"),
@@ -271,7 +256,7 @@ test("the accepted advisories pass by id even when the package is rejected by na
   baseline.accepted = baseline.accepted.filter(
     (e: { name: string }) => e.name === "brace-expansion",
   );
-  const result = runGateWithAudit(
+  const result = runGate(
     baseline,
     auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
@@ -286,7 +271,7 @@ test("a moderate advisory inside a blocking aggregate is not itself blocking", (
   // The live tree is exactly this shape: two highs plus GHSA-q2hr-2g5m-vwhr
   // (moderate, fixed at 5.0.12) riding inside the aggregate. The gate blocks
   // on high/critical advisories only.
-  const result = runGateWithAudit(
+  const result = runGate(
     realBaseline(),
     auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
