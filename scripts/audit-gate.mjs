@@ -7,11 +7,16 @@
 //
 // So this script audits against an explicit baseline of accepted advisories:
 //
-//   - a high/critical finding that is NOT in the baseline fails the build
+//   - every accepted entry names one advisory by its GHSA id, so a NEW
+//     high/critical advisory on an already-accepted package still fails
+//   - a high/critical finding that is not baselined fails the build
 //   - a baselined advisory that no longer reports fails the build too, because
 //     a stale baseline silently stops describing reality
 //   - every accepted advisory carries a written justification, so "inherited"
 //     has to be argued for rather than asserted
+//
+// An `npm audit` that fails to run at all (registry down, config error) also
+// fails the gate: an error envelope must never be read as "zero findings".
 //
 // Run it directly (`node scripts/audit-gate.mjs`) or via `npm run audit`.
 import { execFileSync } from "node:child_process";
@@ -39,18 +44,35 @@ const failures = [];
 const notes = [];
 
 // The baseline must justify itself. An entry with no reason is exactly the
-// "inherited, trust me" note this gate exists to prevent.
+// "inherited, trust me" note this gate exists to prevent, and an entry with no
+// id cannot tell a new advisory for the same package apart from an old one.
 for (const entry of accepted) {
-  if (!entry.name || !entry.reason) {
-    failures.push(`baseline entry ${JSON.stringify(entry.name)} needs a written reason`);
+  if (!entry.name || !entry.reason || !entry.id) {
+    failures.push(
+      `baseline entry ${JSON.stringify(entry.name)} needs a written reason and an advisory id (GHSA-…)`,
+    );
   }
 }
+
+// When this script itself is run by `npm run`, npm injects the project's
+// config as `npm_config_*` env vars, and a nested `npm audit` rejects an
+// inherited install-scripts policy with EALLOWSCRIPTS. Strip that one family
+// so the nested audit sees the same input it would standalone; any failure it
+// still hits surfaces through the error-envelope check below.
+// ponytail: targeted strip, widen to a general npm_config filter if another
+// config var starts breaking nested audits.
+const auditEnv = Object.fromEntries(
+  Object.entries(process.env).filter(
+    ([key]) => !key.startsWith("npm_config_allow_scripts"),
+  ),
+);
 
 let audit;
 try {
   audit = JSON.parse(execFileSync("npm", ["audit", "--json"], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    env: auditEnv,
   }));
 } catch (error) {
   // npm audit exits non-zero when it finds something, so a failure here is a
@@ -63,36 +85,75 @@ try {
   audit = JSON.parse(raw);
 }
 
+// npm audit answers with an `error` envelope (and exit 1) when it could not
+// produce a report. Parsing that as an empty vulnerability set would let the
+// gate pass while the audit never ran.
+if (audit.error) {
+  console.error(`audit-gate: npm audit failed to run: ${audit.error.summary || audit.error.code || "unknown error"}`);
+  if (audit.error.detail) console.error(audit.error.detail);
+  process.exit(2);
+}
+
 const reported = Object.values(audit.vulnerabilities || {})
   .filter((v) => BLOCKING_SEVERITIES.has(v.severity));
 
-const key = (name) => `${name}`;
+const GHSA = /GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}/i;
+
+/** The GHSA id of a `via` entry, or null when it is a package-name reference. */
+function advisoryId(via) {
+  if (via === null || typeof via !== "object") return null;
+  return via.url?.match(GHSA)?.[0] ?? null;
+}
 
 for (const vuln of reported) {
-  const match = accepted.find((entry) => key(entry.name) === key(vuln.name));
-  if (!match) {
-    const via = (vuln.via || [])
-      .map((v) => (typeof v === "string" ? v : v.title))
-      .join("; ");
-    failures.push(
-      `new ${vuln.severity} advisory: ${vuln.name}@${vuln.range} (${vuln.nodes?.join(", ") || "unknown path"})${via ? ` -- ${via}` : ""}`,
-    );
+  const advisories = (vuln.via || []).filter((v) => typeof v === "object");
+  const acceptedForName = accepted.filter((e) => e.name === vuln.name);
+
+  if (advisories.length === 0) {
+    // Transitive-only entry (`via` lists package names): the real advisories
+    // live on the direct entry, so a name-level exemption is all that makes
+    // sense here.
+    if (!acceptedForName.length) {
+      failures.push(
+        `new ${vuln.severity} advisory: ${vuln.name}@${vuln.range} (${vuln.nodes?.join(", ") || "unknown path"})`,
+      );
+    }
     continue;
   }
-  // A baselined advisory whose range has moved is still the same advisory, but
-  // the recorded range is stale and should be re-checked by a human.
-  if (match.range && vuln.range && match.range !== vuln.range) {
-    notes.push(`baseline range for ${vuln.name} is stale: recorded ${match.range}, now ${vuln.range}`);
+
+  // Match at the advisory level: an accepted package does not cover a new
+  // advisory against that same package.
+  for (const adv of advisories.filter((v) => BLOCKING_SEVERITIES.has(v.severity))) {
+    const id = advisoryId(adv);
+    const match = id ? acceptedForName.find((e) => e.id === id) : undefined;
+    if (!match) {
+      failures.push(
+        `new ${adv.severity} advisory: ${vuln.name} (${id ?? "unidentified advisory"}) ${adv.range ?? vuln.range} -- ${adv.title ?? "no title"}`,
+      );
+      continue;
+    }
+    // A baselined advisory whose range has moved is still the same advisory,
+    // but the recorded range is stale and should be re-checked by a human.
+    if (match.range && adv.range && match.range !== adv.range) {
+      notes.push(`baseline range for ${vuln.name} ${id} is stale: recorded ${match.range}, now ${adv.range}`);
+    }
+    notes.push(`accepted: ${vuln.name} ${id} (${adv.range}) -- ${match.reason}`);
   }
-  notes.push(`accepted: ${vuln.name} (${vuln.range}) -- ${match.reason}`);
 }
 
 // Anything baselined that no longer reports must be removed, or the baseline
-// becomes a permanent blanket exemption.
+// becomes a permanent blanket exemption. Advisory-level: if only the moderate
+// advisory still reports, the accepted high ones must come off the baseline.
+const reportedIds = new Set(
+  Object.values(audit.vulnerabilities || {})
+    .flatMap((v) => (v.via || []).map(advisoryId))
+    .filter(Boolean),
+);
 for (const entry of accepted) {
-  if (!reported.some((v) => key(v.name) === key(entry.name))) {
+  if (!entry.id) continue; // already failed above
+  if (!reportedIds.has(entry.id)) {
     failures.push(
-      `baseline entry ${entry.name} no longer reports -- remove it from ${path.basename(baselinePath)}`,
+      `baseline entry ${entry.id} (${entry.name}) no longer reports -- remove it from ${path.basename(baselinePath)}`,
     );
   }
 }

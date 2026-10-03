@@ -36,17 +36,55 @@ const PEER = "@earendil-works/pi-coding-agent";
 const peerDir = join(root, "node_modules", ...PEER.split("/"));
 
 /** Advisories GHSA-q2hr-2g5m-vwhr / qhr7-859c-m2p7 / 6j4f-fj2g-mc7p. */
-const FIRST_FIXED = "5.0.12";
+const ADVISORIES = [
+  {
+    id: "GHSA-qhr7-859c-m2p7",
+    ranges: [
+      ["4.0.0", "5.0.11"],
+      ["3.0.0", "3.0.8"],
+      ["2.0.0", "2.1.6"],
+      ["0.0.0", "1.1.20"],
+    ],
+  },
+  {
+    id: "GHSA-6j4f-fj2g-mc7p",
+    ranges: [
+      ["4.0.0", "5.0.10"],
+      ["3.0.0", "3.0.7"],
+      ["2.0.0", "2.1.5"],
+      ["0.0.0", "1.1.19"],
+    ],
+  },
+  {
+    id: "GHSA-q2hr-2g5m-vwhr",
+    ranges: [
+      ["4.0.0", "5.0.12"],
+      ["3.0.0", "3.0.9"],
+      ["2.0.0", "2.1.7"],
+      ["0.0.0", "1.1.21"],
+    ],
+  },
+] as const;
 
-function isVulnerable(version: string): boolean {
-  const parse = (v: string) => v.split("-")[0].split(".").map(Number);
-  const fixed = parse(FIRST_FIXED);
-  const parts = parse(version);
-  for (let i = 0; i < fixed.length; i++) {
-    const a = parts[i] ?? 0;
-    if (a !== fixed[i]) return a < fixed[i];
+const parse = (v: string) => v.split("-")[0].split(".").map(Number);
+
+function cmp(a: number[], b: number[]): number {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const left = a[i] ?? 0;
+    const right = b[i] ?? 0;
+    if (left !== right) return left < right ? -1 : 1;
   }
-  return false;
+  return 0;
+}
+
+/** Vulnerable to ANY of the three advisories, each with its own release lines. */
+function isVulnerable(version: string): boolean {
+  const v = parse(version);
+  return ADVISORIES.some(({ ranges }) =>
+    ranges.some(([lo, hi]) =>
+      (lo === "0.0.0" || cmp(v, parse(lo)) >= 0) && cmp(v, parse(hi)) < 0,
+    ),
+  );
 }
 
 /** Every `brace-expansion` package.json reachable in our installed tree. */
@@ -144,10 +182,24 @@ test("the peer pins a vulnerable brace-expansion via its published shrinkwrap", 
     isVulnerable(floor),
     `the declared floor ${floor} is already fixed -- the peer's range no longer explains the pin`,
   );
-  assert.ok(
-    !isVulnerable(FIRST_FIXED),
-    "sanity: the first fixed version must compare as not-vulnerable",
-  );
+});
+
+test("per-line ranges: patched earlier-line versions are not classified vulnerable", () => {
+  // Comparing every version against a single "first fixed" version would
+  // classify patched 1.x/2.x/3.x releases as vulnerable and falsely fail the
+  // copy scan the day a legitimate older-line copy appears in the tree.
+  for (const version of ["1.1.21", "2.1.7", "3.0.9", "5.0.12"]) {
+    assert.ok(
+      !isVulnerable(version),
+      `${version} is patched against all three advisories`,
+    );
+  }
+  // 5.0.11 clears both high advisories but the moderate one only ships a fix
+  // at 5.0.12, so the older pin stays vulnerable under per-line ranges.
+  assert.ok(isVulnerable("5.0.11"), "5.0.11 is still inside GHSA-q2hr-2g5m-vwhr's range");
+  for (const version of ["1.1.19", "2.1.5", "3.0.7", "4.0.1", "5.0.9"]) {
+    assert.ok(isVulnerable(version), `${version} is inside the advisory ranges`);
+  }
 });
 
 /**

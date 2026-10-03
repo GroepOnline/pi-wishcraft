@@ -1,10 +1,17 @@
 {
-  "$comment": "Advisories the dependency audit gate tolerates. Every entry needs a reason: a bare 'inherited' is what this file exists to prevent. An entry that stops reporting makes the gate fail, so a fixed advisory cannot hide here.",
+  "$comment": "Advisories the dependency audit gate tolerates. Every entry names one advisory by its GHSA id and needs a reason: a bare 'inherited' is what this file exists to prevent. An entry that stops reporting makes the gate fail, so a fixed advisory cannot hide here.",
   "accepted": [
     {
       "name": "brace-expansion",
-      "range": "4.0.0 - 5.0.11",
-      "reason": "Inherited from @earendil-works/pi-coding-agent, not reachable from this package. The peer publishes an npm-shrinkwrap.json, which npm treats as authoritative for consumers and installs without re-resolving, so its pinned 5.0.9 survives every install. npm's own 'fixAvailable: true' is misleading here: overrides cannot pierce a dependency's shrinkwrap (verified for both top-level and path-scoped overrides). Upstream fix is a lockfile bump in the peer -- brace-expansion@5.0.12 already satisfies the ^5.0.8 range the peer's own minimatch declares. Remove this entry once a peer release past 0.99.2 ships the bump; tests/dependency-provenance.test.ts fails once the peer pin clears the advisory range."
+      "id": "GHSA-qhr7-859c-m2p7",
+      "range": ">=4.0.0 <5.0.11",
+      "reason": "Inherited from @earendil-works/pi-coding-agent, not reachable from this package. The peer publishes an npm-shrinkwrap.json, which npm treats as authoritative for consumers and installs without re-resolving, so its pinned 5.0.9 survives every install. npm's own 'fixAvailable: true' is misleading here: overrides cannot pierce a dependency's shrinkwrap (verified for both top-level and path-scoped overrides). Upstream fix is a lockfile bump in the peer -- brace-expansion@5.0.11 already satisfies the ^5.0.8 range the peer's own minimatch declares. Remove this entry once a peer release past 0.99.2 ships the bump; tests/dependency-provenance.test.ts fails once the peer pin clears the advisory range."
+    },
+    {
+      "name": "brace-expansion",
+      "id": "GHSA-6j4f-fj2g-mc7p",
+      "range": ">=4.0.0 <5.0.10",
+      "reason": "Same inherited copy as GHSA-qhr7-859c-m2p7: the peer's npm-shrinkwrap.json pins brace-expansion@5.0.9 verbatim and overrides cannot pierce it (verified for both top-level and path-scoped overrides). A peer lockfile bump to ^5.0.8 resolves all three brace-expansion advisories at once, no API change; tests/dependency-provenance.test.ts guards the pin."
     }
   ]
 }
