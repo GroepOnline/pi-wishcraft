@@ -1,6 +1,6 @@
 {
   "name": "@groeponline/pi-wishcraft",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Pi coding agent extension: operator cockpit with a live powerline status bar, idea queue, skill search, sticky Bash, hooks, policy guardrails, and TUI session UX.",
   "type": "module",
   "engines": {

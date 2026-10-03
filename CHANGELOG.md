@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-03
+
 ### Known limitations
 - **`peerDependencies: "*"` cannot express a supported-version floor.** Pi's own docs require the host-provided packages to be declared with a `"*"` range and `verify-pi-package-contract.mjs` enforces it, so the constraint is upstream and cannot be tightened here. The consequence is measured rather than assumed: probing every SDK release for the 12 runtime symbols this package imports, all of them resolve from 0.86.0 up, and the binding one is `normalizeContext` (`src/working-vibes/provider.ts`), which arrived in `pi-ai` 0.86.0. A consumer on 0.84.3 therefore installs this package without warning or resolution error. The manifest side of this stays open — the floor cannot be expressed there at all — but the silent failure is closed: the extension now checks the symbol set at activation and reports the gap (see Fixed).
 
