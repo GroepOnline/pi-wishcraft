@@ -44,9 +44,8 @@ jobs:
         run: npm run circular
       - name: Pi package release gate
         run: npm run verify:package
-      - name: Dependency audit (informational)
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      - name: Dependency audit gate
+        run: npm run audit
       # workflow_run triggers are suppressed when the completed workflow was
       # itself dispatched via GITHUB_TOKEN (anti-recursion), so the Verify ->
       # Promote link must be a workflow_dispatch, which always creates a run.

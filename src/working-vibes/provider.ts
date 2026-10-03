@@ -9,6 +9,7 @@ import type {
   ProviderStreamOptions,
 } from "@earendil-works/pi-ai";
 import { normalizeContext } from "@earendil-works/pi-ai";
+import { requirePeerSymbol } from "../extension/core/peer-guard.ts";
 import { VIBE_SYSTEM_PROMPT, vibeState } from "./storage.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -41,8 +42,11 @@ export async function completeVibe(
   // `Provider.stream()` now takes a branded `TranscriptContext`, which only
   // `normalizeContext()` produces. It folds `systemPrompt` and `tools` into a
   // leading system message; the brand exists so a raw `Context` cannot reach
-  // provider code unnormalized.
-  return provider.stream(requestModel, normalizeContext(context), options).result();
+  // provider code unnormalized. `requirePeerSymbol` turns a missing export on
+  // an under-floor Pi SDK into an actionable error instead of
+  // "normalizeContext is not a function".
+  const normalize = requirePeerSymbol(normalizeContext, "normalizeContext");
+  return provider.stream(requestModel, normalize(context), options).result();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
