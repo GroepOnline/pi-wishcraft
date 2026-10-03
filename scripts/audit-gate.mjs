@@ -7,11 +7,12 @@
 //
 // So this script audits against an explicit baseline of accepted advisories:
 //
-//   - every accepted entry names one advisory by its GHSA id, so a NEW
-//     high/critical advisory on an already-accepted package still fails
+//   - every accepted entry names one advisory by its GHSA id and the install
+//     path(s) the exemption covers, so a NEW high/critical advisory or a
+//     second vulnerable copy on an already-accepted package still fails
 //   - a high/critical finding that is not baselined fails the build
-//   - a baselined advisory that no longer reports fails the build too, because
-//     a stale baseline silently stops describing reality
+//   - a baselined advisory that no longer reports as blocking fails the build
+//     too, because a stale baseline silently stops describing reality
 //   - every accepted advisory carries a written justification, so "inherited"
 //     has to be argued for rather than asserted
 //
@@ -44,12 +45,13 @@ const failures = [];
 const notes = [];
 
 // The baseline must justify itself. An entry with no reason is exactly the
-// "inherited, trust me" note this gate exists to prevent, and an entry with no
-// id cannot tell a new advisory for the same package apart from an old one.
+// "inherited, trust me" note this gate exists to prevent, and an entry without
+// an id or an approved install path cannot tell a new advisory -- or a second
+// vulnerable copy of the same package -- apart from the exempted one.
 for (const entry of accepted) {
-  if (!entry.name || !entry.reason || !entry.id) {
+  if (!entry.name || !entry.reason || !entry.id || !(entry.nodes || []).length) {
     failures.push(
-      `baseline entry ${JSON.stringify(entry.name)} needs a written reason and an advisory id (GHSA-…)`,
+      `baseline entry ${JSON.stringify(entry.name)} needs a written reason, an advisory id (GHSA-…) and the install path(s) the exemption covers`,
     );
   }
 }
@@ -105,6 +107,13 @@ function advisoryId(via) {
   return via.url?.match(GHSA)?.[0] ?? null;
 }
 
+/** Is this install path covered by one of the entry's approved paths? */
+function nodeApproved(approved, node) {
+  return approved.some(
+    (p) => node === p || node.startsWith(`${p}/`),
+  );
+}
+
 for (const vuln of reported) {
   const advisories = (vuln.via || []).filter((v) => typeof v === "object");
   const acceptedForName = accepted.filter((e) => e.name === vuln.name);
@@ -132,28 +141,41 @@ for (const vuln of reported) {
       );
       continue;
     }
+    // npm groups findings by package name, so an accepted advisory also
+    // covers any other copy of that package. The exemption is only for the
+    // install path(s) the baseline lists: a second vulnerable copy is ours.
+    const unapproved = (vuln.nodes || []).filter((n) => !nodeApproved(match.nodes || [], n));
+    if (unapproved.length) {
+      failures.push(
+        `accepted ${vuln.name} ${id} reports an unapproved affected node: ${unapproved.join(", ")} -- fix that copy (npm audit fix), or add its path with a reason`,
+      );
+      continue;
+    }
     // A baselined advisory whose range has moved is still the same advisory,
     // but the recorded range is stale and should be re-checked by a human.
     if (match.range && adv.range && match.range !== adv.range) {
       notes.push(`baseline range for ${vuln.name} ${id} is stale: recorded ${match.range}, now ${adv.range}`);
     }
-    notes.push(`accepted: ${vuln.name} ${id} (${adv.range}) -- ${match.reason}`);
+    notes.push(`accepted: ${vuln.name} ${id} (${adv.range}) at ${(vuln.nodes || []).join(", ")} -- ${match.reason}`);
   }
 }
 
-// Anything baselined that no longer reports must be removed, or the baseline
-// becomes a permanent blanket exemption. Advisory-level: if only the moderate
-// advisory still reports, the accepted high ones must come off the baseline.
-const reportedIds = new Set(
-  Object.values(audit.vulnerabilities || {})
-    .flatMap((v) => (v.via || []).map(advisoryId))
-    .filter(Boolean),
+// Anything baselined that no longer reports as blocking must be removed, or
+// the baseline becomes a permanent blanket exemption. Advisory-level, and
+// blocking-level: an accepted high advisory that has been downgraded to
+// moderate no longer blocks, so its entry is stale too.
+const blockingIds = new Set(
+  reported.flatMap((v) =>
+    (v.via || [])
+      .filter((via) => typeof via === "object" && BLOCKING_SEVERITIES.has(via.severity))
+      .map(advisoryId),
+  ).filter(Boolean),
 );
 for (const entry of accepted) {
   if (!entry.id) continue; // already failed above
-  if (!reportedIds.has(entry.id)) {
+  if (!blockingIds.has(entry.id)) {
     failures.push(
-      `baseline entry ${entry.id} (${entry.name}) no longer reports -- remove it from ${path.basename(baselinePath)}`,
+      `baseline entry ${entry.id} (${entry.name}) no longer reports as high/critical -- remove it from ${path.basename(baselinePath)}`,
     );
   }
 }

@@ -62,6 +62,17 @@ test("the committed baseline is valid and every entry is justified", () => {
       `${entry.name}: every accepted entry needs its advisory id, so a new advisory on the same package cannot ride in under the old entry`,
     );
     assert.ok(
+      Array.isArray(entry.nodes) && entry.nodes.length > 0,
+      `${entry.name}: every accepted entry needs the install path(s) it covers, so a second vulnerable copy of the same package cannot inherit the exemption`,
+    );
+    for (const node of entry.nodes) {
+      assert.match(
+        node,
+        /^node_modules\//,
+        `${entry.name}: an approved node must be an install path, got ${node}`,
+      );
+    }
+    assert.ok(
       typeof entry.reason === "string" && entry.reason.trim().length > 40,
       `${entry.name} needs a real justification; "inherited" on its own is what this baseline exists to prevent`,
     );
@@ -104,7 +115,12 @@ cat '${join(dir, "audit.json")}'\n`);
 }
 
 /** A blocking vuln entry the way `npm audit --json` reports it. */
-function auditWith(...via: Array<Record<string, unknown>>) {
+function auditWith(
+  via: Array<Record<string, unknown>>,
+  nodes: string[] = [
+    "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion",
+  ],
+) {
   return {
     vulnerabilities: {
       "brace-expansion": {
@@ -112,7 +128,7 @@ function auditWith(...via: Array<Record<string, unknown>>) {
         severity: "high",
         range: "4.0.0 - 5.0.11",
         via,
-        nodes: ["node_modules/@earendil-works/pi-coding-agent"],
+        nodes,
       },
     },
   };
@@ -168,6 +184,7 @@ test("the gate fails when a baselined advisory no longer reports", () => {
   baseline.accepted.push({
     name: "definitely-not-installed-xyz",
     id: "GHSA-0000-0000-0000",
+    nodes: ["node_modules/definitely-not-installed-xyz"],
     reason: "left over from an older tree",
   });
   const result = runGate(baseline);
@@ -196,15 +213,55 @@ test("a new high advisory on an already-accepted package fails the gate", () => 
   // same package must be named as new, not swallowed by the package match.
   const result = runGateWithAudit(
     realBaseline(),
-    auditWith(
+    auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
       advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
       advisory("GHSA-zzzz-zzzz-zzzz", "high", ">=5.0.0 <5.0.99"),
-    ),
+    ]),
   );
   assert.equal(result.status, 1, result.stderr || result.stdout);
   assert.match(result.stderr, /new high advisory/);
   assert.match(result.stderr, /GHSA-zzzz-zzzz-zzzz/);
+});
+
+test("a second vulnerable copy of an accepted package fails the gate", () => {
+  // npm groups findings by package name, so the exempted GHSA also arrives
+  // with our own top-level copy as an affected node. The exemption is bound to
+  // the peer's install path, so that extra node must fail the gate.
+  const result = runGateWithAudit(
+    realBaseline(),
+    auditWith(
+      [
+        advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
+        advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
+      ],
+      [
+        "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion",
+        "node_modules/brace-expansion",
+      ],
+    ),
+  );
+  assert.equal(result.status, 1, result.stderr || result.stdout);
+  assert.match(result.stderr, /unapproved affected node/);
+  assert.match(result.stderr, /node_modules\/brace-expansion/);
+});
+
+test("an accepted advisory that stops being high/critical is reported as stale", () => {
+  // Severity downgrades are silent: the advisory keeps reporting, so a
+  // reported-ids check would keep the exemption alive. Only blocking
+  // advisories count, so the entry has to come off the baseline.
+  const result = runGateWithAudit(
+    realBaseline(),
+    auditWith([
+      advisory("GHSA-qhr7-859c-m2p7", "moderate", ">=4.0.0 <5.0.11"),
+      advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
+    ]),
+  );
+  assert.equal(result.status, 1, result.stderr || result.stdout);
+  assert.match(
+    result.stderr,
+    /GHSA-qhr7-859c-m2p7 \(brace-expansion\) no longer reports as high\/critical/,
+  );
 });
 
 test("the accepted advisories pass by id even when the package is rejected by name", () => {
@@ -216,10 +273,10 @@ test("the accepted advisories pass by id even when the package is rejected by na
   );
   const result = runGateWithAudit(
     baseline,
-    auditWith(
+    auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
       advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
-    ),
+    ]),
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /audit gate OK/);
@@ -231,11 +288,11 @@ test("a moderate advisory inside a blocking aggregate is not itself blocking", (
   // on high/critical advisories only.
   const result = runGateWithAudit(
     realBaseline(),
-    auditWith(
+    auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
       advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
       advisory("GHSA-q2hr-2g5m-vwhr", "moderate", ">=4.0.0 <5.0.12"),
-    ),
+    ]),
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
