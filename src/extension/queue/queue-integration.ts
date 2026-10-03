@@ -36,13 +36,33 @@ export function queueItemDescription(item: PowerlineQueueItem): string {
   return item.target.alias ? `@${item.target.alias}` : item.target.cwd;
 }
 
+/**
+ * Pi's working indicator (spinner frame + "Working...") can end up at the start
+ * of captured text when the editor buffer is captured while the agent runs.
+ * Strip that prefix so ideas never render as a permanently "working" card.
+ */
+const CAPTURE_NOISE_PREFIX =
+  /^[\u2800-\u28FF][\u2800-\u28FF ]*\s*Working[.…]+\s*/;
+
+export function stripCaptureNoisePrefix(text: string): string {
+  let out = text;
+  while (CAPTURE_NOISE_PREFIX.test(out)) {
+    out = out.replace(CAPTURE_NOISE_PREFIX, "");
+  }
+  return out.trimStart();
+}
+
 export function captureQueueItem(
   rt: RuntimeState,
   ctx: any,
-  text: string,
+  rawText: string,
   intent: QueueIntent,
   target: QueueTarget,
 ): PowerlineQueueItem {
+  const text = stripCaptureNoisePrefix(rawText);
+  if (!text.trim()) {
+    throw new Error("Nothing to capture");
+  }
   const item = rt.queueStore.add({
     text,
     intent,
