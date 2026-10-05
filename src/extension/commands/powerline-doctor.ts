@@ -13,6 +13,7 @@ import { hasNerdFonts } from "../../theme/icons.ts";
 import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { showSelectOverlay } from "../ui/menu-views.ts";
+import { readProductIdentity } from "../../product-identity.ts";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
 
@@ -50,6 +51,15 @@ export function buildDoctorReport(
 ): DoctorCheck[] {
   const cwd = ctx.cwd ?? process.cwd();
   const checks: DoctorCheck[] = [];
+
+  const identity = readProductIdentity();
+  checks.push({
+    status: "ok",
+    name: "package.identity",
+    detail: identity.source_sha
+      ? `${identity.version} source_sha=${identity.source_sha}`
+      : `${identity.version} source_sha=null`,
+  });
 
   // ── Settings ─────────────────────────────────────────────────────────────
   const globalPath = getSettingsPath();

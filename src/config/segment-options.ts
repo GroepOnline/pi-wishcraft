@@ -139,6 +139,19 @@ export function normalizeSegmentOptions(
     if (typeof raw.tps.windowMs === "number" && Number.isFinite(raw.tps.windowMs)) {
       tps.windowMs = Math.min(5000, Math.max(500, Math.floor(raw.tps.windowMs)));
     }
+<<<<<<< HEAD
+||||||| 34ee830
+    options.tps = {
+      ...(typeof raw.tps.windowMs === "number" &&
+      Number.isFinite(raw.tps.windowMs)
+        ? { windowMs: Math.min(5000, Math.max(500, Math.floor(raw.tps.windowMs))) }
+        : {}),
+    };
+=======
+    if (raw.tps.mode === "both" || raw.tps.mode === "out" || raw.tps.mode === "in") {
+      tps.mode = raw.tps.mode;
+    }
+>>>>>>> 394402d958799308f24ffc284a240b878588a931
     options.tps = tps;
   }
 

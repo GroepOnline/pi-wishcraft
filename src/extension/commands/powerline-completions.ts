@@ -12,6 +12,10 @@ export const POWERLINE_SUBCOMMANDS: ReadonlyArray<{
     description: "Run environment and settings diagnostics",
   },
   {
+    value: "version",
+    description: "Print package version and stamped source SHA",
+  },
+  {
     value: "export",
     description: "Export the current status-line configuration",
   },

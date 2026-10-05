@@ -1,18 +1,77 @@
 /**
- * Motion rail (v2). Renders the Signal activity rail — the animated
- * sweep/compact rail plus activity label — as a first-class layout segment.
- * Extracted from the legacy v1 Signal renderer (src/signal/render.ts,
- * deleted in the U12 cutover); rail semantics are unchanged: idle = flat
- * rail, streaming = travelling head + trail, compacting = inward heads.
+ * Compact Signal rail. It is deliberately a single terminal row: the rail
+ * reports agent state, it never displaces the footer while a response streams.
+ * Full-motion idle leases the scheduler's ambient channel and breathes from
+ * that tick. Reduced and off motion stay a static marker with no consumer.
+ * Active work leases the signal channel.
  */
 
 import { defaultMotionFor, getMotion } from "../motion/catalog.ts";
-import { frameAt, framesOf, sweepPosition, trailGlyph } from "../motion/frames.ts";
+import { frameAt, framesOf, lanternGlow, sweepPhase, sweepReturning, trailGlyph } from "../motion/frames.ts";
+import { fatBand } from "./motion-candidates.ts";
 import type { SignalRuntime } from "../signal/controller.ts";
 import type { SignalSpec } from "../config/types.ts";
-import { ansi, colorEnabled, getFgAnsiCode } from "../theme/colors.ts";
-import { lanternSigil } from "./motion-candidates.ts";
+import { ansi, colorEnabled, fgGradientCode, getFgAnsiCode, paletteRgb } from "../theme/colors.ts";
 
+function paint(text: string, color: string): string {
+  if (!color || !colorEnabled()) return text;
+  return `${color}${text}${ansi.reset}`;
+}
+
+/** Generators such as writing-reveal may contain several columns. A rail cell
+ * must always occupy exactly one column or its layout drifts under animation. */
+function cellGlyph(value: string, fallback: string): string {
+  return Array.from(value)[0] ?? fallback;
+}
+
+interface RailPalette {
+  /** Truecolor ramp when color is on and glyphs are not ASCII. */
+  trueColor: boolean;
+  trailDepth: number;
+  headRgb: [number, number, number];
+  /** Lantern flicker factors; 1 / 0 disable the flicker for non-ember heads. */
+  flickerScale: number;
+  flickerWhite: number;
+  hot: string;
+  model: string;
+  path: string;
+  dim: string;
+}
+
+/** Color for a rail cell at `distance` behind the travelling head. */
+function railCellColor(distance: number, p: RailPalette): string {
+  if (!p.trueColor) {
+    if (distance === 0) return p.hot;
+    if (distance === 1) return p.model;
+    if (distance === 2) return p.path;
+    return p.dim;
+  }
+  if (distance <= 0.5) {
+    const rgb = p.headRgb.map((channel) =>
+      Math.min(255, Math.round(channel * p.flickerScale + (255 - channel) * p.flickerWhite)),
+    ) as [number, number, number];
+    return ansi.getFgAnsi(rgb[0], rgb[1], rgb[2]);
+  }
+  // Smooth wake: fade the hot head back to the dim track by fractional
+  // distance, so trail cells cool off instead of stepping through tiers.
+  return fgGradientCode("accent", "sep", Math.min(distance, p.trailDepth + 1) / (p.trailDepth + 1));
+}
+
+function clamp01(value: number): number {
+  return value < 0 ? 0 : value > 1 ? 1 : value;
+}
+
+/** Map a scheduler tick to a repeating phase in the half-open range [0, 1). */
+function scene(duration: number, tick: number): number {
+  return (((tick % duration) + duration) % duration) / duration;
+}
+
+/**
+ * Render the one-line Signal rail and its activity label.
+ *
+ * `width` is the available status-line width used to size the rail. ASCII mode
+ * uses single-column fallback glyphs and a static marker while idle.
+ */
 export function renderActivity(
   runtime: SignalRuntime,
   spec: SignalSpec,
@@ -20,134 +79,172 @@ export function renderActivity(
   width = 80,
 ): string {
   const label = runtime.activity || "ready";
-  const open = spec.caps.leftOpen ?? "";
-  const close = spec.caps.leftClose ?? "";
   const dim = getFgAnsiCode("sep");
   const hot = getFgAnsiCode("accent");
-  const reset = colorEnabled() ? ansi.reset : "";
-  // Adaptive rail width: ~20% of terminal, clamped [16, 40]. Wider
-  // terminals get a longer sweep so the motion reads at a glance.
-  const RAIL_WIDTH = Math.max(16, Math.min(40, Math.round(width * 0.2)));
+  const model = getFgAnsiCode("model");
+  const path = getFgAnsiCode("path");
   const track = ascii ? "-" : "─";
-  const head = ascii ? "o" : "●";
-  const railColor = runtime.active ? hot : dim;
+  // A footer rail is state indication, not a hero animation. Keep it readable
+  // on wide terminals and leave enough room for actual operational segments.
+  const railWidth = Math.max(12, Math.min(22, Math.round(width * 0.1)));
   const def = getMotion(runtime.motionId);
-  // The head glyph is the chosen motion's own frame — so ember-relay
-  // sweeps a ◇→◈→◆ sequence and hex-relay carries #-density, instead of
-  // every motion wearing the same generic comet. The trail reuses the
-  // motion's own past frames too, so each motion leaves its own wake.
-  // ASCII terminals fall back to the clean box-drawing comet — motion
-  // frames are a color-font feature.
+  const direction = def?.generator?.direction === "reverse" ? "reverse" : "forward";
+  const ease = def?.generator?.ease ?? "linear";
+  const trailDepth = Math.max(2, Math.min(6, def?.generator?.trail ?? 4));
+  const headFallback = ascii ? "o" : "●";
   const headGlyph = (tick: number, distance: number) => {
-    if (def && !ascii) return frameAt(def, Math.max(0, tick - distance), false);
-    return distance === 0 ? head : trailGlyph(distance, ascii);
+    if (ascii) return distance === 0 ? headFallback : trailGlyph(distance, true);
+    return def ? cellGlyph(frameAt(def, tick - Math.round(distance)), headFallback) : headFallback;
   };
-  const trailDepth = def?.generator?.trail ?? 4;
-  // Per-cell color gradient: hot head fading to dim through the palette.
-  // Distance 0 = accent, then model → path → sep so the wake cools off.
-  const cellColor = (distance: number): string => {
-    if (!colorEnabled()) return "";
-    if (distance <= 0) return hot;
-    if (distance <= 1) return getFgAnsiCode("model");
-    if (distance <= 2) return getFgAnsiCode("path");
-    return dim;
+  // Lantern tie-in: ember/heat heads flicker with the welcome lantern's
+  // breathe-plus-ripple curve, so the signature flame lives in the rail.
+  const lantern =
+    def?.generator?.geometry === "ember" || def?.generator?.geometry === "heat";
+  const glow = lantern ? 0.84 + 0.16 * lanternGlow(Date.now()) : 1;
+  const palette: RailPalette = {
+    trueColor: colorEnabled() && !ascii,
+    trailDepth,
+    headRgb: paletteRgb("accent"),
+    flickerScale: glow,
+    flickerWhite: lantern ? 0.09 * ((glow - 0.84) / 0.16) : 0,
+    hot,
+    model,
+    path,
+    dim,
   };
-  let railBlock: string;
+  const cellColor = (distance: number): string => railCellColor(distance, palette);
+
+  let rail: string;
   if (!runtime.active) {
-    // Idle: a frozen breathing wave of the ambient motion (wisp) frames.
-    // No animation consumer at idle, but a sine-sampled wave reads as
-    // "resting, not dead" — calmer than a full sweep, warmer than a flat track.
-    const ambient = getMotion(defaultMotionFor("idle"));
-    const ambientFrames = ambient ? framesOf(ambient) : null;
-    if (ambientFrames && colorEnabled()) {
-      const phase = Date.now() % 4000 / 4000;
-      const built: string[] = [];
-      for (let i = 0; i < RAIL_WIDTH; i++) {
-        const wave = Math.sin((i / RAIL_WIDTH) * Math.PI * 2 + phase * Math.PI * 2);
-        const frameIdx = Math.floor(((wave + 1) / 2) * ambientFrames.length) % ambientFrames.length;
-        const color = wave > 0.3 ? hot : dim;
-        built.push(`${color}${ambientFrames[frameIdx]}${reset}`);
-      }
-      railBlock = built.join("");
-    } else {
-      railBlock = track.repeat(RAIL_WIDTH);
-    }
-  } else if (runtime.activity === "compacting") {
-    railBlock = renderCompactRail(runtime.tick, RAIL_WIDTH, ascii, headGlyph, cellColor);
+    rail = runtime.idleAnimated && !ascii
+      ? renderBreathingRail(runtime.tick, railWidth, dim, model, hot)
+      : renderIdleRail(railWidth, ascii, track, dim);
+  } else if (runtime.event === "compact") {
+    rail = renderCompactRail(runtime.tick, railWidth, ascii, headGlyph, cellColor);
+  } else if (runtime.motionId === "fat-band") {
+    rail = renderFatBandRail(runtime.tick, railWidth, ascii, hot);
   } else {
-    const pos = sweepPosition(runtime.tick, RAIL_WIDTH, true);
-    const built: string[] = [];
-    for (let i = 0; i < RAIL_WIDTH; i++) {
-      if (i === pos) built.push(`${cellColor(0)}${headGlyph(runtime.tick, 0)}${reset}`);
-      else if (i < pos) {
-        const distance = pos - i;
-        if (distance <= trailDepth) {
-          built.push(`${cellColor(distance)}${headGlyph(runtime.tick, distance)}${reset}`);
-        } else {
-          built.push(track);
-        }
-      } else {
-        built.push(track);
-      }
-    }
-    railBlock = built.join("");
+    rail = renderSweepRail(runtime.tick, railWidth, direction, ease, trailDepth, track, headGlyph, cellColor, dim);
   }
-  // Active state: 3-row lantern sigil ONLY for the streaming/working
-  // activity. Each row is wrapped individually with the lane color
-  // so rows 1+ don't inherit an empty ANSI state from row 0.
-  if (runtime.active && !ascii && runtime.activity === "streaming") {
-    const sigilRows = lanternSigil(runtime.tick, false);
-    const [r0, ...rest] = sigilRows;
-    const framed = `${spec.separators.left}${r0} ${label}${spec.separators.right}`;
-    const allRows = [framed, ...rest];
-    const colored = (row: string) => `${railColor}${row}${reset}`;
-    // open brackets on the first row, close on the last row, color on
-    // every row so the whole sigil reads as one amber block.
-    const rows = allRows.map((row, i) => {
-      const prefix = i === 0 ? open : "";
-      const suffix = i === allRows.length - 1 ? close : "";
-      return `${prefix}${colored(row)}${suffix}`;
-    });
-    railBlock = rows.join("\n");
-    return railBlock;
-  }
-  const rail = `${spec.separators.left}${railBlock}${spec.separators.right}`;
-  return `${railColor}${open}${rail}${close}${reset} ${label}`;
+
+  const edge = runtime.active ? hot : dim;
+  const left = `${spec.caps.leftOpen ?? ""}${spec.separators.left}`;
+  const right = `${spec.separators.right}${spec.caps.leftClose ?? ""}`;
+  return `${paint(left, edge)}${rail}${paint(right, edge)} ${paint(label, runtime.active ? hot : dim)}`;
 }
 
 /**
- * Compact rail: two heads travel inward toward center, compressing the rail.
- * Gives compaction a distinct visual signature vs the generic sweep.
+ * Resting rail on the ambient tick. A warm radial glow breathes and
+ * shimmers per cell. The same tick always paints the same rail, so tests
+ * can advance `runtime.tick` without sampling the wall clock.
  */
+function renderBreathingRail(
+  tick: number,
+  width: number,
+  dim: string,
+  model: string,
+  hot: string,
+): string {
+  const idleDef = getMotion(defaultMotionFor("idle"));
+  const idleFrames = idleDef ? framesOf(idleDef) : ["◌", "◎", "◈", "⬡", "◈", "◎"];
+  const phase = scene(96, tick);
+  const center = (width - 1) / 2;
+  const built: string[] = [];
+  for (let i = 0; i < width; i++) {
+    const radial = Math.cos(((i - center) / Math.max(1, center)) * Math.PI * 0.5);
+    const shimmer = 0.22 * Math.sin(phase * Math.PI * 2 + i * 0.9);
+    const level = clamp01(radial * 0.9 + 0.1 + shimmer);
+    if (level <= 0.45) {
+      built.push(paint("─", dim));
+      continue;
+    }
+    const frameIdx = Math.floor(level * (idleFrames.length - 1)) % idleFrames.length;
+    const glyph = cellGlyph(idleFrames[frameIdx] ?? "", "·");
+    const color = level > 0.72 ? hot : model;
+    built.push(paint(glyph, color));
+  }
+  return built.join("");
+}
+
+/** Static idle rail. Reduced and off motion never lease a consumer, so the
+ * marker must not change between unrelated repaints. */
+function renderIdleRail(
+  width: number,
+  ascii: boolean,
+  track: string,
+  dim: string,
+): string {
+  const center = Math.floor(width / 2);
+  return Array.from({ length: width }, (_, index) =>
+    paint(index === center ? (ascii ? "." : "⋄") : track, dim),
+  ).join("");
+}
+
+/** Eased ping-pong sweep: the head decelerates at the edges and glides back
+ * instead of teleporting from the last cell to the first. */
+function renderSweepRail(
+  tick: number,
+  width: number,
+  direction: "forward" | "reverse",
+  ease: "linear" | "pulse" | "breathe",
+  trailDepth: number,
+  track: string,
+  headGlyph: (tick: number, distance: number) => string,
+  cellColor: (distance: number) => string,
+  dim: string,
+): string {
+  const pos = sweepPhase(tick, width, true, direction, ease);
+  // Orient the wake by the current leg, not just the configured direction:
+  // on the return leg the head travels the other way, so "behind" flips.
+  const movingRight = (direction === "forward") !== sweepReturning(tick, width);
+  return Array.from({ length: width }, (_, index) => {
+    const distance = movingRight ? pos - index : index - pos;
+    if (distance > -0.5 && distance <= 0.5) {
+      return paint(headGlyph(tick, 0), cellColor(0));
+    }
+    if (distance > 0.5 && distance <= trailDepth + 0.5) {
+      return paint(headGlyph(tick, Math.round(distance)), cellColor(distance));
+    }
+    return paint(track, dim);
+  }).join("");
+}
+
+/** Topographic streaming rail. One row, so the footer layout does not grow. */
+function renderFatBandRail(tick: number, width: number, ascii: boolean, hot: string): string {
+  const [top] = fatBand(tick, ascii, width);
+  if (!top) return "";
+  if (ascii || !colorEnabled()) return top;
+  const peak = /[▆▇█]/;
+  const body = getFgAnsiCode("model");
+  return Array.from(top)
+    .map((glyph) => paint(glyph, peak.test(glyph) ? hot : body))
+    .join("");
+}
+
 function renderCompactRail(
   tick: number,
   width: number,
   ascii: boolean,
-  headGlyph: (tick: number, i: number) => string,
+  headGlyph: (tick: number, distance: number) => string,
   cellColor: (distance: number) => string,
 ): string {
   const half = Math.floor(width / 2);
-  // Heads oscillate from the edges toward center and back.
-  const span = half;
-  const phase = tick % (span * 2);
-  const inward = phase < span ? phase : span * 2 - phase;
-  const leftPos = inward;
-  const rightPos = width - 1 - inward;
+  const phase = tick % (half * 2);
+  const inward = phase < half ? phase : half * 2 - phase;
+  const left = inward;
+  const right = width - 1 - inward;
   const core = ascii ? "=" : "━";
   const track = ascii ? "-" : "─";
-  const reset = colorEnabled() ? ansi.reset : "";
-  // Color the core by distance from the nearest head — hottest at the
-  // heads, cooling toward center, so the compression reads thermally.
-  let built = "";
-  for (let i = 0; i < width; i++) {
-    if (i === leftPos || i === rightPos) {
-      built += `${cellColor(0)}${headGlyph(tick, 0)}${reset}`;
-    } else if (i > leftPos && i < rightPos) {
-      const nearestHead = Math.min(Math.abs(i - leftPos), Math.abs(i - rightPos));
-      built += `${cellColor(nearestHead)}${core}${reset}`;
-    } else {
-      built += track;
+  const dim = getFgAnsiCode("sep");
+
+  return Array.from({ length: width }, (_, index) => {
+    if (index === left || index === right) {
+      return paint(headGlyph(tick, 0), cellColor(0));
     }
-  }
-  return built;
+    if (index > left && index < right) {
+      const distance = Math.min(index - left, right - index);
+      return paint(core, cellColor(distance));
+    }
+    return paint(track, dim);
+  }).join("");
 }

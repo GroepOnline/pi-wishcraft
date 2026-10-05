@@ -115,8 +115,10 @@ scripts/github-release.sh
 
 CI workflows (`.github/workflows/`):
 - `test.yml` — Node 24, typecheck, test, circular, verify:package, npm audit
-- `release.yml` — reuses test.yml, prepares release-candidate branch
+- `release.yml` — reuses test.yml, prepares release-candidate branch, publishes on tag, attaches `npm pack` + `SHA256SUMS`
 - `promote-release-candidate.yml` — promotes verified SHA to main, tags, dispatches publish
+
+Tag `vX.Y.Z` must equal `package.json` and sit on `origin/main`. Identity: `src/product-identity.ts --version` / `/signal version`. See [`docs/release.md`](docs/release.md).
 
 Release behavior:
 - **Every main merge with `[Unreleased]` CHANGELOG notes cuts a release automatically** (verify → candidate → promote → tag → npm). Notes-less merges skip candidate creation entirely — no more empty versions.
@@ -318,3 +320,13 @@ scripts/docker-test.sh -n 4   # 4 parallel containers
 ```
 
 Each container runs `typecheck + test + circular` with a shared read-only `node_modules` bind mount.
+
+## Agent skills
+
+### Issue tracker
+
+Dual-tracker: Linear for planning/features, GitHub for bugs/triage. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context. Current domain source: AGENTS.md. CONTEXT.md and docs/adr/ to be added via `/domain-modeling` when needed. See `docs/agents/domain.md`.

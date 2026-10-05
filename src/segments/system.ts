@@ -383,15 +383,21 @@ export const tpsSegment: StatusLineSegment = {
       windowMs,
     );
     const icons = getIcons();
+    const mode = ctx.options.tps?.mode ?? "both";
     const parts: string[] = [];
-    if (outRate > 0) parts.push(`${icons.output}${formatTpsRate(outRate)}`);
-    if (inRate > 0) parts.push(`${icons.input}${formatTpsRate(inRate)}`);
-    const valueText = parts.length > 0 ? parts.join(" ") : "0";
-    const active = outRate > 0 || inRate > 0;
+    if (mode !== "in" && outRate > 0) {
+      parts.push(`${icons.output}${formatTpsRate(outRate)}`);
+    }
+    if (mode !== "out" && inRate > 0) {
+      parts.push(`${icons.input}${formatTpsRate(inRate)}`);
+    }
+    // `0` looks like a measured rate and implies broken telemetry when the
+    // agent is simply idle. `--` means no live generation sample yet.
+    const valueText = parts.length > 0 ? parts.join(" ") : "--";
     return {
       content: withIcon(
         icons.tps,
-        color(ctx, active ? "tokens" : "queue", valueText),
+        color(ctx, parts.length > 0 ? "tokens" : "queue", valueText),
       ),
       visible: true,
     };
@@ -415,7 +421,8 @@ export const openPortsSegment: StatusLineSegment = {
       entry = { at: now, count: countListeningPorts(includeUdp, host) };
       openPortsCache.set(key, entry);
     }
-    const text = entry.count < 0 ? "?" : String(entry.count);
+    const protocol = includeUdp ? "tcp+udp" : "tcp";
+    const text = entry.count < 0 ? `? ${protocol}` : `${entry.count} ${protocol}`;
     return {
       content: withIcon(getIcons().ports, color(ctx, "queue", text)),
       visible: true,

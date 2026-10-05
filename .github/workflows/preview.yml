@@ -1,0 +1,30 @@
+name: Preview
+
+# Builds the per-package preview container (npm artifact + smoke test of the
+# exact files pi loads) and pushes it to GHCR on main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build preview image
+        run: docker build -f preview/Dockerfile -t ghcr.io/groeponline/pi-wishcraft-preview:sha-${GITHUB_SHA} .
+      - name: Run preview smoke
+        run: docker run --rm ghcr.io/groeponline/pi-wishcraft-preview:sha-${GITHUB_SHA}
+      - name: Push preview image (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker tag ghcr.io/groeponline/pi-wishcraft-preview:sha-${GITHUB_SHA} ghcr.io/groeponline/pi-wishcraft-preview:main
+          docker push ghcr.io/groeponline/pi-wishcraft-preview:sha-${GITHUB_SHA}
+          docker push ghcr.io/groeponline/pi-wishcraft-preview:main

@@ -11,6 +11,7 @@ This package is a Pi.dev extension, not a standalone website. The README is the 
 - [Skill manager](./skill-manager.md) — browsing, inserting, `/skills doctor`, and `/skills new` templates.
 - [Working vibes](./working-vibes.md) — themed loading messages, modes, and configuration.
 - [Segments & theming](./segments.md) — segment reference, separators, thinking/path/git options, and theme overrides.
+- [Release route](./release.md) — tag == package version, GitHub Release artifacts, and identity.
 
 ## Design System & vNext Specifications
 

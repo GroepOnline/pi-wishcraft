@@ -28,16 +28,20 @@ function routeTitle(route: DeckRoute): string {
 export function deckFooter(state: DeckNavState): string {
   if (state.searchOpen) return `/ ${state.searchQuery}_`;
   if (state.composerOpen) return "←→ nudge · ↑↓ field · enter apply · esc back";
+  if (state.skillWizard) return "type · enter next · [ ] template · esc back";
   if (state.skillCreate) return "type a name · enter create · esc cancel";
+  // Nav column has focus: ↑↓ walks routes, → jumps back into the list.
+  if (state.navMode)
+    return "↑↓ route · → list · / Search · g h Home · Esc Close";
   switch (state.route) {
     case "appearance":
-      return "↑↓ select base · enter apply · ←/tab nav · / Search · g h Home · Esc Close";
+      return "↑↓ select base · enter apply · ←/tab nav · → list · / Search · g h Home · Esc Close";
     case "motion":
-      return "↑↓ motion · t event · e composer · enter apply · ←/tab nav · Esc Close";
+      return "↑↓ motion · t event · e composer · enter apply · ←/tab nav · → list · Esc Close";
     case "skills":
-      return "↑↓ skill · enter insert · n new · / filter · ←/tab nav · Esc Close";
+      return "↑↓ skill · enter insert · n new · w wizard · / filter · ←/tab nav · → list · Esc Close";
     case "ideas":
-      return "↑↓ idea · / Search · ←/tab nav · g h Home · Esc Close";
+      return "↑↓ idea · / Search · ←/tab nav · → list · g h Home · Esc Close";
     default:
       return "/ Search   g h Home   g s Signal   g i Ideas   ? Help   Esc Close";
   }
@@ -67,7 +71,7 @@ export function renderDeckFrame(
   lines.push(wrap(theme.fg("accent", theme.bold(truncateToWidth(header, inner, "…", true)))));
   lines.push(border(`├${"─".repeat(inner)}┤`));
 
-  const nav = navLines(snapshot, state, theme, leftW);
+  const nav = navLines(snapshot, state, theme, leftW, state.navMode);
   const center = centerRouteBody(snapshot, state, theme, centerW, shortcuts, composer, tick);
   const right = rightRail(snapshot, theme, rightW);
 
@@ -91,8 +95,14 @@ function navLines(
   state: DeckNavState,
   theme: Theme,
   width: number,
+  focused: boolean,
 ): string[] {
-  const lines: string[] = [theme.fg("accent", "NAVIGATION")];
+  // Focus marker: ◉ = ↑↓ walks this column, ○ = ↑↓ moves the center list.
+  // Without this the cursor appears to "go right" on ↓ while list-focused.
+  const header = focused
+    ? theme.fg("accent", theme.bold("◉ NAVIGATION"))
+    : theme.fg("muted", "○ NAVIGATION");
+  const lines: string[] = [header];
   for (const route of DECK_ROUTE_DEFS) {
     const active = route.id === state.route;
     const marker = active ? "◉" : "◇";
@@ -118,7 +128,17 @@ function centerRouteBody(
   composer: ComposerDraft | null = null,
   tick = Date.now(),
 ): string[] {
-  const title = theme.fg("accent", `ACTIVE ROUTE: ${routeTitle(state.route).toUpperCase()}`);
+  const listFocused =
+    !state.navMode && !state.searchOpen && !state.composerOpen;
+  const title = listFocused
+    ? theme.fg(
+        "accent",
+        theme.bold(`◉ ACTIVE ROUTE: ${routeTitle(state.route).toUpperCase()}`),
+      )
+    : theme.fg(
+        "muted",
+        `○ ACTIVE ROUTE: ${routeTitle(state.route).toUpperCase()}`,
+      );
   const body: string[] = [title, ""];
   switch (state.route) {
     case "home":
@@ -162,7 +182,7 @@ function centerRouteBody(
       body.push("Use /signal preset · placement · doctor");
       break;
     case "skills":
-      body.push(...skillsWorkbenchLines(snapshot, state, width));
+      body.push(...skillsWorkbenchLines(snapshot, state, width, theme));
       break;
     case "ideas":
       body.push(...ideasLines(snapshot, state));

@@ -3,6 +3,7 @@
  * Pure: given snapshot + nav + optional composer draft, return lines.
  */
 
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
   COMPOSER_FIELDS,
   composerPreview,
@@ -11,6 +12,8 @@ import {
 import { filterMotions, GALLERY_CATEGORIES, previewStrip } from "../../../motion/gallery.ts";
 import { getMotion } from "../../../motion/catalog.ts";
 import { STRUCTURAL_PRESET_NAMES } from "../../../config/types.ts";
+import { searchAppearanceConfig } from "./appearance-search.ts";
+import { renderSkillWizard } from "../../skills/workbench.ts";
 import {
   appearanceDisplayName,
   getStructuralPreset,
@@ -30,6 +33,20 @@ export function appearanceLines(
   snapshot: DeckSessionSnapshot,
   state: DeckNavState,
 ): string[] {
+  const query = state.route === "appearance" ? state.searchQuery.trim() : "";
+  if (query) {
+    const hits = searchAppearanceConfig(query);
+    if (hits.length === 0) return [`No appearance hits for "${query}"`];
+    const cursor = Math.min(state.selectedAppearance, hits.length - 1);
+    const start = Math.max(0, cursor - 4);
+    const lines = [`Search ${hits.length} · enter applies preset, motion, or level`];
+    for (let i = start; i < Math.min(hits.length, start + 10); i++) {
+      const hit = hits[i]!;
+      const marker = i === cursor ? "→" : " ";
+      lines.push(`${marker}${hit.group}: ${hit.label}`);
+    }
+    return lines;
+  }
   const selected = STRUCTURAL_PRESET_NAMES[state.selectedAppearance];
   const selectedDef = selected ? getStructuralPreset(selected) : null;
   const lines = [
@@ -127,7 +144,12 @@ export function skillsWorkbenchLines(
   snapshot: DeckSessionSnapshot,
   state: DeckNavState,
   width: number,
+  theme?: Theme,
 ): string[] {
+  if (state.skillWizard) {
+    const paint = theme ?? { fg: (_color: string, text: string) => text };
+    return renderSkillWizard(paint as Theme, width, state.skillWizard);
+  }
   const query = state.route === "skills" ? state.searchQuery : "";
   const rows = filterSkillRows(snapshot.skills, query);
   const cursor = Math.min(state.selectedSkill, Math.max(0, rows.length - 1));

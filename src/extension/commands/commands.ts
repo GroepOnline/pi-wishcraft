@@ -35,6 +35,7 @@ import { config, normalizePreset } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getPowerlineArgumentCompletions } from "./powerline-completions.ts";
 import { settleSignal } from "../../signal/integration.ts";
+import { formatProductIdentity, readProductIdentity } from "../../product-identity.ts";
 
 export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   registerCdCommand(pi, () => rt.currentCtx?.cwd ?? process.cwd());
@@ -108,6 +109,10 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
       }
       if (normalizedArgs === "doctor") {
         await runPowerlineDoctor(rt, ctx);
+        return;
+      }
+      if (normalizedArgs === "version") {
+        ctx.ui.notify(formatProductIdentity(readProductIdentity()).trimEnd(), "info");
         return;
       }
       if (normalizedArgs === "export") {

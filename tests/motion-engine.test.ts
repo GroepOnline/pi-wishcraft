@@ -16,6 +16,7 @@ import {
   getMotion,
   isContinuous,
   lanternGlow,
+  sweepPhase,
   sweepPosition,
   targetFps,
   trailGlyph,
@@ -303,6 +304,46 @@ test("sweep stands still when nothing is animating", () => {
   assert.equal(trailGlyph(9), "─");
   assert.equal(trailGlyph(0, true), "*");
   assert.equal(trailGlyph(2, true), ">");
+});
+
+test("sweep ping-pongs instead of teleporting at the wrap edge", () => {
+  const width = 6;
+  const positions: number[] = [];
+  for (let tick = 0; tick < 2 * (2 * (width - 1)); tick++) {
+    positions.push(sweepPosition(tick, width, true));
+  }
+  // The head walks to the last cell, turns, and walks back: 0..5..0..5.
+  assert.deepEqual(
+    positions.slice(0, 10),
+    [0, 1, 2, 3, 4, 5, 4, 3, 2, 1],
+  );
+  // No jump larger than one cell anywhere in the cycle.
+  for (let i = 1; i < positions.length; i++) {
+    assert.ok(
+      Math.abs(positions[i]! - positions[i - 1]!) <= 1,
+      `teleport between tick ${i - 1} and ${i}: ${positions[i - 1]} -> ${positions[i]}`,
+    );
+  }
+});
+
+test("sweepPhase honours ease curves with fractional positions", () => {
+  const width = 12;
+  // Early in the pass, pulse lags linear (it accelerates through the
+  // middle) and breathe lags even longer (long dwell at the ends).
+  const linear = sweepPhase(3, width, true, "forward", "linear");
+  const pulse = sweepPhase(3, width, true, "forward", "pulse");
+  const breathe = sweepPhase(3, width, true, "forward", "breathe");
+  assert.ok(pulse < linear, `pulse should lag linear: ${pulse} !< ${linear}`);
+  assert.ok(breathe < pulse, `breathe should lag pulse: ${breathe} !< ${pulse}`);
+  // Halfway through the pass the curves agree again (symmetric easing).
+  const midLinear = sweepPhase((width - 1) / 2, width, true, "forward", "linear");
+  const midPulse = sweepPhase((width - 1) / 2, width, true, "forward", "pulse");
+  assert.ok(Math.abs(midLinear - midPulse) < 1e-9);
+  // Fractional output stays inside the rail.
+  for (let tick = 0; tick < 40; tick++) {
+    const p = sweepPhase(tick, width, true);
+    assert.ok(p >= 0 && p <= width - 1, `phase out of rail at tick ${tick}: ${p}`);
+  }
 });
 
 test("continuous events are separated from one-shot events", () => {

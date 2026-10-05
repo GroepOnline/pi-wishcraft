@@ -55,6 +55,13 @@ idle / ready       0 FPS
 
 Terminal one-shots (`success`, `warning`, `error`) settle their semantic state back to `idle/ready` when the final frame completes. This prevents a completed agent run from leaving `done` painted indefinitely without keeping a background timer alive.
 
+Active sweeps traverse the rail on an eased ping-pong: the head decelerates at
+the edges, turns, and glides back instead of teleporting from the last cell to
+the first. Each motion's `ease` curve (`linear`, `pulse`, `breathe`) shapes the
+traversal, the wake cools through a truecolor ramp from the hot head to the
+dim track, and ember/heat heads flicker with the lantern's breathe-plus-ripple
+curve. ASCII terminals keep the plain directional comet.
+
 Reduced/functional/off motion policies may suppress frames entirely; status text must still communicate the state. `NO_COLOR`, screen-reader flags and ASCII fallback are first-class inputs to the same policy.
 
 ## Fault isolation

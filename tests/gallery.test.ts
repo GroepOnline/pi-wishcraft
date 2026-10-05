@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MOTION_CATALOG } from "../src/motion/catalog.ts";
+import { MOTION_CATALOG, getMotion } from "../src/motion/catalog.ts";
+import { frameAt } from "../src/motion/frames.ts";
 import {
   filterMotions,
   groupMotions,
@@ -13,7 +14,6 @@ import {
   motionFromDraft,
   nudgeComposer,
 } from "../src/motion/composer.ts";
-import { getMotion } from "../src/motion/catalog.ts";
 
 test("catalog ships fifty-plus gallery motions across the named families", () => {
   assert.ok(MOTION_CATALOG.length >= 50, `catalog size ${MOTION_CATALOG.length}`);
@@ -58,4 +58,23 @@ test("composer draft round-trips and nudges interval", () => {
   assert.equal(def.generator?.intervalMs, nudged.intervalMs);
   assert.ok(composerPreview(nudged, 0, 12).length >= 8);
   assert.ok(motionFrameCount(ember) > 0);
+});
+
+test("preview trail stays behind the head on both ping-pong legs", () => {
+  const def = getMotion("braille-wave")!;
+  const head = (tick: number) => frameAt(def, tick);
+  // Outbound (tick 3 of 8 cells): the head moves right, its wake trails left.
+  const outbound = previewStrip(def, 3, 8);
+  const outHead = outbound.indexOf(head(3));
+  const outTrail = outbound.indexOf("━");
+  assert.notEqual(outHead, -1, `head glyph missing: ${outbound}`);
+  assert.notEqual(outTrail, -1, `trail glyph missing: ${outbound}`);
+  assert.ok(outHead > outTrail, `outbound wake must sit left of the head: ${outbound}`);
+  // Return leg (tick 8 > span 7): the head moves left, its wake trails right.
+  const returning = previewStrip(def, 8, 8);
+  const retHead = returning.indexOf(head(8));
+  const retTrail = returning.indexOf("━");
+  assert.notEqual(retHead, -1, `head glyph missing: ${returning}`);
+  assert.notEqual(retTrail, -1, `trail glyph missing: ${returning}`);
+  assert.ok(retTrail > retHead, `return wake must sit right of the head: ${returning}`);
 });

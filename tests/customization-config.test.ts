@@ -107,7 +107,7 @@ test("custom computed segments render via renderSegment", () => {
   }
 });
 
-test("tps starts at 0 (no fake session-average after reload)", () => {
+test("tps starts as unavailable (no fake session-average after reload)", () => {
   tpsSamples.length = 0;
   const theme: any = { fg: (_c: string, t: string) => t };
   const ctx: any = {
@@ -127,8 +127,9 @@ test("tps starts at 0 (no fake session-average after reload)", () => {
   };
   const r = renderSegment("tps" as any, ctx);
   const text = r.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
-  // value lives after the icon; must be 0, never the raw 50000 output
-  assert.match(text, /(^|\s)0(\.0)?$/);
+  // No two-point sample exists yet, so show unavailable rather than a fake
+  // zero rate or the raw cumulative token value.
+  assert.match(text, /--$/);
   assert.ok(!/50000/.test(text), `must not echo raw output: ${text}`);
 });
 
@@ -159,14 +160,14 @@ test("segmentLabels override tps/open_ports text", () => {
   // no label -> just the icon + value
   const noLabel = renderSegment("open_ports" as any, base);
   const stripped = noLabel.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
-  assert.ok(/\d+$/.test(stripped), `expected a bare count, got ${stripped}`);
+  assert.ok(/\d+ tcp$/.test(stripped), `expected a TCP port count, got ${stripped}`);
   // with label -> icon + "ports <count>"
   const labeled = renderSegment("open_ports" as any, {
     ...base,
     segmentLabels: new Map([["open_ports", "ports"]]),
   });
   const s2 = labeled.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
-  assert.match(s2, /ports \d+$/);
+  assert.match(s2, /ports \d+ tcp$/);
 });
 
 test("parsePowerlineConfig parses segmentLabels", () => {
@@ -228,8 +229,8 @@ test("segment template replaces {value} and combines with a label", () => {
     options: { tps: { template: "{value} tok/s" } },
   });
   const s1 = templated.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
-  assert.match(s1, /0 tok\/s$/);
-  assert.ok(!/0 tok\/s tok\/s/.test(s1), `template applied twice: ${s1}`);
+  assert.match(s1, /-- tok\/s$/);
+  assert.ok(!/tok\/s tok\/s/.test(s1), `template applied twice: ${s1}`);
 
   const labeled = renderSegment("tps" as any, {
     ...base,
@@ -237,19 +238,20 @@ test("segment template replaces {value} and combines with a label", () => {
     segmentLabels: new Map([["tps", "speed"]]),
   });
   const s2 = labeled.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
-  assert.match(s2, /speed 0 tok\/s$/);
+  assert.match(s2, /speed -- tok\/s$/);
 });
 
 test("parsePowerlineConfig parses tps windowMs and per-segment templates", () => {
   const cfg = parsePowerlineConfig(
     {
       preset: "chef",
-      tps: { windowMs: 2000, template: "{value} tok/s" },
+      tps: { windowMs: 2000, mode: "out", template: "{value} tok/s" },
       time: { template: "{value} ⏱" },
     },
     ["default", "chef"] as unknown as readonly string[],
   );
   assert.equal(cfg.segmentOptions.tps?.windowMs, 2000);
+  assert.equal(cfg.segmentOptions.tps?.mode, "out");
   assert.equal(cfg.segmentOptions.tps?.template, "{value} tok/s");
   assert.equal(cfg.segmentOptions.time?.template, "{value} ⏱");
   assert.equal(cfg.segmentOptions.path?.template, undefined);
@@ -269,4 +271,10 @@ test("parsePowerlineConfig parses tps windowMs and per-segment templates", () =>
     ["default", "chef"] as unknown as readonly string[],
   );
   assert.equal(capped.segmentOptions.tps?.windowMs, 5000);
+
+  const invalidMode = parsePowerlineConfig(
+    { preset: "chef", tps: { mode: "sideways" } },
+    ["default", "chef"] as unknown as readonly string[],
+  );
+  assert.equal(invalidMode.segmentOptions.tps?.mode, undefined);
 });

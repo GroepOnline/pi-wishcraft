@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+<<<<<<< HEAD
 ### Added
 - Bash forward-mode privacy notice (issue #71): the first keystroke forwarded to a running command raises an info notice that typed input may echo into the transcript; documented in `docs/bash-mode.md`.
 - Managed PTY suite is now script-gated (issue #73): PTY-core tests skip when `script(1)` is missing instead of silently passing in degraded pipe mode, the basic run asserts a real PTY transport, and the explicit pipe-mode tests still cover the fallback.
@@ -10,6 +11,50 @@
 - Bash paste-while-running (issue #72): a bracketed paste performed while a command runs is stripped of its markers and forwarded to the child stdin — including split delivery across input chunks — instead of silently queuing in the editor buffer behind the command.
 - PTY/transcript memory bounds (from jan `fix/runtime-pty-bounds`): a single unterminated output line is capped at a 64 KiB UTF-8 tail with a one-time notice, the partial-escape tail is bounded, and the active transcript command trims head lines/bytes within limits instead of growing unbounded.
 - Segment-options spread hygiene (CodeFactor #86–89): `normalizeSegmentOptions` assigns fields imperatively instead of spreading conditional empty objects.
+||||||| 34ee830
+=======
+## [1.13.0] - 2026-09-25
+
+### Added
+- `budget` segment (daily token budget): renders `budget NN%` with a fill bar when `wishcraft.tokenBudget.daily.limit` is set; wired into the `chef`, `full`, and `nerd` presets.
+- Resting animation has a real clock: while idle at full motion, the signal rail leases the scheduler's `ambient` channel and breathes from that tick. `reduced`/`off` motion still renders a stable dim marker with no scheduler consumer.
+
+## [1.12.0] - 2026-09-25
+
+### Added
+- Recovered the unmatched vNext gallery motions (ember-trail, lantern-glow, fat-band, and the rest that were not already in the catalog) and the extreme-motion rail candidates (braille wave, boids, chevrons, shimmer, seismograph, fat-band). Assign motion `fat-band` to paint the topographic streaming rail; the default sweep stays a single status row.
+- Deck skills: `w` opens the multi-step new-skill wizard (name, description, template, triggers) and writes `SKILL.md`. `n` remains the one-field create.
+- Appearance route search (`/`) filters presets, palettes, motions, and motion levels. Enter persists a structural base, a streaming motion, or a motion level.
+
+## [1.11.0] - 2026-09-20
+
+### Fixed
+- Deck navigation (reported by Joep): ↑↓ walking the route column is now sticky. Previously ↓ arriving at a list route (Skills, Appearance, Motion, Ideas) was silently consumed by the center list, so walking down the left column appeared to jump sideways into the right pane mid-walk. Focus only crosses columns on an explicit ←/tab (nav) or → (list).
+
+### Changed
+- Motion sweeps traverse on an eased ping-pong instead of a wrapping step: the head decelerates at the rail edges, turns, and glides back — no teleport from the last cell to the first. Each motion's `ease` curve (`linear` / `pulse` / `breathe`) now actually shapes traversal velocity; fractional head positions drive a truecolor trail ramp (hot head cooling to the dim track) replacing the four discrete color steps, and ember/heat heads flicker with the welcome lantern's breathe-plus-ripple curve. Gallery previews render the same eased traversal.
+
+## [1.10.0] - 2026-09-13
+
+### Fixed
+- Release bump scan: `chooseBump` now scans every commit subject, so a breaking marker later in the list still promotes to major instead of silently shipping a minor.
+
+## [1.9.0] - 2026-09-12
+
+### Added
+- Per-package preview container (`preview/Dockerfile` + `preview/smoke.sh` + `preview.yml` workflow): builds the npm artifact and smoke-tests the exact files pi loads; images push to GHCR on main.
+
+## [1.8.0] - 2026-09-12
+
+### Fixed
+- Deck dashboard focus model: the focused pane is now marked with ◉/○ so ↓ on the skills workbench no longer looks like it "goes right" — ↑↓ moves the focused pane, ←/tab focuses NAVIGATION, → returns to the list, and the footer advertises both. List cursors clamp from the current position, so a stale cursor after filtering/refresh moves one row instead of sticking.
+
+## [1.4.17] - 2026-09-07
+
+### Added
+- Bash forward-mode privacy notice (issue #71): the first keystroke forwarded to a running command raises an info notice that typed input may echo into the transcript; documented in `docs/bash-mode.md`.
+- Managed PTY suite is now script-gated (issue #73): PTY-core tests skip when `script(1)` is missing instead of silently passing in degraded pipe mode, the basic run asserts a real PTY transport, and the explicit pipe-mode tests still cover the fallback.
+>>>>>>> 394402d958799308f24ffc284a240b878588a931
 
 ## [1.4.16] - 2026-09-05
 

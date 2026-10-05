@@ -19,12 +19,15 @@ import {
   readSkillBody,
 } from "../../skills/skill-registry.ts";
 import { writeSkillFromTemplate } from "../../skills/skill-templates.ts";
+import { createSkillWizard } from "../../skills/workbench.ts";
+import { appearanceDisplayName } from "../../../config/structural-presets.ts";
+import { searchAppearanceConfig } from "./appearance-search.ts";
+import { applyDeckAppearanceHit, reduceSkillWizard } from "./deck-actions.ts";
 import {
   applyOverlayQueryKey,
   isOverlayPrintable,
 } from "../overlay-chrome.ts";
 import type { RuntimeState } from "../../core/types.ts";
-import { appearanceDisplayName } from "../../../config/structural-presets.ts";
 import { filterSkillRows, selectedGalleryMotion } from "./route-bodies.ts";
 import {
   buildDeckSessionSnapshot,
@@ -59,6 +62,7 @@ export function createDeckNavState(
     assignEvent: "streaming",
     skillCreate: false,
     skillCreateName: "",
+    skillWizard: null,
     navMode: false,
   };
 }
@@ -127,6 +131,14 @@ export function createDeckComponent(
           composer = null;
           return;
         }
+        if (state.skillWizard) {
+          state = reduceSkillWizard(state, "escape", {
+            refresh: refreshStaticSnapshot,
+            info: () => {},
+            warn: () => {},
+          });
+          return;
+        }
         if (state.skillCreate) {
           state = { ...state, skillCreate: false, skillCreateName: "" };
           return;
@@ -168,14 +180,23 @@ export function createDeckComponent(
         return;
       }
 
-      // ←/tab returns focus to the NAVIGATION column in one press; from there
-      // ↑↓ moves the nav selection and any other key drops back into the list.
+      // ←/tab moves focus to the NAVIGATION column in one press; from there
+      // ↑↓ walks the routes and → (or any other key) drops back into the
+      // list. The focused pane is highlighted in the frame (◉/○ markers)
+      // so ↑↓ never appears to "go right" while the list has focus.
       if (
         !state.composerOpen &&
         !state.skillCreate &&
-        (matchesKey(data, "left") || matchesKey(data, "tab"))
+        !state.skillWizard &&
+        (matchesKey(data, "left") ||
+          matchesKey(data, "tab") ||
+          matchesKey(data, "shift+tab"))
       ) {
         state = { ...state, navMode: true };
+        return;
+      }
+      if (state.navMode && matchesKey(data, "right")) {
+        state = { ...state, navMode: false };
         return;
       }
       if (state.navMode) {
@@ -188,8 +209,21 @@ export function createDeckComponent(
       }
 
       if (state.route === "appearance") {
-        if (!state.navMode && handleList(data, "selectedAppearance", STRUCTURAL_PRESET_NAMES.length)) return;
+        const query = state.searchQuery.trim();
+        const hits = query ? searchAppearanceConfig(query) : [];
+        const count = query ? hits.length : STRUCTURAL_PRESET_NAMES.length;
+        if (!state.navMode && handleList(data, "selectedAppearance", count)) return;
         if (matchesKey(data, "enter")) {
+          if (query) {
+            applyDeckAppearanceHit(
+              rt,
+              ctx.cwd ?? process.cwd(),
+              hits[state.selectedAppearance],
+              notify,
+              (message) => ctx.ui.notify(message, "warning"),
+            );
+            return;
+          }
           const name = STRUCTURAL_PRESET_NAMES[state.selectedAppearance];
           if (name) {
             const ok = applyAppearanceBase(rt, ctx.cwd ?? process.cwd(), name);
@@ -235,6 +269,14 @@ export function createDeckComponent(
       }
 
       if (state.route === "skills") {
+        if (state.skillWizard) {
+          state = reduceSkillWizard(state, data, {
+            refresh: refreshStaticSnapshot,
+            info: (message) => ctx.ui.notify(message, "info"),
+            warn: (message) => ctx.ui.notify(message, "warning"),
+          });
+          return;
+        }
         if (state.skillCreate) {
           if (matchesKey(data, "enter")) {
             const name = state.skillCreateName.trim();
@@ -266,6 +308,10 @@ export function createDeckComponent(
           state = { ...state, skillCreate: true, skillCreateName: "" };
           return;
         }
+        if (data === "w") {
+          state = { ...state, skillWizard: createSkillWizard() };
+          return;
+        }
         const snapshot = liveSnapshot();
         const rows = filterSkillRows(snapshot.skills, state.searchQuery);
         if (!state.navMode && handleList(data, "selectedSkill", rows.length)) return;
@@ -292,11 +338,17 @@ export function createDeckComponent(
       if (matchesKey(data, "up")) {
         const next = Math.max(0, state.selectedNav - 1);
         setRoute(DECK_ROUTE_DEFS[next]?.id ?? state.route);
+        // Sticky focus: once ↑↓ drives the nav column it keeps driving the
+        // nav column. Without this, ↓ arriving at a list route (skills,
+        // appearance, motion, ideas) is silently consumed by the center
+        // list and focus appears to jump sideways mid-walk.
+        state = { ...state, navMode: true };
         return;
       }
       if (matchesKey(data, "down")) {
         const next = Math.min(DECK_ROUTE_DEFS.length - 1, state.selectedNav + 1);
         setRoute(DECK_ROUTE_DEFS[next]?.id ?? state.route);
+        state = { ...state, navMode: true };
         return;
       }
 
@@ -313,12 +365,16 @@ export function createDeckComponent(
     length: number,
   ): boolean {
     if (length <= 0) return false;
+    // Clamp first: the catalog can shrink (filter/refresh) while the stored
+    // cursor still points past the end. Without this, ↑ from a stale cursor
+    // lands out of range and the highlight appears stuck.
+    const cursor = Math.min(Math.max(0, state[key]), length - 1);
     if (matchesKey(data, "up")) {
-      state = { ...state, [key]: Math.max(0, state[key] - 1) };
+      state = { ...state, [key]: Math.max(0, cursor - 1) };
       return true;
     }
     if (matchesKey(data, "down")) {
-      state = { ...state, [key]: Math.min(length - 1, state[key] + 1) };
+      state = { ...state, [key]: Math.min(length - 1, cursor + 1) };
       return true;
     }
     return false;
@@ -327,8 +383,18 @@ export function createDeckComponent(
   function handleSearch(data: string): void {
     const next = applyOverlayQueryKey(state.searchQuery, data);
     if (next !== null) {
-      state = { ...state, searchQuery: next, selectedMotion: 0, selectedSkill: 0 };
-      if (state.route !== "motion" && state.route !== "skills") {
+      state = {
+        ...state,
+        searchQuery: next,
+        selectedMotion: 0,
+        selectedSkill: 0,
+        selectedAppearance: 0,
+      };
+      if (
+        state.route !== "motion" &&
+        state.route !== "skills" &&
+        state.route !== "appearance"
+      ) {
         const matches = filterDeckRoutes(next);
         if (matches.length === 1) {
           state = { ...state, searchOpen: false, searchQuery: "", navMode: false };
@@ -338,7 +404,7 @@ export function createDeckComponent(
       return;
     }
     if (matchesKey(data, "enter")) {
-      if (state.route === "motion" || state.route === "skills") {
+      if (state.route === "motion" || state.route === "skills" || state.route === "appearance") {
         state = { ...state, searchOpen: false };
         return;
       }

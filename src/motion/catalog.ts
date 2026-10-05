@@ -9,6 +9,7 @@
 
 import type { MotionChannel, MotionDef, MotionEvent } from "./types.ts";
 import { EXTRA_MOTIONS } from "./catalog-extra.ts";
+import { RECOVERED_MOTIONS } from "./catalog-recovered.ts";
 
 const CORE_MOTIONS: readonly MotionDef[] = [
   {
@@ -255,7 +256,11 @@ const CORE_MOTIONS: readonly MotionDef[] = [
   },
 ];
 
-export const MOTION_CATALOG: readonly MotionDef[] = [...CORE_MOTIONS, ...EXTRA_MOTIONS];
+export const MOTION_CATALOG: readonly MotionDef[] = [
+  ...CORE_MOTIONS,
+  ...EXTRA_MOTIONS,
+  ...RECOVERED_MOTIONS,
+];
 
 /**
  * Which channels an event may light up. Deliberately sparse: idle must not

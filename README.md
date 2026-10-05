@@ -1,43 +1,54 @@
-<p>
-  <img src="https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/banner.png" alt="pi-wishcraft" width="1100">
+<p align="center">
+  <img src="https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/banner.png" alt="Pi Wishcraft" width="100%">
 </p>
 
-<p>
+<h1 align="center">Pi Wishcraft</h1>
+
+<p align="center"><strong>Your operator cockpit for Pi.</strong><br>See what the session is doing, park ideas without interrupting it, search skills, switch into Bash, and keep the important controls one keypress away.</p>
+
+<p align="center">
   <a href="https://www.npmjs.com/package/@groeponline/pi-wishcraft"><img src="https://img.shields.io/npm/v/@groeponline/pi-wishcraft.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/@groeponline/pi-wishcraft"><img src="https://img.shields.io/npm/dm/@groeponline/pi-wishcraft.svg?label=downloads" alt="npm downloads"></a>
   <a href="https://pi.dev/packages/@groeponline/pi-wishcraft"><img src="https://img.shields.io/badge/Pi-package-9b59b6.svg" alt="Pi package"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555.svg" alt="MIT license"></a>
 </p>
 
-# pi-wishcraft
+<p align="center"><img src="https://raw.githubusercontent.com/GroepOnline/pi-wishcraft/main/docs/images/wishcraft-cockpit-map.svg" alt="Wishcraft cockpit map showing Signal, Deck, idea capture, skills, managed shell and local guardrails around Pi" width="100%"><br><sub>A map of the shipped operator surfaces. Pi remains the agent runtime.</sub></p>
 
-Cockpit and harness for the [pi](https://github.com/badlogic/pi-mono) coding agent: a live status bar, overlay menus, skills, an idea inbox, sticky bash, hooks, and tool-input repairs. Stock pi stays the engine. This package is the operator layer.
-Kongming lanterns started as battlefield signals and later carried wishes. Wishcraft is that split in a coding session: telemetry on the bar, thoughts you can park without interrupting the run.
-
-Install `@groeponline/pi-wishcraft`. It is listed on the [Pi package catalog](https://pi.dev/packages/@groeponline/pi-wishcraft). Grew out of [`nicobailon/pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer). Maintained by [GroepOnline](https://github.com/GroepOnline).
-
-Guides live in [`docs/`](docs/index.md). This is the Pi extension contract: what ships, how to install it, and what can fail.
-
-## Quick start tutorial
-
-Install, restart Pi (or run `/reload`), then press `alt+p` for the Deck. Try `/signal menu`, `/skills`, `/ideas`, and `ctrl+shift+b`. Full setup: [docs/configuration.md](docs/configuration.md).
-**Portfolio boundary:** Wishcraft owns the operator cockpit and lightweight idea capture. Promote durable work to [`pi-missions`](https://github.com/GroepOnline/pi-missions), then use [`pi-agent-orchestrator`](https://github.com/GroepOnline/pi-agent-orchestrator) when parallel/isolated execution adds value: `idea -> mission -> orchestration run`.
-
-## Install
-
-Pi package manager (usual path):
+## Start in 10 seconds
 
 ```bash
 pi install npm:@groeponline/pi-wishcraft
 ```
 
-For a local checkout or CI environment, run the repository bootstrap script with Bash:
+Reload Pi, then press `alt+p` to open the Deck.
 
-```bash
-bash ./scripts/install.sh
+Try the two flows that make Wishcraft click fastest:
+
+```text
+# remember to benchmark the new provider path
+/ideas
 ```
 
-Then restart Pi or `/reload`. Pi host packages are declared as `peerDependencies: "*"`, matching the Pi package contract.
+The `#` line is captured as an idea instead of being sent as a prompt. Your active run keeps going.
+
+Then open the skill picker:
+
+```text
+/skills
+```
+
+Search, inspect and insert a skill without leaving the session.
+
+## Why Wishcraft
+
+Pi stays the engine. Wishcraft adds the operator layer around it: live status, overlays, idea capture, skill search, sticky Bash, hooks, policy controls and session UX.
+
+Kongming lanterns started as battlefield signals and later carried wishes. Wishcraft keeps both ideas in one place: telemetry while the work is moving, and thoughts you can park until you are ready for them.
+
+**Portfolio boundary:** Wishcraft owns the operator cockpit and lightweight idea capture. Promote durable work to [`pi-missions`](https://github.com/GroepOnline/pi-missions), then use [`pi-agent-orchestrator`](https://github.com/GroepOnline/pi-agent-orchestrator) when parallel or isolated execution adds value: `idea -> mission -> orchestration run`.
+
+Guides live in [`docs/`](docs/index.md).
 
 ## What you get
 
@@ -80,12 +91,6 @@ Activates on load. `/signal` toggles it. `/signal <preset>` switches the informa
 /vibe star trek       themed working messages
 ```
 
-Queue:
-
-- `# <text>` current project; `# @global`, `# @current`, `# @alias`
-- `/idea`, `/ideas`, `/queue` for capture, send, retry, clear, archive
-- `/ideas` overlay: `reviewStatus` (`idea` / `in-progress` / `done`), tags, Run with skill X
-
 Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
 
 ```json
@@ -113,10 +118,6 @@ Keybinds (`powerlineShortcuts`, applied after `/reload`; `null` disables):
 ```
 
 `chef` is muted colors, slash separators, live TPS in/out, and TCP port count. Built-in presets: `default`, `minimal`, `compact`, `full`, `nerd`, `ascii`, `chef`. Custom segments, labels, layout, and presets are documented in [docs/configuration.md](docs/configuration.md). For every setting at its default, see [`examples/settings.example.json`](examples/settings.example.json).
-
-Nerd Fonts auto-detect for iTerm, WezTerm, Kitty, Ghostty, and Alacritty; ASCII otherwise. `POWERLINE_NERD_FONTS=0` forces ASCII.
-
-Context turns warning above 70% and error above 90%. TPS is tokens in the last ~1s, not a session average. `/tps` reads that ring; it does not start a second sampler.
 
 Daily token budget (never blocks a turn):
 
@@ -233,7 +234,6 @@ Privacy/network boundary: ideas, settings, usage ledgers, and normal cockpit sta
 ## vNext Direction
 
 Wishcraft is Pi's animated operator layer. See the [release plan](docs/design/vnext-release-plan.md) and [design corpus](docs/index.md#design-system--vnext-specifications).
-
 ## Docs
 
 - [Commands](docs/commands.md)

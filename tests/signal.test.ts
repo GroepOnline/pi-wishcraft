@@ -13,7 +13,7 @@ import { renderActivity } from "../src/render/motion-rail.ts";
 import { renderStatusLineV2 } from "../src/render/v2-entry.ts";
 import { getStructuralPreset } from "../src/config/structural-presets.ts";
 import { PRESETS } from "../src/config/presets.ts";
-import type { SegmentContext } from "../src/config/types.ts";
+import type { SegmentContext, SignalSpec } from "../src/config/types.ts";
 import { registerCommands } from "../src/extension/commands/commands.ts";
 import {
   clearContributions,
@@ -53,7 +53,25 @@ function schedulerHarness() {
   };
 }
 
-test("Signal leases the shared scheduler only while active", () => {
+const TEST_SIGNAL_SPEC: SignalSpec = {
+  layout: "standard",
+  separators: { left: "[", right: "]" },
+  caps: {},
+  animation: "ember-relay",
+};
+
+function activityRail(
+  signal: ReturnType<typeof createSignalRuntime>,
+  ascii: boolean,
+  width: number,
+): string {
+  const rendered = stripAnsi(renderActivity(signal, TEST_SIGNAL_SPEC, ascii, width));
+  const match = /^\[(.*)\] /.exec(rendered);
+  assert.ok(match, `expected a bracketed activity rail, got ${rendered}`);
+  return match[1]!;
+}
+
+test("Signal leases the ambient channel while resting and signal while active", () => {
   const harness = schedulerHarness();
   const signal = createSignalRuntime(0);
   const policy = {
@@ -62,16 +80,38 @@ test("Signal leases the shared scheduler only while active", () => {
   };
 
   assert.equal(harness.scheduler.activeCount, 0);
+  setSignalEvent(signal, harness.scheduler, policy, "idle");
+  assert.equal(signal.active, false);
+  assert.equal(signal.idleAnimated, true);
+  assert.equal(harness.scheduler.activeCount, 1);
+  assert.deepEqual(harness.scheduler.activeChannels(), ["ambient"]);
+
+  harness.advance(300);
+  assert.equal(signal.tick, 1, "the ambient clock must tick while resting");
+
   setSignalEvent(signal, harness.scheduler, policy, "streaming");
+  assert.equal(signal.active, true);
+  assert.equal(signal.idleAnimated, false);
   assert.equal(harness.scheduler.activeCount, 1);
   assert.equal(harness.scheduler.activeChannels()[0], "signal");
-  assert.equal(harness.pending, true);
 
-  harness.advance();
+  harness.advance(300);
   assert.equal(signal.tick, 1);
 
   stopSignal(signal, harness.scheduler, policy);
   assert.equal(signal.active, false);
+  assert.equal(signal.idleAnimated, true, "resting resumes ambient breathing");
+  assert.equal(harness.scheduler.activeCount, 1);
+  assert.deepEqual(harness.scheduler.activeChannels(), ["ambient"]);
+
+  // Reduced motion drops ambient entirely: zero consumers, static rail.
+  const reduced = {
+    ...DEFAULT_MOTION_POLICY,
+    level: "reduced" as const,
+    toggles: { ...DEFAULT_MOTION_POLICY.toggles },
+  };
+  stopSignal(signal, harness.scheduler, reduced);
+  assert.equal(signal.idleAnimated, false);
   assert.equal(harness.scheduler.activeCount, 0);
   assert.equal(harness.scheduler.running, false);
   assert.equal(harness.pending, false);
@@ -93,6 +133,37 @@ test("reduced motion keeps stable Signal text without scheduling frames", () => 
   assert.equal(harness.scheduler.activeCount, 0);
 });
 
+test("idle animation honors the ambient toggle and survives subscription failure", () => {
+  const harness = schedulerHarness();
+  const signal = createSignalRuntime(0);
+  const ambientDisabled = {
+    ...DEFAULT_MOTION_POLICY,
+    toggles: { ...DEFAULT_MOTION_POLICY.toggles, ambient: false },
+  };
+
+  setSignalEvent(signal, harness.scheduler, ambientDisabled, "idle");
+  assert.equal(signal.event, "idle");
+  assert.equal(signal.active, false);
+  assert.equal(signal.idleAnimated, false);
+  assert.equal(signal.release, null);
+  assert.equal(harness.scheduler.activeCount, 0);
+
+  const failingScheduler = {
+    subscribe() {
+      throw new Error("timer unavailable");
+    },
+  } as unknown as MotionScheduler;
+  const fullPolicy = {
+    ...DEFAULT_MOTION_POLICY,
+    toggles: { ...DEFAULT_MOTION_POLICY.toggles },
+  };
+
+  assert.doesNotThrow(() => setSignalEvent(signal, failingScheduler, fullPolicy, "idle"));
+  assert.equal(signal.active, false);
+  assert.equal(signal.idleAnimated, false);
+  assert.equal(signal.release, null);
+});
+
 test("Signal activity uses structural motion and ASCII fallback", () => {
   const signal = createSignalRuntime(0);
   signal.event = "streaming";
@@ -102,26 +173,128 @@ test("Signal activity uses structural motion and ASCII fallback", () => {
   signal.tick = 2;
   const spec = getStructuralPreset("lanternwake").signal;
 
-  // Non-ASCII: 3-row lantern sigil (lanternwake + streaming falls to the
-  // sigil branch). The 1-row directional comet was retired in favour of
-  // the multi-row sigil — the new visual contract. Lantern is pure `#`
-  // blocks: no braille, no shade blocks, no font assumptions.
+  // The rail is always one row. A streaming response must never turn the
+  // footer into a three-line block or push the operational segments down.
   const rail = stripAnsi(renderActivity(signal, spec, false));
-  const lines = rail.split("\n");
-  assert.equal(lines.length, 3, "sigil must be 3 rows");
-  assert.match(lines[0]!, /streaming/);
-  assert.match(lines[0]!, /#/);
-  // ASCII fallback: 1-row box-drawing comet (o head, ━╾>= trail).
-  // Motion frames are a color-font feature — ASCII terminals get the
-  // clean comet so the rail stays legible without Nerd glyphs.
+  assert.doesNotMatch(rail, /\n/);
+  assert.match(rail, /streaming/);
+  assert.match(rail, /[◇◈◆]/);
+
+  // ASCII is a real one-cell directional comet. Its trail remains behind
+  // the head even when the configured motion uses a non-ASCII frame.
+  // Eased sweeps (ember-relay pulses) decelerate near the rail edge, so the
+  // trail may be any depth glyph — what matters is direction: behind the head.
   const asciiRail = stripAnsi(renderActivity(signal, spec, true));
   assert.match(asciiRail, /o/);
   assert.match(asciiRail, /streaming/);
   const headIndex = asciiRail.indexOf("o");
-  const trailIndex = asciiRail.indexOf(">");
+  const trailIndex = asciiRail.search(/[=>]/);
   assert.notEqual(headIndex, -1, "ASCII head must be present");
   assert.notEqual(trailIndex, -1, "ASCII trail must be present");
   assert.ok(headIndex > trailIndex, "ASCII trail must trail the head");
+});
+
+test("Signal rail clips multi-column frames and enforces its width bounds", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "writing-reveal";
+  signal.activity = "streaming";
+  signal.active = true;
+
+  for (const [width, expectedRailWidth] of [
+    [40, 12],
+    [160, 16],
+    [400, 22],
+  ] as const) {
+    for (const tick of [0, 1, 2, 3]) {
+      signal.tick = tick;
+      assert.equal(
+        Array.from(activityRail(signal, false, width)).length,
+        expectedRailWidth,
+        `terminal width ${width}, tick ${tick}`,
+      );
+    }
+  }
+});
+
+test("eased sweep keeps a deterministic trail that advances with the tick", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "ember-relay";
+  signal.activity = "streaming";
+  signal.active = true;
+
+  signal.tick = 2;
+  const early = activityRail(signal, false, 120);
+  assert.equal(early, "◈◆──────────");
+  assert.equal(activityRail(signal, false, 120), early, "the same tick must never jitter");
+
+  signal.tick = 3;
+  const next = activityRail(signal, false, 120);
+  assert.equal(next, "◈◆◈─────────");
+  assert.notEqual(next, early, "the head and wake advance on the next tick");
+});
+
+test("reverse motion keeps its trail behind a right-to-left head", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "knot-bind";
+  signal.activity = "streaming";
+  signal.active = true;
+  signal.tick = 2;
+
+  const rail = activityRail(signal, true, 120);
+  const head = rail.indexOf("o");
+  const trail = rail.indexOf(">");
+  assert.notEqual(head, -1);
+  assert.notEqual(trail, -1);
+  assert.ok(head < trail, `reverse trail must follow the head: ${rail}`);
+});
+
+test("compact motion moves two heads inward without changing rail width", () => {
+  const signal = createSignalRuntime(0);
+  signal.event = "compact";
+  signal.motionId = "bar";
+  signal.activity = "compacting";
+  signal.active = true;
+
+  signal.tick = 0;
+  assert.equal(activityRail(signal, false, 120), "▏━━━━━━━━━━▏");
+
+  signal.tick = 1;
+  assert.equal(activityRail(signal, false, 120), "─▎━━━━━━━━▎─");
+});
+
+test("idle breathes from the ambient tick, not the wall clock", () => {
+  const signal = createSignalRuntime(0);
+  signal.idleAnimated = true;
+  const spec = getStructuralPreset("lanternwake").signal;
+  const originalNow = Date.now;
+  try {
+    Date.now = () => 1;
+    const first = stripAnsi(renderActivity(signal, spec, false, 160));
+    Date.now = () => 9_999_999;
+    const second = stripAnsi(renderActivity(signal, spec, false, 160));
+    assert.equal(first, second, "the same ambient tick must render identically regardless of clock");
+    signal.tick = 24;
+    const later = stripAnsi(renderActivity(signal, spec, false, 160));
+    assert.notEqual(first, later, "a different ambient tick must change the breathing rail");
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("ASCII idle remains a static marker even when ambient animation is active", () => {
+  const signal = createSignalRuntime(0);
+  signal.idleAnimated = true;
+
+  signal.tick = 0;
+  const first = activityRail(signal, true, 120);
+  signal.tick = 48;
+  const later = activityRail(signal, true, 120);
+
+  assert.equal(first, "------.-----");
+  assert.equal(later, first);
 });
 
 test("Signal renders left, center, and right lanes on one line", () => {
@@ -304,3 +477,31 @@ function segmentContext(): SegmentContext {
 function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;]*m/g, "");
 }
+
+test("rail wake trails the head on both ping-pong legs", () => {
+  const spec = getStructuralPreset("lanternwake").signal;
+  const signal = createSignalRuntime(0);
+  signal.event = "streaming";
+  signal.motionId = "braille-wave"; // frames-kind signal motion
+  signal.activity = "streaming";
+  signal.active = true;
+  // width 80 -> rail of 12 cells, span 11, period 22.
+  const cells = (tick: number) => {
+    signal.tick = tick;
+    const rail = stripAnsi(renderActivity(signal, spec, false, 80));
+    return rail.slice(rail.indexOf("╾") + 1, rail.lastIndexOf("╼"));
+  };
+  const braille = /[⠁-⠿]/;
+  // Outbound (tick 4): head travels right, wake to its left.
+  const out = cells(4);
+  const outHead = out.indexOf("⠷"); // frameAt(braille-wave, 4)
+  assert.notEqual(outHead, -1, `head frame missing: ${out}`);
+  assert.ok(braille.test(out.slice(0, outHead)), `outbound wake must sit left of the head: ${out}`);
+  assert.match(out.slice(outHead + 1), /^─+$/, `nothing ahead on the outbound leg: ${out}`);
+  // Return leg (tick 15 > span 11): head travels left, wake to its right.
+  const back = cells(15);
+  const backHead = back.indexOf("⠧"); // frameAt(braille-wave, 15)
+  assert.notEqual(backHead, -1, `head frame missing: ${back}`);
+  assert.match(back.slice(0, backHead), /^─+$/, `nothing ahead on the return leg: ${back}`);
+  assert.ok(braille.test(back.slice(backHead + 1)), `return wake must sit right of the head: ${back}`);
+});

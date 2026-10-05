@@ -21,9 +21,12 @@ export interface SignalRuntime {
   startedAt: number;
   activity: string;
   active: boolean;
+  /** Idle leases an ambient consumer so the breathing rail has a real clock. */
+  idleAnimated: boolean;
   release: (() => void) | null;
 }
 
+/** Create an idle Signal runtime with no active scheduler lease. */
 export function createSignalRuntime(now = Date.now()): SignalRuntime {
   return {
     event: "idle",
@@ -32,6 +35,7 @@ export function createSignalRuntime(now = Date.now()): SignalRuntime {
     startedAt: now,
     activity: "ready",
     active: false,
+    idleAnimated: false,
     release: null,
   };
 }
@@ -47,6 +51,11 @@ export interface SetSignalEventOptions {
   settleOnDone?: boolean;
 }
 
+/**
+ * Update the Signal state for an event and replace its current scheduler lease.
+ * Active events lease the signal channel when policy permits; idle leases the
+ * ambient channel for its breathing rail. Otherwise, the runtime stays static.
+ */
 export function setSignalEvent(
   runtime: SignalRuntime,
   scheduler: MotionScheduler,
@@ -71,7 +80,41 @@ export function setSignalEvent(
   // filters both paths identically via `channelsForMotion`.
   runtime.active =
     def !== undefined && channelsForMotion(def, policy).includes("signal");
-  if (!runtime.active) return;
+  runtime.idleAnimated = false;
+  if (!runtime.active) {
+    // Rest is not static: while nothing runs, lease the ambient channel so
+    // the rail breathes on the shared clock instead of sampling Date.now()
+    // with no repaint of its own. The idle motion is always the catalog's
+    // ambient candidate (wisp) regardless of the active lane's signature.
+    const ambientDef = getMotion(defaultMotionFor("idle"));
+    if (
+      event === "idle" &&
+      ambientDef !== undefined &&
+      channelsForMotion(ambientDef, policy).includes("ambient")
+    ) {
+      runtime.idleAnimated = true;
+      let ambientRelease: (() => void) | null = null;
+      try {
+        ambientRelease = scheduler.subscribe({
+          id: "signal-ambient",
+          channel: "ambient",
+          intervalMs: ambientDef.generator?.intervalMs,
+          onTick(tick) {
+            runtime.tick = tick;
+          },
+          onDone() {
+            runtime.release = null;
+            runtime.idleAnimated = false;
+          },
+        });
+      } catch {
+        runtime.idleAnimated = false;
+        return;
+      }
+      runtime.release = ambientRelease;
+    }
+    return;
+  }
   // Wrap subscribe so a throw doesn't leave runtime.active=true with
   // release=null (a leaked state that would survive stopSignal).
   let release: (() => void) | null = null;
