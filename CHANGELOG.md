@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-10-27
+
 ### Fixed
 - Bash paste-while-running (issue #72): a bracketed paste performed while a command runs is stripped of its markers and forwarded to the child stdin — including split delivery across input chunks — instead of silently queuing in the editor buffer behind the command.
 - PTY/transcript memory bounds (from jan `fix/runtime-pty-bounds`): a single unterminated output line is capped at a 64 KiB UTF-8 tail with a one-time notice, the partial-escape tail is bounded, and the active transcript command trims head lines/bytes within limits instead of growing unbounded.
