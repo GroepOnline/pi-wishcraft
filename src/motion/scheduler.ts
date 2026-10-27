@@ -66,7 +66,7 @@ export class MotionScheduler {
     }
     this.consumers.set(consumer.id, consumer);
     this.ticks.set(consumer.id, 0);
-    this.due.set(consumer.id, this.now() + intervalFor(consumer));
+    this.due.set(consumer.id, this.now() + effectiveIntervalMs(consumer));
     this.arm();
     return () => this.release(consumer.id);
   }
@@ -141,7 +141,7 @@ export class MotionScheduler {
 
       const tick = (this.ticks.get(consumer.id) ?? 0) + 1;
       this.ticks.set(consumer.id, tick);
-      this.due.set(consumer.id, now + intervalFor(consumer));
+      this.due.set(consumer.id, now + effectiveIntervalMs(consumer));
       consumer.onTick(tick, now);
       painted += 1;
 
@@ -156,7 +156,15 @@ export class MotionScheduler {
   }
 }
 
-function intervalFor(consumer: MotionConsumer): number {
+/**
+ * Effective tick interval for a consumer: previews run hotter than
+ * production channels; everything else clamps to its documented cadence band.
+ * Renderers use the same number to interpolate between heartbeats, so the
+ * scheduler and the paint path can never disagree about tempo.
+ */
+export function effectiveIntervalMs(
+  consumer: Pick<MotionConsumer, "channel" | "preview" | "intervalMs">,
+): number {
   if (consumer.preview) return PREVIEW_INTERVAL_MS;
   const band = CADENCE_MS[consumer.channel];
   if (consumer.intervalMs === undefined) {

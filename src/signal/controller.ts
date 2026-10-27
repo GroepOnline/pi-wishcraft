@@ -19,6 +19,9 @@ export interface SignalRuntime {
   motionId: string;
   tick: number;
   startedAt: number;
+  /** Clock reading of the last scheduler heartbeat; lets renderers
+   * interpolate between ticks. Unset while ticks are driven by hand. */
+  lastTickAt?: number;
   activity: string;
   active: boolean;
   /** Idle leases an ambient consumer so the breathing rail has a real clock. */
@@ -69,6 +72,7 @@ export function setSignalEvent(
   runtime.motionId = options.motionId ?? defaultMotionFor(event);
   runtime.tick = 0;
   runtime.startedAt = Date.now();
+  runtime.lastTickAt = undefined;
   runtime.activity = options.activity ?? activityForEvent(event);
 
   const def = getMotion(runtime.motionId);
@@ -99,8 +103,9 @@ export function setSignalEvent(
           id: "signal-ambient",
           channel: "ambient",
           intervalMs: ambientDef.generator?.intervalMs,
-          onTick(tick) {
+          onTick(tick, now) {
             runtime.tick = tick;
+            runtime.lastTickAt = now;
           },
           onDone() {
             runtime.release = null;
@@ -124,8 +129,9 @@ export function setSignalEvent(
       channel: "signal",
       intervalMs: def?.generator?.intervalMs,
       maxTicks: options.maxTicks,
-      onTick(tick) {
+      onTick(tick, now) {
         runtime.tick = tick;
+        runtime.lastTickAt = now;
       },
       onDone() {
         runtime.release = null;
@@ -135,6 +141,7 @@ export function setSignalEvent(
           runtime.motionId = options.settleMotionId ?? defaultMotionFor("idle");
           runtime.tick = 0;
           runtime.startedAt = Date.now();
+          runtime.lastTickAt = undefined;
           runtime.activity = "ready";
           runtime.active = false;
         }

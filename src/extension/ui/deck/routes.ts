@@ -1,5 +1,6 @@
 import type { DeckRoute, DeckRouteDef } from "./types.ts";
 import { DECK_ROUTES } from "./types.ts";
+import { tr } from "../../../i18n/index.ts";
 import { getContributedDeckRoutes } from "../../contrib/registry.ts";
 
 export const BUILTIN_DECK_ROUTE_DEFS: readonly DeckRouteDef[] = [
@@ -9,6 +10,7 @@ export const BUILTIN_DECK_ROUTE_DEFS: readonly DeckRouteDef[] = [
   { id: "ideas", label: "Ideas", jumpKey: "i", description: "Captured intents and queue" },
   { id: "guardrails", label: "Guardrails", jumpKey: "r", description: "Policy rules and enforcement" },
   { id: "shell", label: "Shell", jumpKey: "l", description: "Terminal and bash mode" },
+  { id: "ports", label: "Ports", jumpKey: "p", description: "Listening sockets, owners and exposure" },
   { id: "usage", label: "Usage", jumpKey: "u", description: "Context and token metrics" },
   { id: "appearance", label: "Appearance", jumpKey: "a", description: "Presets, palette, and chrome" },
   { id: "motion", label: "Motion", jumpKey: "m", description: "Animation gallery and sensitivity" },
@@ -27,6 +29,28 @@ export function getAllDeckRouteDefs(): readonly DeckRouteDef[] {
   }));
   // ponytail: no dedup beyond registry — built-ins win, contributed appended
   return [...BUILTIN_DECK_ROUTE_DEFS, ...contributed];
+}
+
+/** Localised label for one route def (English literal as the fallback). */
+export function routeLabel(def: DeckRouteDef): string {
+  return tr(`deck.${def.id}.label`, def.label);
+}
+
+/** Localised one-line description for one route def. */
+export function routeDescription(def: DeckRouteDef): string {
+  return tr(`deck.${def.id}.desc`, def.description);
+}
+
+/**
+ * Route defs with localised `label`/`description`, for every render path.
+ * Order and ids are untouched so cursor math still matches `DECK_ROUTE_DEFS`.
+ */
+export function localizedRouteDefs(): readonly DeckRouteDef[] {
+  return getAllDeckRouteDefs().map((def) => ({
+    ...def,
+    label: routeLabel(def),
+    description: routeDescription(def),
+  }));
 }
 
 export function isDeckRoute(value: string): value is DeckRoute {

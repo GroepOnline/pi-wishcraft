@@ -1,7 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { type KeyId, type SelectItem } from "@earendil-works/pi-tui";
-import { execSync } from "node:child_process";
-
+import { type KeyId } from "@earendil-works/pi-tui";
 import type { StatusLinePreset } from "../../config/types.ts";
 import { PRESETS } from "../../config/presets.ts";
 import { registerCdCommand } from "../../shell/cd-command.ts";
@@ -16,7 +14,7 @@ import {
   writePowerlineOptionSetting,
   writePowerlinePresetSetting,
 } from "../settings/settings-io.ts";
-import { showOpenPortsList, showSelectOverlay } from "../ui/menu-views.ts";
+import { showOpenPortsList } from "../ui/menu-views.ts";
 import { showTpsOverlay, showUsageOverlay } from "../ui/token-overlays.ts";
 import { openWishcraftDeck } from "../ui/deck/index.ts";
 import { showPowerlineClassicMenu } from "../ui/powerline-menu-view.ts";
@@ -293,38 +291,18 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
   });
 
   pi.registerCommand("open-ports", {
-    description: "Show open ports",
-    handler: async (_args, ctx) => {
+    description: "Show listening ports (parsed table, type-to-filter, r refresh)",
+    handler: async (args, ctx) => {
       rt.currentCtx = ctx;
-      try {
-        const stdout = execSync("ss -tuln", { encoding: "utf8" });
-        const lines = stdout
-          .split("\n")
-          .filter((line) => line.trim().length > 0);
-        const items: SelectItem[] = lines.slice(1).map((line) => ({
-          label: line.trim(),
-          value: line.trim(),
-        }));
-        if (items.length === 0) {
-          ctx.ui.notify("No open ports found", "info");
-          return;
-        }
-        const selected = await showSelectOverlay(
-          ctx,
-          "Open Ports",
-          "Select a port line for details",
-          items,
-          Math.min(items.length, 20),
-        );
-        if (selected) {
-          ctx.ui.notify(`Port: ${selected.value}`, "info");
-        }
-      } catch (error) {
-        ctx.ui.notify(
-          `Failed to list ports: ${error instanceof Error ? error.message : String(error)}`,
-          "error",
-        );
-      }
+      // Shared panel: async probe with a bounded timeout, parsed rows and
+      // filtering — the old implementation ran `execSync("ss")` with no
+      // timeout, which could freeze the whole TUI. UDP/host defaults come
+      // from powerline.segmentOptions.openPorts inside the panel.
+      const opts = args?.trim().toLowerCase().split(/\s+/) ?? [];
+      await showOpenPortsList(
+        ctx,
+        opts.includes("--udp") ? { includeUdp: true } : {},
+      );
     },
   });
 

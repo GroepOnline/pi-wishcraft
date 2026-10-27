@@ -53,6 +53,7 @@ import {
   setCustomCompactionEnabled,
 } from "../core/state.ts";
 import { CONTEXT_STATUS_RENDER_MS } from "../core/constants.ts";
+import { maybeNotifyPeerGuard } from "../core/peer-guard.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { isStaleExtensionContextError } from "./stale-context.ts";
 import { dismissWelcome } from "../welcome/welcome-control.ts";
@@ -139,6 +140,7 @@ export function registerSessionLifecycle(
     registerCustomSegments(config.segments);
     registerCustomPresets(config.presets);
     warnInvalidSegmentSettings(ctx);
+    maybeNotifyPeerGuard(ctx);
     rt.stashedPromptHistory = readPersistedStashHistory();
     rt.bashModeActive = false;
     rt.bashTranscript = new BashTranscriptStore(rt.bashModeSettings);

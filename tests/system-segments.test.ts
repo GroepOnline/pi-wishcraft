@@ -3,12 +3,16 @@ import assert from "node:assert/strict";
 import { renderSegment } from "../src/segments/index.ts";
 import {
   parseOpenPortProcesses,
-  parseListeningPortsFromText,
   sanitizeSshHost,
+  toOpenPortProcesses,
 } from "../src/segments/system.ts";
+import { parseListeningPorts } from "../src/segments/ports.ts";
 import {
   customComputedSegments,
   registerCustomSegments,
+  resolveCommandCacheMs,
+  settleCustomSegmentUpdates,
+  DEFAULT_COMMAND_CACHE_MS,
 } from "../src/segments/custom.ts";
 import { resolvePreset, PRESETS } from "../src/config/presets.ts";
 import type {
@@ -192,21 +196,21 @@ test("parseOpenPortProcesses ignores headers and empty input", () => {
   assert.deepEqual(parseOpenPortProcesses("Netid State Recv-Q Send-Q\n"), []);
 });
 
-test("parseListeningPortsFromText counts Linux ss/netstat colon-separated ports", () => {
+test("the shared parser counts Linux ss/netstat colon-separated ports", () => {
   const text = [
     "Netid State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process",
     "tcp   LISTEN 0      128    0.0.0.0:22         0.0.0.0:*",
     "tcp   LISTEN 0      511    [::]:443           [::]:*",
     "tcp   LISTEN 0      511    127.0.0.1:3000     0.0.0.0:*",
   ].join("\n");
-  const ports = parseListeningPortsFromText(text);
-  assert.equal(ports.size, 3);
-  assert.ok(ports.has(443), "includes IPv6 [::]:443");
+  const ports = parseListeningPorts(text);
+  assert.equal(ports.length, 3);
+  assert.ok(ports.some((row) => row.port === 443), "includes IPv6 [::]:443");
 });
 
-test("parseListeningPortsFromText counts macOS netstat dot-separated ports", () => {
+test("the shared parser counts macOS netstat dot-separated ports", () => {
   // macOS `netstat -tln` separates address and port with `.` (`*.5900`,
-  // `127.0.0.1.631`). The colon-only regex returned 0 here.
+  // `127.0.0.1.631`). A colon-only regex returned 0 here.
   const text = [
     "Active Internet connections (only servers)",
     "Proto Recv-Q Send-Q Local Address          Foreign Address        (state)",
@@ -214,10 +218,19 @@ test("parseListeningPortsFromText counts macOS netstat dot-separated ports", () 
     "tcp46      0      0  *.88                   *.*                    LISTEN",
     "tcp4       0      0  127.0.0.1.631          *.*                    LISTEN",
   ].join("\n");
-  const ports = parseListeningPortsFromText(text);
-  assert.equal(ports.size, 3);
-  assert.ok(ports.has(5900), "includes *.5900");
-  assert.ok(ports.has(631), "includes 127.0.0.1.631");
+  const ports = parseListeningPorts(text);
+  assert.equal(ports.length, 3);
+  assert.ok(ports.some((row) => row.port === 5900), "includes *.5900");
+  assert.ok(ports.some((row) => row.port === 631), "includes 127.0.0.1.631");
+});
+
+test("toOpenPortProcesses projects rows into the legacy detail shape", () => {
+  const rows = parseListeningPorts(
+    'tcp LISTEN 0 1 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=7,fd=3))\n',
+  );
+  assert.deepEqual(toOpenPortProcesses(rows), [
+    { port: 22, proto: "tcp", address: "0.0.0.0", process: "sshd (7)" },
+  ]);
 });
 
 test("parseOpenPortProcesses handles macOS netstat dot-separated ports", () => {
@@ -237,17 +250,49 @@ test("parseOpenPortProcesses handles macOS netstat dot-separated ports", () => {
   );
 });
 
-test("renderSegment isolates a failing command segment instead of blanking the footer", () => {
+test("renderSegment isolates a failing command segment instead of blanking the footer", async () => {
   registerCustomSegments({
     boom: { type: "command", command: 'node -e "process.exit(1)"' },
   });
   try {
+    // Command segments run asynchronously, so the first paint has no value
+    // yet (and must not block on the spawn).
+    const pending = renderSegment("custom:boom", createSegmentContext());
+    assert.equal(pending.visible, false);
+
+    await settleCustomSegmentUpdates();
     const out = renderSegment("custom:boom", createSegmentContext());
     assert.equal(out.visible, true);
     assert.equal(out.content, "!custom:boom");
   } finally {
     customComputedSegments.clear();
   }
+});
+
+test("a command segment serves its last value and repaints when output lands", async () => {
+  registerCustomSegments({
+    tag: { type: "command", command: "echo wishcraft" },
+  });
+  try {
+    const first = renderSegment("custom:tag", createSegmentContext());
+    assert.equal(first.visible, false, "no value before the first run completes");
+
+    await settleCustomSegmentUpdates();
+    const warm = renderSegment("custom:tag", createSegmentContext());
+    assert.equal(warm.visible, true);
+    assert.equal(warm.content, "wishcraft");
+  } finally {
+    customComputedSegments.clear();
+  }
+});
+
+test("command cache windows default and clamp to sane bounds", () => {
+  assert.equal(resolveCommandCacheMs(undefined), DEFAULT_COMMAND_CACHE_MS);
+  assert.equal(resolveCommandCacheMs(Number.NaN), DEFAULT_COMMAND_CACHE_MS);
+  assert.equal(resolveCommandCacheMs(0), 100, "floored: never respawn per paint");
+  assert.equal(resolveCommandCacheMs(30_000), 30_000);
+  assert.equal(resolveCommandCacheMs(10_000_000), 300_000, "ceiling: bounded staleness");
+  assert.equal(resolveCommandCacheMs(1500.7), 1500);
 });
 
 test("sanitizeSshHost accepts hostnames, user@host, and IPv4", () => {

@@ -72,13 +72,25 @@ function fileIdentity(path: string): string {
   }
 }
 
+/**
+ * Candidate theme.json paths, resolved once per process.
+ *
+ * `resolvePackageDir` walks up to six parents looking for a `package.json`,
+ * and this runs on every `loadThemeConfig()` call — which is once per segment
+ * that resolves a colour or icon, i.e. many times per paint. The answer only
+ * depends on this module's own location, so it cannot change under us; `cwd`
+ * is the one volatile input, so the middle entry is still recomputed per call.
+ */
+let cachedPkgDir: string | null = null;
+
 function getConfigurationPaths(): string[] {
-  const currentFileDir = dirname(fileURLToPath(import.meta.url));
-  const pkgDir = resolvePackageDir(currentFileDir);
+  if (cachedPkgDir === null) {
+    cachedPkgDir = resolvePackageDir(dirname(fileURLToPath(import.meta.url)));
+  }
   return [
     getAgentPath("extensions", "powerline-footer", "theme.json"),
     join(process.cwd(), "theme.json"),
-    join(pkgDir, "theme.json"),
+    join(cachedPkgDir, "theme.json"),
   ];
 }
 
@@ -99,6 +111,10 @@ export function loadThemeConfig(): PowerlineThemeConfig {
   const identity = paths.map(fileIdentity).join("|");
   const time = Date.now();
 
+  // The identity check comes first on purpose: an edit to theme.json must be
+  // picked up on the very next call, not after the TTL. The TTL only guards
+  // the parse. (Cost is kept down by caching the candidate paths, and by
+  // memoisng the consumers — see `getIcons`.)
   if (cachedConfig && cacheIdentifier === identity && time - lastCacheUpdate < CACHE_LIFETIME_MS) {
     return cachedConfig;
   }

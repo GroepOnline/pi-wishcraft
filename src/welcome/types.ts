@@ -22,6 +22,12 @@ export interface WelcomeData {
   hasStash?: boolean;
   nextIdeaText?: string;
   whatsNew?: string[];
+  /**
+   * Heading above `whatsNew`. Defaults to "What's new"; the first-run flow
+   * swaps it for a short "Getting started" so a brand-new operator sees three
+   * next steps instead of a changelog wall.
+   */
+  whatsNewTitle?: string;
   /** Left-column art theme (lantern / balloon / normal). */
   art?: WelcomeArtTheme;
   /** Animate the lantern flame. */

@@ -164,6 +164,24 @@ function saveLastSeenVersion(version: string): void {
 }
 
 /**
+ * True once the welcome panel has recorded a seen version — i.e. this is not
+ * the operator's first run. Read *before* `discoverWhatsNew()`, which writes
+ * the state file on its first call.
+ */
+export function hasSeenVersion(): boolean {
+  try {
+    const statePath = whatsNewStatePath();
+    if (!existsSync(statePath)) return false;
+    const state: unknown = JSON.parse(readFileSync(statePath, "utf8"));
+    if (typeof state !== "object" || state === null) return false;
+    const seenVersion = (state as { seenVersion?: unknown }).seenVersion;
+    return typeof seenVersion === "string" && seenVersion.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Read the packaged CHANGELOG, diff it against the last seen version, mark the
  * current version seen, and return the (capped) bullet lines for the welcome
  * panel. Returns `[]` when there is no changelog, no delta, or no package

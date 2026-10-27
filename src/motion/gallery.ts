@@ -4,7 +4,16 @@
  */
 
 import { MOTION_CATALOG } from "./catalog.ts";
-import { frameAt, framesOf, sweepPhase, sweepReturning, trailGlyph } from "./frames.ts";
+import {
+  brailleWakeGlyph,
+  frameAt,
+  framesOf,
+  isBrailleGeometry,
+  sweepMovingRight,
+  sweepPhase,
+  trailGlyph,
+} from "./frames.ts";
+import { buildSweepCells } from "./sweep-cells.ts";
 import type { MotionDef } from "./types.ts";
 
 export const GALLERY_CATEGORIES = [
@@ -61,15 +70,20 @@ export function previewStrip(
   const trail = def.generator?.trail ?? 2;
   // Same eased ping-pong phase as the status rail, so the gallery previews
   // the real traversal: decelerate, turn, glide back — no teleport wrap.
-  // The wake follows the current leg, staying behind the head both ways.
+  // The shared cell builder keeps preview and rail geometry identical.
   const pos = sweepPhase(tick, inner, true, direction, ease);
-  const movingRight = (direction === "forward") !== sweepReturning(tick, inner);
+  const movingRight = sweepMovingRight(tick, inner, direction);
+  // Braille geometries preview their rippling sub-cell wake, matching the
+  // status rail; the head cell keeps the motion's own frame glyph.
+  const braille = !ascii && isBrailleGeometry(def);
+  const cells = buildSweepCells({ width: inner, pos, movingRight, trailDepth: trail });
   let out = "";
-  for (let i = 0; i < inner; i++) {
-    const distance = movingRight ? pos - i : i - pos;
-    if (distance > -0.5 && distance <= 0.5) out += head;
-    else if (distance > 0.5 && distance <= trail + 0.5) {
-      out += trailGlyph(Math.round(distance), ascii);
+  for (const cell of cells) {
+    if (cell.kind === "head") out += head;
+    else if (cell.kind === "trail") {
+      out += braille
+        ? brailleWakeGlyph(cell.index, pos, (1 - cell.distance / (trail + 1)) ** 2.2, 0)
+        : trailGlyph(cell.step, ascii);
     } else out += ascii ? "-" : "─";
   }
   return out;

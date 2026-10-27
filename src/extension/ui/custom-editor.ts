@@ -21,6 +21,8 @@ import {
   passAutocompleteProviderThroughPreviousEditor,
 } from "../../editor/autocomplete-chain.ts";
 import { subscribeGitUpdates } from "../../git/status.ts";
+import { subscribePortsUpdates } from "../../segments/ports.ts";
+import { subscribeCustomSegmentUpdates } from "../../segments/custom.ts";
 import { ansi, colorEnabled, getFgAnsiCode } from "../../theme/colors.ts";
 import {
   restorePromptHistory,
@@ -411,11 +413,24 @@ export function setupCustomEditor(
       const unsubGitUpdates = subscribeGitUpdates(() =>
         requestStatusRender(rt),
       );
+      // The open_ports segment reads the shared ports cache, so the value it
+      // renders lands asynchronously. Re-render when a probe completes —
+      // otherwise the rail would sit on `? tcp` until the next keystroke.
+      const unsubPortsUpdates = subscribePortsUpdates(() =>
+        requestStatusRender(rt),
+      );
+      // User-defined command segments run asynchronously too; repaint when
+      // their output lands.
+      const unsubCustomUpdates = subscribeCustomSegmentUpdates(() =>
+        requestStatusRender(rt),
+      );
 
       return {
         dispose() {
           unsub();
           unsubGitUpdates();
+          unsubPortsUpdates();
+          unsubCustomUpdates();
           rt.restoreFooterStatusRepaintHook?.();
           rt.restoreFooterStatusRepaintHook = null;
         },

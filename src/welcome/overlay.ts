@@ -1,8 +1,12 @@
 import type { Component } from "@earendil-works/pi-tui";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { centerText, getBoxLayout } from "./layout.ts";
 import { dim, renderWelcomeBox } from "./renderer.ts";
+import { fgOnly } from "../theme/colors.ts";
 import type { WelcomeData } from "./types.ts";
 import type { LoadedCounts, RecentSession } from "./types.ts";
+import { renderWelcomeArtWithReveal, BOOT_REVEAL_MS } from "./banner.ts";
+import { tr } from "../i18n/index.ts";
 import type { WelcomeArtTheme } from "./welcome-art.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -16,6 +20,7 @@ import type { WelcomeArtTheme } from "./welcome-art.ts";
 export class WelcomeComponent implements Component {
   private data: WelcomeData;
   private countdown: number = 30;
+  private mountedAt = 0;
 
   constructor(
     modelName: string,
@@ -55,6 +60,16 @@ export class WelcomeComponent implements Component {
     this.data.animateArt = animate;
   }
 
+  /** Arm the OMP-style boot reveal; called when the overlay mounts. */
+  armBootReveal(startedAt: number = Date.now()): void {
+    this.mountedAt = startedAt;
+  }
+
+  /** Swap the panel heading (the first-run flow uses "Getting started"). */
+  setWhatsNewTitle(title: string): void {
+    this.data.whatsNewTitle = title;
+  }
+
   invalidate(): void {}
 
   render(termWidth: number): string[] {
@@ -73,7 +88,7 @@ export class WelcomeComponent implements Component {
     );
 
     // Bottom line with countdown
-    const countdownText = ` Press any key to continue (${this.countdown}s) `;
+    const countdownText = ` ${tr("welcome.countdown", "Press any key to continue ({n}s)", { n: this.countdown })} `;
     const countdownStyled = dim(countdownText);
     const bottomContentWidth = boxWidth - 2;
     const countdownVisLen = visibleWidth(countdownText);
@@ -85,6 +100,29 @@ export class WelcomeComponent implements Component {
       countdownStyled +
       dim(hChar.repeat(Math.max(0, rightPad)));
 
-    return renderWelcomeBox(this.data, termWidth, bottomLine);
+    return renderWelcomeBox(this.data, termWidth, bottomLine, this.revealArt(termWidth));
+  }
+
+  /** Left-column reveal frames while the boot window is open. */
+  private revealArt(termWidth: number): string[] | undefined {
+    if (this.mountedAt === 0) return undefined;
+    const now = Date.now();
+    const elapsed = now - this.mountedAt;
+    if (elapsed >= BOOT_REVEAL_MS) return undefined;
+    const frames = renderWelcomeArtWithReveal(
+      this.data.art ?? "lantern",
+      termWidth,
+      this.data.animateArt === true,
+      elapsed,
+      now,
+    );
+    const boxLayout = getBoxLayout(termWidth);
+    if (!boxLayout) return undefined;
+    return [
+      ...frames,
+      "",
+      centerText(fgOnly("model", this.data.modelName), boxLayout.leftCol),
+      centerText(dim(this.data.providerName), boxLayout.leftCol),
+    ];
   }
 }

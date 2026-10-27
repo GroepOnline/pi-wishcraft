@@ -14,6 +14,7 @@ export const DECK_ROUTES = [
   "ideas",
   "guardrails",
   "shell",
+  "ports",
   "usage",
   "appearance",
   "motion",
@@ -70,6 +71,9 @@ export interface DeckSkillRow {
 }
 
 export interface DeckIdeaRow {
+  /** Queue item id — optional because hand-built fixtures omit it; actions
+   * that mutate the store guard on it. */
+  id?: string;
   text: string;
   reviewStatus: string;
 }

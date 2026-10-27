@@ -1,5 +1,3 @@
-import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import type { StatusLineSegment } from "../config/types.ts";
 import { normalizeCompactExtensionStatus } from "../config/powerline-config.ts";
 import { getIcons, SEP_DOT } from "../theme/icons.ts";
@@ -120,118 +118,30 @@ export const extensionStatusesSegment: StatusLineSegment = {
   },
 };
 
-/**
- * Validate a fleet SSH target (hostname, `user@host`, or IPv4). Rejects spaces
- * and shell metacharacters so it can't be used to inject flags/commands into
- * the `ssh` invocation.
- */
-export function sanitizeSshHost(value: string | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const host = value.trim();
-  return /^[A-Za-z0-9._@-]+$/.test(host) && host.length > 0 ? host : null;
-}
+// Fleet-probe shell helpers live next to the shared ports parser; re-exported
+// here so existing importers of `segments/system.ts` are unaffected.
+export { sanitizeSshHost, sshCommand } from "./probe-shell.ts";
+import {
+  parseListeningPorts,
+  readPorts,
+  requestPorts,
+  type ListeningPort,
+} from "./ports.ts";
 
 /**
- * Wrap a probe command for a remote host, or return it unchanged for local
- * probing. Remote commands are quoted so the local shell can't reinterpret the
- * inner `2>/dev/null`; `BatchMode` fails fast (no password prompt) on hosts
- * that require interactive auth or an unknown host key.
- */
-export function sshCommand(
-  host: string | undefined,
-  remoteCmd: string,
-): string | null {
-  if (!host) return remoteCmd;
-  const safe = sanitizeSshHost(host);
-  if (!safe) return null;
-  return `ssh -o ConnectTimeout=3 -o BatchMode=yes ${safe} ${JSON.stringify(remoteCmd)} 2>/dev/null`;
-}
-
-export function countListeningPorts(includeUdp = false, host?: string): number {
-  // ponytail: count UNIQUE TCP listening ports (dedupes IPv4/IPv6 dual-stack and
-  // repeated multicast binds). UDP is noisy (mDNS/DHCP/ephemeral) so it's opt-in.
-  // A configured host switches to a best-effort SSH probe (fleet open-ports).
-  const run = (cmd: string): string | null => {
-    try {
-      return execSync(cmd, { encoding: "utf8", timeout: 3000 });
-    } catch {
-      return null;
-    }
-  };
-  const remote = (cmd: string): string | null =>
-    host ? sshCommand(host, cmd) : cmd;
-
-  const proto = includeUdp ? "-tulnH" : "-tlnH";
-  const ssCmd = remote(`ss ${proto} 2>/dev/null`);
-  let out = ssCmd === null ? null : run(ssCmd);
-  if (out === null) {
-    const fallback = remote(`ss ${proto.replace("H", "")} 2>/dev/null`);
-    if (fallback !== null) out = run(fallback);
-  }
-  if (out === null) {
-    const netstatCmd = remote(
-      includeUdp ? "netstat -tuln 2>/dev/null" : "netstat -tln 2>/dev/null",
-    );
-    if (netstatCmd !== null) out = run(netstatCmd);
-  }
-  if (out === null) {
-    // /proc/net is only reachable locally; a remote host without ss/netstat is
-    // "unknown" rather than silently zero.
-    return host ? -1 : readProcListeningPorts(includeUdp);
-  }
-
-  return parseListeningPortsFromText(out).size;
-}
-
-/**
- * Pure port-count parser shared by `countListeningPorts`. Accepts `ss` and
- * `netstat` output. The port separator is `:` on Linux/`ss`/`lsof` but `.` on
- * macOS `netstat` (`*.5900`, `127.0.0.1.631`); matching both keeps the
- * open-ports segment honest on macOS.
+ * Number of listening ports for the status rail, or `-1` when unknown.
  *
- * ponytail: assumes LISTEN rows always carry a port on the local-address
- * column; a bare IPv4 with no port (not emitted by LISTEN output) would
- * false-match the `.<digits>` form.
+ * Counts UNIQUE TCP listening ports (dedupes IPv4/IPv6 dual-stack and
+ * repeated multicast binds). UDP is noisy (mDNS/DHCP/ephemeral) so it's
+ * opt-in. A configured host switches to a best-effort SSH probe (fleet
+ * open-ports).
+ *
+ * Render-path safe: this reads the shared async probe cache and schedules a
+ * background refresh — it never spawns `ss`. Previously it ran `execSync`
+ * with a 3s timeout on every cache expiry, stalling the 33ms render cadence.
  */
-export function parseListeningPortsFromText(text: string): Set<number> {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const start = /^(Proto|Netid|State|Local)/.test(lines[0] ?? "") ? 1 : 0;
-  const ports = new Set<number>();
-  for (const line of lines.slice(start)) {
-    // ss/netstat put the local address at different columns; take the first addr:port token
-    for (const col of line.split(/\s+/)) {
-      const m = /(?::|\.)(\d+)$/.exec(col);
-      if (m) {
-        ports.add(Number(m[1]));
-        break;
-      }
-    }
-  }
-  return ports;
-}
-
-function readProcListeningPorts(includeUdp: boolean): number {
-  // ponytail: last-resort /proc parse when ss/netstat are unavailable; dedupe by port
-  const files = includeUdp ? ["tcp", "tcp6", "udp", "udp6"] : ["tcp", "tcp6"];
-  const ports = new Set<number>();
-  for (const f of files) {
-    try {
-      const data = readFileSync(`/proc/net/${f}`, "utf8");
-      for (const line of data.split("\n")) {
-        const cols = line.trim().split(/\s+/);
-        if (cols.length < 4) continue;
-        if (f.startsWith("tcp") && cols[3] !== "0A") continue; // LISTEN state
-        const m = /:([0-9A-Fa-f]{1,4})$/.exec(cols[1]);
-        if (m) ports.add(parseInt(m[1], 16));
-      }
-    } catch {
-      // file may not exist; skip
-    }
-  }
-  return ports.size;
+export function countListeningPorts(includeUdp = false, host?: string): number {
+  return readPorts({ includeUdp, host }).total ?? -1;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -247,112 +157,59 @@ export interface OpenPortProcess {
   process: string | null;
 }
 
-function parseSsProcess(line: string): string | null {
-  // iproute2 `ss -p`: users:(("name",pid=NNN,fd=NN)); older versions omit `pid=`.
-  const m = /users:\(+\s*"([^"]*)",\s*(?:pid=)?(\d+)/.exec(line);
-  if (!m) return null;
-  return `${m[1]} (${m[2]})`;
-}
-
 /**
  * Parse `ss -tulnp` / `netstat -tulnp` output into a deduped, port-sorted
- * list of (proto, port → process). Dual-stack binds (IPv4 + IPv6 for the same
- * port) collapse to one entry, preferring whichever row has a visible owner.
+ * list of (proto, port → process).
+ *
+ * A thin projection over the shared `parseListeningPorts` parser, so the
+ * segment detail, the `alt+i` list and the Deck ports route all interpret
+ * `ss` output identically.
  */
 export function parseOpenPortProcesses(text: string): OpenPortProcess[] {
-  const entries: OpenPortProcess[] = [];
-  for (const raw of text.split("\n")) {
-    const line = raw.trim();
-    if (!line) continue;
-    if (/^(Netid|Proto|State|Local|Active)/i.test(line)) continue;
-
-    const tokens = line.split(/\s+/);
-    if (tokens.length < 6) continue;
-
-    // ss puts the socket State (LISTEN/UNCONN) in column 1; netstat has a
-    // numeric Recv-Q there. That tells us which local-address column to use.
-    const isSsRow = !/^\d+$/.test(tokens[1] ?? "");
-    const local = isSsRow ? tokens[4] : tokens[3];
-    const portMatch = local ? /(?::|\.)(\d+)$/.exec(local) : null;
-    if (!portMatch) continue;
-
-    let process: string | null = null;
-    if (isSsRow) {
-      process = parseSsProcess(line);
-    } else {
-      // netstat has no State column for UDP, so PID/name is always last.
-      const last = tokens[tokens.length - 1];
-      const procMatch = /^(\d+)\/(.+)$/.exec(last);
-      process = procMatch ? `${procMatch[2]} (${procMatch[1]})` : null;
-    }
-
-    entries.push({
-      port: Number(portMatch[1]),
-      proto: tokens[0].toLowerCase().startsWith("udp") ? "udp" : "tcp",
-      address: local.replace(/(?::|\.)(\d+)$/, ""),
-      process,
-    });
-  }
-
-  const byKey = new Map<string, OpenPortProcess>();
-  for (const entry of entries) {
-    const key = `${entry.proto}:${entry.port}`;
-    const existing = byKey.get(key);
-    if (!existing || (existing.process === null && entry.process !== null)) {
-      byKey.set(key, entry);
-    }
-  }
-  return [...byKey.values()].sort(
-    (a, b) =>
-      a.port - b.port || (a.proto === b.proto ? 0 : a.proto === "tcp" ? -1 : 1),
-  );
+  return toOpenPortProcesses(parseListeningPorts(text));
 }
 
-const openPortProcessesCache = new Map<
-  string,
-  { at: number; entries: OpenPortProcess[] }
->();
-const OPEN_PORT_PROCESSES_TTL_MS = 2000;
+/** Project shared-probe rows into the legacy detail shape (pure). */
+export function toOpenPortProcesses(
+  rows: readonly ListeningPort[],
+): OpenPortProcess[] {
+  return rows.map((row) => ({
+    port: row.port,
+    proto: row.proto,
+    address: row.addresses[0] ?? "",
+    process:
+      row.process === null
+        ? null
+        : row.pid !== null
+          ? `${row.process} (${row.pid})`
+          : row.process,
+  }));
+}
 
 /**
- * Best-effort process owners for listening ports via `ss -tulnp` (falls back
- * to `netstat -tulnp`), optionally probed over SSH for a fleet host. Cached
- * like the open_ports count so opening the ports detail does not spawn a
- * process on every keystroke.
+ * Best-effort process owners for listening ports, optionally probed over SSH
+ * for a fleet host.
+ *
+ * Reads the shared async probe cache and schedules a background refresh, so
+ * opening the ports detail never spawns a process on a keystroke. Subscribe to
+ * `subscribePortsUpdates` and rebuild once the refresh lands.
  */
 export function listOpenPortProcesses(
   includeUdp = false,
   host?: string,
 ): OpenPortProcess[] {
-  const key = `${includeUdp ? "u" : "t"}:${host ?? ""}`;
-  const now = Date.now();
-  const cached = openPortProcessesCache.get(key);
-  if (cached && now - cached.at < OPEN_PORT_PROCESSES_TTL_MS)
-    return cached.entries;
+  return toOpenPortProcesses(readPorts({ includeUdp, host }).rows);
+}
 
-  const run = (cmd: string): string | null => {
-    try {
-      return execSync(cmd, { encoding: "utf8", timeout: 3000 });
-    } catch {
-      return null;
-    }
-  };
-  const remote = (cmd: string): string | null =>
-    host ? sshCommand(host, cmd) : cmd;
-
-  const ssCmd = remote(
-    includeUdp ? "ss -tulnp 2>/dev/null" : "ss -tlnp 2>/dev/null",
-  );
-  let out = ssCmd === null ? null : run(ssCmd);
-  if (out === null) {
-    const netstatCmd = remote(
-      includeUdp ? "netstat -tulnp 2>/dev/null" : "netstat -tlnp 2>/dev/null",
-    );
-    if (netstatCmd !== null) out = run(netstatCmd);
-  }
-  const entries = out === null ? [] : parseOpenPortProcesses(out);
-  openPortProcessesCache.set(key, { at: now, entries });
-  return entries;
+/**
+ * Warm the probe for a detail view that is about to open, so the first paint
+ * already has rows instead of an empty list.
+ */
+export function ensureOpenPortProcesses(
+  includeUdp = false,
+  host?: string,
+): Promise<void> {
+  return requestPorts({ includeUdp, host }).then(() => undefined);
 }
 
 // Rolling 1-second sliding window of (timestamp, cumulative tokens) samples.
@@ -404,25 +261,17 @@ export const tpsSegment: StatusLineSegment = {
   },
 };
 
-// open_ports runs blocking `ss`/`netstat`; cache the count so it doesn't respawn
-// a process on every repaint (the footer repaints ~every 33ms while streaming).
-const openPortsCache = new Map<string, { at: number; count: number }>();
-const OPEN_PORTS_TTL_MS = 2000;
-
+// open_ports reads the shared async probe cache: no process is spawned from
+// this render, and the footer repaints ~every 33ms while streaming. `?` shows
+// until the first probe lands; a `subscribePortsUpdates` re-render fills it in.
 export const openPortsSegment: StatusLineSegment = {
   id: "open_ports",
   render(ctx) {
     const includeUdp = ctx.options?.openPorts?.includeUdp === true;
     const host = ctx.options?.openPorts?.host;
-    const key = `${includeUdp ? "u" : "t"}:${host ?? ""}`;
-    const now = Date.now();
-    let entry = openPortsCache.get(key);
-    if (!entry || now - entry.at >= OPEN_PORTS_TTL_MS) {
-      entry = { at: now, count: countListeningPorts(includeUdp, host) };
-      openPortsCache.set(key, entry);
-    }
+    const { total } = readPorts({ includeUdp, host });
     const protocol = includeUdp ? "tcp+udp" : "tcp";
-    const text = entry.count < 0 ? `? ${protocol}` : `${entry.count} ${protocol}`;
+    const text = total === null ? `? ${protocol}` : `${total} ${protocol}`;
     return {
       content: withIcon(getIcons().ports, color(ctx, "queue", text)),
       visible: true,

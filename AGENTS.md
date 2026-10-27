@@ -52,7 +52,7 @@ npm run circular
 
 | Directory | Purpose |
 |---|---|
-| `src/` | Extension runtime, organized by domain (core, config, segments, render, signal, motion, theme, welcome, working-vibes, usage, studio, skills, hooks, settings, shortcuts, history, queue, contrib) |
+| `src/` | Extension runtime, organized by domain (core, config, segments, render, signal, motion, theme, welcome, working-vibes, usage, studio, skills, hooks, settings, shortcuts, history, queue, contrib, editor, paths, shell, tools, i18n) |
 | `src/extension/` | Pi extension runtime: `core/` (hub, types, constants), `session/` (activation, lifecycle), `ui/` (deck, layout), `commands/`, `shortcuts/`, `queue/`, `welcome/`, `skills/`, `hooks/`, `settings/`, `history/`, `contrib/` |
 | `src/config/` | Powerline config parsing, presets, settings registry, tokens |
 | `src/segments/` | Segment registry and builtin renderers (core, system, usage, custom) |
@@ -245,13 +245,15 @@ function createRuntimeState(hooks: {
 
 | Requirement | Detail |
 |---|---|
-| **Node** | v22.14 system default; Node 24 via nvm for CI and pi CLI (pi requires ≥22.19) |
+| **Node** | ≥22.19 required (pi CLI floor, pinned via `engines`); Node 24 via nvm for CI and pi CLI |
 | **Package manager** | npm (lockfile v3) |
 | **TypeScript** | 5.9.3, strict mode, `NodeNext` module/resolution, `allowImportingTsExtensions`, no build step |
 | **Test runner** | Node built-in `node:test` with `--experimental-strip-types` type stripping |
 | **Circular import check** | `madge --circular src index.ts bash-mode queue` (via `npm run circular`) |
 | **Import style** | `.ts` extensions on all imports, `node:`-prefixed builtins |
-| **Pi CLI** | Installed at `^0.84.0`; wrapped to run under Node 24 via nvm |
+| **Pi CLI** | Installed at `^0.99.2` (`pi-coding-agent`, `pi-ai`, `pi-tui` move together — the agent depends on matching `pi-ai`/`pi-tui`, so bumping one alone splits the tree); wrapped to run under Node 24 via nvm |
+| **Peer floor** | `peerDependencies` are `"*"` for the three Pi packages because Pi's own docs require it ("declare the host-provided packages listed above in peerDependencies with a `*` range"), and `scripts/verify-pi-package-contract.mjs` enforces it. `"*"` therefore cannot express a floor, so the real one is only enforced by the code using the SDK: `normalizeContext` (added in `pi-ai` 0.86.0, used by `src/working-vibes/provider.ts`) is the binding symbol — probed across every SDK release, all 12 runtime symbols resolve from 0.86.0 up. A consumer on 0.84.3 installs without warning, but the activation-time peer guard (`src/extension/core/peer-guard.ts`) names every missing symbol with its feature and floor, notifies at session start, and turns the `/vibe` failure into an actionable error; `tests/peer-guard.test.ts` keeps the guarded catalog in sync with the published import surface in both directions. |
+| **Dependency audit** | `npm run audit` (`scripts/audit-gate.mjs`) is the gate. `audit-baseline.json` lists accepted advisories, each pinned to its GHSA id **and** the install path(s) it covers, with a required written reason; new high/critical advisories fail even on an already-accepted package, a second vulnerable copy of an accepted package fails, a baselined advisory that stops reporting as high/critical also fails, an `npm audit` that errors out fails the gate instead of reading as "zero findings", and the baseline is excluded from the published tarball. |
 | **Docker** | `fuse-overlayfs` storage driver for nested VM testing |
 | **Compound Engineering** | `.compound-engineering/` overlay; portable skills via `~/.agents/skills/ce-*`; native Cursor plugin disabled |
 

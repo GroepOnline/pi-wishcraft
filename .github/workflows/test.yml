@@ -35,15 +35,17 @@ jobs:
           fi
       - name: Typecheck
         run: npm run typecheck
-      - name: Unit tests
+      # Quoted: a bare ": " inside an unquoted YAML scalar is read as a nested
+      # mapping, which makes the whole workflow unparseable and fails every run
+      # with zero jobs. Guarded by tests/workflow-yaml.test.ts.
+      - name: "Unit tests (coverage threshold: 70% lines / 60% functions)"
         run: npm test
       - name: Circular dependency check
         run: npm run circular
       - name: Pi package release gate
         run: npm run verify:package
-      - name: Dependency audit (informational)
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      - name: Dependency audit gate
+        run: npm run audit
       # workflow_run triggers are suppressed when the completed workflow was
       # itself dispatched via GITHUB_TOKEN (anti-recursion), so the Verify ->
       # Promote link must be a workflow_dispatch, which always creates a run.

@@ -115,6 +115,7 @@ export function buildDeckSessionSnapshot(
       .filter((item) => item.intent === "idea")
       .slice(0, 12)
       .map((item) => ({
+        id: item.id,
         text: item.text.slice(0, 64),
         reviewStatus: item.reviewStatus ?? "idea",
       })),

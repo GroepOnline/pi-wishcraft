@@ -53,6 +53,16 @@ if (cachedStatus) cachedStatus.timestamp = 0; // expire, keep serving stale
 const staged = execSync("git diff --cached --numstat | wc -l").toString();
 ```
 
+The listening-ports probe is the reference implementation for user-supplied
+work (`src/segments/ports.ts`): one async probe ladder, a 5s memo, in-flight
+de-duplication, and `readPorts()` — the only API a segment may call. It serves
+the last known value (past its TTL included) and schedules a refresh;
+`subscribePortsUpdates` tells the footer to repaint when it lands. User-defined
+command segments (`src/segments/custom.ts`) follow the same shape: a
+defaulted+clamped cache window, a background spawn, and a stale value served
+while the refresh runs. Anything a segment must shell out to needs both halves
+— a synchronous reader that never spawns, and a listener for the result.
+
 ## 3. Cap session scans by bytes and count
 
 Never read a session file whole or walk unbounded trees:
@@ -66,6 +76,10 @@ item limit.
 
 - [ ] No `readFileSync`/`readdirSync` uncached on the render path
 - [ ] No `execSync`/`spawnSync` anywhere under `src/segments/`, `src/extension/ui/`
+      (the only remaining `spawnSync` is `/wishcraft doctor`, an explicitly
+      user-invoked diagnostic that runs once per invocation)
+- [ ] Anything spawned from a segment has a **capped cache window** (a bare
+      "run every paint" default is a hot-path bug)
 - [ ] Background work lands via listener → `STATUS_RENDER_DEBOUNCE_MS` debounce
 - [ ] Scans bounded by byte cap + result cap
 

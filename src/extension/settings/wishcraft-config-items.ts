@@ -2,6 +2,7 @@
 import {
   SETTINGS_REGISTRY,
   SETTING_GROUPS,
+  settingGroupTitle,
   type SettingDefinition,
   type SettingValue,
 } from "../../config/settings-registry.ts";
@@ -14,10 +15,14 @@ export interface ConfigGroup {
   items: ConfigItem[];
 }
 
-/** Build the operator groups from the canonical registry. */
+/**
+ * Build the operator groups from the canonical registry.
+ * Titles are localised here so every consumer (overlay, wizard, diagnostics)
+ * shows the same wording for the current locale.
+ */
 export function buildConfigGroups(_settings: Record<string, unknown>): ConfigGroup[] {
   return SETTING_GROUPS.map((group) => ({
-    title: group.title,
+    title: settingGroupTitle(group),
     items: SETTINGS_REGISTRY.filter((item) => item.group === group.id),
   }));
 }
