@@ -322,3 +322,13 @@ scripts/docker-test.sh -n 4   # 4 parallel containers
 ```
 
 Each container runs `typecheck + test + circular` with a shared read-only `node_modules` bind mount.
+
+## Agent skills
+
+### Issue tracker
+
+Dual-tracker: Linear for planning/features, GitHub for bugs/triage. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context. Current domain source: AGENTS.md. CONTEXT.md and docs/adr/ to be added via `/domain-modeling` when needed. See `docs/agents/domain.md`.

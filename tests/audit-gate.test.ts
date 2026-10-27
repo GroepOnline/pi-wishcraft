@@ -269,16 +269,30 @@ test("the accepted advisories pass by id even when the package is rejected by na
 
 test("a moderate advisory inside a blocking aggregate is not itself blocking", () => {
   // The live tree is exactly this shape: two highs plus GHSA-q2hr-2g5m-vwhr
-  // (moderate, fixed at 5.0.12) riding inside the aggregate. The gate blocks
-  // on high/critical advisories only.
-  const result = runGate(
-    realBaseline(),
-    auditWith([
-      advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
-      advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
-      advisory("GHSA-q2hr-2g5m-vwhr", "moderate", ">=4.0.0 <5.0.12"),
-    ]),
-  );
+  // (moderate, fixed at 5.0.12) riding inside the aggregate, and the
+  // shrinkwrap-pinned undici beside them. The gate blocks on high/critical
+  // advisories only.
+  const audit = auditWith([
+    advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
+    advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
+    advisory("GHSA-q2hr-2g5m-vwhr", "moderate", ">=4.0.0 <5.0.12"),
+  ]) as { vulnerabilities: Record<string, unknown> };
+  audit.vulnerabilities.undici = {
+    name: "undici",
+    severity: "high",
+    range: "8.0.0 - 8.12.1",
+    via: [
+      {
+        name: "undici",
+        title: "synthetic advisory GHSA-xjj6-f33q-929c",
+        url: "https://github.com/advisories/GHSA-xjj6-f33q-929c",
+        severity: "high",
+        range: ">=8.0.0 <8.12.2",
+      },
+    ],
+    nodes: ["node_modules/@earendil-works/pi-coding-agent/node_modules/undici"],
+  };
+  const result = runGate(realBaseline(), audit);
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
