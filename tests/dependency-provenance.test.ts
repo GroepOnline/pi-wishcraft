@@ -3,33 +3,27 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-// Root cause of the remaining `npm audit` finding.
+// Root cause of the remaining `npm audit` finding, and how it resolved.
 //
-// There are two copies, and they have different causes:
+// There were two copies, with different causes:
 //
 //  1. The top-level copy (pulled in by `madge` -> ... -> `minimatch`) sat on
-//     5.0.9 through a stale lockfile pin. This one is OURS: `npm audit fix`
-//     resolves it to 5.0.12. Keeping it pinned below the fix is our bug, not
-//     an inherited one.
+//     5.0.9 through a stale lockfile pin. This one was OURS: `npm audit fix`
+//     resolved it to 5.0.12.
 //
-//  2. The copy nested under `@earendil-works/pi-coding-agent` is inherited
-//     and NOT reachable from here. The peer publishes an
-//     `npm-shrinkwrap.json`, which is authoritative for consumers: npm
-//     installs the peer's pinned tree verbatim and never re-resolves it. The
-//     peer pins 5.0.9.
+//  2. The copy nested under `@earendil-works/pi-coding-agent` was inherited
+//     and NOT reachable from here: the peer published an
+//     `npm-shrinkwrap.json`, which npm treats as authoritative for consumers
+//     and installs verbatim without re-resolving. It pinned 5.0.9, and
+//     `overrides` cannot pierce a dependency's shrinkwrap (verified
+//     empirically, top-level and path-scoped).
 //
-// The important part is what the second one is NOT: it is not "no fix
-// available". `brace-expansion@5.0.12` exists and satisfies the `^5.0.8` range
-// the peer's own `minimatch` declares, so the peer can fix this with a
-// lockfile bump alone -- no API change. An earlier CHANGELOG entry claimed
-// otherwise; that claim was wrong. It is also not fixable from here:
-// `overrides` in our package.json do not reach into a dependency's shrinkwrap.
-// Verified empirically -- both a top-level `"brace-expansion": "^5.0.12"` and
-// a path-scoped
-// `"@earendil-works/pi-coding-agent": { "brace-expansion": "^5.0.12" }` left
-// the nested copy at 5.0.9.
-//
-// So: fix what is ours, and describe the rest accurately.
+// Resolution: `pi-coding-agent` 1.5.0 no longer ships an npm-shrinkwrap.json,
+// so npm resolves its transitive tree normally and brace-expansion lands at
+// the fixed 5.0.12 -- the same release that moved undici to 8.12.3. All three
+// advisories left the report and `audit-baseline.json` is empty again. The
+// tests below now guard the fixed state: no vulnerable copy anywhere, and a
+// peer shrinkwrap that must never pin a vulnerable version if it returns.
 
 const root = join(import.meta.dirname, "..");
 const PEER = "@earendil-works/pi-coding-agent";
@@ -136,33 +130,28 @@ test("the remaining advisory is inherited, not introduced by us", () => {
   );
 });
 
-test("the peer pins a vulnerable brace-expansion via its published shrinkwrap", () => {
+test("the peer no longer pins a vulnerable brace-expansion", () => {
+  // The peer's npm-shrinkwrap.json was what made the advisory unreachable.
+  // If a shrinkwrap ever returns it must not pin a vulnerable copy.
   const shrinkwrapPath = join(peerDir, "npm-shrinkwrap.json");
-  assert.ok(
-    existsSync(shrinkwrapPath),
-    "peer no longer ships npm-shrinkwrap.json -- re-check the brace-expansion audit finding",
-  );
+  if (existsSync(shrinkwrapPath)) {
+    const shrinkwrap = JSON.parse(readFileSync(shrinkwrapPath, "utf8"));
+    const entry = shrinkwrap.packages["node_modules/brace-expansion"];
+    assert.ok(
+      !entry || !isVulnerable(entry.version),
+      `peer shrinkwrap pins vulnerable brace-expansion@${entry?.version}`,
+    );
+  }
 
-  const shrinkwrap = JSON.parse(readFileSync(shrinkwrapPath, "utf8"));
-  const entry = shrinkwrap.packages["node_modules/brace-expansion"];
-  assert.ok(entry, "shrinkwrap no longer pins brace-expansion");
-  assert.ok(
-    isVulnerable(entry.version),
-    `peer now pins brace-expansion@${entry.version}, which is outside the advisory range -- the audit finding should be gone; update the CHANGELOG`,
+  // With the shrinkwrap gone the peer's tree resolves normally: no vulnerable
+  // copy may exist underneath it either.
+  const nested = findCopies(join(peerDir, "node_modules")).filter((manifest) =>
+    isVulnerable(JSON.parse(readFileSync(manifest, "utf8")).version),
   );
-
-  // The pin is self-imposed: the range the peer's own minimatch declares
-  // already admits a fixed version, so this is a lockfile bump, not a breaking
-  // change. That is what makes it an upstream bug report rather than a
-  // permanent exemption.
-  const range = shrinkwrap.packages["node_modules/minimatch"]?.dependencies?.[
-    "brace-expansion"
-  ];
-  assert.equal(range, "^5.0.8");
-  const floor = range.replace(/^[^\d]*/, "");
-  assert.ok(
-    isVulnerable(floor),
-    `the declared floor ${floor} is already fixed -- the peer's range no longer explains the pin`,
+  assert.deepEqual(
+    nested,
+    [],
+    `vulnerable brace-expansion under the peer: ${nested.join(", ")}`,
   );
 });
 
