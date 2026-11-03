@@ -260,9 +260,15 @@ export function registerSessionLifecycle(
 
   // Generate themed working message before agent starts (has access to user's prompt)
   pi.on("before_agent_start", async (event, ctx) => {
-    rt.lastUserPrompt = event.prompt;
+    const prompt =
+      event.messageType === "user"
+        ? event.prompt
+        : event.message.display && typeof event.message.content === "string"
+          ? event.message.content
+          : "";
+    rt.lastUserPrompt = prompt;
     if (ctx.hasUI) {
-      onVibeBeforeAgentStart(event.prompt, ctx.ui.setWorkingMessage);
+      onVibeBeforeAgentStart(prompt, ctx.ui.setWorkingMessage);
     }
   });
 

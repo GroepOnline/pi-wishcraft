@@ -66,6 +66,48 @@ function realBaseline() {
   return JSON.parse(readFileSync(join(root, "audit-baseline.json"), "utf8"));
 }
 
+/**
+ * A baseline shaped like the one the inherited advisories lived under before
+ * pi-coding-agent 1.5.0 dropped its npm-shrinkwrap.json and cleared them. The
+ * synthetic cases below exercise exemption logic, so they need entries to
+ * exempt against -- the committed baseline is legitimately empty now.
+ */
+function baselineWithAccepted() {
+  return {
+    accepted: [
+      {
+        name: "brace-expansion",
+        id: "GHSA-qhr7-859c-m2p7",
+        range: ">=4.0.0 <5.0.11",
+        nodes: [
+          "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion",
+        ],
+        reason:
+          "synthetic fixture: inherited pin via the peer's npm-shrinkwrap.json",
+      },
+      {
+        name: "brace-expansion",
+        id: "GHSA-6j4f-fj2g-mc7p",
+        range: ">=4.0.0 <5.0.10",
+        nodes: [
+          "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion",
+        ],
+        reason: "synthetic fixture: same inherited shrinkwrap pin",
+      },
+      {
+        name: "undici",
+        id: "GHSA-xjj6-f33q-929c",
+        range: ">=8.0.0 <8.12.2",
+        nodes: [
+          "node_modules/@earendil-works/pi-coding-agent/node_modules/undici",
+        ],
+        reason:
+          "synthetic fixture: shrinkwrap-pinned undici serving as fetch dispatcher",
+      },
+    ],
+  };
+}
+
 test("the committed baseline is valid and every entry is justified", () => {
   const baseline = realBaseline();
   assert.ok(Array.isArray(baseline.accepted), "baseline.accepted must be an array");
@@ -197,7 +239,7 @@ test("a new high advisory on an already-accepted package fails the gate", () => 
   // The baseline tolerates two specific advisories by id. A third one for the
   // same package must be named as new, not swallowed by the package match.
   const result = runGate(
-    realBaseline(),
+    baselineWithAccepted(),
     auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
       advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
@@ -214,7 +256,7 @@ test("a second vulnerable copy of an accepted package fails the gate", () => {
   // with our own top-level copy as an affected node. The exemption is bound to
   // the peer's install path, so that extra node must fail the gate.
   const result = runGate(
-    realBaseline(),
+    baselineWithAccepted(),
     auditWith(
       [
         advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
@@ -236,7 +278,7 @@ test("an accepted advisory that stops being high/critical is reported as stale",
   // reported-ids check would keep the exemption alive. Only blocking
   // advisories count, so the entry has to come off the baseline.
   const result = runGate(
-    realBaseline(),
+    baselineWithAccepted(),
     auditWith([
       advisory("GHSA-qhr7-859c-m2p7", "moderate", ">=4.0.0 <5.0.11"),
       advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
@@ -252,7 +294,7 @@ test("an accepted advisory that stops being high/critical is reported as stale",
 test("the accepted advisories pass by id even when the package is rejected by name", () => {
   // Sanity for the matching direction: exactly the baselined ids, nothing
   // else, is a clean pass through the advisory-level path.
-  const baseline = realBaseline();
+  const baseline = baselineWithAccepted();
   baseline.accepted = baseline.accepted.filter(
     (e: { name: string }) => e.name === "brace-expansion",
   );
@@ -268,10 +310,10 @@ test("the accepted advisories pass by id even when the package is rejected by na
 });
 
 test("a moderate advisory inside a blocking aggregate is not itself blocking", () => {
-  // The live tree is exactly this shape: two highs plus GHSA-q2hr-2g5m-vwhr
-  // (moderate, fixed at 5.0.12) riding inside the aggregate, and the
-  // shrinkwrap-pinned undici beside them. The gate blocks on high/critical
-  // advisories only.
+  // The pre-1.5.0 live tree was exactly this shape: two highs plus
+  // GHSA-q2hr-2g5m-vwhr (moderate, fixed at 5.0.12) riding inside the
+  // aggregate, and the shrinkwrap-pinned undici beside them. The gate blocks
+  // on high/critical advisories only.
   const audit = auditWith([
     advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
     advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
@@ -292,7 +334,7 @@ test("a moderate advisory inside a blocking aggregate is not itself blocking", (
     ],
     nodes: ["node_modules/@earendil-works/pi-coding-agent/node_modules/undici"],
   };
-  const result = runGate(realBaseline(), audit);
+  const result = runGate(baselineWithAccepted(), audit);
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
