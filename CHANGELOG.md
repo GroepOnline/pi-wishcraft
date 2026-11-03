@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-11-03
+
 ### Security
 - Pi peers bumped to 1.5.0 (`@earendil-works/pi-coding-agent`, `pi-ai`, `pi-tui` move together): undici is now 8.12.3, clearing GHSA-xjj6-f33q-929c, and the peer dropped its `npm-shrinkwrap.json`, so the two inherited brace-expansion advisories (GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) resolve to the fixed 5.0.12 as well. `audit-baseline.json` is back to zero accepted entries.
 
