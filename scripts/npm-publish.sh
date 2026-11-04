@@ -1,14 +1,16 @@
 #!/bin/sh
-# Publish the current package.json version. Fail closed without NODE_AUTH_TOKEN.
+# Publish the current package.json version.
+#
+# Authentication is npm trusted publishing: the release workflow grants
+# `id-token: write` and the npm CLI exchanges that OIDC identity for a
+# short-lived publish token, so there is no long-lived credential to expire or
+# rotate. The trusted publisher is configured once on npmjs.com (see RELEASE.md).
+# If a NODE_AUTH_TOKEN happens to be set, npm falls back to it.
+#
 # Idempotent: skip if that version is already on the registry.
 # Only an exact npm not-found (E404) is treated as "absent"; other view
 # failures (auth, network, 5xx) abort without publishing.
 set -eu
-
-if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-  echo "NPM_TOKEN is missing (expected GroepOnline org secret)." >&2
-  exit 1
-fi
 
 PACKAGE="$(node -p "require('./package.json').name")"
 VERSION="$(node -p "require('./package.json').version")"
@@ -31,39 +33,26 @@ if [ -s "$view_out" ]; then
   echo "${VERSION} is already on npm; skip publish"
 else
   if grep -Eqi 'E404|404 Not Found|code E404|is not in this registry' "$view_err" "$view_out"; then
-    # Preflight the credential itself. npm answers a PUT for a scoped package
-    # with 404 (not 403) when the token is dead or lacks publish rights for the
-    # scope, which reads like "package not found" in CI logs. A whoami that
-    # fails is unambiguous, so say what is actually wrong before publishing.
-    sh "$(dirname "$0")/npm-token-check.sh"
+    # Plain `npm publish`: the default dist-tag is `latest`. Versions only ever
+    # increase here, so the marker-tag + `npm dist-tag add` dance that a
+    # lower-version republish needs is gone — OIDC covers publish only.
     set +e
-    # --tag must be an arbitrary dist-tag NAME, not a version number:
-    # "npm publish --tag 1.4.3" still trips npm's implicit-latest check
-    # ("Cannot implicitly apply the latest tag because previously published
-    # version X is higher than the new version"). Publishing under a marker
-    # tag first, then repointing `latest` explicitly, is the only way to
-    # publish a lower version.
-    npm publish --access public --tag "release-${VERSION}" 2>"$publish_err"
+    npm publish --access public 2>"$publish_err"
     publish_status=$?
     set -e
     cat "$publish_err" >&2
-    if [ "$publish_status" -eq 0 ]; then
-      # Publish succeeded under the marker tag; promote it to `latest` when
-      # this is the intended line. (npm refuses to auto-assign latest to a
-      # version lower than the current one, hence the explicit repoint.)
-      if ! npm dist-tag add "$PACKAGE@$VERSION" latest 2>/dev/null; then
-        echo "warning: published ${VERSION} but could not set latest; dist-tag 'release-${VERSION}' remains." >&2
-      fi
-    else
+    if [ "$publish_status" -ne 0 ]; then
       if npm view "$SPEC" version 2>/dev/null | grep -q .; then
         echo "${VERSION} appeared on npm during publish; skip"
       elif grep -Eqi 'cannot publish over|previously published' "$publish_err"; then
         echo "${VERSION} is already on npm; skip publish"
       else
-        if grep -Eqi 'E404|404 Not Found' "$publish_err"; then
-          echo "npm rejected the publish with 404. For a scoped package that means the token has no" >&2
-          echo "publish rights for ${PACKAGE} (expired/revoked token or missing scope permission), not that" >&2
-          echo "the package is missing. Rotate NPM_TOKEN and re-run this workflow on the tag." >&2
+        if grep -Eqi 'E404|404 Not Found|ENEEDAUTH|E401' "$publish_err"; then
+          echo "npm rejected the publish as unauthenticated. For a scoped package npm answers" >&2
+          echo "404 (not 403) when the caller may not publish, so this is the trusted-publisher" >&2
+          echo "relationship, not a missing package: check that npmjs.com has a GitHub Actions" >&2
+          echo "trusted publisher for ${PACKAGE} with org GroepOnline, repo pi-wishcraft," >&2
+          echo "workflow release.yml and 'npm publish' allowed. See RELEASE.md." >&2
         fi
         exit "$publish_status"
       fi
