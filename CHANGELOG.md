@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-11-04
+
 ### Fixed
 - **Releases publish through npm trusted publishing, so no credential can expire.** v1.18.0 and v1.19.0 were tagged but never reached npm: the org `NPM_TOKEN` was a revoked 40-character classic token, and npm answers a PUT for a scoped package with 404 (not 403) when the caller may not publish, so the failure read like "package not found". `release.yml`'s `publish` job now grants `id-token: write` and lets the npm CLI exchange that GitHub OIDC identity for a short-lived publish token; `NPM_TOKEN` is no longer read, `scripts/npm-token-check.sh` and the `npm whoami` preflight are gone, and the manual `diagnose-npm.yml` workflow is deleted. `npm-publish.sh` drops the marker-tag + `npm dist-tag add latest` dance — it only existed to republish a version *below* `latest`, which OIDC does not cover; plain `npm publish` sets `latest` itself. Provenance attestations now come for free. `RELEASE.md` documents the one-time trusted-publisher configuration and replaces the token-rotation runbook.
 - **`RELEASE.md` describes the chain that actually runs.** The old text still promised `release.mjs auto --push` bumping and publishing in one job, a `package-lock.json` in the candidate and `npm ci` CI steps; it now documents verify → prepare candidate → Verify on the candidate ref → Promote → publish on the tag ref, with the two-file candidate (`package.json`, `CHANGELOG.md`).
