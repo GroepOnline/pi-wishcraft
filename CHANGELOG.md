@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-11-04
+
 ### Fixed
 - **A verified release candidate can be promoted again.** The `verify` aggregator in `test.yml` has no checkout, so `gh workflow run promote-release-candidate.yml` could not resolve the repository and every dispatch died with `failed to run git: fatal: not a git repository` — since the parallel-CI rewrite (#128) no candidate was promoted at all, which is why `main` sat at 1.19.0 with two tags and no release. The step now pins `GH_REPO: ${{ github.repository }}`, and a test holds it there.
 - **Releases publish through npm trusted publishing, so no credential can expire.** v1.18.0 and v1.19.0 were tagged but never reached npm: the org `NPM_TOKEN` was a revoked 40-character classic token, and npm answers a PUT for a scoped package with 404 (not 403) when the caller may not publish, so the failure read like "package not found". `release.yml`'s `publish` job now grants `id-token: write` and lets the npm CLI exchange that GitHub OIDC identity for a short-lived publish token; `NPM_TOKEN` is no longer read, `scripts/npm-token-check.sh` and the `npm whoami` preflight are gone, and the manual `diagnose-npm.yml` workflow is deleted. `npm-publish.sh` drops the marker-tag + `npm dist-tag add latest` dance — it only existed to republish a version *below* `latest`, which OIDC does not cover; plain `npm publish` sets `latest` itself. Provenance attestations now come for free. `RELEASE.md` documents the one-time trusted-publisher configuration and replaces the token-rotation runbook.
