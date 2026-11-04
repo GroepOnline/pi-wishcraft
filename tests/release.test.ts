@@ -60,6 +60,12 @@ case "$1" in
     fi
     exit "\${STUB_NPM_PUBLISH_EXIT:-0}"
     ;;
+  whoami)
+    if [ -n "\${STUB_NPM_WHOAMI_ERR:-}" ]; then
+      printf '%s\n' "$STUB_NPM_WHOAMI_ERR" >&2
+    fi
+    exit "\${STUB_NPM_WHOAMI_EXIT:-0}"
+    ;;
   dist-tag)
     exit 0
     ;;
@@ -310,6 +316,30 @@ test("npm-publish.sh treats cannot-publish-over-existing as a successful skip", 
   }
 });
 
+test("npm-publish.sh names a dead token instead of a bare 404", () => {
+  // npm answers a PUT for a scoped package with 404 when the token is expired,
+  // revoked, or lacks publish rights. That reads like "package not found", so
+  // the script preflights the credential and says what is actually wrong.
+  const { projectDir, binDir, cleanup } = withStubNpmProject("1.2.3");
+  try {
+    const marker = join(binDir, "publish-called");
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_VIEW_KIND: "404",
+      STUB_NPM_WHOAMI_EXIT: "1",
+      STUB_NPM_WHOAMI_ERR: "npm error code E401\nnpm error Unable to authenticate",
+      STUB_NPM_PUBLISH_MARKER: marker,
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /NPM_TOKEN is not accepted by the registry/);
+    assert.match(result.stderr, /Unable to authenticate/);
+    assert.match(result.stderr, /re-run this workflow on the tag/);
+    assert.equal(existsSync(marker), false, "npm publish must not run with a dead token");
+  } finally {
+    cleanup();
+  }
+});
+
 test("npm-publish.sh fails and skips the catalog URLs when npm publish fails", () => {
   const { projectDir, binDir, cleanup } = withStubNpmProject("8.0.0");
   try {
@@ -320,6 +350,27 @@ test("npm-publish.sh fails and skips the catalog URLs when npm publish fails", (
     });
     assert.notEqual(result.status, 0);
     assert.doesNotMatch(result.stdout, /npm: https:\/\/www\.npmjs\.com/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("npm-publish.sh explains a 404 on publish as a scope/permission problem", () => {
+  // The shape that broke 1.18.0 and 1.19.0: a token that authenticates for
+  // whoami but has no publish rights for the scope answers 404 on the PUT.
+  const { projectDir, binDir, cleanup } = withStubNpmProject("1.2.3");
+  try {
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_VIEW_KIND: "404",
+      STUB_NPM_PUBLISH_EXIT: "1",
+      STUB_NPM_PUBLISH_ERR:
+        "npm error code E404\nnpm error 404 Not Found - PUT https://registry.npmjs.org/@groeponline%2fpi-wishcraft",
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /rejected the publish with 404/);
+    assert.match(result.stderr, /no\s+publish rights for @groeponline\/pi-wishcraft/);
+    assert.match(result.stderr, /Rotate NPM_TOKEN/);
   } finally {
     cleanup();
   }
