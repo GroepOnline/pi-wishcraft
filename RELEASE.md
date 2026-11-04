@@ -112,7 +112,10 @@ The trust relationship lives on npmjs.com, one time per package:
    - Repository: `pi-wishcraft`
    - Workflow filename: `release.yml` (with `.yml`)
    - Environment name: empty
-   - Allowed actions: **`npm publish`** (dist-tags are not used)
+   - Allowed actions: **tick `npm publish`** — it is *not* on by default. A
+     configuration created after 2026-09-03 starts with staged publishing only,
+     so without this tick every `npm publish` is refused. Leave `npm dist-tag`
+     off; this repo does not use it.
 3. Nothing else: provenance attestations are generated automatically.
 
 Rules that follow from that configuration:
