@@ -12,27 +12,41 @@ verify it.
 - **GitHub repo:** `GroepOnline/pi-wishcraft` (forked from `nicobailon/pi-powerline-footer`, independently maintained)
 - **npm package:** `@groeponline/pi-wishcraft` (scoped, `--access public`)
 - **Default branch:** `main`
-- **Local checkout:** `~/Documents/Github/GroepOnline/pi-wishcraft`
+- **Local checkout:** `/home/joep/Code/GroepOnline/pi-wishcraft/repo`
 - **Pi settings (`~/.pi/agent/settings.json`):** packages entry `npm:@groeponline/pi-wishcraft` and `"powerline": "chef"`. For active development, temporarily swap the entry to the local checkout path so edits are picked up on `/reload` — no reinstall needed; switch back to the npm name for the installed release.
 
 ## The release flow
 
-**Default:** every merge to `main` is a release. `.github/workflows/release.yml`
-runs `node scripts/release.mjs auto --push` on `main` and publishes in that
-same job (`scripts/npm-publish.sh`) with the GroepOnline org secret
-`NPM_TOKEN`, then creates a GitHub Release for the tag
-(`scripts/github-release.sh`) so the Releases page Latest matches npm. A tag
-pushed with `GITHUB_TOKEN` does **not** start another workflow, so publish
-cannot wait for the tag event. Manual SSH/PAT tag pushes still run the tag
-job. `auto` reads commit subjects since the last `v*` tag: `feat:` → minor,
+**Default:** every merge to `main` is a release, but no version is cut on the
+merge commit itself — `main` stays protected and the bump lands through a
+verified candidate.
+
+1. `verify` runs the same lanes as a PR (`.github/workflows/test.yml`).
+2. `prepare` confirms verified `main` is still the head of `main` (otherwise a
+   newer push owns the next candidate), preflights the npm credential
+   (`scripts/npm-token-check.sh` — a dead `NPM_TOKEN` fails here, *before* any
+   version exists), and cuts an idempotent candidate branch
+   `release-candidate/v<next>-<base-sha12>` holding only the
+   `chore: release <next>` bump of `package.json` and `CHANGELOG.md`
+   (`bun.lock` stores no root version, so it never changes).
+3. `prepare` dispatches Verify on that exact candidate ref.
+4. The final step of that Verify run dispatches
+   `.github/workflows/promote-release-candidate.yml`, which re-validates the
+   candidate from GitHub metadata only (branch name, parent == `main`, commit
+   subject, exactly those two files, both versions, and the
+   `## [<version>] - <date>` heading), fast-forwards `main` to the candidate
+   SHA, and creates tag `v<version>` via the API.
+5. A tag created with `GITHUB_TOKEN` emits no `push` event, so Promote
+   explicitly dispatches `release.yml` on the tag ref. That run's `publish` job
+   is what publishes to npm and creates the GitHub Release.
+
+`auto` reads commit subjects since the last `v*` tag: `feat:` → minor,
 `feat!:` / `BREAKING CHANGE` → major, otherwise patch.
 
-The first merge after `v0.18.0` therefore becomes **0.19.0** (the 0.19
-`feat:` commits are already on `main`). Later docs/fix merges become
-`0.19.1`, `0.19.2`, …
-
-Put `[skip release]` in the merge-commit subject to opt out. The follow-up
-`chore: release X.Y.Z` commit does not tag again.
+Put `[skip release]` in the merge-commit subject to opt out; the follow-up
+`chore: release X.Y.Z` commit is skipped the same way. When `CHANGELOG.md` has
+no `## [Unreleased]` notes, `prepare` reports "nothing to release" and cuts no
+candidate.
 
 Manual still works when you want an explicit version before pushing tags:
 
@@ -52,8 +66,9 @@ bun run release minor    # = bun scripts/release.mjs minor
 4. `git commit -m "chore: release <version>"`
 5. `git tag -a v<version> -m "Release <version>"`
 
-Locally it does **not** push unless you pass `--push` (CI does). Manual push
-uses the GroepOnline SSH identity (the laptop default SSH key is denied):
+Locally it does **not** push unless you pass `--push` (CI does not use `--push`
+anymore: `prepare` pushes only the candidate branch). Manual push uses the
+GroepOnline SSH identity (the laptop default SSH key is denied):
 
 ```bash
 GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh' \
@@ -63,29 +78,32 @@ GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh'
 - SSH host alias: `github.com-groeponline` (defined in `~/.ssh/config-groeponline` with `IdentityFile ~/.ssh/sheesh`, `IdentitiesOnly yes`).
 - Push actor: `chefadmin-netizen` (GroepOnline SSH). API/`gh` actor: `MisterWanted` (FG) via `chef-gh`.
 
-## CI publish
+## CI publish (tag ref only)
 
-`.github/workflows/release.yml` publishes from the **bump job** after tagging,
-and also from a tag push (manual SSH/PAT). `GITHUB_TOKEN` tag pushes do not
-start a second run.
+`release.yml`'s `publish` job runs only when `github.ref` is a `v*` tag: the
+dispatch Promote fires, or a manual SSH/PAT tag push. It never runs on `main`.
 
-1. `actions/checkout@v4` (`fetch-depth: 0`, `fetch-tags: true`)
-2. `actions/setup-node@v4` (node 24, `registry-url: https://registry.npmjs.org`)
-3. Fetch and `git reset --hard origin/main` (bump job only; tests the tree that will be tagged)
-4. `bun install --frozen-lockfile --ignore-scripts` (installs devDependencies incl. `typescript`)
-5. `bun run typecheck` (tsc)
-6. `bun run lint` (oxlint)
-7. `bun run test` (node test runner)
-8. `bun run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
-9. `bun scripts/release.mjs auto --push` (main only)
-10. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` (fail-closed `npm view`, idempotent skip, then the Pi catalog URLs)
-11. `sh scripts/github-release.sh` with `GITHUB_TOKEN` (idempotent: skip if that tag already has a Release; notes from `CHANGELOG.md`)
+1. `actions/checkout` at the tag (`fetch-depth: 0`)
+2. `actions/setup-node` (node 24, `registry-url: https://registry.npmjs.org`)
+3. Stamp `PI_WISHCRAFT_BUILD_SHA` and `build-stamp.json` from the tag commit only
+4. `bun scripts/verify-release-tag.mjs --tag <tag>` (tag == `package.json`, on `origin/main`)
+5. `bun install --frozen-lockfile --ignore-scripts` (devDependencies incl. `typescript`)
+6. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` (fail-closed `npm view`, `npm whoami` preflight, idempotent skip, `latest` repoint)
+7. `sh scripts/github-release.sh` with `GITHUB_TOKEN` (idempotent: skip if that tag already has a Release; notes from `CHANGELOG.md`)
+8. `npm pack` + `SHA256SUMS`, uploaded as a run artifact and attached to the GitHub Release
+
+The lanes that need to prove the tree (typecheck, lint, tests, package contract)
+live in `test.yml` and run in `verify` — the tag commit already passed them as a
+candidate, so `publish` does not repeat them.
 
 `NPM_TOKEN` is the GroepOnline **org** Actions secret (publish rights to the
 `@groeponline` scope). This repo has no override; Actions inherits the org
-value. It is **not** readable after being set; verify it works by checking
-that the publish step on a real release succeeds and `npm view` resolves the
-new version (see below). The publish step fails closed if the secret is empty.
+value. It is **not** readable after being set, so its health is checked instead:
+`prepare` runs `scripts/npm-token-check.sh` (`npm whoami`) before cutting a
+candidate, and `npm-publish.sh` runs the same check before publishing. A token
+that fails that check blocks the release with a named cause instead of a bare
+404 after the tag exists. The publish step also fails closed if the secret is
+empty.
 
 ### When publish fails: `E404 Not Found - PUT .../@groeponline%2fpi-wishcraft`
 
@@ -94,7 +112,9 @@ is expired, revoked, or simply has no publish rights for that scope. It is not
 "package not found", and it is not a retryable transient.
 
 `scripts/npm-publish.sh` preflights `npm whoami` before publishing and prints
-that diagnosis instead of the raw 404. Recovery:
+that diagnosis instead of the raw 404; `prepare` runs the same check
+(`scripts/npm-token-check.sh`) before any version is cut, so a dead token now
+stops the release while `main` is still unbumped and untagged. Recovery:
 
 1. In the npm account that owns the package (`chefgroeponline
    <joep@chefgroep.online>` — check with `npm view @groeponline/pi-wishcraft
@@ -113,6 +133,9 @@ that diagnosis instead of the raw 404. Recovery:
    ```
 
    Or re-run the failed job directly: `gh run rerun <run-id> --failed`.
+   A tag stranded this way keeps its GitHub Release missing until the publish
+   run succeeds; `workflow_dispatch` with `inputs.tag` only backfills the
+   release assets and never publishes to npm.
 
 The idempotent skip in `npm-publish.sh` makes a retry safe: a version that is
 already on the registry is skipped, so a partially successful run cannot
@@ -173,13 +196,15 @@ is that same tag.
 
 ## Versioning
 
-Feature PRs **do not bump** `package.json`. They stay on the last published npm
-version (today: `0.19.0`) and append under `## [Unreleased]` in `CHANGELOG.md`.
+Feature PRs **do not bump** `package.json`. They inherit whatever version
+`main` already carries and append under `## [Unreleased]` in `CHANGELOG.md`.
 The bump happens on `main` in the release workflow, not in the feature PR.
 
 Never bump in the same PR as the feature work. Never tag from a stacked
-feature branch. `0.19.0` exists only after `main` auto-tags (or a manual
-`bun run release` on `main`).
+feature branch. `v<version>` exists only after Promote tags the verified
+candidate (or a manual `bun run release` on `main`). `main` can be ahead of npm
+when a publish fails — compare `npm view @groeponline/pi-wishcraft version`
+with `bun scripts/release.mjs next auto` before assuming they agree.
 
 - **patch** (`0.18.0 → 0.18.1`): bug fixes, doc only; escape hatch if 0.19 slips.
 - **minor** (`0.18.x → 0.19.0`): new segments/presets, features, additive changes.

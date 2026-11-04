@@ -17,8 +17,7 @@ SPEC="${PACKAGE}@${VERSION}"
 view_out="$(mktemp)"
 view_err="$(mktemp)"
 publish_err="$(mktemp)"
-whoami_err="$(mktemp)"
-trap 'rm -f "$view_out" "$view_err" "$publish_err" "$whoami_err"' EXIT
+trap 'rm -f "$view_out" "$view_err" "$publish_err"' EXIT
 
 set +e
 npm view "$SPEC" version >"$view_out" 2>"$view_err"
@@ -36,13 +35,7 @@ else
     # with 404 (not 403) when the token is dead or lacks publish rights for the
     # scope, which reads like "package not found" in CI logs. A whoami that
     # fails is unambiguous, so say what is actually wrong before publishing.
-    if ! npm whoami >/dev/null 2>"$whoami_err"; then
-      echo "NPM_TOKEN is not accepted by the registry (expired, revoked, or for a different account)." >&2
-      cat "$whoami_err" >&2
-      echo "Create a granular access token for the publishing account with read+write on the package scope," >&2
-      echo "update the org NPM_TOKEN secret, then re-run this workflow on the tag (see docs/release.md)." >&2
-      exit 1
-    fi
+    sh "$(dirname "$0")/npm-token-check.sh"
     set +e
     # --tag must be an arbitrary dist-tag NAME, not a version number:
     # "npm publish --tag 1.4.3" still trips npm's implicit-latest check
