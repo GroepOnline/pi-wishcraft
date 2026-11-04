@@ -151,6 +151,11 @@ transient.
    A tag stranded this way keeps its GitHub Release missing until the publish
    run succeeds; `workflow_dispatch` with `inputs.tag` only backfills the
    release assets and never publishes to npm.
+3. A dispatch runs the workflow file **at that tag**, so a tag whose publish job
+   is broken by construction cannot be replayed at all: publish the newer tag
+   that carries the fix and leave the version hole, since npm versions need not
+   be contiguous. v1.20.0 is such a hole — it was tagged by a publish job that
+   called `bun` before installing it.
 
 The idempotent skip in `npm-publish.sh` makes a retry safe: a version that is
 already on the registry is skipped, so a partially successful run cannot

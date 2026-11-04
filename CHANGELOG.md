@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **The workflow ordering rules are tested, not remembered.** Two release failures had the same shape — a job used a tool that was not set up yet, or that could not know its own context: `publish` called `bun` before `bun-setup` ran (`bun: command not found`), and `verify` called `gh workflow run` with no checkout to infer the repository from (`failed to run git: fatal: not a git repository`). `tests/workflow-guards.test.ts` now checks every workflow: a job that runs `bun` must install it first, and a job that calls `gh` without a checkout must pin `GH_REPO`. Both assertions were verified to fail against the pre-fix files. `RELEASE.md` also records that a stranded tag can only be replayed with the workflow file it was tagged with.
+
 ## [1.21.0] - 2026-11-04
 
 ### Fixed
