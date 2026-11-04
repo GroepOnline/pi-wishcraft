@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createSignalRuntime } from "../src/signal/controller.ts";
 import { renderStatusLineV2 } from "../src/render/v2-entry.ts";
-import { PRESETS, type PresetDef } from "../src/config/presets.ts";
+import { PRESETS } from "../src/config/presets.ts";
 import { getStructuralPreset } from "../src/config/structural-presets.ts";
-import type { SegmentContext, StatusLineSeparatorStyle } from "../src/config/types.ts";
+import type { SegmentContext } from "../src/config/types.ts";
 import { stripAnsi } from "./helpers/strip-ansi.ts";
 
 /**

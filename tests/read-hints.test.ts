@@ -143,8 +143,9 @@ test("appendReadHintToEvent copies content and leaves input untouched", () => {
   assert.equal(input.offset, 10);
   assert.equal(input.limit, 5);
   assert.equal(content.length, 1);
-  assert.equal(result?.content.length, 2);
-  assert.match(String((result?.content[1] as { text: string }).text), /next offset 15/);
+  assert.ok(result);
+  assert.equal(result.content.length, 2);
+  assert.match(String((result.content[1] as { text: string }).text), /next offset 15/);
 });
 
 function fakePi() {

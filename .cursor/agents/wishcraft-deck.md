@@ -12,4 +12,4 @@ Rules:
 - `g` + jump key, `/` search, Esc closes. English UI only.
 - Appearance Enter writes `powerline.appearance.base`. Motion Enter assigns a catalog id to a semantic event.
 - Skills Enter inserts via the existing skill registry. Do not spawn a second skills product.
-- Quality gate: `npm run typecheck && npm test && npx madge --circular src index.ts bash-mode queue`.
+- Quality gate: `bun run typecheck && bun run lint && bun run test && bun run circular`.

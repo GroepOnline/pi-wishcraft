@@ -11,4 +11,4 @@ Rules:
 - Colors go through `WishcraftTokens`. Do not hardcode hex in Deck/Signal components.
 - `liveColorScheme` keeps layout colors until appearance is in effect.
 - Do not add a `/powerline` completion that starts with `d` besides `doctor` and `default`.
-- Quality gate: `npm run typecheck && npm test && npx madge --circular src index.ts bash-mode queue`.
+- Quality gate: `bun run typecheck && bun run lint && bun run test && bun run circular`.

@@ -162,7 +162,7 @@ export function expandInlineTriggers(text: string): string {
  */
 export function setupInlineInvocation(
   pi: ExtensionAPI,
-  rt: RuntimeState,
+  _rt: RuntimeState,
 ): void {
   pi.on("input", async (event: any) => {
     // Alleen interactive input verwerken

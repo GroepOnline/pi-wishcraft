@@ -9,7 +9,6 @@ import {
   parseLatestVersionTag,
   parseReleaseCandidateBranch,
   resolveReleaseVersion,
-  rewritePackageLockVersion,
   rewriteUnreleasedHeading,
   shouldSkipRelease,
   validateReleaseCandidateMetadata,
@@ -89,15 +88,6 @@ test("release: extractChangelogNotes scopes to the version body", () => {
   assert.throws(() => extractChangelogNotes(changelog, "not-semver"), /Invalid version/);
 });
 
-test("release: rewritePackageLockVersion updates root and workspace entries", () => {
-  const lock = JSON.stringify({ name: "x", version: "1.0.0", packages: { "": { version: "1.0.0" } } });
-  const next = rewritePackageLockVersion(lock, "2.0.0");
-  const parsed = JSON.parse(next);
-  assert.equal(parsed.version, "2.0.0");
-  assert.equal(parsed.packages[""].version, "2.0.0");
-  assert.match(next, /\n$/, "lockfile ends with a newline");
-});
-
 test("release: release-candidate branch names parse and validate end to end", () => {
   const parsed = parseReleaseCandidateBranch("release-candidate/v1.14.0-abc123def456");
   assert.deepEqual(parsed, { version: "1.14.0", parentPrefix: "abc123def456" });
@@ -107,7 +97,7 @@ test("release: release-candidate branch names parse and validate end to end", ()
     branch: "release-candidate/v1.14.0-abc123def456",
     subject: "chore: release 1.14.0",
     packageVersion: "1.14.0",
-    changedFiles: ["package-lock.json", "CHANGELOG.md", "package.json"],
+    changedFiles: ["CHANGELOG.md", "package.json"],
     changelog: "## [Unreleased]\n\n## [1.14.0] - 2026-09-29\n\n- notes\n",
     parentSha: "abc123def4569999999999999999999999999999",
   });
@@ -119,7 +109,7 @@ test("release: candidate metadata rejects every contract violation", () => {
     branch: "release-candidate/v1.14.0-abc123def456",
     subject: "chore: release 1.14.0",
     packageVersion: "1.14.0",
-    changedFiles: ["CHANGELOG.md", "package-lock.json", "package.json"],
+    changedFiles: ["CHANGELOG.md", "package.json"],
     changelog: "## [1.14.0] - 2026-09-29\n",
     parentSha: "abc123def4569999999999999999999999999999",
   };

@@ -11,7 +11,6 @@ import type { StructuralPresetDef, StructuralPresetName } from "./types.ts";
 import {
   BORDERLESS_CHROME,
   DEFAULT_DECK,
-  DEFAULT_WELCOME,
   MINIMAL_CHROME,
   motion,
   ROUNDED_CHROME,

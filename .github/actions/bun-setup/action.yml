@@ -1,0 +1,28 @@
+name: Bun setup
+description: Install the pinned Bun, restore the install cache and sync dependencies.
+
+# Every lane installs its own node_modules on purpose: the jobs then run truly
+# in parallel with no ordering dependency, and the frozen lockfile proves the
+# same tree in all of them.
+
+inputs:
+  install:
+    description: Run `bun install --frozen-lockfile` (set false for lanes that do not need dependencies)
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: "1.4.2"
+    - uses: actions/cache@v4
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+        restore-keys: |
+          bun-${{ runner.os }}-
+    - if: inputs.install == 'true'
+      shell: bash
+      run: bun install --frozen-lockfile --ignore-scripts

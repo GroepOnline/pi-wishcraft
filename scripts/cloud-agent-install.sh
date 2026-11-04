@@ -16,7 +16,13 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 # --- 1. Repository dependencies ----------------------------------------------
-npm ci
+# Bun owns install and scripts. Bootstrap it once if the snapshot predates it.
+if ! command -v bun >/dev/null 2>&1; then
+  echo "cloud-agent-install: installing bun (not in PATH)"
+  curl -fsSL https://bun.sh/install | bash
+  export PATH="$HOME/.bun/bin:$PATH"
+fi
+bun install --frozen-lockfile --ignore-scripts
 
 # --- 2. Locate a Node >= 22.19 (pi's engine floor; platform node may be older)
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"

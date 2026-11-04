@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+- **Bun replaces npm for the development loop.** `bun.lock` (with `packageManager: bun@1.4.2`) replaces `package-lock.json`, `bun install --frozen-lockfile` replaces `npm ci` in every workflow and bootstrap script, and the package scripts run through `bun run` (`scripts/*.mjs` execute directly, no `npx`). The npm CLI stays where the npm *registry* is the interface: `npm pack`, `npm publish`, `npm dist-tag`. The test runner stays `node:test`: measured on 1.4.2 against the 1037-test suite of that moment, `bun test` reported 1035 pass / 2 fail (fake-timer and PTY-timing divergence in two suites) while `node --test` reported 1037 pass / 0 fail, so `bun run test` invokes Node's runner and `docs/testing.md` records the measurement and the condition for revisiting it.
+- **oxlint is the lint gate.** The repository had no ESLint configuration, so this is a gate added rather than a linter swapped: `.oxlintrc.json` (correctness = error), `bun run lint` runs with `--deny-warnings`, CI fails on a single warning, and `bun run lint:fix` applies the automatic fixes. `no-control-regex` is off repo-wide because matching ANSI SGR sequences is the product. Getting to zero warnings removed 23 real findings: 21 unused imports/locals/parameters, one dead `readSkillBody()` call whose result nothing read, and one unsafe optional chain in a test assertion.
+- **CI runs in parallel.** `test.yml` is now seven independent lanes — `whitespace`, `typecheck`, `lint`, `test`, `circular`, `package-contract`, `audit` — each installing from the frozen lockfile via the `.github/actions/bun-setup` composite action, with a `verify` aggregator job that keeps the required check name and the release-candidate promotion dispatch. Pull-request runs cancel superseded pushes; release-driven candidate runs never do.
+- **Pre-commit hook.** `.githooks/pre-commit` (enable with `bun run hooks:install`) runs typecheck, oxlint and the test files the commit touches. The full suite stays CI's job.
+- **The dependency audit gate is bun-native.** `npm audit` needs `package-lock.json`, which no longer exists, so `scripts/audit-gate.mjs` reads `bun audit --json` plus `bun pm ls --all`. The guarantees are restated in bun's terms and pinned by tests: new high/critical advisories fail by GHSA id and package name, a baselined advisory whose vulnerable range moved fails, an installed version the baseline does not list fails (the "second vulnerable copy" case, now version-based instead of path-based), a baselined advisory that stops reporting as high/critical fails, and an audit that cannot run exits 2.
+- **Release candidates carry two files.** `bun.lock` stores no root version, so a bump changes exactly `package.json` and `CHANGELOG.md`; `release.mjs`, `promote-release-candidate.yml` and their tests no longer expect a lockfile rewrite. `bun install --frozen-lockfile` in the publish job proves the lock still matches the manifest.
+- `audit-baseline.json` and `.oxlintrc.json` are excluded from the published tarball; `bun.lock` never ships because `files` does not match it.
+
 ## [1.19.0] - 2026-11-04
 
 ### Fixed

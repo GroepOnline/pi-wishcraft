@@ -45,9 +45,9 @@ SUITE='set -e
 (cd /src && tar -cf - --exclude=./node_modules .) | (mkdir -p /app && cd /app && tar -xf -)
 cd /app
 git config --global --add safe.directory /app
-npm run typecheck
-npm test
-npm run circular'
+./node_modules/.bin/tsc --noEmit
+node --experimental-strip-types --experimental-test-coverage --test-coverage-lines=70 --test-coverage-functions=60 --test tests/**/*.test.ts
+./node_modules/.bin/madge --circular src index.ts bash-mode queue'
 
 run_one() {
   id="$1"

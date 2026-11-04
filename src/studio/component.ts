@@ -126,7 +126,6 @@ function renderList(
 
 function renderDetail(theme: Theme, width: number, entry: SkillEntry | null, usage: ReadonlyMap<string, SkillUsage>): string[] {
   if (!entry) return [theme.fg("accent", "DETAIL"), theme.fg("dim", "Select a skill from the list")];
-  const body = readSkillBody(entry.filePath);
   const refs = safeReadReferences(entry);
   const use = usage.get(entry.name);
   const health = entry.warning ? theme.fg("warning", "warn") : theme.fg("success", "ok");

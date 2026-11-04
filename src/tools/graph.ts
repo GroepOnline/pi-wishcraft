@@ -1,8 +1,5 @@
 const BRAILLE_CHAR_BASE = 0x2800;
 
-// Braille dot heights (0-7 for 4 vertical levels in 2 columns)
-const BRAILLE_MAP = [0x40, 0x4, 0x20, 0x2, 0x10, 0x1, 0x80, 0x8];
-
 /**
  * Render a sequence of numeric data points as a Braille sparkline string.
  */

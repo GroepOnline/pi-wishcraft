@@ -33,12 +33,11 @@ for (const line of lines) {
   consume(line.slice(pos));
   pixels.push(upper, lower);
 }
-const H = pixels.length, W = Math.max(...pixels.map(r => r.length));
+const W = Math.max(...pixels.map(r => r.length));
 
 // 2) crop lege kolommen
 let minX = W, maxX = 0;
 pixels.forEach(r => r.forEach((c, x) => { if (c) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); } }));
-const cropW = maxX - minX + 1;
 const crop = pixels.map(r => r.slice(minX, maxX + 1));
 while (crop.length && crop[0].every(c => !c)) crop.shift();
 while (crop.length && crop[crop.length-1].every(c => !c)) crop.pop();

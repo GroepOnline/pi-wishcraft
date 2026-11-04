@@ -1,4 +1,4 @@
 {
   "name": "pi-wishcraft",
-  "install": "npm ci"
+  "install": "bun install --frozen-lockfile"
 }

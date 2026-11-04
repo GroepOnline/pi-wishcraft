@@ -11,9 +11,20 @@ For PRs, keep the change narrow and include tests for behavior changes when poss
 Before opening a PR, run:
 
 ```bash
-npm test
+bun run check      # typecheck + oxlint + full test suite
 git diff --check
 ```
+
+Or enable the fast pre-commit hook once per clone — it runs typecheck, oxlint
+and only the test files you touched:
+
+```bash
+bun run hooks:install
+```
+
+Bun is the package manager (`bun install --frozen-lockfile`); the npm CLI is
+reserved for registry operations (`npm pack`/`npm publish`). The test runner
+stays Node's `node:test` — see `docs/testing.md` for why.
 
 ## Branching
 

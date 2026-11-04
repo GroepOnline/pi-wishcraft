@@ -8,24 +8,24 @@ on:
 permissions:
   contents: read
 
+# Superseded pull-request runs are cancelled; release-driven calls (a candidate
+# SHA must keep its own Verify evidence) never are.
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  verify:
-    name: verify
+  # Every lane below runs in parallel. They are independent by construction:
+  # each one installs from the frozen lockfile and touches nothing another lane
+  # reads, so no lane waits on another.
+  whitespace:
+    name: whitespace
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      actions: write  # dispatch promotion via workflow_dispatch (GITHUB_TOKEN-run chain)
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - name: Install devDependencies
-        run: npm ci --ignore-scripts
       - name: Whitespace check
         run: |
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
@@ -33,19 +33,106 @@ jobs:
           else
             git diff --check "HEAD~1" "HEAD"
           fi
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/bun-setup
       - name: Typecheck
-        run: npm run typecheck
+        run: bun run typecheck
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/bun-setup
+      - name: Lint (oxlint, warnings are errors)
+        run: bun run lint
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      # The suite runs on Node's own test runner: `bun test` is close but not
+      # equivalent (fake timers and PTY timing diverge in two suites), and the
+      # coverage thresholds are node:test flags. Bun still owns install + script
+      # invocation; see docs/testing.md.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: ./.github/actions/bun-setup
       # Quoted: a bare ": " inside an unquoted YAML scalar is read as a nested
       # mapping, which makes the whole workflow unparseable and fails every run
       # with zero jobs. Guarded by tests/workflow-yaml.test.ts.
       - name: "Unit tests (coverage threshold: 70% lines / 60% functions)"
-        run: npm test
+        run: bun run test
+
+  circular:
+    name: circular
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/bun-setup
       - name: Circular dependency check
-        run: npm run circular
+        run: bun run circular
+
+  package-contract:
+    name: package-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/bun-setup
       - name: Pi package release gate
-        run: npm run verify:package
+        run: bun run verify:package
+
+  audit:
+    name: audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/bun-setup
       - name: Dependency audit gate
-        run: npm run audit
+        run: bun run audit
+
+  # Aggregator: the required `verify` check keeps its name and only goes green
+  # when every parallel lane succeeded.
+  verify:
+    name: verify
+    needs:
+      - whitespace
+      - typecheck
+      - lint
+      - test
+      - circular
+      - package-contract
+      - audit
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write  # dispatch promotion via workflow_dispatch (GITHUB_TOKEN-run chain)
+    steps:
+      - name: Require every lane green
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if printf '%s' "$NEEDS" | jq -e 'any(.[]; .result != "success")' >/dev/null; then
+            echo "At least one verify lane did not succeed." >&2
+            exit 1
+          fi
       # workflow_run triggers are suppressed when the completed workflow was
       # itself dispatched via GITHUB_TOKEN (anti-recursion), so the Verify ->
       # Promote link must be a workflow_dispatch, which always creates a run.

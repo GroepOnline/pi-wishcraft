@@ -1,6 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type KeyId } from "@earendil-works/pi-tui";
-import type { StatusLinePreset } from "../../config/types.ts";
 import { PRESETS } from "../../config/presets.ts";
 import { registerCdCommand } from "../../shell/cd-command.ts";
 import { registerVibeCommand } from "./vibe-command.ts";

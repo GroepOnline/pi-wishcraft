@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 # ponytail: single run, structured METRIC output. Keep it fast — every second x100 runs.
 
 T0=$(node -e 'console.log(Date.now())')
-npm test 2>&1 | tee /tmp/autoresearch_test.out > /dev/null
+bun run test 2>&1 | tee /tmp/autoresearch_test.out > /dev/null
 T1=$(node -e 'console.log(Date.now())')
 TEST_MS=$((T1 - T0))
 PASS=$(grep -oP 'ℹ pass \K[0-9]+' /tmp/autoresearch_test.out | tail -1 || echo 0)
@@ -19,7 +19,7 @@ if [ "${FAIL:-1}" != "0" ] || [ "${PASS:-0}" -eq 0 ]; then
 fi
 
 T2=$(node -e 'console.log(Date.now())')
-npm run typecheck 2>&1 | tee /tmp/autoresearch_tc.out > /dev/null
+bun run typecheck 2>&1 | tee /tmp/autoresearch_tc.out > /dev/null
 T3=$(node -e 'console.log(Date.now())')
 TC_MS=$((T3 - T2))
 if grep -qi "error" /tmp/autoresearch_tc.out; then
@@ -28,7 +28,7 @@ if grep -qi "error" /tmp/autoresearch_tc.out; then
   exit 1
 fi
 
-CIRC=$(npx madge --circular src 2>&1 | grep -c "No circular" || echo 0)
+CIRC=$(bunx madge --circular src 2>&1 | grep -c "No circular" || echo 0)
 
 # micro: signal render 10k, registry 100k
 node --input-type=module <<'NODE' > /tmp/autoresearch_micro.out 2>&1
