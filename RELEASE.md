@@ -23,9 +23,7 @@ verified candidate.
 
 1. `verify` runs the same lanes as a PR (`.github/workflows/test.yml`).
 2. `prepare` confirms verified `main` is still the head of `main` (otherwise a
-   newer push owns the next candidate), preflights the npm credential
-   (`scripts/npm-token-check.sh` — a dead `NPM_TOKEN` fails here, *before* any
-   version exists), and cuts an idempotent candidate branch
+   newer push owns the next candidate) and cuts an idempotent candidate branch
    `release-candidate/v<next>-<base-sha12>` holding only the
    `chore: release <next>` bump of `package.json` and `CHANGELOG.md`
    (`bun.lock` stores no root version, so it never changes).
@@ -84,11 +82,11 @@ GIT_SSH_COMMAND='ssh -F ~/.ssh/config-groeponline -o IdentityFile=~/.ssh/sheesh'
 dispatch Promote fires, or a manual SSH/PAT tag push. It never runs on `main`.
 
 1. `actions/checkout` at the tag (`fetch-depth: 0`)
-2. `actions/setup-node` (node 24, `registry-url: https://registry.npmjs.org`)
+2. `actions/setup-node` (node 24)
 3. Stamp `PI_WISHCRAFT_BUILD_SHA` and `build-stamp.json` from the tag commit only
 4. `bun scripts/verify-release-tag.mjs --tag <tag>` (tag == `package.json`, on `origin/main`)
 5. `bun install --frozen-lockfile --ignore-scripts` (devDependencies incl. `typescript`)
-6. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` (fail-closed `npm view`, `npm whoami` preflight, idempotent skip, `latest` repoint)
+6. `sh scripts/npm-publish.sh` (fail-closed `npm view`, idempotent skip, `npm publish --access public`)
 7. `sh scripts/github-release.sh` with `GITHUB_TOKEN` (idempotent: skip if that tag already has a Release; notes from `CHANGELOG.md`)
 8. `npm pack` + `SHA256SUMS`, uploaded as a run artifact and attached to the GitHub Release
 
@@ -96,36 +94,53 @@ The lanes that need to prove the tree (typecheck, lint, tests, package contract)
 live in `test.yml` and run in `verify` — the tag commit already passed them as a
 candidate, so `publish` does not repeat them.
 
-`NPM_TOKEN` is the GroepOnline **org** Actions secret (publish rights to the
-`@groeponline` scope). This repo has no override; Actions inherits the org
-value. It is **not** readable after being set, so its health is checked instead:
-`prepare` runs `scripts/npm-token-check.sh` (`npm whoami`) before cutting a
-candidate, and `npm-publish.sh` runs the same check before publishing. A token
-that fails that check blocks the release with a named cause instead of a bare
-404 after the tag exists. The publish step also fails closed if the secret is
-empty.
+## npm authentication: trusted publishing, no stored token
+
+There is **no npm token in this repository**. The `publish` job grants
+`id-token: write` and the npm CLI exchanges that GitHub OIDC identity for a
+short-lived publish token (npm CLI ≥ 11.5.1, Node ≥ 22.14; the runner image
+satisfies both). Nothing expires, so nothing has to be rotated — the org
+`NPM_TOKEN` secret is not read by `release.yml` any more.
+
+The trust relationship lives on npmjs.com, one time per package:
+
+1. Sign in as the maintainer of `@groeponline/pi-wishcraft` (`chefgroeponline
+   <joep@chefgroep.online>` — `npm view @groeponline/pi-wishcraft maintainers`).
+2. Package → Settings → **Trusted publishing** → add a **GitHub Actions**
+   publisher with exactly these values (all fields case-sensitive):
+   - Organization or user: `GroepOnline`
+   - Repository: `pi-wishcraft`
+   - Workflow filename: `release.yml` (with `.yml`)
+   - Environment name: empty
+   - Allowed actions: **`npm publish`** (dist-tags are not used)
+3. Nothing else: provenance attestations are generated automatically.
+
+Rules that follow from that configuration:
+
+- Publishing must stay in the `release.yml` job that has `id-token: write`.
+  Moving `npm publish` into a reusable workflow (`workflow_call`) breaks the
+  match, because npm validates the *calling* workflow's filename.
+- Only GitHub-hosted runners are supported; self-hosted runners cannot use OIDC.
+- `npm-publish.sh` publishes with the default `latest` dist-tag. `npm dist-tag`
+  over OIDC needs npm ≥ 11.21 **and** an explicit permission on the trusted
+  publisher, so it is deliberately not used: versions only ever increase here.
+  Republishing an older version below the current `latest` needs a manual
+  token publish, which is the one case this setup does not cover.
 
 ### When publish fails: `E404 Not Found - PUT .../@groeponline%2fpi-wishcraft`
 
-For a scoped package npm answers a PUT with **404, not 403**, when the token
-is expired, revoked, or simply has no publish rights for that scope. It is not
-"package not found", and it is not a retryable transient.
+For a scoped package npm answers a PUT with **404, not 403**, when the caller
+may not publish. Under trusted publishing that means the relationship is
+missing, or it points at another repository/workflow filename, or the runner is
+not GitHub-hosted. It is not "package not found", and it is not a retryable
+transient.
 
-`scripts/npm-publish.sh` preflights `npm whoami` before publishing and prints
-that diagnosis instead of the raw 404; `prepare` runs the same check
-(`scripts/npm-token-check.sh`) before any version is cut, so a dead token now
-stops the release while `main` is still unbumped and untagged. Recovery:
+`scripts/npm-publish.sh` prints that diagnosis instead of the raw 404. Recovery:
 
-1. In the npm account that owns the package (`chefgroeponline
-   <joep@chefgroep.online>` — check with `npm view @groeponline/pi-wishcraft
-   maintainers`), create a **granular access token**: read + write, scope
-   `@groeponline`, "bypass 2FA" on for CI, and an expiry you will remember.
-   A 40-character `npm_…` token is a **classic** token, and npm revoked classic
-   tokens — one of those fails `npm whoami` with 401 and every publish with
-   404. Granular tokens are much longer, so the length alone tells them apart.
-2. Update the org Actions secret `NPM_TOKEN` (`gh secret set NPM_TOKEN --org
-   GroepOnline --repos pi-wishcraft`, or via the org settings UI).
-3. Republish the tags that failed, without cutting new versions. A bare
+1. Compare the trusted publisher on npmjs.com with the four values above
+   (existing connections cannot be edited — delete and re-create if a field is
+   wrong).
+2. Republish the tags that failed, without cutting new versions. A bare
    dispatch on a `v*` tag ref runs verify + publish for that tag:
 
    ```bash

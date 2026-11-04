@@ -1,8 +1,11 @@
 name: Release
 
 # A main push prepares a release candidate; only an exact candidate SHA that has
-# its own Verify check may be promoted to protected main and tagged. Prepare
-# preflights the npm credential first, so a dead NPM_TOKEN never costs a tag.
+# its own Verify check may be promoted to protected main and tagged.
+#
+# npm authentication is trusted publishing (OIDC), not a stored token: only the
+# publish job grants `id-token: write`, and the npm CLI exchanges that identity
+# for a short-lived publish token. There is no credential to expire or rotate.
 #
 # Publish is also dispatachable on a tag ref: tags created via the API under
 # GITHUB_TOKEN do not emit an `on: push` tag event (same anti-recursion rule as
@@ -63,10 +66,6 @@ jobs:
       - uses: ./.github/actions/bun-setup
         with:
           install: "false"
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 24
-          registry-url: "https://registry.npmjs.org"
       - name: Confirm verified main is still current
         id: current
         run: |
@@ -78,13 +77,6 @@ jobs:
             echo "superseded=false" >> "$GITHUB_OUTPUT"
             git reset --hard "$GITHUB_SHA"
           fi
-      # Gate the credential before any version exists: a dead token used to be
-      # discovered in publish, after main was already bumped and tagged.
-      - name: Preflight npm credential
-        if: steps.current.outputs.superseded != 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: sh scripts/npm-token-check.sh
       - name: Prepare idempotent candidate
         id: candidate
         if: steps.current.outputs.superseded != 'true'
@@ -135,6 +127,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      id-token: write # trusted publishing: npm exchanges this for a short-lived publish token
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -142,7 +135,6 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
-          registry-url: "https://registry.npmjs.org"
       - name: Stamp identity from the tag commit only
         run: |
           set -euo pipefail
@@ -153,8 +145,6 @@ jobs:
         run: bun scripts/verify-release-tag.mjs --tag "${GITHUB_REF_NAME}"
       - uses: ./.github/actions/bun-setup
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: sh scripts/npm-publish.sh
       - name: Create GitHub Release
         env:

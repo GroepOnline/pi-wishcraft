@@ -61,16 +61,10 @@ case "$1" in
     exit "\${STUB_NPM_PUBLISH_EXIT:-0}"
     ;;
   whoami)
-    if [ -n "\${STUB_NPM_WHOAMI_ERR:-}" ]; then
-      printf '%s\n' "$STUB_NPM_WHOAMI_ERR" >&2
-    fi
-    if [ "\${STUB_NPM_WHOAMI_EXIT:-0}" -eq 0 ]; then
-      echo chefgroeponline
-    fi
-    exit "\${STUB_NPM_WHOAMI_EXIT:-0}"
+    exit 1
     ;;
   dist-tag)
-    exit 0
+    exit 1
     ;;
   *)
     exit 1
@@ -112,24 +106,6 @@ function runNpmPublishScript(
     env: {
       ...process.env,
       PATH: `${binDir}:${process.env.PATH}`,
-      NODE_AUTH_TOKEN: "fake-token-for-tests",
-      ...extraEnv,
-    },
-  });
-}
-
-function runNpmTokenCheck(
-  projectDir: string,
-  binDir: string,
-  extraEnv: Record<string, string | undefined> = {},
-) {
-  return spawnSync("sh", [join(root, "scripts/npm-token-check.sh")], {
-    cwd: projectDir,
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      PATH: `${binDir}:${process.env.PATH}`,
-      NODE_AUTH_TOKEN: "fake-token-for-tests",
       ...extraEnv,
     },
   });
@@ -241,19 +217,6 @@ test("parseLatestVersionTag picks the highest vX.Y.Z tag", () => {
   assert.equal(parseLatestVersionTag(["upstream-v1", "v0.18.0"]), "v0.18.0");
 });
 
-test("npm-publish.sh fails closed without NODE_AUTH_TOKEN", () => {
-  const env = { ...process.env };
-  delete env.NODE_AUTH_TOKEN;
-  delete env.NPM_TOKEN;
-  const result = spawnSync("sh", ["scripts/npm-publish.sh"], {
-    cwd: root,
-    env,
-    encoding: "utf8",
-  });
-  assert.notEqual(result.status, 0);
-  assert.match(`${result.stdout}${result.stderr}`, /NPM_TOKEN is missing/);
-});
-
 test("npm-publish.sh skips publish and prints the skip message when the version is already on npm", () => {
   const { projectDir, binDir, cleanup } = withStubNpmProject("1.2.3");
   try {
@@ -336,28 +299,14 @@ test("npm-publish.sh treats cannot-publish-over-existing as a successful skip", 
   }
 });
 
-test("npm-publish.sh names a dead token instead of a bare 404", () => {
-  // npm answers a PUT for a scoped package with 404 when the token is expired,
-  // revoked, or lacks publish rights. That reads like "package not found", so
-  // the script preflights the credential and says what is actually wrong.
-  const { projectDir, binDir, cleanup } = withStubNpmProject("1.2.3");
-  try {
-    const marker = join(binDir, "publish-called");
-    const result = runNpmPublishScript(projectDir, binDir, {
-      STUB_NPM_VIEW_EXIT: "1",
-      STUB_NPM_VIEW_KIND: "404",
-      STUB_NPM_WHOAMI_EXIT: "1",
-      STUB_NPM_WHOAMI_ERR: "npm error code E401\nnpm error Unable to authenticate",
-      STUB_NPM_PUBLISH_MARKER: marker,
-    });
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /NPM_TOKEN is not accepted by the registry/);
-    assert.match(result.stderr, /Unable to authenticate/);
-    assert.match(result.stderr, /re-run this workflow/);
-    assert.equal(existsSync(marker), false, "npm publish must not run with a dead token");
-  } finally {
-    cleanup();
-  }
+test("npm-publish.sh publishes with the default dist-tag and no marker-tag dance", () => {
+  // Trusted publishing (OIDC) covers `npm publish` only: `npm dist-tag add`
+  // needs npm >= 11.21 plus an explicit permission on the trusted publisher.
+  // Versions only increase here, so plain `npm publish` sets `latest` itself.
+  const script = readFileSync(join(root, "scripts/npm-publish.sh"), "utf8");
+  assert.match(script, /^\s+npm publish --access public/m);
+  assert.doesNotMatch(script, /^\s+npm dist-tag add/m);
+  assert.doesNotMatch(script, /--tag "release-\$\{VERSION\}"/);
 });
 
 test("npm-publish.sh fails and skips the catalog URLs when npm publish fails", () => {
@@ -375,9 +324,10 @@ test("npm-publish.sh fails and skips the catalog URLs when npm publish fails", (
   }
 });
 
-test("npm-publish.sh explains a 404 on publish as a scope/permission problem", () => {
-  // The shape that broke 1.18.0 and 1.19.0: a token that authenticates for
-  // whoami but has no publish rights for the scope answers 404 on the PUT.
+test("npm-publish.sh explains a rejected publish as a trusted-publisher problem", () => {
+  // The shape that broke 1.18.0 and 1.19.0: npm answers 404 (not 403) on the PUT
+  // when the caller may not publish. Under OIDC that means the trusted-publisher
+  // relationship is missing or points at another workflow file.
   const { projectDir, binDir, cleanup } = withStubNpmProject("1.2.3");
   try {
     const result = runNpmPublishScript(projectDir, binDir, {
@@ -388,9 +338,9 @@ test("npm-publish.sh explains a 404 on publish as a scope/permission problem", (
         "npm error code E404\nnpm error 404 Not Found - PUT https://registry.npmjs.org/@groeponline%2fpi-wishcraft",
     });
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /rejected the publish with 404/);
-    assert.match(result.stderr, /no\s+publish rights for @groeponline\/pi-wishcraft/);
-    assert.match(result.stderr, /Rotate NPM_TOKEN/);
+    assert.match(result.stderr, /rejected the publish as unauthenticated/);
+    assert.match(result.stderr, /trusted publisher/);
+    assert.match(result.stderr, /workflow release\.yml/);
   } finally {
     cleanup();
   }
@@ -428,7 +378,7 @@ test(".github/workflows/release.yml publishes only from a verified tag", () => {
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   const publishSteps = workflow.match(/run: sh scripts\/npm-publish\.sh/g) ?? [];
   assert.equal(publishSteps.length, 1, "candidate preparation must never publish");
-  assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  assert.match(workflow, /id-token: write/);
   assert.doesNotMatch(workflow, /node scripts\/release\.mjs auto --push/);
   // Bot-created tags never emit an `on: push` tag event (anti-recursion), so a
   // workflow_dispatch on the tag ref is the publish path Promote must drive.
@@ -482,84 +432,32 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
   assert.match(verify, /startsWith\(github\.ref_name, 'release-candidate\/v'\)/);
 });
 
-test("npm-token-check.sh fails closed without a token", () => {
-  const { projectDir, binDir, cleanup } = withStubNpmProject("1.0.0");
-  try {
-    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
-    delete env.NODE_AUTH_TOKEN;
-    delete env.NPM_TOKEN;
-    const result = spawnSync("sh", [join(root, "scripts/npm-token-check.sh")], {
-      cwd: projectDir,
-      encoding: "utf8",
-      env,
-    });
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /NPM_TOKEN is missing/);
-  } finally {
-    cleanup();
-  }
-});
-
-test("npm-token-check.sh names a dead credential before any version exists", () => {
-  const { projectDir, binDir, cleanup } = withStubNpmProject("1.0.0");
-  try {
-    const result = runNpmTokenCheck(projectDir, binDir, {
-      STUB_NPM_WHOAMI_EXIT: "1",
-      STUB_NPM_WHOAMI_ERR: "npm error code E401\nnpm error Unable to authenticate",
-    });
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /NPM_TOKEN is not accepted by the registry/);
-    assert.match(result.stderr, /Unable to authenticate/);
-    assert.match(result.stderr, /No version was tagged/);
-  } finally {
-    cleanup();
-  }
-});
-
-test("npm-token-check.sh accepts a live credential", () => {
-  const { projectDir, binDir, cleanup } = withStubNpmProject("1.0.0");
-  try {
-    const result = runNpmTokenCheck(projectDir, binDir);
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /npm credential accepted as: chefgroeponline/);
-  } finally {
-    cleanup();
-  }
-});
-
-test("release preparation preflights the npm credential before cutting a candidate", () => {
-  // A dead token used to be discovered in publish, after main was bumped and
-  // tagged: 1.18.0 and 1.19.0 were stranded that way. The gate must run before
-  // the version bump, and only on the main-push path.
+test("release publishes through npm trusted publishing, never a stored token", () => {
+  // A long-lived NPM_TOKEN was the single point of failure: it expired, npm
+  // answered 404 on the PUT, and v1.18.0/v1.19.0 were tagged but never
+  // published. OIDC has no credential to expire; the publish job is the only
+  // place that may mint the identity token.
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
-  const prepareJob = workflow.slice(
-    workflow.indexOf("name: prepare release candidate"),
+  const publishJob = workflow.slice(
     workflow.indexOf("name: test + publish"),
+    workflow.indexOf("name: Backfill GitHub Release evidence"),
   );
-  const gate = prepareJob.indexOf("run: sh scripts/npm-token-check.sh");
-  const candidate = prepareJob.indexOf("name: Prepare idempotent candidate");
-  assert.ok(gate > 0, "prepare must run the credential preflight");
-  assert.ok(gate < candidate, "the gate must precede the version bump");
-  assert.match(prepareJob, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
-  assert.doesNotMatch(
-    readFileSync(join(root, ".github/workflows/test.yml"), "utf8"),
-    /NODE_AUTH_TOKEN|npm-token-check/,
+  assert.match(publishJob, /id-token: write/);
+  assert.match(publishJob, /run: sh scripts\/npm-publish\.sh/);
+  assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN|registry-url/);
+  assert.equal(
+    (workflow.match(/^\s+id-token: write/gm) ?? []).length,
+    1,
+    "only the tag publisher may request an OIDC identity",
   );
-});
-
-test("release workflows keep npm auth scoped to the release jobs", () => {
-  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
-  assert.doesNotMatch(workflow, /id-token:\s*write/);
-  const registryUrls = workflow.match(/registry-url: "https:\/\/registry\.npmjs\.org"/g) ?? [];
-  // Two, not one: prepare preflights the credential (so a dead token cannot
-  // strand a tag) and publish authenticates the upload. Both run only from a
-  // main push or a v* tag ref; Verify, Preview and backfill never see the token.
-  assert.equal(registryUrls.length, 2);
   assert.match(workflow, /group: npm-publish-pi-wishcraft/);
-  assert.doesNotMatch(
-    readFileSync(join(root, ".github/workflows/preview.yml"), "utf8"),
-    /NODE_AUTH_TOKEN|registry-url/,
-  );
+  for (const file of ["test.yml", "preview.yml"]) {
+    assert.doesNotMatch(
+      readFileSync(join(root, ".github/workflows", file), "utf8"),
+      /id-token|NPM_TOKEN|NODE_AUTH_TOKEN/,
+      `${file} must not carry publishing credentials`,
+    );
+  }
 });
 
 test("CHANGELOG.md keeps a well-formed Unreleased section for release.mjs to rewrite", () => {
