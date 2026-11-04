@@ -36,6 +36,10 @@ jobs:
             exit 1
           fi
           echo "token length: ${#NODE_AUTH_TOKEN} characters (value never printed)"
+          case "${#NODE_AUTH_TOKEN}" in
+            36|40) echo "shape: 40-char classic token -- npm revoked classic tokens; a granular token is required" ;;
+            *) echo "shape: not a classic 40-char token" ;;
+          esac
 
           echo
           echo "== npm whoami =="
@@ -44,7 +48,9 @@ jobs:
           else
             echo "::error::npm whoami failed: the token is expired, revoked, or for a different registry."
             printf '%s\n' "$who"
-            exit 1
+            # Keep going: with a live-but-underprivileged token the org checks
+            # below are the interesting part.
+            who=""
           fi
 
           echo
@@ -69,3 +75,9 @@ jobs:
           echo "== public package metadata (no auth) =="
           npm view @groeponline/pi-wishcraft maintainers --json 2>&1 | head -10 || true
           npm view @groeponline/pi-wishcraft dist-tags.latest 2>&1 | head -3 || true
+
+          if [ -z "$who" ]; then
+            echo
+            echo "::error::conclusion: the credential itself is dead (401). Rotate NPM_TOKEN."
+            exit 1
+          fi

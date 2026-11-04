@@ -100,6 +100,9 @@ that diagnosis instead of the raw 404. Recovery:
    <joep@chefgroep.online>` — check with `npm view @groeponline/pi-wishcraft
    maintainers`), create a **granular access token**: read + write, scope
    `@groeponline`, "bypass 2FA" on for CI, and an expiry you will remember.
+   A 40-character `npm_…` token is a **classic** token, and npm revoked classic
+   tokens — one of those fails `npm whoami` with 401 and every publish with
+   404. Granular tokens are much longer, so the length alone tells them apart.
 2. Update the org Actions secret `NPM_TOKEN` (`gh secret set NPM_TOKEN --org
    GroepOnline --repos pi-wishcraft`, or via the org settings UI).
 3. Republish the tags that failed, without cutting new versions. A bare
