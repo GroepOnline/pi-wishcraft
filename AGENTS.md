@@ -44,7 +44,7 @@ Each domain operates through `RuntimeState` callbacks:
 Domain modules must not import back into the hub for callbacks. Shared types and constants live in `src/extension/core/`. Verify no circular imports:
 
 ```bash
-npm run circular
+bun run circular
 # → madge --circular src index.ts bash-mode queue
 ```
 
@@ -71,29 +71,43 @@ npm run circular
 
 ## Development Commands
 
+Bun is the package manager and script runner (`packageManager: bun@1.4.2`);
+the test suite still runs on Node's own runner because two suites depend on
+`node:test` timer/PTY semantics that `bun test` does not reproduce (see
+`docs/testing.md`).
+
 ```bash
-# Install dependencies
-npm ci
+# Install dependencies (frozen lockfile)
+bun install --frozen-lockfile
 
 # Type check (strict, no emit)
-npm run typecheck
+bun run typecheck
 
-# Run all tests
-npm test
+# Lint (oxlint; warnings are errors)
+bun run lint
+
+# Run all tests (node:test, coverage thresholds)
+bun run test
+
+# Typecheck + lint + tests in one go
+bun run check
 
 # Check for circular imports
-npm run circular
+bun run circular
 
 # Full package contract verification (for publish preparation)
-npm run verify:package
+bun run verify:package
 
 # Local preview server (Deck/Signal/motion surfaces)
-npm run preview
+bun run preview
+
+# Enable the pre-commit hook (typecheck + lint + staged tests)
+bun run hooks:install
 
 # Dockerized parallel testing (typecheck + test + circular)
 scripts/docker-test.sh [-n N]
 
-# Cloud agent bootstrap (Node 24, pi CLI install)
+# Cloud agent bootstrap (bun, Node 24, pi CLI install)
 scripts/cloud-agent-install.sh
 scripts/cloud-agent-start.sh
 ```
@@ -104,7 +118,7 @@ Releases are CI-driven via GitHub Actions:
 
 ```bash
 # Locally: bump version, rewrite CHANGELOG, tag, optional push
-node scripts/release.mjs          # or: npm run release
+bun scripts/release.mjs           # or: bun run release
 
 # Publish to npm (CI handles auth)
 scripts/npm-publish.sh
@@ -114,7 +128,7 @@ scripts/github-release.sh
 ```
 
 CI workflows (`.github/workflows/`):
-- `test.yml` — Node 24, typecheck, test, circular, verify:package, npm audit
+- `test.yml` — parallel lanes (whitespace, typecheck, lint, test, circular, package-contract, audit) with a `verify` aggregator that keeps the required check name
 - `release.yml` — reuses test.yml, prepares release-candidate branch, publishes on tag, attaches `npm pack` + `SHA256SUMS`
 - `promote-release-candidate.yml` — promotes verified SHA to main, tags, dispatches publish
 
@@ -246,14 +260,16 @@ function createRuntimeState(hooks: {
 | Requirement | Detail |
 |---|---|
 | **Node** | ≥22.19 required (pi CLI floor, pinned via `engines`); Node 24 via nvm for CI and pi CLI |
-| **Package manager** | npm (lockfile v3) |
+| **Package manager** | Bun 1.4.2 (`bun.lock`, `bun install --frozen-lockfile`); the npm CLI is used only for registry operations (`npm pack`, `npm publish`, `npm dist-tag`) |
+| **Lint** | oxlint (`bun run lint`, `--deny-warnings`); config in `.oxlintrc.json`, `no-control-regex` off because ANSI SGR matching is the product |
+| **Pre-commit** | `.githooks/pre-commit` (typecheck + oxlint + staged test files), enabled with `bun run hooks:install` |
 | **TypeScript** | 5.9.3, strict mode, `NodeNext` module/resolution, `allowImportingTsExtensions`, no build step |
 | **Test runner** | Node built-in `node:test` with `--experimental-strip-types` type stripping |
-| **Circular import check** | `madge --circular src index.ts bash-mode queue` (via `npm run circular`) |
+| **Circular import check** | `madge --circular src index.ts bash-mode queue` (via `bun run circular`) |
 | **Import style** | `.ts` extensions on all imports, `node:`-prefixed builtins |
 | **Pi CLI** | Installed at `^0.99.2` (`pi-coding-agent`, `pi-ai`, `pi-tui` move together — the agent depends on matching `pi-ai`/`pi-tui`, so bumping one alone splits the tree); wrapped to run under Node 24 via nvm |
 | **Peer floor** | `peerDependencies` are `"*"` for the three Pi packages because Pi's own docs require it ("declare the host-provided packages listed above in peerDependencies with a `*` range"), and `scripts/verify-pi-package-contract.mjs` enforces it. `"*"` therefore cannot express a floor, so the real one is only enforced by the code using the SDK: `normalizeContext` (added in `pi-ai` 0.86.0, used by `src/working-vibes/provider.ts`) is the binding symbol — probed across every SDK release, all 12 runtime symbols resolve from 0.86.0 up. A consumer on 0.84.3 installs without warning, but the activation-time peer guard (`src/extension/core/peer-guard.ts`) names every missing symbol with its feature and floor, notifies at session start, and turns the `/vibe` failure into an actionable error; `tests/peer-guard.test.ts` keeps the guarded catalog in sync with the published import surface in both directions. |
-| **Dependency audit** | `npm run audit` (`scripts/audit-gate.mjs`) is the gate. `audit-baseline.json` lists accepted advisories, each pinned to its GHSA id **and** the install path(s) it covers, with a required written reason; new high/critical advisories fail even on an already-accepted package, a second vulnerable copy of an accepted package fails, a baselined advisory that stops reporting as high/critical also fails, an `npm audit` that errors out fails the gate instead of reading as "zero findings", and the baseline is excluded from the published tarball. |
+| **Dependency audit** | `bun run audit` (`scripts/audit-gate.mjs`) is the gate. `audit-baseline.json` lists accepted advisories, each pinned to its GHSA id **and** the install path(s) it covers, with a required written reason; new high/critical advisories fail even on an already-accepted package, a second vulnerable copy of an accepted package fails, a baselined advisory that stops reporting as high/critical also fails, an `npm audit` that errors out fails the gate instead of reading as "zero findings", and the baseline is excluded from the published tarball. |
 | **Docker** | `fuse-overlayfs` storage driver for nested VM testing |
 | **Compound Engineering** | `.compound-engineering/` overlay; portable skills via `~/.agents/skills/ce-*`; native Cursor plugin disabled |
 
@@ -264,7 +280,7 @@ function createRuntimeState(hooks: {
 - **Runner**: Node's built-in `node:test` (flat per-file suites)
 - **Assertions**: `node:assert/strict`
 - **Type stripping**: `--experimental-strip-types` (no `tsc` compilation in tests)
-- **Invocation**: `npm test` runs `node --experimental-strip-types --test tests/**/*.test.ts`
+- **Invocation**: `bun run test` runs `node --experimental-strip-types --test tests/**/*.test.ts` (bun owns install and script invocation; `bun test` itself is not used — see `docs/testing.md`)
 
 ### Test Organization
 
@@ -298,19 +314,23 @@ import { powerlineFooter } from "./index.ts";
 The `.github/workflows/test.yml` workflow enforces the full verification chain:
 
 ```bash
-npm run typecheck     # tsc --noEmit
-npm test              # node --test
-npm run circular      # madge --circular
-npm run verify:package # verify-package.mjs + verify-pi-package-contract.mjs
-npm audit             # security audit
+bun run typecheck      # tsc --noEmit
+bun run lint           # oxlint --deny-warnings
+bun run test           # node --test with coverage thresholds
+bun run circular       # madge --circular
+bun run verify:package # verify-package.mjs + verify-pi-package-contract.mjs
+bun run audit          # security audit gate
 ```
+
+Each gate is its own parallel job; the `verify` job aggregates them and stays
+the single required status check.
 
 ### Release Verification
 
 Before any publish, `prepublishOnly` runs the full chain:
 
 ```bash
-tsc --noEmit && verify-package.mjs && verify-pi-package-contract.mjs
+tsc --noEmit && oxlint --deny-warnings ... && verify-package.mjs && verify-pi-package-contract.mjs
 ```
 
 ### Dockerized Parallel Testing

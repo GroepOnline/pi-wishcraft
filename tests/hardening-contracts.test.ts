@@ -112,10 +112,11 @@ test("release is blocked on the same reusable Verify contract as pull requests",
   const verify = readFileSync(join(root, ".github/workflows/test.yml"), "utf8");
   assert.match(verify, /workflow_call:/);
   assert.match(verify, /git diff --check/);
-  assert.match(verify, /run: npm run typecheck/);
-  assert.match(verify, /run: npm test/);
-  assert.match(verify, /run: npm run circular/);
-  assert.match(verify, /run: npm run verify:package/);
+  assert.match(verify, /run: bun run typecheck/);
+  assert.match(verify, /run: bun run lint/);
+  assert.match(verify, /run: bun run test/);
+  assert.match(verify, /run: bun run circular/);
+  assert.match(verify, /run: bun run verify:package/);
 
   const release = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   assert.match(release, /uses: \.\/\.github\/workflows\/test\.yml/);

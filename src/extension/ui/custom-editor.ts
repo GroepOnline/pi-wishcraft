@@ -48,14 +48,10 @@ import {
   runPowerlineShortcut,
   stashOrRestoreEditorText,
 } from "../shortcuts/shortcuts-router.ts";
-import {
-  dismissWelcome,
-  scheduleDismissWelcome,
-} from "../welcome/welcome-control.ts";
+import { scheduleDismissWelcome } from "../welcome/welcome-control.ts";
 import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import {
-  ensureShellSession,
   getShellCwd,
   getShellHistoryEntries,
   getShellPath,

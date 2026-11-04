@@ -99,7 +99,6 @@ hs_err_pid*
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-bun.lock
 
 # ChefGroep standard ignores (OS / Xcode / local env / CE)
 .compound-engineering/*.local.yaml

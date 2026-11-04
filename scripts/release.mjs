@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Zero-dep release helper. Bumps version, rolls CHANGELOG, tags.
-// Local: npm run release [patch|minor|major|auto|x.y.z]
-// CI:    node scripts/release.mjs auto --push
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+// Local: bun run release [patch|minor|major|auto|x.y.z]
+// CI:    bun scripts/release.mjs auto --push
+import { readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -10,7 +10,6 @@ import { dirname, join, resolve } from "node:path";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const pkgPath = join(root, "package.json");
 const changelogPath = join(root, "CHANGELOG.md");
-const lockPath = join(root, "package-lock.json");
 
 export function bump(version, kind) {
   const [major, minor, patch] = version.split(".").map(Number);
@@ -119,13 +118,6 @@ export function rewriteUnreleasedHeading(changelog, next, date) {
   };
 }
 
-export function rewritePackageLockVersion(lockText, next) {
-  const lock = JSON.parse(lockText);
-  lock.version = next;
-  if (lock.packages?.[""]) lock.packages[""].version = next;
-  return JSON.stringify(lock, null, 2) + "\n";
-}
-
 export function parseReleaseCandidateBranch(branch) {
   const match = /^release-candidate\/v(\d+\.\d+\.\d+)-([0-9a-f]{12})$/.exec(branch);
   if (!match) return null;
@@ -152,7 +144,9 @@ export function validateReleaseCandidateMetadata({
     throw new Error(`Candidate package version ${packageVersion} != ${parsed.version}.`);
   }
   const actual = [...new Set(changedFiles)].sort();
-  const expected = ["CHANGELOG.md", "package-lock.json", "package.json"];
+  // bun.lock carries no root version (dependencies are unchanged by a bump),
+  // so a release candidate is exactly the manifest and the changelog.
+  const expected = ["CHANGELOG.md", "package.json"];
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`Unexpected release candidate files: ${actual.join(", ")}`);
   }
@@ -241,12 +235,6 @@ function main() {
 
   pkg.version = next;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-  if (existsSync(lockPath)) {
-    writeFileSync(
-      lockPath,
-      rewritePackageLockVersion(readFileSync(lockPath, "utf8"), next),
-    );
-  }
 
   const date = new Date().toISOString().slice(0, 10);
   const rolled = rewriteUnreleasedHeading(changelog, next, date);
@@ -257,7 +245,7 @@ function main() {
     console.log("No [Unreleased] section; leaving CHANGELOG as-is.");
   }
 
-  execSync("git add package.json package-lock.json CHANGELOG.md", { cwd: root, stdio: "inherit" });
+  execSync("git add package.json CHANGELOG.md", { cwd: root, stdio: "inherit" });
   execSync(`git commit -m "chore: release ${next}"`, { cwd: root, stdio: "inherit" });
   execSync(`git tag -a ${tag} -m "Release ${next}"`, { cwd: root, stdio: "inherit" });
 

@@ -73,17 +73,15 @@ jobs:
           if [ "$STATE" != "stale" ]; then
             [ "${PARENT_SHA:0:12}" = "$PARENT_PREFIX" ] || { echo "Parent prefix mismatch." >&2; exit 1; }
             [ "$SUBJECT" = "chore: release $VERSION" ] || { echo "Unexpected subject: $SUBJECT" >&2; exit 1; }
-            EXPECTED_FILES="$(printf '%s\n' CHANGELOG.md package-lock.json package.json | sort)"
+            # bun.lock carries no root version, so a bump changes exactly the
+            # manifest and the changelog. The lockfile itself is proven installable
+            # by `bun install --frozen-lockfile` in the verify job.
+            EXPECTED_FILES="$(printf '%s\n' CHANGELOG.md package.json | sort)"
             [ "$FILES" = "$EXPECTED_FILES" ] || { echo "Unexpected candidate files:" >&2; printf '%s\n' "$FILES" >&2; exit 1; }
             PACKAGE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/contents/package.json?ref=$CANDIDATE_SHA" --jq '.content' | base64 -d)"
-            PACKAGE_LOCK="$(gh api "repos/$GITHUB_REPOSITORY/contents/package-lock.json?ref=$CANDIDATE_SHA" --jq '.content' | base64 -d)"
             CHANGELOG="$(gh api "repos/$GITHUB_REPOSITORY/contents/CHANGELOG.md?ref=$CANDIDATE_SHA" --jq '.content' | base64 -d)"
             PACKAGE_VERSION="$(printf '%s' "$PACKAGE_JSON" | jq -r '.version')"
-            LOCK_VERSION="$(printf '%s' "$PACKAGE_LOCK" | jq -r '.version')"
-            LOCK_ROOT_VERSION="$(printf '%s' "$PACKAGE_LOCK" | jq -r '.packages[""].version')"
             [ "$PACKAGE_VERSION" = "$VERSION" ] || { echo "package.json version mismatch." >&2; exit 1; }
-            [ "$LOCK_VERSION" = "$VERSION" ] || { echo "package-lock root version mismatch." >&2; exit 1; }
-            [ "$LOCK_ROOT_VERSION" = "$VERSION" ] || { echo "package-lock package version mismatch." >&2; exit 1; }
             # grep WITHOUT -q: -q exits on the first match, closing the pipe on
             # printf while the (large) CHANGELOG is still being written — the
             # resulting EPIPE fails the pipeline under pipefail even though the

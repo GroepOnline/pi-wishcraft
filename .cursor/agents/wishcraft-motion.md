@@ -11,4 +11,4 @@ Rules:
 - Gallery and composer stay pure functions. Do not import `ctx.ui`.
 - Every motion has an ASCII `fallbackGlyph`.
 - Accessibility: `full | reduced | functional | off`, plus `NO_COLOR`, screen reader, and reduced-motion host flags.
-- Quality gate: `npm run typecheck && npm test && npx madge --circular src index.ts bash-mode queue`.
+- Quality gate: `bun run typecheck && bun run lint && bun run test && bun run circular`.

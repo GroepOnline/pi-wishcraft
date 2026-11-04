@@ -1,0 +1,25 @@
+#!/bin/sh
+# Fast local gate: typecheck + oxlint on every commit, and the test files that
+# the commit touches. The full suite (coverage thresholds included) is CI's
+# job — run `bun run check` before pushing if you want it locally too.
+#
+# Enable once per clone:  bun run hooks:install   (git config core.hooksPath .githooks)
+set -eu
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "pre-commit: bun is not on PATH. Install bun, or commit with --no-verify." >&2
+  exit 1
+fi
+
+bun run typecheck
+bun run lint
+
+staged_tests="$(git diff --cached --name-only --diff-filter=ACM \
+  | grep -E '^tests/.*\.test\.ts$' || true)"
+
+if [ -n "$staged_tests" ]; then
+  echo "pre-commit: running staged test files"
+  # Word splitting is intentional: one file path per line.
+  # shellcheck disable=SC2086
+  node --experimental-strip-types --test $staged_tests
+fi

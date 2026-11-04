@@ -10,4 +10,4 @@ Rules:
 - Ideas stay in the queue inbox (`#`, `/ideas`). Do not invent a second store.
 - Guardrails are in-process `wishcraft.policy` rules. No spawned policy engine.
 - English overlay copy only.
-- Quality gate: `npm run typecheck && npm test && npx madge --circular src index.ts bash-mode queue`.
+- Quality gate: `bun run typecheck && bun run lint && bun run test && bun run circular`.

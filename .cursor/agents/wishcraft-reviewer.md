@@ -15,7 +15,7 @@ Review Checklist:
 - **Continuous Frame Rule**: Check that overlays do not nest redundant border boxes.
 - **Universal Fallbacks**: Ensure all Unicode and Nerd Font glyphs have explicit ASCII fallbacks.
 - **Pure Function Testability**: Verify all motion mathematics and layout calculations are testable without headless `ctx.ui`.
-- **Quality Gates**: Ensure `npm run typecheck && npm test && npx madge --circular` remain passing.
+- **Quality Gates**: Ensure `bun run typecheck && bun run lint && bun run test && bun run circular` remain passing.
 
 Provide feedback organized by priority:
 - 🔴 Critical Issues (Must fix before merge)

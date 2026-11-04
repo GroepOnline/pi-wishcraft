@@ -19,12 +19,6 @@ const MAX_CONFLICTS = 3;
 const MAX_UNKNOWN = 3;
 const MAX_INVALID = 4;
 
-const MARK: Record<"ok" | "warn" | "fail", string> = {
-  ok: "✓",
-  warn: "!",
-  fail: "✗",
-};
-
 /** Localised heading for the config diagnosis block. */
 export function configDiagnosticTitle(): string {
   return tr("diag.title", "Config diagnosis");

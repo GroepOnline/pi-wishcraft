@@ -37,12 +37,11 @@ Put `[skip release]` in the merge-commit subject to opt out. The follow-up
 Manual still works when you want an explicit version before pushing tags:
 
 ```bash
-# 1. Make sure the working tree is clean and tests/typecheck pass (see Verification)
-npm run typecheck        # tsc --noEmit
-npm test                 # node --experimental-strip-types --test tests/**/*.test.ts
+# 1. Make sure the working tree is clean and the full chain passes (see Verification)
+bun run check            # typecheck + oxlint + tests
 
 # 2. Release (patch | minor | major | auto | explicit 1.2.3)
-npm run release minor    # = node scripts/release.mjs minor
+bun run release minor    # = bun scripts/release.mjs minor
 ```
 
 `scripts/release.mjs` (zero deps, node built-ins only) does:
@@ -73,13 +72,14 @@ start a second run.
 1. `actions/checkout@v4` (`fetch-depth: 0`, `fetch-tags: true`)
 2. `actions/setup-node@v4` (node 24, `registry-url: https://registry.npmjs.org`)
 3. Fetch and `git reset --hard origin/main` (bump job only; tests the tree that will be tagged)
-4. `npm ci --ignore-scripts` (installs devDependencies incl. `typescript`)
-5. `npm run typecheck` (tsc)
-6. `npm test` (node test runner)
-7. `npm run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
-8. `node scripts/release.mjs auto --push` (main only)
-9. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` (fail-closed `npm view`, idempotent skip, then the Pi catalog URLs)
-10. `sh scripts/github-release.sh` with `GITHUB_TOKEN` (idempotent: skip if that tag already has a Release; notes from `CHANGELOG.md`)
+4. `bun install --frozen-lockfile --ignore-scripts` (installs devDependencies incl. `typescript`)
+5. `bun run typecheck` (tsc)
+6. `bun run lint` (oxlint)
+7. `bun run test` (node test runner)
+8. `bun run verify:package` (catalog contract gate — see `scripts/verify-package.mjs`)
+9. `bun scripts/release.mjs auto --push` (main only)
+10. `sh scripts/npm-publish.sh` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` (fail-closed `npm view`, idempotent skip, then the Pi catalog URLs)
+11. `sh scripts/github-release.sh` with `GITHUB_TOKEN` (idempotent: skip if that tag already has a Release; notes from `CHANGELOG.md`)
 
 `NPM_TOKEN` is the GroepOnline **org** Actions secret (publish rights to the
 `@groeponline` scope). This repo has no override; Actions inherits the org
@@ -96,8 +96,8 @@ After a release, confirm each layer. Example for `0.15.0`:
 
 ```bash
 # 1. Local: typecheck + tests green BEFORE tagging
-npm run typecheck        # exit 0
-npm test                 # "ℹ pass 170", "ℹ fail 0"
+bun run typecheck        # exit 0
+bun run test             # "ℹ pass 170", "ℹ fail 0"
 
 # 2. Tag pushed
 git ls-remote --tags origin | grep v0.15.0   # shows v0.15.0 on origin
@@ -148,7 +148,7 @@ The bump happens on `main` in the release workflow, not in the feature PR.
 
 Never bump in the same PR as the feature work. Never tag from a stacked
 feature branch. `0.19.0` exists only after `main` auto-tags (or a manual
-`npm run release` on `main`).
+`bun run release` on `main`).
 
 - **patch** (`0.18.0 → 0.18.1`): bug fixes, doc only; escape hatch if 0.19 slips.
 - **minor** (`0.18.x → 0.19.0`): new segments/presets, features, additive changes.

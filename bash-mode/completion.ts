@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
-import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } from "@earendil-works/pi-tui";
+import type { AutocompleteItem, AutocompleteProvider } from "@earendil-works/pi-tui";
 import { matchHistoryEntries, readGlobalShellHistory, readProjectHistory } from "./history.ts";
 import type { ExtendedCompletionItem, GhostSuggestion } from "./types.ts";
 
@@ -365,7 +365,7 @@ function boostValidatedItemsFromGlobalHistory(
 }
 
 export class BashCompletionEngine {
-  async getGhostSuggestion(line: string, cwd: string, shellPath: string, signal: AbortSignal): Promise<GhostSuggestion | null> {
+  async getGhostSuggestion(line: string, cwd: string, shellPath: string, _signal: AbortSignal): Promise<GhostSuggestion | null> {
     const projectHistoryEntries = readProjectHistory(cwd);
 
     if (line.trim().length === 0) {

@@ -187,7 +187,7 @@ export function registerSessionLifecycle(
     }
   });
 
-  pi.on("session_shutdown", async (_event, ctx) => {
+  pi.on("session_shutdown", async (_event, _ctx) => {
     clearSkillsCountPublisher();
     rt.sessionGeneration++;
     rt.dismissWelcomeOverlay?.();

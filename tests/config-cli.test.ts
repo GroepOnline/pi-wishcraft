@@ -49,14 +49,6 @@ function withTempCwd(
   }
 }
 
-function readGlobal(agentDir: string): Record<string, unknown> {
-  try {
-    return JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf8"));
-  } catch {
-    return {};
-  }
-}
-
 function readProject(cwd: string): Record<string, unknown> {
   try {
     return JSON.parse(readFileSync(join(cwd, ".pi", "settings.json"), "utf8"));

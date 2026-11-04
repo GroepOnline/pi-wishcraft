@@ -28,11 +28,15 @@ const root = join(import.meta.dirname, "..");
 const script = join(root, "scripts", "audit-gate.mjs");
 
 /**
- * Run the gate. With `auditJson` given, a stubbed `npm` on PATH answers the
- * gate with it instead of the live registry, so the decision logic is
- * testable offline.
+ * Run the gate. With `auditJson` given, a stubbed `bun` on PATH answers
+ * `bun audit --json` (and `bun pm ls --all`) with it instead of the live
+ * registry, so the decision logic is testable offline.
  */
-function runGate(baseline: unknown, auditJson?: unknown) {
+function runGate(
+  baseline: unknown,
+  auditJson?: unknown,
+  installedListing: string = "",
+) {
   const dir = mkdtempSync(join(tmpdir(), "audit-gate-"));
   try {
     const file = join(dir, "baseline.json");
@@ -40,9 +44,14 @@ function runGate(baseline: unknown, auditJson?: unknown) {
     const env = { ...process.env };
     if (auditJson) {
       const audit = join(dir, "audit.json");
+      const listing = join(dir, "listing.txt");
       writeFileSync(audit, JSON.stringify(auditJson));
-      const stub = join(dir, "npm");
-      writeFileSync(stub, `#!/bin/sh\ncat '${audit}'\n`);
+      writeFileSync(listing, installedListing);
+      const stub = join(dir, "bun");
+      writeFileSync(
+        stub,
+        `#!/bin/sh\ncase "$1" in\n  audit) cat '${audit}' ;;\n  pm) cat '${listing}' ;;\n  *) exit 9 ;;\nesac\n`,
+      );
       chmodSync(stub, 0o755);
       env.PATH = `${dir}:${process.env.PATH}`;
     }
@@ -79,9 +88,7 @@ function baselineWithAccepted() {
         name: "brace-expansion",
         id: "GHSA-qhr7-859c-m2p7",
         range: ">=4.0.0 <5.0.11",
-        nodes: [
-          "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion",
-        ],
+        versions: ["5.0.9"],
         reason:
           "synthetic fixture: inherited pin via the peer's npm-shrinkwrap.json",
       },
@@ -89,18 +96,14 @@ function baselineWithAccepted() {
         name: "brace-expansion",
         id: "GHSA-6j4f-fj2g-mc7p",
         range: ">=4.0.0 <5.0.10",
-        nodes: [
-          "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion",
-        ],
+        versions: ["5.0.9"],
         reason: "synthetic fixture: same inherited shrinkwrap pin",
       },
       {
         name: "undici",
         id: "GHSA-xjj6-f33q-929c",
         range: ">=8.0.0 <8.12.2",
-        nodes: [
-          "node_modules/@earendil-works/pi-coding-agent/node_modules/undici",
-        ],
+        versions: ["8.12.1"],
         reason:
           "synthetic fixture: shrinkwrap-pinned undici serving as fetch dispatcher",
       },
@@ -119,14 +122,18 @@ test("the committed baseline is valid and every entry is justified", () => {
       `${entry.name}: every accepted entry needs its advisory id, so a new advisory on the same package cannot ride in under the old entry`,
     );
     assert.ok(
-      Array.isArray(entry.nodes) && entry.nodes.length > 0,
-      `${entry.name}: every accepted entry needs the install path(s) it covers, so a second vulnerable copy of the same package cannot inherit the exemption`,
+      typeof entry.range === "string" && entry.range.length > 0,
+      `${entry.name}: every accepted entry needs the vulnerable range it was accepted for, so a moved range cannot inherit the exemption`,
     );
-    for (const node of entry.nodes) {
+    assert.ok(
+      Array.isArray(entry.versions) && entry.versions.length > 0,
+      `${entry.name}: every accepted entry needs the installed version(s) it covers, so a second vulnerable copy of the same package cannot inherit the exemption`,
+    );
+    for (const version of entry.versions) {
       assert.match(
-        node,
-        /^node_modules\//,
-        `${entry.name}: an approved node must be an install path, got ${node}`,
+        version,
+        /^\d+\.\d+\.\d+/,
+        `${entry.name}: an approved version must be a version, got ${version}`,
       );
     }
     assert.ok(
@@ -142,34 +149,31 @@ test("the committed baseline is valid and every entry is justified", () => {
   }
 });
 
-/** A blocking vuln entry the way `npm audit --json` reports it. */
+/** A report the way `bun audit --json` reports it: package name -> advisories. */
 function auditWith(
-  via: Array<Record<string, unknown>>,
-  nodes: string[] = [
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion",
-  ],
+  advisories: Array<Record<string, unknown>>,
+  packageName = "brace-expansion",
 ) {
-  return {
-    vulnerabilities: {
-      "brace-expansion": {
-        name: "brace-expansion",
-        severity: "high",
-        range: "4.0.0 - 5.0.11",
-        via,
-        nodes,
-      },
-    },
-  };
+  return { [packageName]: advisories };
 }
 
 function advisory(id: string, severity = "high", range = ">=4.0.0 <5.0.11") {
   return {
-    name: "brace-expansion",
+    id: 1,
     title: `synthetic advisory ${id}`,
     url: `https://github.com/advisories/${id}`,
     severity,
-    range,
+    vulnerable_versions: range,
+    cwe: [],
+    cvss: { score: 0, vectorString: null },
   };
+}
+
+/** `bun pm ls --all` output for one installed version of a package. */
+function listing(packageName: string, versions: string[]) {
+  return versions
+    .map((version) => `\u2514\u2500\u2500 ${packageName}@${version}`)
+    .join("\n");
 }
 
 test("the gate exits 2 when the baseline is missing", () => {
@@ -211,7 +215,8 @@ test("the gate fails when a baselined advisory no longer reports", () => {
   baseline.accepted.push({
     name: "definitely-not-installed-xyz",
     id: "GHSA-0000-0000-0000",
-    nodes: ["node_modules/definitely-not-installed-xyz"],
+    range: ">=1.0.0 <1.0.1",
+    versions: ["1.0.0"],
     reason: "left over from an older tree",
   });
   const result = runGate(baseline);
@@ -219,20 +224,31 @@ test("the gate fails when a baselined advisory no longer reports", () => {
   assert.match(result.stderr, /no longer reports/);
 });
 
-test("the gate exits 2 when npm audit answers with an error envelope", () => {
+test("the gate exits 2 when bun audit fails to produce a report", () => {
   // An audit that failed to run (registry down, config error) must never be
   // read as "zero findings": with a trimmed baseline that would be a green
   // gate over an audit that never executed.
-  const result = runGate(realBaseline(), {
-    error: {
-      code: "EALLOWSCRIPTS",
-      summary: "--allow-scripts is not allowed in project-scoped installs.",
-      detail: "",
-    },
-  });
-  assert.equal(result.status, 2);
-  assert.match(result.stderr, /npm audit failed to run/);
-  assert.match(result.stderr, /allow-scripts/);
+  const dir = mkdtempSync(join(tmpdir(), "audit-gate-"));
+  try {
+    const file = join(dir, "baseline.json");
+    writeFileSync(file, JSON.stringify(realBaseline(), null, 2));
+    const stub = join(dir, "bun");
+    writeFileSync(
+      stub,
+      `#!/bin/sh\necho "error: registry unreachable" >&2\nexit 2\n`,
+    );
+    chmodSync(stub, 0o755);
+    const result = spawnSync(process.execPath, [script, file], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${dir}:${process.env.PATH}` },
+    });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /bun audit failed to run/);
+    assert.match(result.stderr, /registry unreachable/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("a new high advisory on an already-accepted package fails the gate", () => {
@@ -252,25 +268,35 @@ test("a new high advisory on an already-accepted package fails the gate", () => 
 });
 
 test("a second vulnerable copy of an accepted package fails the gate", () => {
-  // npm groups findings by package name, so the exempted GHSA also arrives
-  // with our own top-level copy as an affected node. The exemption is bound to
-  // the peer's install path, so that extra node must fail the gate.
+  // bun reports advisories per package name, so the exemption is bound to the
+  // version(s) the baseline names. Our own extra copy (5.0.12) is a different
+  // installed version, and that must fail the gate.
   const result = runGate(
     baselineWithAccepted(),
-    auditWith(
-      [
-        advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
-        advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
-      ],
-      [
-        "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion",
-        "node_modules/brace-expansion",
-      ],
-    ),
+    auditWith([
+      advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
+      advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
+    ]),
+    listing("brace-expansion", ["5.0.9", "5.0.12"]),
   );
   assert.equal(result.status, 1, result.stderr || result.stdout);
-  assert.match(result.stderr, /unapproved affected node/);
-  assert.match(result.stderr, /node_modules\/brace-expansion/);
+  assert.match(result.stderr, /unapproved version/);
+  assert.match(result.stderr, /5\.0\.12/);
+});
+
+test("a moved vulnerable range on an accepted advisory fails the gate", () => {
+  // Same advisory id, wider range: the recorded exemption no longer describes
+  // what is installed, so a human has to re-check it.
+  const result = runGate(
+    baselineWithAccepted(),
+    auditWith([
+      advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.99"),
+      advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
+    ]),
+    listing("brace-expansion", ["5.0.9"]),
+  );
+  assert.equal(result.status, 1, result.stderr || result.stdout);
+  assert.match(result.stderr, /now reports range/);
 });
 
 test("an accepted advisory that stops being high/critical is reported as stale", () => {
@@ -304,6 +330,7 @@ test("the accepted advisories pass by id even when the package is rejected by na
       advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
       advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
     ]),
+    listing("brace-expansion", ["5.0.9"]),
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /audit gate OK/);
@@ -318,23 +345,13 @@ test("a moderate advisory inside a blocking aggregate is not itself blocking", (
     advisory("GHSA-qhr7-859c-m2p7", "high", ">=4.0.0 <5.0.11"),
     advisory("GHSA-6j4f-fj2g-mc7p", "high", ">=4.0.0 <5.0.10"),
     advisory("GHSA-q2hr-2g5m-vwhr", "moderate", ">=4.0.0 <5.0.12"),
-  ]) as { vulnerabilities: Record<string, unknown> };
-  audit.vulnerabilities.undici = {
-    name: "undici",
-    severity: "high",
-    range: "8.0.0 - 8.12.1",
-    via: [
-      {
-        name: "undici",
-        title: "synthetic advisory GHSA-xjj6-f33q-929c",
-        url: "https://github.com/advisories/GHSA-xjj6-f33q-929c",
-        severity: "high",
-        range: ">=8.0.0 <8.12.2",
-      },
-    ],
-    nodes: ["node_modules/@earendil-works/pi-coding-agent/node_modules/undici"],
-  };
-  const result = runGate(baselineWithAccepted(), audit);
+  ]) as Record<string, unknown[]>;
+  audit.undici = [advisory("GHSA-xjj6-f33q-929c", "high", ">=8.0.0 <8.12.2")];
+  const result = runGate(
+    baselineWithAccepted(),
+    audit,
+    [listing("brace-expansion", ["5.0.9"]), listing("undici", ["8.12.1"])].join("\n"),
+  );
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
@@ -361,8 +378,8 @@ test("CI runs the audit gate instead of ignoring the audit", () => {
 
   assert.match(
     step,
-    /run:\s*npm run audit/,
-    "the audit step must invoke the gate, not a raw `npm audit`",
+    /run:\s*bun run audit/,
+    "the audit step must invoke the gate, not a raw audit command",
   );
   // The exact shape that made this gate decorative: an audit that can never
   // fail the run also cannot fail on anything new.
@@ -375,7 +392,8 @@ test("CI runs the audit gate instead of ignoring the audit", () => {
 
 test("package.json exposes the audit script", () => {
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  assert.equal(pkg.scripts.audit, "node scripts/audit-gate.mjs");
+  assert.equal(pkg.scripts.audit, "bun scripts/audit-gate.mjs");
+  assert.equal(pkg.packageManager, "bun@1.4.2", "bun is the pinned package manager");
 });
 
 test("the baseline is a repo-only artifact and stays out of the tarball", () => {

@@ -4,7 +4,6 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runStudioAction, type ActionContext } from "../src/studio/actions.ts";
-import type { SkillTemplateId } from "../src/extension/skills/skill-templates.ts";
 
 const okCtx = (): ActionContext => ({ confirm: async () => true });
 const noCtx = (): ActionContext => ({ confirm: async () => false });

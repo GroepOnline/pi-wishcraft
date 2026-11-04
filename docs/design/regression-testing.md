@@ -40,7 +40,7 @@ Wishcraft establishes a multi-tiered test strategy that verifies behavior withou
 
 1. **No Headless TUI Requirement**: Core algorithms must never instantiate `ctx.ui` or direct terminal stdout in tests. Renderers emit plain string buffers or token trees.
 2. **Deterministic Time Control**: The `MotionScheduler` accepts an injected virtual clock or step function for precise, millisecond-accurate timeline assertions.
-3. **Circular Dependency Prevention**: Verified automatically on every build via `npx madge --circular src/`.
+3. **Circular Dependency Prevention**: Verified automatically on every build via `bun run circular`.
 4. **Strict TypeScript Checking**: `tsc --noEmit` runs under strict mode with zero implicit `any`.
 
 ---

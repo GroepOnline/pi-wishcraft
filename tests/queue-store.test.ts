@@ -272,7 +272,7 @@ test("archiveSentItems is a no-op when everything is fresh or active", () => wit
   assert.equal(existsSync(join(dir, "inbox.archive.jsonl")), false);
 }));
 
-test("sent retention is configurable and prunes older completed items", () => withStore((store, dir) => {
+test("sent retention is configurable and prunes older completed items", () => withStore((store, _dir) => {
   const old = store.add({
     text: "old completed",
     source: { cwd: "/tmp/project" },

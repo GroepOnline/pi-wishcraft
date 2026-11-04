@@ -20,7 +20,6 @@ import {
   parseLatestVersionTag,
   parseReleaseCandidateBranch,
   resolveReleaseVersion,
-  rewritePackageLockVersion,
   rewriteUnreleasedHeading,
   shouldSkipRelease,
   validateReleaseCandidateMetadata,
@@ -117,17 +116,6 @@ test("bump handles patch, minor, major, and explicit versions", () => {
   assert.equal(bump("0.18.0", "0.19.0"), "0.19.0");
 });
 
-test("rewritePackageLockVersion keeps root and package metadata in sync", () => {
-  const lock = JSON.stringify({
-    name: "@groeponline/pi-wishcraft",
-    version: "1.3.0",
-    packages: { "": { name: "@groeponline/pi-wishcraft", version: "1.3.0" } },
-  });
-  const rewritten = JSON.parse(rewritePackageLockVersion(lock, "1.3.1"));
-  assert.equal(rewritten.version, "1.3.1");
-  assert.equal(rewritten.packages[""].version, "1.3.1");
-});
-
 test("release candidate metadata binds version, parent and release-only files", () => {
   const parentSha = "0123456789abcdef0123456789abcdef01234567";
   assert.deepEqual(
@@ -139,7 +127,7 @@ test("release candidate metadata binds version, parent and release-only files", 
       branch: "release-candidate/v1.3.1-0123456789ab",
       subject: "chore: release 1.3.1",
       packageVersion: "1.3.1",
-      changedFiles: ["package.json", "CHANGELOG.md", "package-lock.json"],
+      changedFiles: ["package.json", "CHANGELOG.md"],
       changelog: "# Changelog\n\n## [Unreleased]\n\n## [1.3.1] - 2026-08-25\n",
       parentSha,
     }),
@@ -150,7 +138,7 @@ test("release candidate metadata binds version, parent and release-only files", 
       branch: "release-candidate/v1.3.1-0123456789ab",
       subject: "chore: release 1.3.1",
       packageVersion: "1.3.1",
-      changedFiles: ["package.json", "src/index.ts", "CHANGELOG.md", "package-lock.json"],
+      changedFiles: ["package.json", "src/index.ts", "CHANGELOG.md"],
       changelog: "## [1.3.1] - 2026-08-25",
       parentSha,
     }),
@@ -379,7 +367,7 @@ test(".github/workflows/release.yml publishes only from a verified tag", () => {
 test("release candidate preparation dispatches Verify on an immutable candidate ref", () => {
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   assert.match(workflow, /actions: write/);
-  assert.match(workflow, /VERSION="\$\(node scripts\/release\.mjs next auto\)"/);
+  assert.match(workflow, /VERSION="\$\(bun scripts\/release\.mjs next auto\)"/);
   assert.match(workflow, /release-candidate\/v\$\{VERSION\}-\$\{BASE_SHORT\}/);
   assert.match(workflow, /candidate-check "\$BRANCH" "\$CANDIDATE_SHA" "\$GITHUB_SHA"/);
   assert.match(workflow, /actions\/workflows\/test\.yml\/dispatches/);
@@ -400,7 +388,7 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
   assert.match(promote, /sha:/);
   assert.doesNotMatch(promote, /actions\/checkout/);
   assert.match(promote, /repos\/\$GITHUB_REPOSITORY\/commits\/\$CANDIDATE_SHA/);
-  assert.match(promote, /EXPECTED_FILES=.*CHANGELOG\.md package-lock\.json package\.json/);
+  assert.match(promote, /EXPECTED_FILES=.*CHANGELOG\.md package\.json/);
   assert.match(promote, /git\/refs\/heads\/main/);
   assert.match(promote, /git\/refs.*refs\/tags\/\$TAG/);
   // gh api prints the error body to stdout on non-2xx, so ref and tag
@@ -513,7 +501,7 @@ test("release.mjs refuses to cut a release without Unreleased notes unless force
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   // The CI prepare step must gate candidate creation on real notes, and the
   // Verify dispatch must honor the skip so an empty release can never ship.
-  assert.match(workflow, /NOTES="\$\(node scripts\/release\.mjs unreleased-notes\)"/);
+  assert.match(workflow, /NOTES="\$\(bun scripts\/release\.mjs unreleased-notes\)"/);
   assert.match(workflow, /elif \[ -z "\$NOTES" \]/);
   assert.match(workflow, /No \[Unreleased\] notes on main; nothing to release/);
   assert.match(workflow, /steps\.candidate\.outputs\.skip != 'true'/);

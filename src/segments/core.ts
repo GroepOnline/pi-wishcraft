@@ -1,7 +1,6 @@
 import { hostname as osHostname } from "node:os";
 import { basename } from "node:path";
 import type {
-  SegmentContext,
   SemanticColor,
   StatusLineSegment,
 } from "../config/types.ts";

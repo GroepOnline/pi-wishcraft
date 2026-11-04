@@ -21,7 +21,6 @@ import { matchesKey, type SelectItem, SelectList } from "@earendil-works/pi-tui"
 import { tr } from "../../i18n/index.ts";
 import { config } from "../core/state.ts";
 import {
-  filterPorts,
   formatAddresses,
   formatOwner,
   formatPortsSummary,

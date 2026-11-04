@@ -4,7 +4,7 @@
 Optimize the entire Wishcraft extension for **real effectiveness and speed** — motion must be 100× more visible (vivid sweep, 16/8 FPS, 55-85ms cadence already landed), Signal must render fast with fault isolation, settings registry must resolve in O(1), and the whole extension must typecheck and test quickly. Workload is the real pi-wishcraft extension: `npm run typecheck && npm test && npx madge --circular` plus motion/signal micro-benchmarks.
 
 ## Metrics
-- **Primary**: `test_duration_ms` (ms, lower is better) — wall time of `npm test` (proxy for overall extension performance; faster tests = faster hot paths, less filesystem work in render loops)
+- **Primary**: `test_duration_ms` (ms, lower is better) — wall time of `bun run test` (proxy for overall extension performance; faster tests = faster hot paths, less filesystem work in render loops)
 - **Secondary**: `typecheck_ms`, `motion_fps_active`, `motion_fps_ambient`, `signal_render_us`, `registry_lookup_us`, `circular_deps` — tradeoff monitors; log but don't gate keeps
 
 ## How to Run
@@ -24,9 +24,9 @@ Optimize the entire Wishcraft extension for **real effectiveness and speed** —
 - `main` branch direct push, `package.json` version field (auto-release owns it), secrets, `.env`, `~/.pi`, fleet hosts, UDO plane, `gh auth` switches
 
 ## Constraints
-- `npm run typecheck` must pass (0 errors)
-- `npm test` must pass (all 557+ tests)
-- `npx madge --circular src` must report no cycles
+- `bun run typecheck` must pass (0 errors)
+- `bun run test` must pass (all 557+ tests)
+- `bun run circular` must report no cycles
 - No new dependencies (stdlib/platform first)
 - Motion 0 FPS idle guarantee stays (ambient 8 FPS max, not always-on)
 - Fault isolation: contributed Deck/Signal must not take down Signal/Deck

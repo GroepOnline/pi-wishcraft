@@ -10,7 +10,7 @@ description: Testing conventions for pi-wishcraft. Use when writing, running, or
 Plain **node:test** with type stripping — there is no build step:
 
 ```sh
-npm test        # node --experimental-strip-types --test tests/**/*.test.ts
+bun run test    # node --experimental-strip-types --test tests/**/*.test.ts
 ```
 
 Tests live flat in `tests/*.test.ts` (55+ files), importing `src/` directly
@@ -29,8 +29,9 @@ These fail CI when docs/metadata drift from code — update them together:
 ## Gates besides tests
 
 ```sh
-npm run typecheck   # tsc --noEmit
-npm run circular    # madge --circular src index.ts bash-mode queue
+bun run typecheck   # tsc --noEmit
+bun run lint        # oxlint --deny-warnings
+bun run circular    # madge --circular src index.ts bash-mode queue
 ```
 
 Both are release gates; new imports must not introduce cycles.
