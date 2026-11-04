@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-11-04
+
 ### Fixed
 - **The publish job died with `bun: command not found` before it reached npm.** The bun migration (#128) rewrote `node scripts/verify-release-tag.mjs` to `bun scripts/...` in the `publish` job but left the `bun-setup` step below it, so v1.20.0's publish failed in its second step and never touched the registry. `bun-setup` now runs right after `setup-node` — which also satisfies the `prepublishOnly` gate `npm publish` triggers — and a test pins the order.
 
