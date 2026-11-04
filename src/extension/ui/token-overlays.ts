@@ -35,7 +35,7 @@ export function buildTpsOverlayItems(rt: RuntimeState, ctx: any): SelectItem[] {
   const summary = summarizeTpsRing(
     tpsSamples,
     Date.now(),
-    { input: snap.input, output: snap.output },
+    { input: snap.input, output: snap.output, cacheRead: snap.cacheRead },
     {
       windowMs: config.segmentOptions?.tps?.windowMs ?? 1000,
       override: process.env.POWERLINE_TPS,

@@ -183,7 +183,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
         (
           tui: any,
           _theme: any,
-          _keybindings: any,
+          keybindings: any,
           done: (result: void) => void,
         ) => {
           const welcome = new WelcomeComponent(
@@ -205,22 +205,51 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
           let countdown = 30;
           let dismissed = false;
           let interval: ReturnType<typeof setInterval> | null = null;
+          let revealTimer: ReturnType<typeof setInterval> | null = null;
+
+          const stopTimers = () => {
+            if (interval) clearInterval(interval);
+            if (revealTimer) clearInterval(revealTimer);
+            interval = null;
+            revealTimer = null;
+          };
 
           const dismiss = () => {
             if (dismissed) return;
             dismissed = true;
-            if (interval) clearInterval(interval);
+            stopTimers();
             rt.dismissWelcomeOverlay = null;
             done();
           };
 
           interval = setInterval(() => {
-            if (dismissed) return;
+            if (dismissed || welcome.isTimerPaused()) return;
             countdown--;
             welcome.setCountdown(countdown);
             tui.requestRender();
             if (countdown <= 0) dismiss();
           }, 1000);
+          interval.unref?.();
+
+          // The countdown only repaints once a second, which stepped the boot
+          // reveal at 1 FPS. Repaint on the ambient heartbeat: bounded while
+          // the reveal window is open, continuous while the lantern animates.
+          const revealStartedAt = Date.now();
+          const animateArt = artSettings.animate;
+          revealTimer = setInterval(() => {
+            if (dismissed) {
+              if (revealTimer) clearInterval(revealTimer);
+              revealTimer = null;
+              return;
+            }
+            if (!animateArt && !bootRevealActive(revealStartedAt, Date.now())) {
+              if (revealTimer) clearInterval(revealTimer);
+              revealTimer = null;
+              return;
+            }
+            tui.requestRender();
+          }, BOOT_REVEAL_HEARTBEAT_MS);
+          revealTimer.unref?.();
 
           rt.dismissWelcomeOverlay = dismiss;
 
@@ -233,10 +262,41 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             focused: false,
             invalidate: () => welcome.invalidate(),
             render: (width: number) => welcome.render(width),
-            handleInput: () => dismiss(),
+            handleInput: (data: string) => {
+              // Only non-printable navigation is intercepted; Tab/Shift+Tab
+              // switch section, arrows move inside it, Enter (only once the
+              // countdown is paused) primes the focused quick-launch row.
+              // Every printable key still just dismisses, so typing is never
+              // swallowed by the overlay.
+              const nextSection = data === "\t";
+              const prevSection = data === "\x1b[Z";
+              if (nextSection || prevSection) {
+                welcome.cycleSection(prevSection ? -1 : 1);
+                tui.requestRender();
+                return;
+              }
+              const up = keybindings?.matches?.(data, "tui.select.up") || data === "\x1b[A";
+              const down = keybindings?.matches?.(data, "tui.select.down") || data === "\x1b[B";
+              if (up || down) {
+                welcome.moveFocus(up ? -1 : 1);
+                tui.requestRender();
+                return;
+              }
+              const enter =
+                keybindings?.matches?.(data, "tui.select.confirm") ||
+                data === "\r" ||
+                data === "\n";
+              if (enter && welcome.isTimerPaused()) {
+                const insert = welcome.activate();
+                dismiss();
+                if (insert) ctx.ui.setEditorText?.(insert);
+                return;
+              }
+              dismiss();
+            },
             dispose: () => {
               dismissed = true;
-              if (interval) clearInterval(interval);
+              stopTimers();
             },
           };
         },

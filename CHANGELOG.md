@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Fixed
+- **`/tps` reported near-zero averages and thousand-TPS peaks.** `pairwiseRates()` and `ratesFromRing()` treated `delta >= 0` as a rate, so every idle repaint pushed a `0` and dragged `avg` down; two samples a few ms apart straddling one token burst reported that burst as a spike. Idle deltas are now skipped (`> 0`), buckets under `TPS_MIN_PAIRWISE_DT_MS` (80 ms) are folded into the next one, and duplicate counts inside 40 ms are dropped at the door.
+- **`/tps` was empty unless the `tps` segment was in the active preset.** The ring was only filled while that segment rendered. `message_update` now samples it (`sampleTpsFromSession`, throttled to 30 ms); the segment keeps its passive sample as a fallback.
+- **Pi's own working spinner ignored `wishcraft.workingIndicatorStyle` and the motion policy.** The style was only used by status renderers. `before_agent_start` now hands Pi `ctx.ui.setWorkingIndicator({ frames, intervalMs })` once per run (Pi owns the timer, so there is no second clock), and `agent_end` restores the default. Reduced/off motion holds one frame, functional alternates two, ASCII glyph mode forces the ASCII set.
+- **Welcome overlay**: the boot reveal repainted once a second because only the countdown timer drove it; it now repaints on the same bounded heartbeat as the header, and keeps repainting while the lantern animates instead of freezing on the last frame once the reveal window closes (`revealElapsedForArt()`). The countdown timer is `unref`'d.
+- **`/tps` averaged cached prefill into the input rate and smoothed nothing.** Each turn is now measured from `agent_start` to its first new token (TTFT), the input rate counts only uncached tokens (`input - cacheRead`), and the output rate carries an EMA (α 0.32) next to the raw window rate. The `ttft` and `ema` overlay lines appear only when a turn could actually be measured; a turn whose prompt was fully cached reports `0`, not a division artefact.
+- Idea capture strips spinner noise for **every** indicator frame, not just braille, so the new native styles cannot leak into captured text. The prefix is now derived from the built-in frames *and* every Motion Catalog frame (whitespace-only rows included) at import time, so a new style cannot silently bypass it.
+- `segment-context.ts` lost its last `any`: `buildSegmentContext()` and `sampleTpsFromSession()` take a structural `SegmentSourceContext` instead of `ctx: any`, and the builder is split into `resolveContextMetrics()` / `resolveCustomItemState()` so its complexity drops below the CodeFactor threshold.
+
+### Added
+- Working-indicator styles `lantern` and `braille` (settings registry choices are now derived from `workingIndicatorStyles()` so the two cannot drift).
+- Working-indicator style `motion`: Pi's native spinner is fed from the Motion Catalog (`framesOf()` plus each definition's `generator.intervalMs`) instead of a fixed glyph set, so the working indicator moves like the motion assigned to `thinking`. It falls back to `lantern` for an unknown motion id, and reduced/off motion, functional motion and ASCII glyph mode still win over the catalog.
+- Welcome cockpit: `Tab`/`Shift+Tab` step between `What's new`, `Recent Crafts` and `Quick Launch`, ↑/↓ move inside the focused section and pause the countdown, and `Enter` (only once navigation has paused it) primes the prompt for the focused quick-launch row (`# `, `! `). Sessions stay read-only because Pi exposes no resume handle. Printable keys are still never captured: any letter dismisses, exactly as before.
+
 ## [1.18.0] - 2026-11-03
 
 ### Security

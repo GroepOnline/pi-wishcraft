@@ -6,6 +6,7 @@
  */
 import { tr } from "../i18n/index.ts";
 import { MOTION_LEVELS } from "../motion/accessibility.ts";
+import { workingIndicatorStyles } from "../working-vibes/frames.ts";
 import { STRUCTURAL_PRESET_NAMES } from "./types.ts";
 
 export type SettingValue = boolean | string | number;
@@ -108,7 +109,7 @@ export const SETTINGS_REGISTRY = [
   { id: "status.ports.host", path: "powerline.segmentOptions.openPorts.host", group: "status", label: "Ports probe host", kind: "text", hint: "SSH host to probe (fleet) · empty = this machine" },
   { id: "welcome.enabled", path: "powerline.welcome", group: "vibes", label: "Welcome overlay", kind: "toggle", defaultValue: SETTING_DEFAULTS["powerline.welcome"], hint: "on = overlay at startup, off = no welcome" },
   { id: "welcome.lanternMotion", path: "wishcraft.welcome.animateLantern", group: "vibes", label: "Animate wishcraft lantern", kind: "toggle", hint: "flicker on the lantern" },
-  { id: "vibes.indicatorStyle", path: "wishcraft.workingIndicatorStyle", group: "vibes", label: "Working indicator", kind: "select", choices: ["dots", "pulse", "bar", "ascii"], defaultValue: SETTING_DEFAULTS["wishcraft.workingIndicatorStyle"], hint: "frame style used while the agent is working" },
+  { id: "vibes.indicatorStyle", path: "wishcraft.workingIndicatorStyle", group: "vibes", label: "Working indicator", kind: "select", choices: workingIndicatorStyles(), defaultValue: SETTING_DEFAULTS["wishcraft.workingIndicatorStyle"], hint: "frame style for Pi's own working spinner while the agent runs" },
   { id: "skills.inline", path: "wishcraft.inlineSkills", group: "skills", label: "Inline expand /command and $skill", kind: "toggle", hint: "needs a restart to take effect", restartRequired: true },
   { id: "skills.readHints", path: "wishcraft.readHints", group: "skills", label: "Read hints", kind: "toggle", defaultValue: SETTING_DEFAULTS["wishcraft.readHints"], hint: "off = no continuation hint after partial reads" },
   { id: "harness.hooks", path: "wishcraft.hooksEnabled", group: "harness", label: "Hooks enabled", kind: "toggle", defaultValue: SETTING_DEFAULTS["wishcraft.hooksEnabled"], hint: "gate for configured preToolUse / postToolUse / sessionStart hooks" },

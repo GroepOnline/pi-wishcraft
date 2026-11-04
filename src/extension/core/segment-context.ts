@@ -15,6 +15,12 @@ import { getDefaultColors } from "../../theme/theme.ts";
 import { getGitStatus } from "../../git/status.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { getUsageTokenTotal } from "../../usage/ledger.ts";
+import type { SessionAssistantUsage } from "../../usage/ledger.ts";
+import {
+  pushTpsSample,
+  ringMsForWindow,
+  tpsSamples,
+} from "../../usage/tps-ring.ts";
 import { tokenBudgetSnapshotForDay } from "../../usage/token-budget.ts";
 import { dayKey } from "../../usage/usage-store.ts";
 import {
@@ -119,57 +125,64 @@ export interface BuildSegmentContextOptions {
   includeTokenBudget?: boolean;
 }
 
-export function buildSegmentContext(
+/**
+ * Structural subset of Pi's extension context that the context builder reads.
+ * Typed rather than `any` so a renamed Pi accessor fails the typecheck here
+ * instead of silently rendering defaults at runtime.
+ */
+export interface SegmentSourceContext {
+  sessionManager?: { getSessionId?: () => string | undefined };
+  model?: SegmentContext["model"];
+  modelRegistry?: {
+    // Pi types this as `(model: Model<Api>) => boolean`. Method-bivariance
+    // keeps that signature assignable without widening the segment model
+    // shape to the full SDK `Model` type.
+    isUsingOAuth?: {
+      bivariance(model: NonNullable<SegmentContext["model"]>): boolean;
+    }["bivariance"];
+  };
+  cwd?: string;
+  settingsManager?: {
+    getCompactionSettings?: () => { enabled?: boolean } | undefined;
+  };
+}
+
+interface ContextMetrics {
+  contextTokens: number;
+  contextPercent: number;
+  contextWindow: number;
+}
+
+/**
+ * Token/context numbers: cached core usage wins, the live assistant usage is
+ * the fallback, and the model's window bounds the percentage.
+ */
+function resolveContextMetrics(
   rt: RuntimeState,
-  ctx: any,
-  theme: Theme,
-  options: BuildSegmentContextOptions = {},
-): SegmentContext {
-  const presetDef = getPreset(config.preset);
-  const colors: ColorScheme = liveColorScheme(
-    presetDef,
-    config.appearance,
-    config.preset,
-    getDefaultColors,
-  );
-
-  // Build usage stats and get thinking level from session (cached; the full
-  // event list is only re-scanned when events are appended or the trailing
-  // event's stats-relevant fields change, e.g. in-place streaming updates)
-  const sessionEvents = rt.sessionBranchCache.get(ctx.sessionManager);
-  const tokenStats = rt.tokenStatsCache.get(sessionEvents);
-  const { input, output, cacheRead, cacheWrite, cost, subagentCost } =
-    tokenStats;
-  const lastAssistant = tokenStats.lastAssistant;
-  const thinkingLevelFromSession = tokenStats.thinkingLevelFromSession;
-
-  // Calculate context percentage.
-  const latestUsage = rt.isStreaming
-    ? (rt.liveAssistantUsage ?? lastAssistant?.usage)
-    : lastAssistant?.usage;
-  const coreContextUsage =
-    rt.isStreaming && rt.liveAssistantUsage
-      ? null
-      : rt.coreContextUsageCache.get(ctx);
+  ctx: SegmentSourceContext,
+  usage: SessionAssistantUsage | undefined,
+): ContextMetrics {
+  const core =
+    rt.isStreaming && rt.liveAssistantUsage ? null : rt.coreContextUsageCache.get(ctx);
   const contextTokens =
-    coreContextUsage?.contextTokens ??
-    (latestUsage ? getUsageTokenTotal(latestUsage) : 0);
-  const contextWindow =
-    coreContextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
+    core?.contextTokens ?? (usage ? getUsageTokenTotal(usage) : 0);
+  const contextWindow = core?.contextWindow ?? ctx.model?.contextWindow ?? 0;
   const contextPercent =
-    coreContextUsage?.contextPercent ??
+    core?.contextPercent ??
     (contextWindow > 0 ? (contextTokens / contextWindow) * 100 : 0);
+  return { contextTokens, contextPercent, contextWindow };
+}
 
-  const segmentOptions = mergeSegmentOptions(
-    presetDef.segmentOptions,
-    config.segmentOptions,
-  );
+interface CustomItemState {
+  effectiveCustomItems: SegmentContext["effectiveCustomItems"];
+  customItemsById: SegmentContext["customItemsById"];
+  hiddenExtensionStatusKeys: Set<string>;
+}
 
-  // Get git status (cached)
-  const gitBranch = rt.footerDataRef?.getGitBranch() ?? null;
-  const gitStatus = getGitStatus(gitBranch, segmentOptions.git?.polling);
-  const extensionStatuses =
-    rt.footerDataRef?.getExtensionStatuses() ?? new Map();
+/** Merge configured + auto-discovered custom items and hide claimed statuses. */
+function resolveCustomItemState(
+  extensionStatuses: ReadonlyMap<string, string>,
+): CustomItemState {
   const excludedStatusKeys = new Set<string>([
     CUSTOM_COMPACTION_STATUS_KEY,
     "stash",
@@ -190,15 +203,56 @@ export function buildSegmentContext(
   for (const key of HIDDEN_POWERLINE_STATUS_KEYS) {
     hiddenExtensionStatusKeys.add(key);
   }
+  return { effectiveCustomItems, customItemsById, hiddenExtensionStatusKeys };
+}
 
-  // Check if using OAuth subscription
+export function buildSegmentContext(
+  rt: RuntimeState,
+  ctx: SegmentSourceContext,
+  theme: Theme,
+  options: BuildSegmentContextOptions = {},
+): SegmentContext {
+  const presetDef = getPreset(config.preset);
+  const colors: ColorScheme = liveColorScheme(
+    presetDef,
+    config.appearance,
+    config.preset,
+    getDefaultColors,
+  );
+
+  // Usage stats are cached; the full event list is only re-scanned when events
+  // are appended or the trailing event's stats-relevant fields change (e.g.
+  // in-place streaming updates).
+  const sessionEvents = rt.sessionBranchCache.get(ctx.sessionManager);
+  const tokenStats = rt.tokenStatsCache.get(sessionEvents);
+  const { input, output, cacheRead, cacheWrite, cost, subagentCost } =
+    tokenStats;
+  const lastAssistant = tokenStats.lastAssistant;
+
+  const latestUsage = rt.isStreaming
+    ? (rt.liveAssistantUsage ?? lastAssistant?.usage)
+    : lastAssistant?.usage;
+  const { contextTokens, contextPercent, contextWindow } =
+    resolveContextMetrics(rt, ctx, latestUsage);
+
+  const segmentOptions = mergeSegmentOptions(
+    presetDef.segmentOptions,
+    config.segmentOptions,
+  );
+
+  const gitBranch = rt.footerDataRef?.getGitBranch() ?? null;
+  const gitStatus = getGitStatus(gitBranch, segmentOptions.git?.polling);
+  const extensionStatuses = rt.footerDataRef?.getExtensionStatuses() ?? new Map();
+  const { effectiveCustomItems, customItemsById, hiddenExtensionStatusKeys } =
+    resolveCustomItemState(extensionStatuses);
+
   const usingSubscription = ctx.model
     ? (ctx.modelRegistry?.isUsingOAuth?.(ctx.model) ?? false)
     : false;
 
   const thinkingLevel =
     rt.currentThinkingLevel ??
-    thinkingLevelFromSession ??
+    tokenStats.thinkingLevelFromSession ??
     rt.getThinkingLevelFn?.() ??
     "off";
   const queueSummary = rt.queueStore.summarize(
@@ -248,4 +302,45 @@ export function buildSegmentContext(
     theme,
     colors,
   };
+}
+const TPS_EVENT_MIN_GAP_MS = 30;
+let lastTpsEventAt = 0;
+let lastMarkedTurnStart: number | null = null;
+
+/**
+ * Event-driven TPS sampling, called from `message_update`. The ring used to be
+ * filled only while the `tps` segment rendered, so presets without that segment
+ * left `/tps` empty and every unrelated repaint added a duplicate sample.
+ *
+ * This is also the only writer of the turn marker: the first sample of a turn
+ * carries `turnStartAt`, the rest do not, so `measureTurn` can find both the
+ * turn boundary and the sample that produced its first token.
+ */
+export function sampleTpsFromSession(
+  rt: RuntimeState,
+  ctx: SegmentSourceContext,
+  now: number = Date.now(),
+): void {
+  if (now - lastTpsEventAt < TPS_EVENT_MIN_GAP_MS) return;
+  lastTpsEventAt = now;
+  const events = rt.sessionBranchCache.get(ctx.sessionManager);
+  const { input, output, cacheRead } = rt.tokenStatsCache.get(events);
+  const windowMs =
+    mergeSegmentOptions(getPreset(config.preset).segmentOptions, config.segmentOptions)
+      .tps?.windowMs ?? 1000;
+  const turnStartAt =
+    rt.turnStartedAt !== null && rt.turnStartedAt !== lastMarkedTurnStart
+      ? (lastMarkedTurnStart = rt.turnStartedAt)
+      : undefined;
+  pushTpsSample(
+    tpsSamples,
+    {
+      at: now,
+      output,
+      input,
+      uncachedInput: Math.max(0, input - cacheRead),
+      ...(turnStartAt === undefined ? {} : { turnStartAt }),
+    },
+    ringMsForWindow(windowMs),
+  );
 }

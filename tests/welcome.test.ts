@@ -13,6 +13,7 @@ import { join } from "node:path";
 import {
   discoverLoadedCounts,
   getRecentSessions,
+  WelcomeComponent,
   WelcomeHeader,
 } from "../src/welcome/index.ts";
 
@@ -255,4 +256,117 @@ test("getRecentSessions reads custom agent sessions and existing legacy sessions
       rmSync(root, { recursive: true, force: true });
     }
   });
+});
+
+const LONG_ENTRY =
+  "Bash paste-while-running (issue #72): a bracketed paste performed while a command runs is forwarded to the child stdin";
+
+function overlayWith(entries: string[]): WelcomeComponent {
+  return new WelcomeComponent("model", "provider", [], undefined, null, 0, false, entries);
+}
+
+test("welcome overlay: arrows pause the countdown and expand the selected bullet", () => {
+  const welcome = overlayWith([LONG_ENTRY, "short"]);
+  assert.equal(welcome.isTimerPaused(), false);
+  welcome.moveSelection(1);
+  assert.equal(welcome.isTimerPaused(), true);
+  assert.equal(welcome.getSelectedWhatsNew(), 0);
+  const plain = (lines: string[]) => lines.join("\n").replace(/\x1b\[[0-9;]*m/g, "");
+  const expanded = plain(welcome.render(96));
+  assert.match(expanded, /▸/);
+  assert.match(expanded, /stdin/);
+  assert.match(expanded, /↑\/↓/);
+});
+
+test("welcome overlay: selection wraps in both directions and ignores empty news", () => {
+  const welcome = overlayWith(["a", "b", "c"]);
+  welcome.moveSelection(-1);
+  assert.equal(welcome.getSelectedWhatsNew(), 2);
+  welcome.moveSelection(1);
+  assert.equal(welcome.getSelectedWhatsNew(), 0);
+  const empty = overlayWith([]);
+  empty.moveSelection(1);
+  assert.equal(empty.isTimerPaused(), false);
+  assert.equal(empty.getSelectedWhatsNew(), null);
+});
+
+test("welcome overlay: countdown timers are unref'd and only non-printable keys are intercepted", () => {
+  assert.match(indexSource, /interval\.unref\?\.\(\)/);
+  assert.match(indexSource, /tui\.select\.up/);
+  assert.match(indexSource, /data === "\\t"/);
+  assert.doesNotMatch(indexSource, /data === "p"/);
+});
+
+test("welcome cockpit: Tab skips empty sections and highlights quick launch rows", () => {
+  const plain = (lines: string[]) => lines.join("\n").replace(/\x1b\[[0-9;]*m/g, "");
+  const welcome = new WelcomeComponent(
+    "model",
+    "provider",
+    [{ name: "lantern-ops", timeAgo: "2h ago" }],
+    undefined,
+    null,
+    0,
+    false,
+    [],
+  );
+
+  assert.equal(welcome.getFocus(), null);
+  welcome.cycleSection(1);
+  assert.deepEqual(welcome.getFocus(), { section: "sessions", index: 0 });
+  assert.equal(welcome.isTimerPaused(), true);
+  assert.match(plain(welcome.render(96)), /▸ lantern-ops/);
+
+  welcome.cycleSection(1);
+  assert.deepEqual(welcome.getFocus(), { section: "shortcuts", index: 0 });
+  const launched = plain(welcome.render(96));
+  assert.match(launched, /enter primes the prompt/);
+  assert.match(launched, /▸# <idea>/);
+});
+
+test("welcome cockpit: Enter only primes the prompt after navigation paused the countdown", () => {
+  const welcome = new WelcomeComponent(
+    "model",
+    "provider",
+    [],
+    undefined,
+    null,
+    0,
+    false,
+    ["only news"],
+  );
+
+  // Fresh overlay: Enter is a plain dismiss, nothing is primed.
+  assert.equal(welcome.activate(), null);
+
+  welcome.moveFocus(1);
+  assert.deepEqual(welcome.getFocus(), { section: "news", index: 0 });
+  // Enter on the news section expands a bullet instead of inserting text.
+  assert.equal(welcome.activate(), null);
+
+  welcome.cycleSection(1); // sessions is empty, lands on shortcuts
+  assert.deepEqual(welcome.getFocus(), { section: "shortcuts", index: 0 });
+  assert.equal(welcome.activate(), "# ");
+
+  welcome.moveFocus(1);
+  assert.equal(welcome.activate(), null); // alt+p is a real keybinding
+  welcome.moveFocus(1);
+  assert.equal(welcome.activate(), "! ");
+});
+
+test("welcome cockpit: arrows clamp inside a section instead of wrapping", () => {
+  const welcome = new WelcomeComponent(
+    "model",
+    "provider",
+    [{ name: "a", timeAgo: "1h" }],
+    undefined,
+    null,
+    0,
+    false,
+    ["x"],
+  );
+  welcome.cycleSection(1);
+  welcome.moveFocus(-1);
+  assert.deepEqual(welcome.getFocus(), { section: "sessions", index: 0 });
+  welcome.moveFocus(1);
+  assert.deepEqual(welcome.getFocus(), { section: "sessions", index: 0 });
 });

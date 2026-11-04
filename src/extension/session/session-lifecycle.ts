@@ -4,6 +4,7 @@ import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 import { policyFromEnvironment } from "../../motion/accessibility.ts";
+import { defaultMotionFor } from "../../motion/catalog.ts";
 import { registerCustomSegments } from "../../segments/index.ts";
 import { registerCustomPresets } from "../../config/presets.ts";
 import { invalidateGitStatus } from "../../git/status.ts";
@@ -34,6 +35,7 @@ import {
   requestImmediateStatusRender,
   requestStatusRender,
   resetLayoutCache,
+  sampleTpsFromSession,
 } from "../core/segment-context.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import {
@@ -62,6 +64,10 @@ import {
   clearSkillsCountPublisher,
 } from "../skills/skill-status.ts";
 import { maybeAppendReadHint } from "./read-hints.ts";
+import {
+  applyNativeWorkingIndicator,
+  resetNativeWorkingIndicator,
+} from "../../working-vibes/native-indicator.ts";
 import {
   dispatchSignalEvent,
   settleSignal,
@@ -269,6 +275,7 @@ export function registerSessionLifecycle(
     rt.lastUserPrompt = prompt;
     if (ctx.hasUI) {
       onVibeBeforeAgentStart(prompt, ctx.ui.setWorkingMessage);
+      applyNativeWorkingIndicator(ctx.ui, rt.motionPolicy, defaultMotionFor("thinking"));
     }
   });
 
@@ -276,6 +283,7 @@ export function registerSessionLifecycle(
   // Also dismiss welcome when agent starts responding (handles `p "command"` case)
   pi.on("agent_start", async (_event, ctx) => {
     rt.isStreaming = true;
+    rt.turnStartedAt = Date.now();
     rt.liveAssistantUsage = null;
     onVibeAgentStart();
     dismissWelcome(rt, ctx);
@@ -293,6 +301,11 @@ export function registerSessionLifecycle(
       rt.liveAssistantUsage = event.message.usage;
       rt.currentCtx = ctx;
       rt.layoutDirty = true;
+      try {
+        sampleTpsFromSession(rt, ctx);
+      } catch (error) {
+        if (!isStaleExtensionContextError(error)) throw error;
+      }
       rt.statusRenderScheduler.schedule(CONTEXT_STATUS_RENDER_MS);
       if (rt.signal.event !== "streaming") {
         dispatchSignalEvent(rt, config.appearance, "streaming");
@@ -412,6 +425,7 @@ export function registerSessionLifecycle(
 
   pi.on("agent_end", async (_event, ctx) => {
     rt.isStreaming = false;
+    rt.turnStartedAt = null;
     rt.liveAssistantUsage = null;
     rt.coreContextUsageCache.reset();
     dispatchSignalEvent(rt, config.appearance, "success");
@@ -429,6 +443,7 @@ export function registerSessionLifecycle(
     try {
       if (hasUI) {
         onVibeAgentEnd(ctx.ui.setWorkingMessage); // working-vibes internal state + reset message
+        resetNativeWorkingIndicator(ctx.ui);
         if (rt.stashedEditorText !== null) {
           if (ctx.ui.getEditorText().trim() === "") {
             ctx.ui.setEditorText(rt.stashedEditorText);
