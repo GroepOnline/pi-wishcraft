@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **A dead `NPM_TOKEN` now says so.** npm answers a PUT for a scoped package with 404 (not 403) when the token is expired, revoked, or lacks publish rights, which reads like "package not found" — exactly how 1.18.0 and 1.19.0 failed silently behind a wall of npm notices. `scripts/npm-publish.sh` preflights `npm whoami` before publishing and prints the diagnosis plus the recovery steps, and a 404 on the publish itself is labelled as a scope/permission problem. `RELEASE.md` documents the rotation and the tag-replay path (`gh workflow run release.yml --ref vX.Y.Z`).
+
 ### Changed
 - **Bun replaces npm for the development loop.** `bun.lock` (with `packageManager: bun@1.4.2`) replaces `package-lock.json`, `bun install --frozen-lockfile` replaces `npm ci` in every workflow and bootstrap script, and the package scripts run through `bun run` (`scripts/*.mjs` execute directly, no `npx`). The npm CLI stays where the npm *registry* is the interface: `npm pack`, `npm publish`, `npm dist-tag`. The test runner stays `node:test`: measured on 1.4.2 against the 1037-test suite of that moment, `bun test` reported 1035 pass / 2 fail (fake-timer and PTY-timing divergence in two suites) while `node --test` reported 1037 pass / 0 fail, so `bun run test` invokes Node's runner and `docs/testing.md` records the measurement and the condition for revisiting it.
 - **oxlint is the lint gate.** The repository had no ESLint configuration, so this is a gate added rather than a linter swapped: `.oxlintrc.json` (correctness = error), `bun run lint` runs with `--deny-warnings`, CI fails on a single warning, and `bun run lint:fix` applies the automatic fixes. `no-control-regex` is off repo-wide because matching ANSI SGR sequences is the product. Getting to zero warnings removed 23 real findings: 21 unused imports/locals/parameters, one dead `readSkillBody()` call whose result nothing read, and one unsafe optional chain in a test assertion.

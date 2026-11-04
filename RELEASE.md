@@ -87,6 +87,34 @@ value. It is **not** readable after being set; verify it works by checking
 that the publish step on a real release succeeds and `npm view` resolves the
 new version (see below). The publish step fails closed if the secret is empty.
 
+### When publish fails: `E404 Not Found - PUT .../@groeponline%2fpi-wishcraft`
+
+For a scoped package npm answers a PUT with **404, not 403**, when the token
+is expired, revoked, or simply has no publish rights for that scope. It is not
+"package not found", and it is not a retryable transient.
+
+`scripts/npm-publish.sh` preflights `npm whoami` before publishing and prints
+that diagnosis instead of the raw 404. Recovery:
+
+1. In the npm account that owns the package (`chefgroeponline
+   <joep@chefgroep.online>` — check with `npm view @groeponline/pi-wishcraft
+   maintainers`), create a **granular access token**: read + write, scope
+   `@groeponline`, "bypass 2FA" on for CI, and an expiry you will remember.
+2. Update the org Actions secret `NPM_TOKEN` (`gh secret set NPM_TOKEN --org
+   GroepOnline --repos pi-wishcraft`, or via the org settings UI).
+3. Republish the tags that failed, without cutting new versions. A bare
+   dispatch on a `v*` tag ref runs verify + publish for that tag:
+
+   ```bash
+   gh workflow run release.yml --ref v1.19.0   # repeats for each failed tag
+   ```
+
+   Or re-run the failed job directly: `gh run rerun <run-id> --failed`.
+
+The idempotent skip in `npm-publish.sh` makes a retry safe: a version that is
+already on the registry is skipped, so a partially successful run cannot
+double-publish.
+
 The package has no build step — `*.ts` files are shipped directly (`pi.extensions:
 ["./index.ts"]`), and Pi loads them with TypeScript stripping at runtime.
 
