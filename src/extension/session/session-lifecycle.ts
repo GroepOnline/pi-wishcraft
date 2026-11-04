@@ -4,6 +4,7 @@ import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 import { policyFromEnvironment } from "../../motion/accessibility.ts";
+import { defaultMotionFor } from "../../motion/catalog.ts";
 import { registerCustomSegments } from "../../segments/index.ts";
 import { registerCustomPresets } from "../../config/presets.ts";
 import { invalidateGitStatus } from "../../git/status.ts";
@@ -274,7 +275,7 @@ export function registerSessionLifecycle(
     rt.lastUserPrompt = prompt;
     if (ctx.hasUI) {
       onVibeBeforeAgentStart(prompt, ctx.ui.setWorkingMessage);
-      applyNativeWorkingIndicator(ctx.ui, rt.motionPolicy);
+      applyNativeWorkingIndicator(ctx.ui, rt.motionPolicy, defaultMotionFor("thinking"));
     }
   });
 
@@ -282,6 +283,7 @@ export function registerSessionLifecycle(
   // Also dismiss welcome when agent starts responding (handles `p "command"` case)
   pi.on("agent_start", async (_event, ctx) => {
     rt.isStreaming = true;
+    rt.turnStartedAt = Date.now();
     rt.liveAssistantUsage = null;
     onVibeAgentStart();
     dismissWelcome(rt, ctx);
@@ -423,6 +425,7 @@ export function registerSessionLifecycle(
 
   pi.on("agent_end", async (_event, ctx) => {
     rt.isStreaming = false;
+    rt.turnStartedAt = null;
     rt.liveAssistantUsage = null;
     rt.coreContextUsageCache.reset();
     dispatchSignalEvent(rt, config.appearance, "success");

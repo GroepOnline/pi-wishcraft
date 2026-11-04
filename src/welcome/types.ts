@@ -12,6 +12,15 @@ export interface RecentSession {
   timeAgo: string;
 }
 
+/** Sections the welcome overlay lets the operator step through with Tab. */
+export type WelcomeSection = "news" | "sessions" | "shortcuts";
+
+export interface WelcomeFocus {
+  section: WelcomeSection;
+  /** Row index within that section. */
+  index: number;
+}
+
 export interface WelcomeData {
   modelName: string;
   providerName: string;
@@ -24,6 +33,8 @@ export interface WelcomeData {
   whatsNew?: string[];
   /** Index of the `whatsNew` bullet shown expanded (wrapped, not truncated). */
   whatsNewSelected?: number | null;
+  /** Which section Tab is on and which row inside it is highlighted. */
+  focus?: WelcomeFocus;
   /**
    * Heading above `whatsNew`. Defaults to "What's new"; the first-run flow
    * swaps it for a short "Getting started" so a brand-new operator sees three

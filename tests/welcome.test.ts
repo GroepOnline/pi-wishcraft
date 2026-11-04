@@ -290,8 +290,83 @@ test("welcome overlay: selection wraps in both directions and ignores empty news
   assert.equal(empty.getSelectedWhatsNew(), null);
 });
 
-test("welcome overlay: countdown timers are unref'd and only arrows are intercepted", () => {
+test("welcome overlay: countdown timers are unref'd and only non-printable keys are intercepted", () => {
   assert.match(indexSource, /interval\.unref\?\.\(\)/);
   assert.match(indexSource, /tui\.select\.up/);
+  assert.match(indexSource, /data === "\\t"/);
   assert.doesNotMatch(indexSource, /data === "p"/);
+});
+
+test("welcome cockpit: Tab skips empty sections and highlights quick launch rows", () => {
+  const plain = (lines: string[]) => lines.join("\n").replace(/\x1b\[[0-9;]*m/g, "");
+  const welcome = new WelcomeComponent(
+    "model",
+    "provider",
+    [{ name: "lantern-ops", timeAgo: "2h ago" }],
+    undefined,
+    null,
+    0,
+    false,
+    [],
+  );
+
+  assert.equal(welcome.getFocus(), null);
+  welcome.cycleSection(1);
+  assert.deepEqual(welcome.getFocus(), { section: "sessions", index: 0 });
+  assert.equal(welcome.isTimerPaused(), true);
+  assert.match(plain(welcome.render(96)), /▸ lantern-ops/);
+
+  welcome.cycleSection(1);
+  assert.deepEqual(welcome.getFocus(), { section: "shortcuts", index: 0 });
+  const launched = plain(welcome.render(96));
+  assert.match(launched, /enter primes the prompt/);
+  assert.match(launched, /▸# <idea>/);
+});
+
+test("welcome cockpit: Enter only primes the prompt after navigation paused the countdown", () => {
+  const welcome = new WelcomeComponent(
+    "model",
+    "provider",
+    [],
+    undefined,
+    null,
+    0,
+    false,
+    ["only news"],
+  );
+
+  // Fresh overlay: Enter is a plain dismiss, nothing is primed.
+  assert.equal(welcome.activate(), null);
+
+  welcome.moveFocus(1);
+  assert.deepEqual(welcome.getFocus(), { section: "news", index: 0 });
+  // Enter on the news section expands a bullet instead of inserting text.
+  assert.equal(welcome.activate(), null);
+
+  welcome.cycleSection(1); // sessions is empty, lands on shortcuts
+  assert.deepEqual(welcome.getFocus(), { section: "shortcuts", index: 0 });
+  assert.equal(welcome.activate(), "# ");
+
+  welcome.moveFocus(1);
+  assert.equal(welcome.activate(), null); // alt+p is a real keybinding
+  welcome.moveFocus(1);
+  assert.equal(welcome.activate(), "! ");
+});
+
+test("welcome cockpit: arrows clamp inside a section instead of wrapping", () => {
+  const welcome = new WelcomeComponent(
+    "model",
+    "provider",
+    [{ name: "a", timeAgo: "1h" }],
+    undefined,
+    null,
+    0,
+    false,
+    ["x"],
+  );
+  welcome.cycleSection(1);
+  welcome.moveFocus(-1);
+  assert.deepEqual(welcome.getFocus(), { section: "sessions", index: 0 });
+  welcome.moveFocus(1);
+  assert.deepEqual(welcome.getFocus(), { section: "sessions", index: 0 });
 });

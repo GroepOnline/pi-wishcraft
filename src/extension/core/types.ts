@@ -61,6 +61,11 @@ export interface RuntimeState {
   welcomeHeaderActive: boolean;
   welcomeOverlayShouldDismiss: boolean;
   lastUserPrompt: string;
+  /**
+   * Timestamp (ms) of the current turn's `agent_start`; null between turns.
+   * Only the first TPS sample of a turn carries it as a ring marker.
+   */
+  turnStartedAt: number | null;
   showLastPrompt: boolean;
   stashedEditorText: string | null;
   stashedPromptHistory: string[];

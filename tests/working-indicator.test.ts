@@ -7,7 +7,7 @@ import {
 } from "../src/working-vibes/frames.ts";
 
 test("working indicator exposes the supported styles", () => {
-  assert.deepEqual(workingIndicatorStyles(), ["dots", "pulse", "bar", "ascii", "lantern", "braille"]);
+  assert.deepEqual(workingIndicatorStyles(), ["dots", "pulse", "bar", "ascii", "lantern", "braille", "motion"]);
 });
 
 test("working indicator cycles deterministically", () => {
@@ -33,4 +33,29 @@ test("native indicator animates under full motion and holds under reduced/off", 
 test("native indicator falls back to ASCII glyphs and tolerates unknown styles", () => {
   assert.deepEqual(nativeWorkingIndicator("braille", "full", true).frames, ["-", "\\", "|", "/"]);
   assert.equal(nativeWorkingIndicator("nope" as never, "full").frames[0], "·  ");
+});
+
+test("motion style borrows the catalog frames and cadence", () => {
+  const spec = nativeWorkingIndicator("motion", "full", false, {
+    frames: ["◜", "◝", "◞", "◟"],
+    intervalMs: 75,
+  });
+  assert.deepEqual(spec.frames, ["◜", "◝", "◞", "◟"]);
+  assert.equal(spec.intervalMs, 75);
+});
+
+test("motion style falls back to the lantern ramp without a catalog def", () => {
+  const spec = nativeWorkingIndicator("motion", "full");
+  assert.deepEqual(spec.frames, [...nativeWorkingIndicator("lantern", "full").frames]);
+});
+
+test("motion style still respects parity and accessibility", () => {
+  const catalog = { frames: ["◜", "◝", "◞", "◟"], intervalMs: 75 };
+  assert.deepEqual(nativeWorkingIndicator("motion", "off", false, catalog).frames, ["◜"]);
+  assert.equal(nativeWorkingIndicator("motion", "functional", false, catalog).frames.length, 2);
+  // ASCII glyph policy wins over the catalog: no wide glyphs leak through.
+  assert.deepEqual(
+    nativeWorkingIndicator("motion", "full", true, catalog).frames,
+    ["-", "\\", "|", "/"],
+  );
 });

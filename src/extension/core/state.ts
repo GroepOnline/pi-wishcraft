@@ -111,6 +111,7 @@ export function createRuntimeState(
     welcomeHeaderActive: false,
     welcomeOverlayShouldDismiss: false,
     lastUserPrompt: "",
+    turnStartedAt: null,
     showLastPrompt: true,
     stashedEditorText: null,
     stashedPromptHistory: readPersistedStashHistory(),

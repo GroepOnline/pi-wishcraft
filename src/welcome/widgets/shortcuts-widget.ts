@@ -1,17 +1,25 @@
 import { tr } from "../../i18n/index.ts";
 import type { WelcomeWidget, WidgetRenderContext } from "../types.ts";
+import { quickLaunchItems } from "../quick-launch.ts";
+
+const KEYS_WIDTH = 10;
 
 export const ShortcutsWidget: WelcomeWidget = {
   id: "shortcuts",
   render(ctx: WidgetRenderContext): string[] {
-    const { dim, bold, color } = ctx;
+    const { data, dim, bold, color } = ctx;
     const lines: string[] = [];
+    const focused =
+      data.focus?.section === "shortcuts" ? data.focus.index : null;
 
     lines.push(` ${bold(color("accent", tr("welcome.shortcuts", "Quick Launch / Tactical")))}`);
-    lines.push(` ${dim("# <idea>  ")} ${tr("welcome.shortcuts.idea", "capture idea to queue")}`);
-    lines.push(` ${dim("alt+p     ")} ${tr("welcome.shortcuts.deck", "tactical powerline overlay")}`);
-    lines.push(` ${dim("!cmd      ")} ${tr("welcome.shortcuts.bash", "sticky bash session")}`);
-    lines.push(` ${dim("alt+s     ")} ${tr("welcome.shortcuts.stash", "stash/pop prompt draft")}`);
+
+    quickLaunchItems().forEach((item, index) => {
+      const marker = focused === index ? color("accent", "▸") : " ";
+      const keys = item.keys.padEnd(KEYS_WIDTH);
+      const keysStyled = focused === index ? color("accent", keys) : dim(keys);
+      lines.push(`${marker}${keysStyled} ${item.label}`);
+    });
 
     return lines;
   },

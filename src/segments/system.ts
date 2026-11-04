@@ -226,17 +226,26 @@ export const tpsSegment: StatusLineSegment = {
       };
     }
     const windowMs = ctx.options.tps?.windowMs ?? 1000;
-    const { output, input } = ctx.usageStats ?? { output: 0, input: 0 };
+    const { output, input, cacheRead } = ctx.usageStats ?? {
+      output: 0,
+      input: 0,
+      cacheRead: 0,
+    };
     const now = Date.now();
     pushTpsSample(
       tpsSamples,
-      { at: now, output, input },
+      {
+        at: now,
+        output,
+        input,
+        uncachedInput: Math.max(0, input - cacheRead),
+      },
       ringMsForWindow(windowMs),
     );
     const { inRate, outRate } = ratesFromRing(
       tpsSamples,
       now,
-      { input, output },
+      { input, output, cacheRead },
       windowMs,
     );
     const icons = getIcons();

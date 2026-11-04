@@ -71,6 +71,20 @@ export function bootRevealActive(startedAt: number, now: number): boolean {
 }
 
 /**
+ * Reveal time to hand the art renderer, or `undefined` when the steady layout
+ * should take over. After the reveal window an animated lantern keeps its own
+ * override (elapsed 0 = no fade, live frames) so the flame never freezes on
+ * the first paint; a still lantern falls back to the plain box art.
+ */
+export function revealElapsedForArt(
+  elapsedMs: number,
+  animate: boolean,
+): number | undefined {
+  if (elapsedMs < BOOT_REVEAL_MS) return elapsedMs;
+  return animate ? 0 : undefined;
+}
+
+/**
  * Welcome header - same layout as overlay but persistent (no countdown).
  * Used when quietStartup: true. The first ~1.5s after mount fades the art
  * up from a faint ember (OMP-style boot reveal), then renders steady.

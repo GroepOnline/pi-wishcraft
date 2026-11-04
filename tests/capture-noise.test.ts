@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { stripCaptureNoisePrefix } from "../src/extension/queue/queue-integration.ts";
 import { allWorkingIndicatorFrames } from "../src/working-vibes/frames.ts";
+import { MOTION_CATALOG } from "../src/motion/catalog.ts";
+import { framesOf } from "../src/motion/frames.ts";
 
 test("strips leading pi working-indicator frames from captured idea text", () => {
   assert.equal(
@@ -36,4 +38,16 @@ test("strips every frame of every working-indicator style", () => {
 test("does not eat ideas that merely start with a dash or a bracket", () => {
   assert.equal(stripCaptureNoisePrefix("- werken aan de lantaarn"), "- werken aan de lantaarn");
   assert.equal(stripCaptureNoisePrefix("[todo] Working on it"), "[todo] Working on it");
+});
+
+test("strips every Motion Catalog glyph the motion style can hand to Pi", () => {
+  for (const def of MOTION_CATALOG) {
+    for (const frame of framesOf(def)) {
+      assert.equal(
+        stripCaptureNoisePrefix(`${frame} Working... bewaar dit idee`),
+        "bewaar dit idee",
+        `motion ${def.id} frame ${JSON.stringify(frame)} leaked into captured text`,
+      );
+    }
+  }
 });

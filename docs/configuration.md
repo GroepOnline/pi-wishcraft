@@ -210,8 +210,11 @@ The indicator is intentionally separate from the structural appearance motion: i
 | `pulse` | expanding/contracting center | clear activity at a glance |
 | `bar` | travelling block across a track | high-information dashboards |
 | `ascii` | portable `[=]`, `[-]`, `[.]` frames | SSH, basic terminals, and logs |
+| `lantern` | rising block ramp (▁→█) | the signature look, ambient sessions |
+| `braille` | classic braille spinner | compact terminals and log capture |
+| `motion` | frames from the Motion Catalog (the motion assigned to `thinking`) at that definition's own `generator.intervalMs` | matching the working spinner to the rest of the motion language |
 
- Configure it under `wishcraft.workingIndicatorStyle`; supported values are `dots` (default), `pulse`, `bar`, and `ascii`. Motion accessibility settings still apply: reduced/off motion uses a static frame.
+ Configure it under `wishcraft.workingIndicatorStyle`; supported values are `dots` (default), `pulse`, `bar`, `ascii`, `lantern`, `braille`, and `motion`. The list in the settings UI is derived from `workingIndicatorStyles()`, so it cannot drift from what the renderer accepts. Motion accessibility settings still apply: reduced/off motion uses a static frame, functional motion alternates two frames, and ASCII glyph mode forces the ASCII set — `motion` falls back to `lantern` when its motion id is unknown.
 
 ```json
 {
@@ -505,6 +508,8 @@ Localised surfaces: Deck route names and chrome, settings labels/hints/group tit
 Four questions — language, status preset, motion level, welcome overlay — then a review screen and one write to `settings.json`. Every step is also editable later from `/wishcraft settings`.
 
 On the very first launch the welcome panel shows three next steps under **Getting started** instead of a changelog wall. Later launches show the usual changelog delta under **What's new**.
+
+The panel is a cockpit, not a splash screen. `Tab`/`Shift+Tab` step between **What's new**, **Recent Crafts** and **Quick Launch**, ↑/↓ move inside the focused section (the selected changelog bullet expands across wrapped lines instead of being truncated), and `Enter` — only after navigation has paused the countdown — primes the prompt for the focused quick-launch row (`# ` for an idea, `! ` for a sticky bash session). `Recent Crafts` is read-only: Pi exposes no session-resume handle. No printable key is ever captured by the overlay, so the first letter of the prompt you start typing still dismisses it. With `wishcraft.welcome.animateLantern` on, the lantern keeps burning on the ambient heartbeat after the boot reveal instead of freezing on its last frame.
 
 ## Segment options: two accepted shapes
 

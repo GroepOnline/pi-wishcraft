@@ -18,6 +18,9 @@ import { showSelectOverlay } from "../ui/menu-views.ts";
 import { getQueueContext } from "./queue-context.ts";
 import { isStaleExtensionContextError } from "../session/stale-context.ts";
 import { config } from "../core/state.ts";
+import { allWorkingIndicatorFrames } from "../../working-vibes/frames.ts";
+import { MOTION_CATALOG } from "../../motion/catalog.ts";
+import { framesOf } from "../../motion/frames.ts";
 import type { RuntimeState } from "../core/types.ts";
 
 export function requestQueueRender(rt: RuntimeState): void {
@@ -40,10 +43,24 @@ export function queueItemDescription(item: PowerlineQueueItem): string {
  * Pi's working indicator (spinner frame + "Working...") can end up at the start
  * of captured text when the editor buffer is captured while the agent runs.
  * Strip that prefix so ideas never render as a permanently "working" card.
- * Covers every frame of every `workingIndicatorStyle`, not just braille.
+ *
+ * The frame alternation is built from the same tables the indicator draws from
+ * (`working-vibes/frames.ts` plus the Motion Catalog the `motion` style
+ * borrows), so a new style or motion can never leak its glyphs into an idea.
  */
-const CAPTURE_NOISE_PREFIX =
-  /^\s*(?:[\u2800-\u28FF\u2581-\u2588○◌●·\\|\/-]+|\[[= ]{3,4}\])[\u2800-\u28FF\u2581-\u2588○◌●·\\|\/\- ]*\s*Working[.…]+\s*/;
+const SPINNER_FRAMES = [
+  ...new Set([
+    ...allWorkingIndicatorFrames(),
+    ...MOTION_CATALOG.flatMap((def) => framesOf(def)),
+  ]),
+]
+  .filter((frame) => frame.trim().length > 0)
+  .sort((a, b) => b.length - a.length)
+  .map((frame) => frame.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+const CAPTURE_NOISE_PREFIX = new RegExp(
+  `^\\s*(?:(?:${SPINNER_FRAMES.join("|")})\\s*)*Working[.…]+\\s*`,
+);
 
 export function stripCaptureNoisePrefix(text: string): string {
   let out = text;

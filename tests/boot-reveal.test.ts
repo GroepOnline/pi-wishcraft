@@ -4,6 +4,7 @@ import {
   BOOT_REVEAL_MS,
   bootRevealActive,
   renderWelcomeArtWithReveal,
+  revealElapsedForArt,
 } from "../src/welcome/banner.ts";
 import { stripAnsi } from "./helpers/strip-ansi.ts";
 
@@ -64,4 +65,21 @@ test("boot reveal leaves ASCII and no-color renders plain", () => {
     renderWelcomeArtWithReveal("pi", 96, false, 400, 5000).join("\n"),
   );
   assert.ok(lines.length > 0, "pi art renders at width 96");
+});
+
+test("boot reveal: an animated lantern keeps its frame source after the window", () => {
+  assert.equal(revealElapsedForArt(100, true), 100);
+  assert.equal(revealElapsedForArt(100, false), 100);
+  assert.equal(revealElapsedForArt(BOOT_REVEAL_MS, false), undefined);
+  assert.equal(
+    revealElapsedForArt(BOOT_REVEAL_MS + 5000, true),
+    0,
+    "past the window the animated override stays on, without the fade",
+  );
+});
+
+test("boot reveal: frames keep churning after the window when animated", () => {
+  const at = (now: number) =>
+    renderWelcomeArtWithReveal("lantern", 96, true, 0, now).join("\n");
+  assert.notEqual(at(1000), at(1000 + 137), "animated art still repaints");
 });

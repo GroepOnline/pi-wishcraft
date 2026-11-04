@@ -312,6 +312,8 @@ export const NL: Record<string, string> = {
   "welcome.title": " pi-wishcraft ",
   "welcome.countdown": "Druk op een toets om verder te gaan ({n}s)",
   "welcome.pausedHint": "↑/↓ nieuws bekijken · andere toets gaat verder",
+  "welcome.pausedHint.sessions": "↑/↓ sessies bekijken · tab wisselt sectie · andere toets gaat verder",
+  "welcome.pausedHint.shortcuts": "↑/↓ kiezen · enter vult de prompt · tab wisselt sectie",
   "welcome.whatsNew": "Wat is nieuw",
   "welcome.firstRun": "Aan de slag",
   "welcome.firstRun.1": "# <idee> — leg een gedachte vast zonder te onderbreken",

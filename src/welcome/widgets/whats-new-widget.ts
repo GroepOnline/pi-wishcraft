@@ -17,7 +17,10 @@ export const WhatsNewWidget: WelcomeWidget = {
 
     const lines: string[] = [];
     lines.push(` ${bold(color("accent", title))}`);
-    const selected = data.whatsNewSelected ?? null;
+    const selected =
+      data.focus?.section === "news"
+        ? data.focus.index
+        : (data.whatsNewSelected ?? null);
     entries.forEach((entry, index) => {
       if (selected !== index) {
         lines.push(` ${dim("• ")}${entry}`);
