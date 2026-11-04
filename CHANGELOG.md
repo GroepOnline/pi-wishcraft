@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **A dead `NPM_TOKEN` can no longer strand a tag.** The credential is preflighted (`scripts/npm-token-check.sh`, shared with `npm-publish.sh`) in `prepare`, before `package.json` is bumped: a token that fails `npm whoami` stops the release while `main` is still unbumped and untagged, instead of surfacing as a 404 after Promote already tagged. `RELEASE.md` now describes the candidate/promote/publish chain that actually runs (the old flow text, `package-lock.json` candidate and pre-bun CI steps were stale).
 - **A dead `NPM_TOKEN` now says so.** npm answers a PUT for a scoped package with 404 (not 403) when the token is expired, revoked, or lacks publish rights, which reads like "package not found" — exactly how 1.18.0 and 1.19.0 failed silently behind a wall of npm notices. `scripts/npm-publish.sh` preflights `npm whoami` before publishing and prints the diagnosis plus the recovery steps, and a 404 on the publish itself is labelled as a scope/permission problem. `RELEASE.md` documents the rotation and the tag-replay path (`gh workflow run release.yml --ref vX.Y.Z`).
 
 ### Changed

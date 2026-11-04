@@ -1,7 +1,8 @@
 name: Release
 
 # A main push prepares a release candidate; only an exact candidate SHA that has
-# its own Verify check may be promoted to protected main and tagged.
+# its own Verify check may be promoted to protected main and tagged. Prepare
+# preflights the npm credential first, so a dead NPM_TOKEN never costs a tag.
 #
 # Publish is also dispatachable on a tag ref: tags created via the API under
 # GITHUB_TOKEN do not emit an `on: push` tag event (same anti-recursion rule as
@@ -62,6 +63,10 @@ jobs:
       - uses: ./.github/actions/bun-setup
         with:
           install: "false"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
       - name: Confirm verified main is still current
         id: current
         run: |
@@ -73,6 +78,13 @@ jobs:
             echo "superseded=false" >> "$GITHUB_OUTPUT"
             git reset --hard "$GITHUB_SHA"
           fi
+      # Gate the credential before any version exists: a dead token used to be
+      # discovered in publish, after main was already bumped and tagged.
+      - name: Preflight npm credential
+        if: steps.current.outputs.superseded != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: sh scripts/npm-token-check.sh
       - name: Prepare idempotent candidate
         id: candidate
         if: steps.current.outputs.superseded != 'true'
