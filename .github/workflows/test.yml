@@ -144,6 +144,10 @@ jobs:
           && startsWith(github.ref_name, 'release-candidate/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This job has no checkout, so gh cannot resolve the repo from a git
+          # remote: without GH_REPO every dispatch dies with "failed to run git:
+          # fatal: not a git repository" and no candidate is ever promoted.
+          GH_REPO: ${{ github.repository }}
         run: >-
           gh workflow run promote-release-candidate.yml --ref main
           -f branch="${{ github.ref_name }}"
