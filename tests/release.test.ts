@@ -430,6 +430,10 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
   assert.match(verify, /gh workflow run promote-release-candidate\.yml --ref main/);
   assert.match(verify, /github\.actor == 'github-actions\[bot\]'/);
   assert.match(verify, /startsWith\(github\.ref_name, 'release-candidate\/v'\)/);
+  // The aggregator has no checkout, so gh cannot infer the repository from a
+  // git remote: it needs GH_REPO or the dispatch dies with "failed to run git:
+  // fatal: not a git repository" and no candidate is ever promoted.
+  assert.match(verify, /GH_REPO: \$\{\{ github\.repository \}\}/);
 });
 
 test("release publishes through npm trusted publishing, never a stored token", () => {
