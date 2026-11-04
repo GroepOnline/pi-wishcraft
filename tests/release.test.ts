@@ -464,6 +464,24 @@ test("release publishes through npm trusted publishing, never a stored token", (
   }
 });
 
+test("the publish job installs bun before it calls bun", () => {
+  // The bun migration (#128) rewrote `node scripts/...` to `bun scripts/...` in
+  // the publish job but left the bun-setup step below it, so the first publish
+  // after the migration died with `bun: command not found` (v1.20.0).
+  const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
+  const publishJob = workflow.slice(
+    workflow.indexOf("name: test + publish"),
+    workflow.indexOf("name: Backfill GitHub Release evidence"),
+  );
+  const setup = publishJob.indexOf("uses: ./.github/actions/bun-setup");
+  const firstBunCall = publishJob.indexOf("bun scripts/verify-release-tag.mjs");
+  assert.ok(setup > 0, "the publish job must set bun up");
+  assert.ok(
+    setup < firstBunCall,
+    "bun-setup must run before the first bun call in the publish job",
+  );
+});
+
 test("CHANGELOG.md keeps a well-formed Unreleased section for release.mjs to rewrite", () => {
   const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
   assert.match(changelog, /^# Changelog\n\n## \[Unreleased\]\n/);

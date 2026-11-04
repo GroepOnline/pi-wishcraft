@@ -135,6 +135,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
+      # Installs bun and node_modules before the first `bun` call below; npm
+      # publish also runs the manifest's prepublishOnly (typecheck, lint, package
+      # contract), so the dependencies have to be there first.
+      - uses: ./.github/actions/bun-setup
       - name: Stamp identity from the tag commit only
         run: |
           set -euo pipefail
@@ -143,7 +147,6 @@ jobs:
           printf '{"source_sha":"%s"}\n' "$SHA" > build-stamp.json
       - name: Verify tag equals version source and sits on origin/main
         run: bun scripts/verify-release-tag.mjs --tag "${GITHUB_REF_NAME}"
-      - uses: ./.github/actions/bun-setup
       - name: Publish to npm
         run: sh scripts/npm-publish.sh
       - name: Create GitHub Release
