@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-11-04
+
 ### Fixed
 - **`/tps` reported near-zero averages and thousand-TPS peaks.** `pairwiseRates()` and `ratesFromRing()` treated `delta >= 0` as a rate, so every idle repaint pushed a `0` and dragged `avg` down; two samples a few ms apart straddling one token burst reported that burst as a spike. Idle deltas are now skipped (`> 0`), buckets under `TPS_MIN_PAIRWISE_DT_MS` (80 ms) are folded into the next one, and duplicate counts inside 40 ms are dropped at the door.
 - **`/tps` was empty unless the `tps` segment was in the active preset.** The ring was only filled while that segment rendered. `message_update` now samples it (`sampleTpsFromSession`, throttled to 30 ms); the segment keeps its passive sample as a fallback.
