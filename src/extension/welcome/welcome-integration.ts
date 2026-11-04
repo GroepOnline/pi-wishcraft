@@ -183,7 +183,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
         (
           tui: any,
           _theme: any,
-          _keybindings: any,
+          keybindings: any,
           done: (result: void) => void,
         ) => {
           const welcome = new WelcomeComponent(
@@ -205,22 +205,44 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
           let countdown = 30;
           let dismissed = false;
           let interval: ReturnType<typeof setInterval> | null = null;
+          let revealTimer: ReturnType<typeof setInterval> | null = null;
+
+          const stopTimers = () => {
+            if (interval) clearInterval(interval);
+            if (revealTimer) clearInterval(revealTimer);
+            interval = null;
+            revealTimer = null;
+          };
 
           const dismiss = () => {
             if (dismissed) return;
             dismissed = true;
-            if (interval) clearInterval(interval);
+            stopTimers();
             rt.dismissWelcomeOverlay = null;
             done();
           };
 
           interval = setInterval(() => {
-            if (dismissed) return;
+            if (dismissed || welcome.isTimerPaused()) return;
             countdown--;
             welcome.setCountdown(countdown);
             tui.requestRender();
             if (countdown <= 0) dismiss();
           }, 1000);
+          interval.unref?.();
+
+          // The countdown only repaints once a second, which stepped the boot
+          // reveal at 1 FPS. Repaint on the reveal heartbeat until it closes.
+          const revealStartedAt = Date.now();
+          revealTimer = setInterval(() => {
+            if (dismissed || !bootRevealActive(revealStartedAt, Date.now())) {
+              if (revealTimer) clearInterval(revealTimer);
+              revealTimer = null;
+              return;
+            }
+            tui.requestRender();
+          }, BOOT_REVEAL_HEARTBEAT_MS);
+          revealTimer.unref?.();
 
           rt.dismissWelcomeOverlay = dismiss;
 
@@ -233,10 +255,21 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
             focused: false,
             invalidate: () => welcome.invalidate(),
             render: (width: number) => welcome.render(width),
-            handleInput: () => dismiss(),
+            handleInput: (data: string) => {
+              // Only non-printable arrows browse; every other key (including
+              // letters) still dismisses so the first keystroke is never lost.
+              const up = keybindings?.matches?.(data, "tui.select.up") || data === "\x1b[A";
+              const down = keybindings?.matches?.(data, "tui.select.down") || data === "\x1b[B";
+              if (up || down) {
+                welcome.moveSelection(up ? -1 : 1);
+                tui.requestRender();
+                return;
+              }
+              dismiss();
+            },
             dispose: () => {
               dismissed = true;
-              if (interval) clearInterval(interval);
+              stopTimers();
             },
           };
         },

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fixed
+- **`/tps` reported near-zero averages and thousand-TPS peaks.** `pairwiseRates()` and `ratesFromRing()` treated `delta >= 0` as a rate, so every idle repaint pushed a `0` and dragged `avg` down; two samples a few ms apart straddling one token burst reported that burst as a spike. Idle deltas are now skipped (`> 0`), buckets under `TPS_MIN_PAIRWISE_DT_MS` (80 ms) are folded into the next one, and duplicate counts inside 40 ms are dropped at the door.
+- **`/tps` was empty unless the `tps` segment was in the active preset.** The ring was only filled while that segment rendered. `message_update` now samples it (`sampleTpsFromSession`, throttled to 30 ms); the segment keeps its passive sample as a fallback.
+- **Pi's own working spinner ignored `wishcraft.workingIndicatorStyle` and the motion policy.** The style was only used by status renderers. `before_agent_start` now hands Pi `ctx.ui.setWorkingIndicator({ frames, intervalMs })` once per run (Pi owns the timer, so there is no second clock), and `agent_end` restores the default. Reduced/off motion holds one frame, functional alternates two, ASCII glyph mode forces the ASCII set.
+- **Welcome overlay**: the boot reveal repainted once a second because only the countdown timer drove it; it now repaints on the same bounded heartbeat as the header. The countdown timer is `unref`'d. ↑/↓ browse `What's new` (the selected bullet expands across wrapped lines instead of being truncated) and pause the countdown; every other key, including letters, still dismisses so a first keystroke is never swallowed.
+- Idea capture strips spinner noise for **every** indicator frame, not just braille, so the new native styles cannot leak into captured text.
+
+### Added
+- Working-indicator styles `lantern` and `braille` (settings registry choices are now derived from `workingIndicatorStyles()` so the two cannot drift).
+
 ## [1.18.0] - 2026-11-03
 
 ### Security

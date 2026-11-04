@@ -7,6 +7,7 @@ import {
   ratesFromRing,
   summarizeTpsRing,
   tpsOverlayLines,
+  TPS_MIN_PAIRWISE_DT_MS,
   type TpsSample,
 } from "../src/usage/tps-ring.ts";
 
@@ -55,4 +56,46 @@ test("tps overlay names an override instead of inventing a second sampler", () =
     summarizeTpsRing([], 0, { input: 0, output: 0 }, { override: "42" }),
   );
   assert.match(lines[0] ?? "", /override 42/);
+});
+
+test("idle repaints with unchanged counts do not drag the average to zero", () => {
+  const samples: TpsSample[] = [];
+  pushTpsSample(samples, { at: 0, output: 0, input: 0 }, 5000);
+  pushTpsSample(samples, { at: 500, output: 50, input: 0 }, 5000);
+  for (let at = 600; at <= 1500; at += 100) {
+    pushTpsSample(samples, { at, output: 50, input: 0 }, 5000);
+  }
+  const summary = summarizeTpsRing(samples, 1500, { output: 50, input: 0 });
+  assert.equal(summary.peakOut, 100);
+  assert.equal(summary.avgOut, 100);
+});
+
+test("sub-frame sample pairs cannot report a burst as a spike", () => {
+  const samples: TpsSample[] = [
+    { at: 0, output: 0, input: 0 },
+    { at: 1000, output: 100, input: 0 },
+    { at: 1002, output: 112, input: 0 },
+    { at: 2000, output: 200, input: 0 },
+  ];
+  const summary = summarizeTpsRing(samples, 2000, { output: 200, input: 0 });
+  assert.ok(2 < TPS_MIN_PAIRWISE_DT_MS);
+  assert.ok(summary.peakOut <= 112, `peak ${summary.peakOut} looks like a repaint spike`);
+});
+
+test("pushTpsSample drops duplicate counts inside the dedupe window", () => {
+  const samples: TpsSample[] = [];
+  pushTpsSample(samples, { at: 0, output: 5, input: 1 }, 5000);
+  pushTpsSample(samples, { at: 10, output: 5, input: 1 }, 5000);
+  pushTpsSample(samples, { at: 20, output: 6, input: 1 }, 5000);
+  assert.equal(samples.length, 2);
+});
+
+test("ratesFromRing reports zero, not a measured rate, when nothing was generated", () => {
+  const samples: TpsSample[] = [
+    { at: 0, output: 40, input: 5 },
+    { at: 1000, output: 40, input: 5 },
+  ];
+  const rates = ratesFromRing(samples, 1000, { output: 40, input: 5 }, 1000);
+  assert.equal(rates.outRate, 0);
+  assert.equal(rates.inRate, 0);
 });

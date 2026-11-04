@@ -13,6 +13,7 @@ import { join } from "node:path";
 import {
   discoverLoadedCounts,
   getRecentSessions,
+  WelcomeComponent,
   WelcomeHeader,
 } from "../src/welcome/index.ts";
 
@@ -255,4 +256,42 @@ test("getRecentSessions reads custom agent sessions and existing legacy sessions
       rmSync(root, { recursive: true, force: true });
     }
   });
+});
+
+const LONG_ENTRY =
+  "Bash paste-while-running (issue #72): a bracketed paste performed while a command runs is forwarded to the child stdin";
+
+function overlayWith(entries: string[]): WelcomeComponent {
+  return new WelcomeComponent("model", "provider", [], undefined, null, 0, false, entries);
+}
+
+test("welcome overlay: arrows pause the countdown and expand the selected bullet", () => {
+  const welcome = overlayWith([LONG_ENTRY, "short"]);
+  assert.equal(welcome.isTimerPaused(), false);
+  welcome.moveSelection(1);
+  assert.equal(welcome.isTimerPaused(), true);
+  assert.equal(welcome.getSelectedWhatsNew(), 0);
+  const plain = (lines: string[]) => lines.join("\n").replace(/\x1b\[[0-9;]*m/g, "");
+  const expanded = plain(welcome.render(96));
+  assert.match(expanded, /▸/);
+  assert.match(expanded, /stdin/);
+  assert.match(expanded, /↑\/↓/);
+});
+
+test("welcome overlay: selection wraps in both directions and ignores empty news", () => {
+  const welcome = overlayWith(["a", "b", "c"]);
+  welcome.moveSelection(-1);
+  assert.equal(welcome.getSelectedWhatsNew(), 2);
+  welcome.moveSelection(1);
+  assert.equal(welcome.getSelectedWhatsNew(), 0);
+  const empty = overlayWith([]);
+  empty.moveSelection(1);
+  assert.equal(empty.isTimerPaused(), false);
+  assert.equal(empty.getSelectedWhatsNew(), null);
+});
+
+test("welcome overlay: countdown timers are unref'd and only arrows are intercepted", () => {
+  assert.match(indexSource, /interval\.unref\?\.\(\)/);
+  assert.match(indexSource, /tui\.select\.up/);
+  assert.doesNotMatch(indexSource, /data === "p"/);
 });

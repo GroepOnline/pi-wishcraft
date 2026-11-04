@@ -40,9 +40,10 @@ export function queueItemDescription(item: PowerlineQueueItem): string {
  * Pi's working indicator (spinner frame + "Working...") can end up at the start
  * of captured text when the editor buffer is captured while the agent runs.
  * Strip that prefix so ideas never render as a permanently "working" card.
+ * Covers every frame of every `workingIndicatorStyle`, not just braille.
  */
 const CAPTURE_NOISE_PREFIX =
-  /^[\u2800-\u28FF][\u2800-\u28FF ]*\s*Working[.…]+\s*/;
+  /^\s*(?:[\u2800-\u28FF\u2581-\u2588○◌●·\\|\/-]+|\[[= ]{3,4}\])[\u2800-\u28FF\u2581-\u2588○◌●·\\|\/\- ]*\s*Working[.…]+\s*/;
 
 export function stripCaptureNoisePrefix(text: string): string {
   let out = text;

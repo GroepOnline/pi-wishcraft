@@ -20,7 +20,12 @@ export {
 
 export type { VibeMode } from "./storage.ts";
 export type { WorkingIndicatorStyle } from "./frames.ts";
-export { workingIndicatorFrame, workingIndicatorStyles } from "./frames.ts";
+export {
+  allWorkingIndicatorFrames,
+  nativeWorkingIndicator,
+  workingIndicatorFrame,
+  workingIndicatorStyles,
+} from "./frames.ts";
 
 export type {
   GenerateVibesResult,

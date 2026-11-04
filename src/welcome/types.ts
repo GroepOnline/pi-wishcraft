@@ -22,6 +22,8 @@ export interface WelcomeData {
   hasStash?: boolean;
   nextIdeaText?: string;
   whatsNew?: string[];
+  /** Index of the `whatsNew` bullet shown expanded (wrapped, not truncated). */
+  whatsNewSelected?: number | null;
   /**
    * Heading above `whatsNew`. Defaults to "What's new"; the first-run flow
    * swaps it for a short "Getting started" so a brand-new operator sees three

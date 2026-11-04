@@ -311,6 +311,7 @@ export const NL: Record<string, string> = {
   "welcome.tagline": "Schrijf het op, laat het stijgen, houd je focus helder.",
   "welcome.title": " pi-wishcraft ",
   "welcome.countdown": "Druk op een toets om verder te gaan ({n}s)",
+  "welcome.pausedHint": "↑/↓ nieuws bekijken · andere toets gaat verder",
   "welcome.whatsNew": "Wat is nieuw",
   "welcome.firstRun": "Aan de slag",
   "welcome.firstRun.1": "# <idee> — leg een gedachte vast zonder te onderbreken",

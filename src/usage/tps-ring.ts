@@ -1,6 +1,6 @@
 /**
- * Shared TPS ring math. The segment writes samples; `/tps` and Status → TPS
- * read the same ring. No second sampler.
+ * Shared TPS ring math. Stream events (`message_update`) and the segment both
+ * write samples; `/tps` and Status → TPS read the same ring.
  */
 
 export interface TpsSample {
@@ -26,8 +26,16 @@ export interface TpsSummary extends TpsRates {
 
 export const TPS_MIN_RING_MS = 5000;
 export const TPS_MAX_SAMPLES = 480;
+/**
+ * Pairwise buckets shorter than this are coalesced into the next sample. Two
+ * repaints a couple of ms apart that straddle one token burst would otherwise
+ * report that burst as thousands of tokens per second.
+ */
+export const TPS_MIN_PAIRWISE_DT_MS = 80;
+/** Samples with identical counts closer together than this carry no signal. */
+const TPS_DEDUPE_MS = 40;
 
-/** Live ring filled by the tps segment renderer. */
+/** Live ring filled by stream events and the tps segment renderer. */
 export const tpsSamples: TpsSample[] = [];
 
 export function ringMsForWindow(windowMs: number): number {
@@ -50,6 +58,16 @@ export function pushTpsSample(
   sample: TpsSample,
   ringMs: number,
 ): void {
+  const tail = samples[samples.length - 1];
+  if (
+    tail &&
+    tail.output === sample.output &&
+    tail.input === sample.input &&
+    sample.at - tail.at < TPS_DEDUPE_MS
+  ) {
+    pruneTpsRing(samples, sample.at, ringMs);
+    return;
+  }
   samples.push(sample);
   pruneTpsRing(samples, sample.at, ringMs);
 }
@@ -78,27 +96,35 @@ export function ratesFromRing(
     const dt = (now - ref.at) / 1000;
     const dOut = usage.output - ref.output;
     const dIn = usage.input - ref.input;
-    if (dt > 0 && dOut >= 0) outRate = dOut / dt;
-    if (dt > 0 && dIn >= 0) inRate = dIn / dt;
+    if (dt > 0 && dOut > 0) outRate = dOut / dt;
+    if (dt > 0 && dIn > 0) inRate = dIn / dt;
   }
   return { inRate, outRate };
 }
 
+/**
+ * Peak/average buckets for `/tps`. Idle repaints (no new tokens) are skipped
+ * instead of pushing 0, and buckets under TPS_MIN_PAIRWISE_DT_MS are folded
+ * into the next one, so the numbers follow generation, not repaint cadence.
+ */
 function pairwiseRates(samples: readonly TpsSample[]): {
   ins: number[];
   outs: number[];
 } {
   const ins: number[] = [];
   const outs: number[] = [];
+  if (samples.length < 2) return { ins, outs };
+  let anchor = samples[0]!;
   for (let i = 1; i < samples.length; i++) {
-    const prev = samples[i - 1]!;
     const cur = samples[i]!;
-    const dt = (cur.at - prev.at) / 1000;
-    if (dt <= 0) continue;
-    const dOut = cur.output - prev.output;
-    const dIn = cur.input - prev.input;
-    if (dOut >= 0) outs.push(dOut / dt);
-    if (dIn >= 0) ins.push(dIn / dt);
+    const dtMs = cur.at - anchor.at;
+    if (dtMs < TPS_MIN_PAIRWISE_DT_MS) continue;
+    const dtSec = dtMs / 1000;
+    const dOut = cur.output - anchor.output;
+    const dIn = cur.input - anchor.input;
+    if (dOut > 0) outs.push(dOut / dtSec);
+    if (dIn > 0) ins.push(dIn / dtSec);
+    anchor = cur;
   }
   return { ins, outs };
 }

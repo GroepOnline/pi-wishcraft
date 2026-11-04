@@ -21,6 +21,8 @@ export class WelcomeComponent implements Component {
   private data: WelcomeData;
   private countdown: number = 30;
   private mountedAt = 0;
+  private timerPaused = false;
+  private selectedWhatsNew: number | null = null;
 
   constructor(
     modelName: string,
@@ -53,6 +55,31 @@ export class WelcomeComponent implements Component {
 
   setCountdown(seconds: number): void {
     this.countdown = seconds;
+  }
+
+  isTimerPaused(): boolean {
+    return this.timerPaused;
+  }
+
+  /**
+   * Step through the `What's new` bullets so truncated entries can be read in
+   * full. Interacting pauses the auto-dismiss countdown; only non-printable
+   * navigation keys call this, so typing a prompt still just dismisses.
+   */
+  moveSelection(delta: -1 | 1): void {
+    const count = this.data.whatsNew?.length ?? 0;
+    if (count === 0) return;
+    this.timerPaused = true;
+    this.selectedWhatsNew =
+      this.selectedWhatsNew === null
+        ? delta > 0
+          ? 0
+          : count - 1
+        : (this.selectedWhatsNew + delta + count) % count;
+  }
+
+  getSelectedWhatsNew(): number | null {
+    return this.selectedWhatsNew;
   }
 
   setArt(art: WelcomeArtTheme, animate: boolean): void {
@@ -88,7 +115,9 @@ export class WelcomeComponent implements Component {
     );
 
     // Bottom line with countdown
-    const countdownText = ` ${tr("welcome.countdown", "Press any key to continue ({n}s)", { n: this.countdown })} `;
+    const countdownText = this.timerPaused
+      ? ` ${tr("welcome.pausedHint", "↑/↓ browse news · any other key continues")} `
+      : ` ${tr("welcome.countdown", "Press any key to continue ({n}s)", { n: this.countdown })} `;
     const countdownStyled = dim(countdownText);
     const bottomContentWidth = boxWidth - 2;
     const countdownVisLen = visibleWidth(countdownText);
@@ -100,7 +129,11 @@ export class WelcomeComponent implements Component {
       countdownStyled +
       dim(hChar.repeat(Math.max(0, rightPad)));
 
-    return renderWelcomeBox(this.data, termWidth, bottomLine, this.revealArt(termWidth));
+    const renderData: WelcomeData = {
+      ...this.data,
+      whatsNewSelected: this.selectedWhatsNew,
+    };
+    return renderWelcomeBox(renderData, termWidth, bottomLine, this.revealArt(termWidth));
   }
 
   /** Left-column reveal frames while the boot window is open. */

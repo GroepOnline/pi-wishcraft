@@ -15,6 +15,11 @@ import { getDefaultColors } from "../../theme/theme.ts";
 import { getGitStatus } from "../../git/status.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { getUsageTokenTotal } from "../../usage/ledger.ts";
+import {
+  pushTpsSample,
+  ringMsForWindow,
+  tpsSamples,
+} from "../../usage/tps-ring.ts";
 import { tokenBudgetSnapshotForDay } from "../../usage/token-budget.ts";
 import { dayKey } from "../../usage/usage-store.ts";
 import {
@@ -248,4 +253,26 @@ export function buildSegmentContext(
     theme,
     colors,
   };
+}
+const TPS_EVENT_MIN_GAP_MS = 30;
+let lastTpsEventAt = 0;
+
+/**
+ * Event-driven TPS sampling, called from `message_update`. The ring used to be
+ * filled only while the `tps` segment rendered, so presets without that segment
+ * left `/tps` empty and every unrelated repaint added a duplicate sample.
+ */
+export function sampleTpsFromSession(
+  rt: RuntimeState,
+  ctx: any,
+  now: number = Date.now(),
+): void {
+  if (now - lastTpsEventAt < TPS_EVENT_MIN_GAP_MS) return;
+  lastTpsEventAt = now;
+  const events = rt.sessionBranchCache.get(ctx.sessionManager);
+  const { input, output } = rt.tokenStatsCache.get(events);
+  const windowMs =
+    mergeSegmentOptions(getPreset(config.preset).segmentOptions, config.segmentOptions)
+      .tps?.windowMs ?? 1000;
+  pushTpsSample(tpsSamples, { at: now, output, input }, ringMsForWindow(windowMs));
 }

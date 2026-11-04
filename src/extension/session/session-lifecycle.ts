@@ -34,6 +34,7 @@ import {
   requestImmediateStatusRender,
   requestStatusRender,
   resetLayoutCache,
+  sampleTpsFromSession,
 } from "../core/segment-context.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import {
@@ -62,6 +63,10 @@ import {
   clearSkillsCountPublisher,
 } from "../skills/skill-status.ts";
 import { maybeAppendReadHint } from "./read-hints.ts";
+import {
+  applyNativeWorkingIndicator,
+  resetNativeWorkingIndicator,
+} from "../../working-vibes/native-indicator.ts";
 import {
   dispatchSignalEvent,
   settleSignal,
@@ -269,6 +274,7 @@ export function registerSessionLifecycle(
     rt.lastUserPrompt = prompt;
     if (ctx.hasUI) {
       onVibeBeforeAgentStart(prompt, ctx.ui.setWorkingMessage);
+      applyNativeWorkingIndicator(ctx.ui, rt.motionPolicy);
     }
   });
 
@@ -293,6 +299,11 @@ export function registerSessionLifecycle(
       rt.liveAssistantUsage = event.message.usage;
       rt.currentCtx = ctx;
       rt.layoutDirty = true;
+      try {
+        sampleTpsFromSession(rt, ctx);
+      } catch (error) {
+        if (!isStaleExtensionContextError(error)) throw error;
+      }
       rt.statusRenderScheduler.schedule(CONTEXT_STATUS_RENDER_MS);
       if (rt.signal.event !== "streaming") {
         dispatchSignalEvent(rt, config.appearance, "streaming");
@@ -429,6 +440,7 @@ export function registerSessionLifecycle(
     try {
       if (hasUI) {
         onVibeAgentEnd(ctx.ui.setWorkingMessage); // working-vibes internal state + reset message
+        resetNativeWorkingIndicator(ctx.ui);
         if (rt.stashedEditorText !== null) {
           if (ctx.ui.getEditorText().trim() === "") {
             ctx.ui.setEditorText(rt.stashedEditorText);

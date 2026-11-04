@@ -9,7 +9,8 @@ import { join, dirname } from "node:path";
 import { getAgentPath } from "../paths/agent-dirs.ts";
 
 export type VibeMode = "generate" | "file";
-export type WorkingIndicatorStyle = "dots" | "pulse" | "bar" | "ascii";
+import { workingIndicatorStyles, type WorkingIndicatorStyle } from "./frames.ts";
+export type { WorkingIndicatorStyle };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
@@ -186,8 +187,9 @@ export function loadConfig(): VibeConfig {
     ? settings.wishcraft.workingIndicatorStyle
     : settings.workingIndicatorStyle;
   const workingIndicatorStyle: WorkingIndicatorStyle =
-    rawIndicator === "pulse" || rawIndicator === "bar" || rawIndicator === "ascii"
-      ? rawIndicator
+    typeof rawIndicator === "string" &&
+    (workingIndicatorStyles() as string[]).includes(rawIndicator)
+      ? (rawIndicator as WorkingIndicatorStyle)
       : "dots";
 
   const maxLength =

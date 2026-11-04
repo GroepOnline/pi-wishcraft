@@ -92,6 +92,11 @@ export const PEER_SYMBOL_REQUIREMENTS: readonly PeerSymbolRequirement[] = [
   },
   {
     pkg: "@earendil-works/pi-tui",
+    symbol: "wrapTextWithAnsi",
+    usedBy: "welcome news expansion",
+  },
+  {
+    pkg: "@earendil-works/pi-tui",
     symbol: "SelectList",
     usedBy: "select overlays",
   },
