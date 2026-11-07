@@ -4,8 +4,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 /**
- * Two ordering/locality rules that GitHub Actions enforces at runtime and says
- * nothing useful about when you get them wrong. Both broke a release:
+ * Three rules that GitHub Actions enforces at runtime and says nothing useful
+ * about when you get them wrong. Each one broke a release:
  *
  * 1. `bun` must be installed before a job calls it. The bun migration (#128)
  *    rewrote `node scripts/...` to `bun scripts/...` in the publish job but left
@@ -15,6 +15,9 @@ import { join, resolve } from "node:path";
  *    checkout, so every `gh workflow run` there died with
  *    `failed to run git: fatal: not a git repository` and no release candidate
  *    could be promoted until the step pinned `GH_REPO`.
+ * 3. A third-party action must be pinned to a full commit SHA. The org policy
+ *    rejects `actions/checkout@v7` at job setup, so every lane fails in 3
+ *    seconds with `steps: 0` and reads like a broken test suite.
  *
  * Checked as text against every workflow: the shapes are small and stable, and
  * a parser would only hide the failure in its own edge cases.
@@ -22,12 +25,23 @@ import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
 const WORKFLOW_DIR = join(REPO_ROOT, ".github/workflows");
+const ACTION_DIR = join(REPO_ROOT, ".github/actions");
 
 function workflowFiles(): string[] {
   if (!existsSync(WORKFLOW_DIR)) return [];
   return readdirSync(WORKFLOW_DIR)
     .filter((file) => file.endsWith(".yml") || file.endsWith(".yaml"))
     .map((file) => join(WORKFLOW_DIR, file));
+}
+
+/** Composite actions carry the same `uses:` lines, so they are guarded too. */
+function actionFiles(): string[] {
+  if (!existsSync(ACTION_DIR)) return [];
+  return readdirSync(ACTION_DIR).flatMap((dir) =>
+    ["action.yml", "action.yaml"]
+      .map((file) => join(ACTION_DIR, dir, file))
+      .filter(existsSync),
+  );
 }
 
 /** Split a workflow into its job blocks (job keys sit at two-space indent). */
@@ -66,4 +80,19 @@ test("every job that calls gh without a checkout pins GH_REPO", () => {
     }
   }
   assert.deepEqual(offenders, [], "jobs that call gh without a repository to talk to");
+});
+
+test("every third-party action is pinned to a full-length commit SHA", () => {
+  const offenders: string[] = [];
+  for (const file of [...workflowFiles(), ...actionFiles()]) {
+    readFileSync(file, "utf8")
+      .split("\n")
+      .forEach((line, index) => {
+        const ref = /^\s*(?:-\s+)?uses:\s*(\S+)/.exec(line)?.[1];
+        // `./` actions and reusable workflows are ours, not the marketplace.
+        if (!ref || ref.startsWith("./")) return;
+        if (!/@[0-9a-f]{40}$/.test(ref)) offenders.push(`${file}:${index + 1} ${ref}`);
+      });
+  }
+  assert.deepEqual(offenders, [], "actions that are not pinned to a commit SHA");
 });
