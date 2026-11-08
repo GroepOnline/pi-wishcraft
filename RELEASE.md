@@ -94,15 +94,30 @@ The lanes that need to prove the tree (typecheck, lint, tests, package contract)
 live in `test.yml` and run in `verify` — the tag commit already passed them as a
 candidate, so `publish` does not repeat them.
 
-## npm authentication: trusted publishing, no stored token
+## npm authentication: the org `NPM_TOKEN`, with trusted publishing prepared
 
-There is **no npm token in this repository**. The `publish` job grants
-`id-token: write` and the npm CLI exchanges that GitHub OIDC identity for a
-short-lived publish token (npm CLI ≥ 11.5.1, Node ≥ 22.14; the runner image
-satisfies both). Nothing expires, so nothing has to be rotated — the org
-`NPM_TOKEN` secret is not read by `release.yml` any more.
+`release.yml` publishes with the organisation secret **`NPM_TOKEN`** (a classic
+token for the `chefgroeponline` account). `setup-node` writes it into `~/.npmrc`
+through `NODE_AUTH_TOKEN`, so the value lives only in the org secret store: not
+in the repo, not in a dispatch input, never printed by a run.
 
-The trust relationship lives on npmjs.com, one time per package:
+Trusted publishing (OIDC) is wired but **not active**. The `publish` job still
+grants `id-token: write`, but npm answers the OIDC exchange for
+`@groeponline/pi-wishcraft` with **HTTP 401**, so npmjs.com carries no matching
+GitHub Actions publisher for this repo. With no publisher and no token, npm
+reports `ENEEDAUTH` — that is what kept v1.18.0–v1.22.0 off the registry.
+Measured from this repository on 2026-11-08:
+
+| probe | result |
+|---|---|
+| `npm whoami` with `secrets.NPM_TOKEN` | `chefgroeponline` — valid |
+| `ACTIONS_ID_TOKEN_REQUEST_URL` in a job with `id-token: write` | present |
+| `POST /-/npm/v1/oidc/token/exchange/package/@groeponline%2fpi-wishcraft` | **401** |
+
+Two consequences: publishes carry no provenance attestation, and the token has
+to be replaced by hand when it expires. Switching to trusted publishing is a
+one-time npmjs.com change, after which the `NODE_AUTH_TOKEN` env comes out of
+the job:
 
 1. Sign in as the maintainer of `@groeponline/pi-wishcraft` (`chefgroeponline
    <joep@chefgroep.online>` — `npm view @groeponline/pi-wishcraft maintainers`).
@@ -116,33 +131,32 @@ The trust relationship lives on npmjs.com, one time per package:
      configuration created after 2026-09-03 starts with staged publishing only,
      so without this tick every `npm publish` is refused. Leave `npm dist-tag`
      off; this repo does not use it.
-3. Nothing else: provenance attestations are generated automatically.
+3. Verify before trusting it: the exchange line in the table above must answer
+   `200`, not `401`. Only then remove `NODE_AUTH_TOKEN` from the job and let OIDC
+   publish.
 
-Rules that follow from that configuration:
+Rules that follow from the current (token) configuration:
 
-- Publishing must stay in the `release.yml` job that has `id-token: write`.
-  Moving `npm publish` into a reusable workflow (`workflow_call`) breaks the
-  match, because npm validates the *calling* workflow's filename.
-- Only GitHub-hosted runners are supported; self-hosted runners cannot use OIDC.
-- `npm-publish.sh` publishes with the default `latest` dist-tag. `npm dist-tag`
-  over OIDC needs npm ≥ 11.21 **and** an explicit permission on the trusted
-  publisher, so it is deliberately not used: versions only ever increase here.
-  Republishing an older version below the current `latest` needs a manual
-  token publish, which is the one case this setup does not cover.
+- The credential must stay in the `publish` job of `release.yml`. Moving
+  `npm publish` into a reusable workflow (`workflow_call`) would break the OIDC
+  match if trusted publishing is switched on later, because npm validates the
+  *calling* workflow's filename.
+- Only GitHub-hosted runners can use OIDC; the token path works anywhere.
+- `npm-publish.sh` publishes with the default `latest` dist-tag, and versions
+  only ever increase here, so `npm dist-tag` is deliberately never used.
 
 ### When publish fails: `E404 Not Found - PUT .../@groeponline%2fpi-wishcraft`
 
 For a scoped package npm answers a PUT with **404, not 403**, when the caller
-may not publish. Under trusted publishing that means the relationship is
-missing, or it points at another repository/workflow filename, or the runner is
-not GitHub-hosted. It is not "package not found", and it is not a retryable
-transient.
+may not publish. That means the credential is missing, revoked, read-only or
+(`EOTP`) 2FA-blocked, or does not own the scope. It is not "package not found",
+and it is not a retryable transient. `ENEEDAUTH` instead means npm had no
+credential at all: `NODE_AUTH_TOKEN` was empty and the OIDC exchange refused.
 
 `scripts/npm-publish.sh` prints that diagnosis instead of the raw 404. Recovery:
 
-1. Compare the trusted publisher on npmjs.com with the four values above
-   (existing connections cannot be edited — delete and re-create if a field is
-   wrong).
+1. Check the credential before the workflow: `npm whoami` against the registry
+   with the same token, or rerun the exchange probe from the table above.
 2. Republish the tags that failed, without cutting new versions. A bare
    dispatch on a `v*` tag ref runs verify + publish for that tag:
 
