@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-11-08
+
 ### Fixed
 - **Releases reach npm again, with the token npm actually accepts.** Five tags — v1.18.0 through v1.22.0 — were cut but never published, so `npm install @groeponline/pi-wishcraft` still handed out 1.17.0 while the repository was at 1.22.0; the publish job of the v1.22.0 tag died with `ENEEDAUTH`. The pipeline assumed npm trusted publishing, and a probe run from this repository shows why that assumption was wrong: `id-token: write` is granted and the id token is present, but npm answers the OIDC token exchange for `@groeponline/pi-wishcraft` with **401**, so npmjs.com has no matching trusted publisher and npm fell back to "no credential at all". The `publish` job now carries the organisation `NPM_TOKEN` into `setup-node`'s `.npmrc` as `NODE_AUTH_TOKEN` (the probe confirms it authenticates as `chefgroeponline`), keeps `id-token: write` for the day the publisher is configured, and `RELEASE.md` records the measured state with the one-time npmjs.com steps to switch over. The version holes stay: npm versions need not be contiguous, so this is the first version on the registry since 1.17.0.
 
