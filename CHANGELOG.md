@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Releases reach npm again, with the token npm actually accepts.** Five tags — v1.18.0 through v1.22.0 — were cut but never published, so `npm install @groeponline/pi-wishcraft` still handed out 1.17.0 while the repository was at 1.22.0; the publish job of the v1.22.0 tag died with `ENEEDAUTH`. The pipeline assumed npm trusted publishing, and a probe run from this repository shows why that assumption was wrong: `id-token: write` is granted and the id token is present, but npm answers the OIDC token exchange for `@groeponline/pi-wishcraft` with **401**, so npmjs.com has no matching trusted publisher and npm fell back to "no credential at all". The `publish` job now carries the organisation `NPM_TOKEN` into `setup-node`'s `.npmrc` as `NODE_AUTH_TOKEN` (the probe confirms it authenticates as `chefgroeponline`), keeps `id-token: write` for the day the publisher is configured, and `RELEASE.md` records the measured state with the one-time npmjs.com steps to switch over. The version holes stay: npm versions need not be contiguous, so this is the first version on the registry since 1.17.0.
+
+### Changed
+- **CI can start again: every third-party action is pinned to a commit SHA.** The org policy *all actions must be pinned to a full-length commit SHA* rejects `actions/checkout@v7` at job setup, so typecheck, lint, test, circular, package-contract, whitespace and the `verify` aggregator all failed in about three seconds with `steps: 0` — which reads like broken code, not a policy. `checkout`, `setup-node`, `setup-bun` and `cache` are pinned in `test.yml`, `preview.yml`, `deprecate-old-name.yml` and the `bun-setup` composite action, and `tests/workflow-guards.test.ts` gained a third guard that fails on any third-party `uses:` without a 40-hex ref, so the next `@v7` is caught locally. The throwaway `npm-auth-probe.yml` is gone: its question is answered above. (#139)
+
 ## [1.22.0] - 2026-11-05
 
 ### Changed

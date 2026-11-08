@@ -436,19 +436,27 @@ test("release promotion is checkout-free and validates GitHub metadata at the pr
   assert.match(verify, /GH_REPO: \$\{\{ github\.repository \}\}/);
 });
 
-test("release publishes through npm trusted publishing, never a stored token", () => {
-  // A long-lived NPM_TOKEN was the single point of failure: it expired, npm
-  // answered 404 on the PUT, and v1.18.0/v1.19.0 were tagged but never
-  // published. OIDC has no credential to expire; the publish job is the only
-  // place that may mint the identity token.
+test("the publish job carries exactly one npm credential, and only that job", () => {
+  // Measured 2026-11-08: NPM_TOKEN (org secret) authenticates as chefgroeponline,
+  // id-token IS granted, but npm's OIDC token exchange for this package answers
+  // 401 — no trusted publisher exists on npmjs.com, so an OIDC-only publish dies
+  // with ENEEDAUTH (v1.18.0–v1.22.0 never reached the registry that way). The
+  // job therefore publishes with the org token and keeps `id-token: write` so
+  // trusted publishing can take over the day the publisher is configured.
   const workflow = readFileSync(join(root, ".github/workflows/release.yml"), "utf8");
   const publishJob = workflow.slice(
     workflow.indexOf("name: test + publish"),
     workflow.indexOf("name: Backfill GitHub Release evidence"),
   );
   assert.match(publishJob, /id-token: write/);
+  assert.match(publishJob, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  assert.match(publishJob, /registry-url: "https:\/\/registry\.npmjs\.org"/);
   assert.match(publishJob, /run: sh scripts\/npm-publish\.sh/);
-  assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN|registry-url/);
+  assert.equal(
+    (workflow.match(/secrets\.NPM_TOKEN/g) ?? []).length,
+    1,
+    "the credential may exist in the tag publisher only",
+  );
   assert.equal(
     (workflow.match(/^\s+id-token: write/gm) ?? []).length,
     1,

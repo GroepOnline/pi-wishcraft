@@ -127,7 +127,12 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
-      id-token: write # trusted publishing: npm exchanges this for a short-lived publish token
+      id-token: write # unused while NPM_TOKEN publishes; kept so trusted publishing can take over
+    env:
+      # The org token is the credential npm actually accepts. The OIDC exchange
+      # for this package answers 401 (no trusted publisher on npmjs.com), so an
+      # OIDC-only publish dies with ENEEDAUTH. See RELEASE.md.
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -135,6 +140,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
+          registry-url: "https://registry.npmjs.org" # writes .npmrc with ${NODE_AUTH_TOKEN}
       # Installs bun and node_modules before the first `bun` call below; npm
       # publish also runs the manifest's prepublishOnly (typecheck, lint, package
       # contract), so the dependencies have to be there first.

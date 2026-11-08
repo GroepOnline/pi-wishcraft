@@ -1,10 +1,11 @@
 #!/bin/sh
 # Publish the current package.json version.
 #
-# Authentication is npm trusted publishing: the release workflow grants
-# `id-token: write` and the npm CLI exchanges that OIDC identity for a
-# short-lived publish token, so there is no long-lived credential to expire or
-# rotate. The trusted publisher is configured once on npmjs.com (see RELEASE.md).
+# Authentication is the org NPM_TOKEN secret, written into .npmrc as
+# NODE_AUTH_TOKEN by setup-node. The npm CLI would prefer an OIDC identity, but
+# npm answers the exchange for this package with 401 (no trusted publisher on
+# npmjs.com), so the token is the credential that actually publishes. See
+# RELEASE.md for the measured state and how to switch to OIDC later.
 # If a NODE_AUTH_TOKEN happens to be set, npm falls back to it.
 #
 # Idempotent: skip if that version is already on the registry.
@@ -49,10 +50,10 @@ else
       else
         if grep -Eqi 'E404|404 Not Found|ENEEDAUTH|E401' "$publish_err"; then
           echo "npm rejected the publish as unauthenticated. For a scoped package npm answers" >&2
-          echo "404 (not 403) when the caller may not publish, so this is the trusted-publisher" >&2
-          echo "relationship, not a missing package: check that npmjs.com has a GitHub Actions" >&2
-          echo "trusted publisher for ${PACKAGE} with org GroepOnline, repo pi-wishcraft," >&2
-          echo "workflow release.yml and 'npm publish' allowed. See RELEASE.md." >&2
+          echo "404 (not 403) when the caller may not publish, so this is the credential," >&2
+          echo "not a missing package: a revoked/read-only NPM_TOKEN, or no trusted publisher" >&2
+          echo "for ${PACKAGE} (org GroepOnline, repo pi-wishcraft, workflow release.yml," >&2
+          echo "'npm publish' allowed). See RELEASE.md." >&2
         fi
         exit "$publish_status"
       fi
