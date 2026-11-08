@@ -346,6 +346,28 @@ test("npm-publish.sh explains a rejected publish as a trusted-publisher problem"
   }
 });
 
+test("npm-publish.sh names the 2FA problem instead of the payload problem", () => {
+  // v1.23.0's publish: the org token authenticated (npm whoami worked) but the
+  // account demands an OTP for writes, which a runner can never answer. Retrying
+  // the same token only burns another run.
+  const { projectDir, binDir, cleanup } = withStubNpmProject("1.2.3");
+  try {
+    const result = runNpmPublishScript(projectDir, binDir, {
+      STUB_NPM_VIEW_EXIT: "1",
+      STUB_NPM_VIEW_KIND: "404",
+      STUB_NPM_PUBLISH_EXIT: "1",
+      STUB_NPM_PUBLISH_ERR:
+        "npm error code EOTP\nnpm error This operation requires a one-time password.",
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /one-time password/);
+    assert.match(result.stderr, /'Bypass 2FA'/);
+    assert.doesNotMatch(result.stderr, /not a missing package/);
+  } finally {
+    cleanup();
+  }
+});
+
 test("npm-publish.sh reads the package name from package.json", () => {
   const { projectDir, binDir, cleanup } = withStubNpmProject("1.0.0");
   try {

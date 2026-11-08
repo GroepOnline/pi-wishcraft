@@ -48,7 +48,12 @@ else
       elif grep -Eqi 'cannot publish over|previously published' "$publish_err"; then
         echo "${VERSION} is already on npm; skip publish"
       else
-        if grep -Eqi 'E404|404 Not Found|ENEEDAUTH|E401' "$publish_err"; then
+        if grep -Eqi 'EOTP' "$publish_err"; then
+          echo "npm wants a one-time password for this publish: the credential authenticates" >&2
+          echo "but the account requires 2FA for writes, which CI cannot answer. Replace the" >&2
+          echo "token with one that bypasses 2FA (granular with 'Bypass 2FA', or a classic" >&2
+          echo "Automation token). See RELEASE.md." >&2
+        elif grep -Eqi 'E404|404 Not Found|ENEEDAUTH|E401' "$publish_err"; then
           echo "npm rejected the publish as unauthenticated. For a scoped package npm answers" >&2
           echo "404 (not 403) when the caller may not publish, so this is the credential," >&2
           echo "not a missing package: a revoked/read-only NPM_TOKEN, or no trusted publisher" >&2

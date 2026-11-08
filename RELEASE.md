@@ -113,11 +113,25 @@ Measured from this repository on 2026-11-08:
 | `npm whoami` with `secrets.NPM_TOKEN` | `chefgroeponline` — valid |
 | `ACTIONS_ID_TOKEN_REQUEST_URL` in a job with `id-token: write` | present |
 | `POST /-/npm/v1/oidc/token/exchange/package/@groeponline%2fpi-wishcraft` | **401** |
+| `npm publish` with that token (v1.23.0, run 42464125440) | **EOTP** — one-time password required |
 
-Two consequences: publishes carry no provenance attestation, and the token has
-to be replaced by hand when it expires. Switching to trusted publishing is a
-one-time npmjs.com change, after which the `NODE_AUTH_TOKEN` env comes out of
-the job:
+**The token authenticates but cannot write.** It is a *Publish* token on an
+account with 2FA enabled, so npm demands an OTP for `npm publish` and a CI
+runner can never answer one. Two ways out, both one npmjs.com action:
+
+- **Token route (unblocks v1.23.0 as tagged):** Access Tokens → Generate New
+  Token → **Granular**, read+write on `@groeponline` (or a classic
+  **Automation** token), with **Bypass 2FA** enabled; store it as the org
+  `NPM_TOKEN` secret. Then replay the tag:
+  `gh workflow run release.yml --ref v1.23.0` — that same job also creates the
+  missing GitHub Release.
+- **OIDC route (no credential at all):** configure the trusted publisher below
+  and drop the `NODE_AUTH_TOKEN` env from the `publish` job. A tag cut *before*
+  that change still carries the token env and cannot be replayed, so this route
+  publishes the next version and leaves the hole.
+
+Switching to trusted publishing is a one-time npmjs.com change, after which the
+`NODE_AUTH_TOKEN` env comes out of the job:
 
 1. Sign in as the maintainer of `@groeponline/pi-wishcraft` (`chefgroeponline
    <joep@chefgroep.online>` — `npm view @groeponline/pi-wishcraft maintainers`).
@@ -149,9 +163,15 @@ Rules that follow from the current (token) configuration:
 
 For a scoped package npm answers a PUT with **404, not 403**, when the caller
 may not publish. That means the credential is missing, revoked, read-only or
-(`EOTP`) 2FA-blocked, or does not own the scope. It is not "package not found",
-and it is not a retryable transient. `ENEEDAUTH` instead means npm had no
-credential at all: `NODE_AUTH_TOKEN` was empty and the OIDC exchange refused.
+does not own the scope. It is not "package not found", and it is not a
+retryable transient. Two neighbours are distinct and have their own fix:
+
+- `ENEEDAUTH` — npm had no credential at all: `NODE_AUTH_TOKEN` was empty and
+  the OIDC exchange refused.
+- `EOTP` — the credential authenticates but the account requires a one-time
+  password for writes, which CI cannot supply. This is what v1.23.0 hit. The
+  token needs 2FA bypass (granular token with *Bypass 2FA*, or a classic
+  Automation token); retrying with the same token only burns another run.
 
 `scripts/npm-publish.sh` prints that diagnosis instead of the raw 404. Recovery:
 
