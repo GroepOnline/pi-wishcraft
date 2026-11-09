@@ -117,7 +117,16 @@ Measured from this repository on 2026-11-08:
 
 **The token authenticates but cannot write.** It is a *Publish* token on an
 account with 2FA enabled, so npm demands an OTP for `npm publish` and a CI
-runner can never answer one. Two ways out, both one npmjs.com action:
+runner can never answer one.
+
+**Resolved 2026-11-09 03:58 UTC.** The org `NPM_TOKEN` secret was replaced with a
+granular token that has *Bypass 2FA*; run 42559311821 (dispatch on `v1.23.0`)
+then published `1.23.0` and created its GitHub Release. No workflow change was
+needed — `NODE_AUTH_TOKEN` still publishes. `v1.18.0`–`v1.22.0` stay unpublished:
+their tag refs carry unpinned `uses: actions/...@v7` and the org policy rejects
+them, so they cannot be replayed without rewriting tags. `1.23.0` supersedes them.
+
+The two routes that were available, for the record:
 
 - **Token route (unblocks v1.23.0 as tagged):** Access Tokens → Generate New
   Token → **Granular**, read+write on `@groeponline` (or a classic
