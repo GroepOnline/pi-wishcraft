@@ -12,6 +12,9 @@ function read(rel: string): string {
 test("operator UI modules do not ship Dutch overlay copy", () => {
   const sources = [
     read("src/extension/skills/skill-manager.ts"),
+    read("src/extension/skills/skill-manager-view.ts"),
+    read("src/extension/skills/skill-manager-input.ts"),
+    read("src/extension/skills/skill-manager-utils.ts"),
     read("src/extension/skills/skill-registry.ts"),
     read("src/extension/ui/overlay-chrome.ts"),
     read("src/extension/settings/wishcraft-config.ts"),
