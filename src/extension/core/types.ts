@@ -7,11 +7,11 @@ import type { ManagedShellSessionLike } from "../../../bash-mode/types.ts";
 import type { PowerlineQueueStore } from "../../../queue/store.ts";
 import type {
   SessionAssistantUsage,
-  SessionBranchCache,
-  SessionTokenStatsCache,
+  SessionUsageCache,
 } from "../../usage/ledger.ts";
 import type { CoreContextUsageCache } from "../../usage/context.ts";
 import type { TokenBudgetSnapshot } from "../../usage/token-budget.ts";
+import type { UsageTotals } from "../../usage/usage-store.ts";
 import type { WelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
 import type { RenderScheduler } from "../../render/timer.ts";
 import type { MotionPolicy, MotionScheduler } from "../../motion/index.ts";
@@ -108,9 +108,16 @@ export interface RuntimeState {
   // Cache for token counting: avoid re-scanning the full session event list
   // on every render (250ms-1s cadence). Revalidates the trailing event's
   // stats signature so in-place streaming updates are not served stale.
-  sessionBranchCache: SessionBranchCache;
-  tokenStatsCache: SessionTokenStatsCache;
+  // Billing spans the whole session file; branch-shaped context fields stay
+  // on the active branch (see SessionUsageCache in usage/ledger.ts).
+  tokenStatsCache: SessionUsageCache;
   coreContextUsageCache: CoreContextUsageCache;
+  /**
+   * Session-ledger totals last flushed into wishcraft-usage.json. The file
+   * records per-event deltas of the same billed usage the bar shows, so the
+   * daily budget and the status line can never disagree on what counted.
+   */
+  sessionUsageBaseline: UsageTotals | null;
 
   resolvedShortcuts: PowerlineShortcuts;
   bashModeSettings: BashModeSettings;

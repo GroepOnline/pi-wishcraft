@@ -22,8 +22,9 @@ import {
 export function maybeNotifyCostAlert(rt: RuntimeState, ctx: any): void {
   if (!ctx?.hasUI || rt.costAlertNotified) return;
   const threshold = config.costAlert;
-  const sessionEvents = rt.sessionBranchCache.get(ctx.sessionManager);
-  const totalCost = getSessionTotalCost(rt.tokenStatsCache.get(sessionEvents));
+  const totalCost = getSessionTotalCost(
+    rt.tokenStatsCache.get(ctx.sessionManager),
+  );
   if (
     !shouldTriggerCostAlert({
       totalCost,

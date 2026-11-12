@@ -39,7 +39,6 @@ export function resetLayoutCache(rt: RuntimeState): void {
   rt.lastLayoutResult = null;
   rt.layoutParts = null;
   rt.layoutDirty = true;
-  rt.sessionBranchCache.reset();
   rt.tokenStatsCache.reset();
   rt.coreContextUsageCache.reset();
 }
@@ -221,11 +220,10 @@ export function buildSegmentContext(
     getDefaultColors,
   );
 
-  // Usage stats are cached; the full event list is only re-scanned when events
-  // are appended or the trailing event's stats-relevant fields change (e.g.
-  // in-place streaming updates).
-  const sessionEvents = rt.sessionBranchCache.get(ctx.sessionManager);
-  const tokenStats = rt.tokenStatsCache.get(sessionEvents);
+  // Usage stats are cached; the full session ledger is only re-scanned when
+  // entries are appended or the trailing entry's stats-relevant fields change
+  // (e.g. in-place streaming updates). Totals bill the whole session file.
+  const tokenStats = rt.tokenStatsCache.get(ctx.sessionManager);
   const { input, output, cacheRead, cacheWrite, cost, subagentCost } =
     tokenStats;
   const lastAssistant = tokenStats.lastAssistant;
@@ -324,8 +322,9 @@ export function sampleTpsFromSession(
 ): void {
   if (now - lastTpsEventAt < TPS_EVENT_MIN_GAP_MS) return;
   lastTpsEventAt = now;
-  const events = rt.sessionBranchCache.get(ctx.sessionManager);
-  const { input, output, cacheRead } = rt.tokenStatsCache.get(events);
+  const { input, output, cacheRead } = rt.tokenStatsCache.get(
+    ctx.sessionManager,
+  );
   const windowMs =
     mergeSegmentOptions(getPreset(config.preset).segmentOptions, config.segmentOptions)
       .tps?.windowMs ?? 1000;

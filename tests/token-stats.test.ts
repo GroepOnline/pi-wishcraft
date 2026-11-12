@@ -5,6 +5,7 @@ import {
   computeSessionTokenStats,
   SessionBranchCache,
   SessionTokenStatsCache,
+  SessionUsageCache,
 } from "../src/usage/ledger.ts";
 
 function makeUsage(
@@ -257,7 +258,186 @@ test("reset forces recomputation", () => {
   assert.equal(second.input, first.input);
 });
 
-test("segment-context wires the token stats cache into buildSegmentContext", () => {
+function ledgerProvider(options: {
+  leafId: () => string | null;
+  branch: () => readonly unknown[];
+  entries: () => readonly unknown[];
+  entryCount?: () => number;
+}) {
+  return {
+    getLeafId: options.leafId,
+    getBranch: options.branch,
+    getEntries: options.entries,
+    ...(options.entryCount ? { getEntryCount: options.entryCount } : {}),
+  };
+}
+
+test("SessionUsageCache bills the whole session file, not only the active branch", () => {
+  const cache = new SessionUsageCache();
+  const a = assistantEvent(makeUsage(10, 5));
+  const siblingSpend = assistantEvent(makeUsage(20, 7));
+  const b = assistantEvent(makeUsage(30, 9));
+  // The ledger holds both branches of the fork; the active branch is only b.
+  const ledger = [a, siblingSpend, b];
+  let leafId = "b";
+  const provider = ledgerProvider({
+    leafId: () => leafId,
+    branch: () => [b],
+    entries: () => ledger.slice(),
+    entryCount: () => ledger.length,
+  });
+
+  const stats = cache.get(provider);
+  assert.equal(stats.input, 60);
+  assert.equal(stats.output, 21);
+  assert.deepEqual(stats, {
+    ...computeSessionTokenStats(ledger),
+    lastAssistant: b.message,
+    thinkingLevelFromSession: null,
+  });
+});
+
+test("SessionUsageCache keeps context fields on the active branch", () => {
+  const cache = new SessionUsageCache();
+  const high = { type: "thinking_level_change", thinkingLevel: "high" };
+  const low = { type: "thinking_level_change", thinkingLevel: "low" };
+  const a = assistantEvent(makeUsage(10, 5));
+  const b = assistantEvent(makeUsage(20, 7));
+  const ledger = [high, a, low, b];
+  let leafId = "a";
+  let branch: readonly unknown[] = [high, a];
+  const provider = ledgerProvider({
+    leafId: () => leafId,
+    branch: () => branch,
+    entries: () => ledger.slice(),
+    entryCount: () => ledger.length,
+  });
+
+  const first = cache.get(provider);
+  assert.equal(first.input, 30);
+  assert.equal(first.lastAssistant, a.message);
+  assert.equal(first.thinkingLevelFromSession, "high");
+
+  // Navigating the tree to the sibling leaf keeps the billed totals but
+  // swaps which branch owns the context fields.
+  leafId = "b";
+  branch = [low, b];
+  const second = cache.get(provider);
+  assert.equal(second.input, first.input);
+  assert.equal(second.lastAssistant, b.message);
+  assert.equal(second.thinkingLevelFromSession, "low");
+});
+
+test("SessionUsageCache does not re-copy the ledger while the session is unchanged", () => {
+  const cache = new SessionUsageCache();
+  const entries = [userEvent(), assistantEvent(makeUsage(10, 5))];
+  let ledgerReads = 0;
+  const provider = ledgerProvider({
+    leafId: () => "leaf",
+    branch: () => entries,
+    entries: () => {
+      ledgerReads += 1;
+      return entries.slice();
+    },
+    entryCount: () => entries.length,
+  });
+
+  assert.equal(cache.get(provider).input, 10);
+  assert.equal(ledgerReads, 1);
+  for (let i = 0; i < 20; i++) cache.get(provider);
+  assert.equal(ledgerReads, 1);
+});
+
+test("SessionUsageCache notices appends on an unchanged leaf via the entry count", () => {
+  const cache = new SessionUsageCache();
+  const entries: unknown[] = [userEvent()];
+  const provider = ledgerProvider({
+    leafId: () => "root",
+    branch: () => entries,
+    entries: () => entries.slice(),
+    entryCount: () => entries.length,
+  });
+
+  assert.equal(cache.get(provider).input, 0);
+  entries.push(assistantEvent(makeUsage(2000, 0)));
+  // Same leaf, same provider — only the entry count moved.
+  assert.equal(cache.get(provider).input, 2000);
+});
+
+test("SessionUsageCache notices an in-place streaming tail on a snapshotted ledger", () => {
+  const cache = new SessionUsageCache();
+  const tail = assistantEvent(makeUsage(10, 5), "streaming");
+  const entries: unknown[] = [tail];
+  const provider = ledgerProvider({
+    leafId: () => "root",
+    branch: () => entries,
+    entries: () => entries.slice(),
+    entryCount: () => entries.length,
+  });
+
+  assert.equal(cache.get(provider).output, 5);
+  // getEntries() copies the array but shares entry objects, so an in-place
+  // usage bump on the trailing message still reaches the ledger stats.
+  tail.message.usage = makeUsage(10, 42);
+  assert.equal(cache.get(provider).output, 42);
+});
+
+test("SessionUsageCache without an entry count still refreshes on leaf changes and reset", () => {
+  const cache = new SessionUsageCache();
+  const entries: unknown[] = [userEvent()];
+  let leafId = "one";
+  const provider = ledgerProvider({
+    leafId: () => leafId,
+    branch: () => entries,
+    entries: () => entries.slice(),
+  });
+
+  assert.equal(cache.get(provider).input, 0);
+  entries.push(assistantEvent(makeUsage(7, 3)));
+  // No getEntryCount: the stale snapshot survives an unchanged leaf.
+  assert.equal(cache.get(provider).input, 0);
+  leafId = "two";
+  assert.equal(cache.get(provider).input, 7);
+  leafId = "one";
+  cache.reset();
+  assert.equal(cache.get(provider).input, 7);
+});
+
+test("SessionUsageCache falls back to branch stats when the ledger is not readable", () => {
+  const cache = new SessionUsageCache();
+  const a = assistantEvent(makeUsage(10, 5));
+  const provider = {
+    getLeafId: () => "a",
+    getBranch: () => [a],
+  };
+
+  const stats = cache.get(provider);
+  assert.equal(stats.input, 10);
+  assert.equal(stats.lastAssistant, a.message);
+});
+
+test("SessionUsageCache reset covers both scopes", () => {
+  const cache = new SessionUsageCache();
+  const a = assistantEvent(makeUsage(10, 5));
+  const b = assistantEvent(makeUsage(20, 7));
+  const ledger = [a, b];
+  const provider = ledgerProvider({
+    leafId: () => "b",
+    branch: () => [b],
+    entries: () => ledger.slice(),
+    entryCount: () => ledger.length,
+  });
+
+  const first = cache.get(provider);
+  assert.equal(first.input, 30);
+  cache.reset();
+  const second = cache.get(provider);
+  assert.notEqual(second, first);
+  assert.equal(second.input, 30);
+  assert.equal(second.lastAssistant, b.message);
+});
+
+test("segment-context wires the session usage cache into buildSegmentContext", () => {
   const stateSource = readFileSync(
     new URL("../src/extension/core/state.ts", import.meta.url),
     "utf-8",
@@ -268,9 +448,8 @@ test("segment-context wires the token stats cache into buildSegmentContext", () 
   );
   assert.match(
     stateSource,
-    /import \{\s*SessionBranchCache,\s*SessionTokenStatsCache,\s*\} from "(?:\.\.\/)+usage\/ledger\.ts";/,
+    /import \{\s*SessionUsageCache\s*\} from "(?:\.\.\/)+usage\/ledger\.ts";/,
   );
-  assert.match(contextSource, /sessionBranchCache\.get\(ctx\.sessionManager\)/);
-  assert.match(contextSource, /tokenStatsCache\.get\(sessionEvents\)/);
+  assert.match(contextSource, /tokenStatsCache\.get\(\s*ctx\.sessionManager,?\s*\)/);
   assert.match(contextSource, /tokenStatsCache\.reset\(\)/);
 });

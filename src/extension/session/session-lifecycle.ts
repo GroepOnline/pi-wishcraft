@@ -22,7 +22,7 @@ import {
   getUsageTokenTotal,
   isSessionAssistantMessage,
 } from "../../usage/ledger.ts";
-import { recordUsageEvent } from "../../usage/usage-store.ts";
+import { recordSessionUsageDelta } from "./usage-recorder.ts";
 import {
   detectCustomCompactionEnabled,
   readSettings,
@@ -133,6 +133,7 @@ export function registerSessionLifecycle(
     rt.costAlertNotified = false;
     rt.tokenBudgetNotifiedLevel = 0;
     rt.tokenBudgetSnapshot = { day: "", dailyLimit: null, dailyUsed: 0 };
+    rt.sessionUsageBaseline = null;
     rt.powerlineCompacting = false;
     rt.deliverAfterRetrySettles = false;
     rt.stashedEditorText = null;
@@ -205,7 +206,11 @@ export function registerSessionLifecycle(
     }
   });
 
-  pi.on("session_shutdown", async (_event, _ctx) => {
+  pi.on("session_shutdown", async (_event, ctx) => {
+    // Last flush: anything billed since the previous boundary still lands in
+    // the day file before the session state is torn down.
+    recordSessionUsageDelta(rt, ctx);
+    rt.sessionUsageBaseline = null;
     clearSkillsCountPublisher();
     rt.sessionGeneration++;
     rt.dismissWelcomeOverlay?.();
@@ -282,6 +287,11 @@ export function registerSessionLifecycle(
     rt.currentCtx = ctx;
     rt.currentThinkingLevel = null;
     rt.liveAssistantUsage = null;
+    // The ledger snapshot keys on leaf + entry count; SDKs without a count
+    // rely on this reset to notice entries appended off the active leaf.
+    rt.tokenStatsCache.reset();
+    // Branch summaries bill their own LLM call — flush whatever landed.
+    recordSessionUsageDelta(rt, ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
   });
 
@@ -346,18 +356,9 @@ export function registerSessionLifecycle(
         rt.liveAssistantUsage = null;
       } else if (getUsageTokenTotal(event.message.usage) > 0) {
         rt.liveAssistantUsage = event.message.usage;
-        const usage = event.message.usage;
-        recordUsageEvent({
-          at: Date.now(),
-          model: ctx.model?.id ?? ctx.model?.name,
-          input: usage.input,
-          output: usage.output,
-          cacheRead: usage.cacheRead,
-          cacheWrite: usage.cacheWrite,
-          cost: usage.cost.total,
-        });
       }
     }
+    recordSessionUsageDelta(rt, ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     maybeNotifyCostAlert(rt, ctx);
     maybeNotifyTokenBudget(rt, ctx);
@@ -366,6 +367,9 @@ export function registerSessionLifecycle(
   pi.on("turn_end", async (_event, ctx) => {
     rt.currentCtx = ctx;
     rt.coreContextUsageCache.reset();
+    // Usage can land without a message_end tail (toolResult charges, usage
+    // entries); the delta flush picks up whatever the ledger billed.
+    recordSessionUsageDelta(rt, ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
   });
 
@@ -382,6 +386,8 @@ export function registerSessionLifecycle(
     // Compaction rewrites the conversation, so the cached context-usage (tokens/window/percent)
     // is stale. Reset it and force a redraw — otherwise the bar keeps showing the pre-compact fill.
     rt.coreContextUsageCache.reset();
+    // The compaction entry carries the summary call's usage on the ledger.
+    recordSessionUsageDelta(rt, ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     if (event.willRetry) {
       rt.deliverAfterRetrySettles = true;
@@ -451,6 +457,7 @@ export function registerSessionLifecycle(
     rt.turnStartedAt = null;
     rt.liveAssistantUsage = null;
     rt.coreContextUsageCache.reset();
+    recordSessionUsageDelta(rt, ctx);
     dispatchSignalEvent(rt, config.appearance, "success");
 
     let hasUI = false;

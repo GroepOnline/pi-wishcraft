@@ -302,3 +302,80 @@ export class SessionTokenStatsCache {
     this._lastSnapshot = null;
   }
 }
+
+/** A session source that can expose the full entry ledger, not just a branch. */
+export interface SessionLedgerProvider extends SessionBranchProvider {
+  getEntries(): readonly unknown[];
+  /** Absent from the SDK's ReadonlySessionManager Pick — feature-detected. */
+  getEntryCount?(): number;
+}
+
+function isSessionLedgerProvider(value: unknown): value is SessionLedgerProvider {
+  return (
+    isSessionBranchProvider(value) &&
+    typeof (value as { getEntries?: unknown }).getEntries === "function"
+  );
+}
+
+/**
+ * Session billing scope: the whole session file, not the active branch.
+ * Tokens burned on a forked or abandoned sibling branch still hit the
+ * provider, so `input`/`output`/`cache*`/`cost`/`subagentCost` sum
+ * `getEntries()`. Branch-shaped fields — `lastAssistant` and
+ * `thinkingLevelFromSession` — describe the live conversation and stay on
+ * `getBranch()`. (When `lastRequestCache` lands it joins the branch set.)
+ *
+ * `getEntries()` copies the entry array but shares entry objects, so a
+ * streaming tail mutating in place still re-signatures through
+ * `ledgerStats`. The snapshot itself refreshes when the provider, leaf or
+ * `getEntryCount()` changes; on SDKs without a count, leaf changes plus the
+ * `session_tree` reset keep it honest.
+ */
+export class SessionUsageCache {
+  private _branch = new SessionBranchCache();
+  private _branchStats = new SessionTokenStatsCache();
+  private _ledgerStats = new SessionTokenStatsCache();
+  private _provider: SessionLedgerProvider | null = null;
+  private _leafId: string | null = null;
+  private _entries: readonly unknown[] = [];
+  private _entryCount: number | undefined;
+
+  get(source: unknown): SessionTokenStats {
+    const branch = this._branch.get(source);
+    const active = this._branchStats.get(branch);
+    if (!isSessionLedgerProvider(source)) return active;
+
+    const leafId = source.getLeafId();
+    const entryCount =
+      typeof source.getEntryCount === "function"
+        ? source.getEntryCount()
+        : undefined;
+    if (
+      this._provider !== source ||
+      this._leafId !== leafId ||
+      this._entryCount !== entryCount
+    ) {
+      if (this._provider !== source) this._ledgerStats.reset();
+      this._provider = source;
+      this._leafId = leafId;
+      this._entries = source.getEntries();
+      this._entryCount = entryCount;
+    }
+    const totals = this._ledgerStats.get(this._entries);
+    return {
+      ...totals,
+      lastAssistant: active.lastAssistant,
+      thinkingLevelFromSession: active.thinkingLevelFromSession,
+    };
+  }
+
+  reset(): void {
+    this._branch.reset();
+    this._branchStats.reset();
+    this._ledgerStats.reset();
+    this._provider = null;
+    this._leafId = null;
+    this._entries = [];
+    this._entryCount = undefined;
+  }
+}

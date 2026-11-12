@@ -97,7 +97,7 @@ Preset selection is saved under `powerline` in the agent settings file and resto
 Pi core renders the footer as static text, so live click is not possible; actions live in commands and a navigable overlay.
 
 - `/tps`: overlay of the live 1s window (same ring as the segment). `/tps <value>` sets `POWERLINE_TPS`
-- `/usage`: session / today / week overlay from `~/.pi/agent/wishcraft-usage.json`
+- `/usage`: session / today / week overlay from `~/.pi/agent/wishcraft-usage.json`; session bills the whole session file (sibling/abandoned branches included) and the day file records the same billed usage the bar shows
 - `/open-ports`: listening sockets in a parsed table — async probe with a bounded timeout, summary line, type to filter, `r` re-probe, Enter copies. Honours `powerline.segmentOptions.openPorts` (UDP + fleet host), so the command, `alt+i`, the classic menu and the Deck all probe the same target. `--udp` forces UDP on for one call
 - `/powerline doctor`: diagnostics overlay — settings file validity, unknown presets, Nerd Font detection, git polling, bash-mode status, queue file health, and `package.identity`
 - `/powerline version`: `{ version, source_sha }` from `package.json` (SHA only when release-stamped). See [release.md](./release.md).
