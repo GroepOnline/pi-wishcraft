@@ -110,10 +110,10 @@ export function targetFps(
     ? allowed.filter((channel) => consumers.includes(channel))
     : allowed;
   if (live.length === 0) return 0;
-  // ponytail: vivid idle breathes visibly; active sweeps at 16 FPS
-  if (live.length === 1 && live[0] === "ambient") return 8;
+  // ponytail: vivid idle breathes visibly; active sweeps damped to 12 FPS
+  if (live.length === 1 && live[0] === "ambient") return 6;
   if (effectiveLevel(policy) === "reduced") return 3;
-  return 16;
+  return 12;
 }
 
 /** Color transitions are suppressed without color; glyph motion may stay. */

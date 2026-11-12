@@ -13,6 +13,7 @@ import {
   type MotionPolicy,
   type MotionScheduler,
 } from "../motion/index.ts";
+import { stripControlChars } from "../tools/text.ts";
 
 export interface SignalRuntime {
   event: MotionEvent;
@@ -198,4 +199,26 @@ export function activityForEvent(event: MotionEvent): string {
       // into the powerline.
       return "ready";
   }
+}
+
+/**
+ * Activity label for a running tool. Core tools get a verb phrase so the rail
+ * reads "reading file" instead of the raw `tool read`; extension and MCP
+ * tools keep `tool <name>` so custom tools stay identifiable. Names are
+ * operator-controlled config, not model output, but still get the standard
+ * control-char strip before reaching the status line.
+ */
+const TOOL_ACTIVITY: Record<string, string> = {
+  bash: "running command",
+  read: "reading file",
+  write: "writing file",
+  edit: "editing file",
+  grep: "searching",
+  find: "searching files",
+  ls: "listing files",
+  subagent: "delegating",
+};
+
+export function toolActivity(toolName: string): string {
+  return TOOL_ACTIVITY[toolName] ?? `tool ${stripControlChars(toolName)}`;
 }

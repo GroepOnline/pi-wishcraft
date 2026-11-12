@@ -17,16 +17,7 @@ export function withIcon(icon: string, text: string): string {
   return icon ? `${icon} ${text}` : text;
 }
 
-/**
- * Remove C0/C1 control characters (including ESC, DEL, newlines) from
- * untrusted text before it reaches the status line — one embedded escape is
- * enough to inject ANSI sequences or break the single-row layout.
- */
-export function stripControlChars(text: string): string {
-  return text.replace(/[\x00-\x1f\x7f-\x9f]/g, "");
-}
-
-export { formatTokens } from "../tools/text.ts";
+export { formatTokens, stripControlChars } from "../tools/text.ts";
 
 export function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
