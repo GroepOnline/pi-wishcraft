@@ -139,6 +139,10 @@ async function runAdviceFor(
     return;
   }
   const auth = await registry.getApiKeyAndHeaders(model);
+  // The run was superseded (or the studio/session closed) while auth
+  // resolved: reaching pane.run now would claim a fresh sequence number and
+  // wipe the newer run's pane state.
+  if (signal.aborted) return;
   if (!auth.ok) {
     await pane.run({ mode, skillName: entry.name, body: readSkillBody(entry.filePath), references: referencesFor(entry), wiki: [], provider: null, signal });
     return;
@@ -158,6 +162,8 @@ async function runAdviceFor(
   };
   const references = referencesFor(entry);
   const wiki = await localWikiContext(entry, (message, type) => ctx.ui.notify(message, type));
+  // Same check after the wiki await: a dead run must never claim the pane.
+  if (signal.aborted) return;
   await pane.run({
     mode,
     skillName: entry.name,
@@ -202,7 +208,13 @@ export async function openSkillStudio(
   let entries = loadSkillStudioCatalog(cwd);
   await ctx.ui.custom(
     (_tui: unknown, theme: any, _keybindings: unknown, done: (value: string | null) => void) =>
-      createStudioComponent(theme, done, undefined, {
+      createStudioComponent(theme, (value) => {
+        // Closing the studio cancels any in-flight advice run — same owner
+        // as the session_shutdown abort in session-lifecycle.ts.
+        rt.studioAbort?.abort();
+        rt.studioAbort = null;
+        done(value);
+      }, undefined, {
         entries,
         usage: getSkillUsage(),
         advicePane: pane,

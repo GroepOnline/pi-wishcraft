@@ -13,7 +13,8 @@
 
 ### Fixed
 - **Post-compaction context estimate.** When Pi reports `tokens: null` right after a compaction (or on a reloaded session), `context_pct` used to show stale pre-compact numbers or drop to 0 — it now estimates the rebuilt context from the active branch and shows `~x%` (`~12k/200k`), falling back to `?` when no estimate is possible. The estimate clears the moment real tokens return. `session_before_compact` additionally clears stale streaming/live-usage state so a mid-turn overflow compaction can't freeze the display.
-- **Studio advice streams are actually cancelled.** Runs owned no abort controller, so closing Studio or starting a second request left the first one burning tokens; a run counter now also stops a superseded stream from writing over the pane's fresh state.
+- **Studio advice streams are actually cancelled.** Runs once had no abort controller, so closing Studio or starting a second request left the first one burning tokens; a shared run-owned controller is aborted on studio close and on session shutdown, and the pane's run counter now also covers the error path so a superseded stream can't write chunks, verdicts or failures over the pane's fresh state.
+- **Session names are sanitized before the status bar.** A `session_info_changed` name carrying control characters or ANSI escapes could corrupt the powerline; the session segment strips them before render.
 - **Session shutdown resets the vibe manager**: in-flight generation is aborted, `isStreaming` cleared and the stale extension ctx released instead of leaking into the next session.
 
 ### Changed
