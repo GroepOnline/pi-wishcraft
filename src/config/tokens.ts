@@ -63,12 +63,21 @@ export const SEMANTIC_TOKEN_ROLE: Record<
 /** Pi thinking-level colors, passed through rather than tokenised. */
 export const THINKING_COLORS: Pick<
   Required<ColorScheme>,
-  "thinking" | "thinkingMinimal" | "thinkingLow" | "thinkingMedium"
+  | "thinking"
+  | "thinkingMinimal"
+  | "thinkingLow"
+  | "thinkingMedium"
+  | "thinkingHigh"
+  | "thinkingXhigh"
+  | "thinkingMax"
 > = {
   thinking: "thinkingOff",
   thinkingMinimal: "thinkingMinimal",
   thinkingLow: "thinkingLow",
   thinkingMedium: "thinkingMedium",
+  thinkingHigh: "rainbow",
+  thinkingXhigh: "rainbow",
+  thinkingMax: "rainbow",
 };
 
 /**
