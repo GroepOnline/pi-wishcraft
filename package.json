@@ -70,6 +70,8 @@
     "prepublishOnly": "bun run typecheck && bun run lint && bun scripts/verify-package.mjs && bun run verify:pi-package",
     "verify:package": "bun scripts/verify-package.mjs && bun scripts/verify-pi-package-contract.mjs",
     "circular": "madge --circular src index.ts bash-mode queue",
+    "file-size": "bun scripts/check-file-size.mjs",
+    "boundaries": "bun scripts/check-boundaries.mjs",
     "audit": "bun scripts/audit-gate.mjs",
     "preview": "bun scripts/preview.mjs",
     "verify:pi-package": "bun scripts/verify-pi-package-contract.mjs",
