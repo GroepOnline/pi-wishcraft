@@ -3,7 +3,7 @@ import type { MotionEvent } from "../motion/types.ts";
 import type { CostCurrencyCode } from "../usage/rates.ts";
 
 // Theme color - either a pi theme color name or a custom hex color
-export type ColorValue = ThemeColor | `#${string}`;
+export type ColorValue = ThemeColor | `#${string}` | "rainbow";
 export type ThemeLike = Pick<Theme, "fg">;
 
 // Semantic color names for segments
@@ -17,6 +17,9 @@ export type SemanticColor =
   | "thinkingMinimal"
   | "thinkingLow"
   | "thinkingMedium"
+  | "thinkingHigh"
+  | "thinkingXhigh"
+  | "thinkingMax"
   | "context"
   | "contextWarn"
   | "contextError"

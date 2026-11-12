@@ -5,6 +5,13 @@
 ### Added
 - **Keyword paint on the powerline: the status line reacts to what you type.** Ported and re-architected from the x30 motion proposal on the old fork — where it ran its own 50 ms `setTimeout` next to the MotionScheduler, it now leases a `powerline-paint` consumer on the shared clock and drops the lease at idle, so an untouched session keeps its 0 FPS guarantee. Nine color-only styles (shimmer, rainbow, ember, heat, aurora, comet, prism, tide, pulse) recolor the composed line at render time, so layout width never shifts: a matched keyword (`ultrathink`, `think harder`, `lanternwake`, `wish`, …) paints a short burst then holds its accent while the draft still contains the word, thinking level selects the streaming look (`max`/`xhigh` → rainbow chase), and the last-prompt row highlights the matched span. Priority: keyword hold/burst > thinking level > streaming shimmer > idle none. `wishcraft.motion.enabled` and `wishcraft.motion.keywords` (both default on), `WISHCRAFT_REDUCED_MOTION`, `NO_COLOR`, and a non-`full` motion level all disable it.
 
+## [1.24.0] - 2026-11-12
+
+### Fixed
+- **Git probes no longer race interactive git.** Every read-only `git` spawn (`src/git/status.ts`, `bash-mode/completion.ts`) now runs with `GIT_OPTIONAL_LOCKS=0` and `windowsHide: true`, so status polling can't refresh `.git/index` under a real checkout and orphaned `index.lock` files stop bricking the repo.
+- **Think levels high/xhigh/max got their rainbow back.** The thinking segment collapsed all three into the plain `thinking` color; it now uses dedicated `thinkingHigh`/`thinkingXhigh`/`thinkingMax` semantic colors (default `rainbow`, overridable per preset — the `rainbow` ColorValue itself is new).
+- **Token totals prefer the provider-reported `totalTokens`.** The four-field sum undercounted providers that report reasoning/other tokens only in the total.
+
 
 ## [1.23.0] - 2026-11-08
 
