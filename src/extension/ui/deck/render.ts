@@ -1,3 +1,4 @@
+import { stripAnsi } from "../../../tools/text.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { MOTION_CATALOG } from "../../../motion/catalog.ts";
@@ -464,9 +465,6 @@ function padCol(text: string, width: number): string {
   return text + " ".repeat(width - plain.length);
 }
 
-function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*m/g, "");
-}
 
 function formatK(value: number): string {
   if (value >= 1000) return `${Math.round(value / 1000)}k`;

@@ -18,6 +18,7 @@
  * ---------------------------------------------------------------------------
  */
 
+import { editDistanceWithin } from "../../tools/text.ts";
 import type { AutocompleteItem } from "@earendil-works/pi-tui";
 
 import {
@@ -446,21 +447,6 @@ export function suggestSettingPath(input: string): string | null {
   return near.length === 1 ? near[0]!.path : null;
 }
 
-/** Levenshtein distance, bailed out early once it exceeds `max`. */
-function editDistanceWithin(a: string, b: string, max: number): boolean {
-  if (Math.abs(a.length - b.length) > max) return false;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const curr = [i];
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr.push(Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost));
-    }
-    if (Math.min(...curr) > max) return false;
-    prev = curr;
-  }
-  return prev[b.length]! <= max;
-}
 
 // ---------------------------------------------------------------------------
 // Completion (pure)
