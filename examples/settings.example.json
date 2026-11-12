@@ -11,6 +11,9 @@
       "captureSigil": "#",
       "retentionHours": 24
     },
+    "workingVibes": {
+      "color": null
+    },
     "disabledSegments": [],
     "layout": null,
     "customItems": [],

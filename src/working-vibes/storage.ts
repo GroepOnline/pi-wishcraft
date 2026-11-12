@@ -8,6 +8,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { getAgentPath } from "../paths/agent-dirs.ts";
+import type { ColorValue } from "../config/types.ts";
 
 export type VibeMode = "generate" | "file";
 import { workingIndicatorStyles, type WorkingIndicatorStyle } from "./frames.ts";
@@ -73,6 +74,9 @@ export const vibeState = {
   currentGeneration: null as AbortController | null,
   isStreaming: false,
   lastVibeTime: 0,
+
+  // Optional powerline.workingVibes.color styling applied to vibe messages.
+  workingMessageColor: undefined as ColorValue | undefined,
 
   // File-based mode state
   vibeCache: [] as string[], // Cached vibes from file

@@ -7,6 +7,8 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  utimesSync,
+  writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -181,6 +183,32 @@ test("parseCompactQueuedPrompt treats /compact suffix as queued prompt text", ()
   assert.equal(parseCompactQueuedPrompt("/compact   "), null);
   assert.equal(parseCompactQueuedPrompt("/compactness great lets proceed"), null);
 });
+
+test("queue store serves list() from an mtime+size keyed cache", () => withStore((store, dir) => {
+  const inbox = join(dir, "inbox.jsonl");
+  store.add({
+    text: "alpha",
+    source: { cwd: "/tmp/project" },
+    target: { kind: "project", cwd: "/tmp/project" },
+    intent: "idea",
+  });
+
+  // Pin the mtime to a whole-ms value first: statSync keeps sub-ms precision
+  // that a Date round-trip cannot restore exactly.
+  const pinned = new Date(1_700_000_000_000);
+  utimesSync(inbox, pinned, pinned);
+  assert.equal(store.list()[0]?.text, "alpha");
+
+  // A same-size rewrite that preserves the mtime must hit the cache — this is
+  // the memoization contract that keeps the render path off the disk.
+  writeFileSync(inbox, readFileSync(inbox, "utf-8").replace("alpha", "bravo"));
+  utimesSync(inbox, pinned, pinned);
+  assert.equal(store.list()[0]?.text, "alpha");
+
+  // A real mtime change re-reads the file.
+  utimesSync(inbox, pinned, new Date(pinned.getTime() + 10_000));
+  assert.equal(store.list()[0]?.text, "bravo");
+}));
 
 test("queue store clears items from active summary", () => withStore((store) => {
   const item = store.add({

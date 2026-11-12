@@ -16,6 +16,8 @@ import {
   type VibeMode,
 } from "./storage.ts";
 import { generateVibe } from "./provider.ts";
+import { applyColor } from "../theme/theme.ts";
+import type { ColorValue, ThemeLike } from "../config/types.ts";
 import { debugLog } from "../extension/core/debug-log.ts";
 
 function trackRecentVibe(vibe: string): void {
@@ -29,8 +31,34 @@ function trackRecentVibe(vibe: string): void {
   ].slice(0, MAX_RECENT_VIBES);
 }
 
+/**
+ * The session theme, resolved lazily from the stored extension context so the
+ * color always follows a live theme switch. `ctx.ui` can throw once the
+ * context goes stale — an unstyled message beats a dropped one.
+ */
+function vibeMessageTheme(): ThemeLike | null {
+  try {
+    return vibeState.extensionCtx?.ui?.theme ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function setStyledWorkingMessage(
+  setWorkingMessage: (msg?: string) => void,
+  message?: string,
+): void {
+  const color = vibeState.workingMessageColor;
+  const theme = message && color ? vibeMessageTheme() : null;
+  if (!message || !color || !theme) {
+    setWorkingMessage(message);
+    return;
+  }
+  setWorkingMessage(applyColor(theme, color, message));
+}
+
 function updateVibeFromFile(setWorkingMessage: (msg?: string) => void): void {
-  setWorkingMessage(getNextVibeFromFile());
+  setStyledWorkingMessage(setWorkingMessage, getNextVibeFromFile());
 }
 
 async function generateAndUpdate(
@@ -63,7 +91,7 @@ async function generateAndUpdate(
     // Only update if still streaming and THIS generation wasn't aborted
     if (vibeState.isStreaming && !controller.signal.aborted) {
       trackRecentVibe(vibe);
-      setWorkingMessage(vibe);
+      setStyledWorkingMessage(setWorkingMessage, vibe);
     }
   } catch (error) {
     // AbortError is expected on timeout/cancel - don't log as error
@@ -95,6 +123,17 @@ export function setVibeTheme(theme: string | null): boolean {
   return saveConfig();
 }
 
+/**
+ * Set the color applied to working-vibe messages (powerline.workingVibes.color).
+ * Accepts a Pi theme color, `#RRGGBB` hex, or "rainbow"; undefined restores
+ * Pi's default message styling.
+ */
+export function setVibeWorkingMessageColor(
+  color: ColorValue | undefined,
+): void {
+  vibeState.workingMessageColor = color;
+}
+
 export function getVibeModel(): string {
   return vibeState.config.modelSpec;
 }
@@ -113,7 +152,10 @@ export function onVibeBeforeAgentStart(
 
   // Queue themed placeholder BEFORE agent_start creates the loader
   // This sets pendingWorkingMessage which is applied when loader is created
-  setWorkingMessage(`Channeling ${vibeState.config.theme}...`);
+  setStyledWorkingMessage(
+    setWorkingMessage,
+    `Channeling ${vibeState.config.theme}...`,
+  );
 
   // Mark vibe generation time for rate limiting
   vibeState.lastVibeTime = Date.now();

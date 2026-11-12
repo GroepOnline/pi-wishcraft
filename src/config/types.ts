@@ -347,6 +347,8 @@ export interface CustomStatusItem {
   statusKey: string;
   position: CustomItemPosition;
   color?: ColorValue;
+  /** Trust ANSI colors embedded in the status value; skips the `color` wrap. */
+  selfColorize: boolean;
   prefix?: string;
   hideWhenMissing: boolean;
   excludeFromExtensionStatuses: boolean;

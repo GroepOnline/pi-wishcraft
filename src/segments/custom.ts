@@ -185,7 +185,7 @@ export function renderCustomSegment(
 
   const rawStatus = ctx.extensionStatuses.get(custom.statusKey);
   const normalizedStatus = rawStatus
-    ? normalizeExtensionStatusValue(rawStatus)
+    ? normalizeExtensionStatusValue(rawStatus, custom.selfColorize)
     : null;
   if (!normalizedStatus) {
     return custom.hideWhenMissing
@@ -197,7 +197,7 @@ export function renderCustomSegment(
   if (custom.prefix) {
     content = `${custom.prefix}${SEP_DOT}${content}`;
   }
-  if (custom.color) {
+  if (custom.color && !custom.selfColorize) {
     content = applyColor(ctx.theme, custom.color, content);
   }
 
