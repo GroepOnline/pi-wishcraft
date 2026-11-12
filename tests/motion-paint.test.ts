@@ -66,7 +66,7 @@ test("every style produces distinct, width-stable color output", () => {
     const later = applyMotionStyle("wishcraft status line", style, 3, 900, 1);
     assert.notEqual(frame, later, `${style} should animate`);
   }
-  assert.ok(seen.size > 1);
+  assert.equal(seen.size, styles.length);
 });
 
 test("colorForStyle returns rgb triples for every style", () => {
