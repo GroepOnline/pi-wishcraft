@@ -370,6 +370,16 @@ export function createDeckComponent(
       if (state.route === "ideas") {
         const ideas = filteredIdeas(liveSnapshot(), state);
         if (!state.navMode && handleList(data, "selectedIdea", ideas.length)) return;
+        // Nav ↑↓ must reach the route-column handlers below, like every other
+        // list route; the body below used to swallow them (trailing return),
+        // stranding the cursor on Ideas forever.
+        if (matchesKey(data, "up") || matchesKey(data, "down")) {
+          if (state.navMode || ideas.length === 0) {
+            // fall through to the nav handlers at the bottom
+          } else {
+            return;
+          }
+        } else {
         const cursor = Math.min(state.selectedIdea, Math.max(0, ideas.length - 1));
         const idea = ideas[cursor];
         if (!idea?.id) return;
@@ -404,6 +414,7 @@ export function createDeckComponent(
           return;
         }
         return;
+        }
       }
 
       if (state.route === "ports") {
