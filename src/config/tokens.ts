@@ -29,11 +29,20 @@ export type { TokenRole, WishcraftTokens };
 /**
  * Which token each legacy semantic color reads from.
  *
- * `thinking*` is deliberately absent: those four are Pi's own thinking-level
+ * `thinking*` is deliberately absent: those seven are Pi's own thinking-level
  * colors, not part of the Wishcraft palette, so they pass through untouched.
  */
 export const SEMANTIC_TOKEN_ROLE: Record<
-  Exclude<SemanticColor, "thinking" | "thinkingMinimal" | "thinkingLow" | "thinkingMedium">,
+  Exclude<
+    SemanticColor,
+    | "thinking"
+    | "thinkingMinimal"
+    | "thinkingLow"
+    | "thinkingMedium"
+    | "thinkingHigh"
+    | "thinkingXhigh"
+    | "thinkingMax"
+  >,
   TokenRole
 > = {
   model: "primary",
