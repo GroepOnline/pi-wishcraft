@@ -5,10 +5,7 @@ import { PRESETS } from "../../config/presets.ts";
 import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
 import { PowerlineQueueStore } from "../../../queue/store.ts";
-import {
-  SessionBranchCache,
-  SessionTokenStatsCache,
-} from "../../usage/ledger.ts";
+import { SessionUsageCache } from "../../usage/ledger.ts";
 import { CoreContextUsageCache } from "../../usage/context.ts";
 import { createWelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
 import { createRenderScheduler } from "../../render/timer.ts";
@@ -140,9 +137,9 @@ export function createRuntimeState(
     forceNextLayoutRecompute: false,
     lastEditorInputAt: 0,
 
-    sessionBranchCache: new SessionBranchCache(),
-    tokenStatsCache: new SessionTokenStatsCache(),
+    tokenStatsCache: new SessionUsageCache(),
     coreContextUsageCache: new CoreContextUsageCache(),
+    sessionUsageBaseline: null,
 
     resolvedShortcuts,
     bashModeSettings,
