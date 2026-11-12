@@ -157,18 +157,26 @@ export function estimateUnknownContextUsage(ctx: unknown): CoreContextUsage | nu
   if (contextWindow <= 0) return null;
 
   let tokens = 0;
+  let sawSystemMessage = false;
   try {
     const entries = (ctx as any).sessionManager.buildContextEntries() as unknown[];
     for (const entry of entries) {
       for (const message of sessionEntryToContextMessages(entry as never)) {
         tokens += estimateTokens(message);
+        if (message.role === "system") sawSystemMessage = true;
       }
     }
   } catch {
     return null;
   }
-  const initial = estimateInitialContextTokens(ctx);
-  if (initial) tokens += initial;
+  // Compaction entries persist the active system message and
+  // sessionEntryToContextMessages yields it back, so getSystemPrompt() is only
+  // a fallback for sessions whose entries carry no system message at all —
+  // adding it unconditionally would count the same prompt twice.
+  if (!sawSystemMessage) {
+    const initial = estimateInitialContextTokens(ctx);
+    if (initial) tokens += initial;
+  }
 
   return {
     contextTokens: tokens,

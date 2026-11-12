@@ -2,18 +2,14 @@
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 ### Added
 - **Dual continuous-time EMAs on the TPS ring.** Output now carries a fast (~0.8s) and a slow (~4s) tau with `alpha = 1 − exp(−dt/τ)`, so the smoothed rate weights real elapsed time instead of sample count — sparse and dense streams no longer skew differently. Input got the same time-weighted smoothing (`ema` column in `/tps`).
 - **`/tps` overlay sparkline.** Output-rate history bucketed per ~500ms renders as a `spark ▁▂▃▅…` line; the shared `usageSparkline` moved into `src/usage/sparkline.ts` for reuse.
 - **`powerline.workingVibes.color` styles the rotating vibe messages.** Upstream parity (nicobailon/pi-powerline-footer #173): set it to a Pi theme color (`accent`, `warning`, …), a `#RRGGBB` hex, or `rainbow` and every "Channeling {theme}..." placeholder, generated vibe, and file-mode fallback is painted through the session theme; omit it to keep Pi's default muted look. Exposed in the settings deck under Welcome & vibes.
 - **`customItems[].selfColorize` trusts ANSI colors embedded in a status value.** Upstream parity (#176): an item with `selfColorize: true` skips the configured `color` wrap and keeps the producer's own escapes — including a trailing reset — so extensions that already paint their status text render exactly as emitted.
-||||||| parent of ec32500 (feat(usage): post-compaction context estimate with ~/? display)
-=======
+
 ### Fixed
 - **Post-compaction context estimate.** When Pi reports `tokens: null` right after a compaction (or on a reloaded session), `context_pct` used to show stale pre-compact numbers or drop to 0 — it now estimates the rebuilt context from the active branch and shows `~x%` (`~12k/200k`), falling back to `?` when no estimate is possible. The estimate clears the moment real tokens return. `session_before_compact` additionally clears stale streaming/live-usage state so a mid-turn overflow compaction can't freeze the display.
-
->>>>>>> ec32500 (feat(usage): post-compaction context estimate with ~/? display)
 
 ### Changed
 - **Shared text/numeric helpers canonicalized.** `stripAnsi`, `formatTokens`, `editDistanceWithin` now live in `src/tools/text.ts`; `clamp`/`clamp01` in `src/tools/num.ts`. `isRecord` has one canonical home in `config/primitives.ts` — `settings-io`'s copy dropped and seven importers repointed; private copies in hooks and working-vibes deleted (the standalone `queue/` boundary keeps its own).

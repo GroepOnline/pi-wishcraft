@@ -337,6 +337,9 @@ export function registerSessionLifecycle(
       getUsageTokenTotal(event.message.usage) > 0
     ) {
       rt.liveAssistantUsage = event.message.usage;
+      // Real provider usage arrived — drop the post-compaction estimate so it
+      // cannot keep outranking measured context for the rest of the stream.
+      rt.approximateContextUsage = null;
       rt.currentCtx = ctx;
       rt.layoutDirty = true;
       try {
@@ -362,6 +365,7 @@ export function registerSessionLifecycle(
         rt.liveAssistantUsage = null;
       } else if (getUsageTokenTotal(event.message.usage) > 0) {
         rt.liveAssistantUsage = event.message.usage;
+        rt.approximateContextUsage = null;
       }
     }
     recordSessionUsageDelta(rt, ctx);
