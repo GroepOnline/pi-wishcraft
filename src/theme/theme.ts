@@ -9,6 +9,7 @@ import type {
   SemanticColor,
   ThemeLike,
 } from "../config/types.ts";
+import { debugLog } from "../extension/core/debug-log.ts";
 
 export interface PowerlineThemeConfig {
   colors?: unknown;
@@ -134,11 +135,11 @@ export function loadThemeConfig(): PowerlineThemeConfig {
       }
     } catch (e: unknown) {
       if (e instanceof SyntaxError) {
-        console.debug(`[theme] SyntaxError in ${path}:`, e.message);
+        debugLog(`[theme] SyntaxError in ${path}:`, e.message);
       } else if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
         // File doesn't exist despite existsSync, ignore
       } else {
-        console.debug(`[theme] Unexpected error reading ${path}:`, e);
+        debugLog(`[theme] Unexpected error reading ${path}:`, e);
       }
     }
   }
@@ -206,7 +207,7 @@ export function applyColor(
     if (!loggedErrors.has(errorKey)) {
       loggedErrors.add(errorKey);
       if (loggedErrors.size > 100) loggedErrors.clear();
-      console.debug(`[theme] Invalid color "${errorKey}". Fallback to text.`, e);
+      debugLog(`[theme] Invalid color "${errorKey}". Fallback to text.`, e);
     }
     return theme.fg("text", text);
   }

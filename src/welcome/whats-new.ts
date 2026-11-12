@@ -13,6 +13,7 @@ import {
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getAgentPath } from "../paths/agent-dirs.ts";
+import { debugLog } from "../extension/core/debug-log.ts";
 
 const MAX_WHATSNEW_LINES = 8;
 const WHATS_NEW_STATE_FILE = "whats-new.json";
@@ -159,7 +160,7 @@ function saveLastSeenVersion(version: string): void {
       "utf8",
     );
   } catch (error) {
-    console.debug("[wishcraft] Failed to persist whats-new state:", error);
+    debugLog("[wishcraft] Failed to persist whats-new state:", error);
   }
 }
 

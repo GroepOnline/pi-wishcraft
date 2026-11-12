@@ -10,6 +10,7 @@ import { hasNerdFonts } from "../theme/icons.ts";
 import { nativeWorkingIndicator } from "./frames.ts";
 import type { NativeIndicatorSpec } from "./frames.ts";
 import { vibeState } from "./storage.ts";
+import { debugLog } from "../extension/core/debug-log.ts";
 
 type NativeIndicatorUi = {
   setWorkingIndicator?: (options?: { frames?: string[]; intervalMs?: number }) => void;
@@ -58,7 +59,7 @@ export function applyNativeWorkingIndicator(
     };
     ui.setWorkingIndicator({ frames: spec.frames.map(paint), intervalMs: spec.intervalMs });
   } catch (error) {
-    console.debug("[working-vibes] native indicator failed:", error);
+    debugLog("[working-vibes] native indicator failed:", error);
   }
 }
 
@@ -66,6 +67,6 @@ export function resetNativeWorkingIndicator(ui: NativeIndicatorUi | undefined): 
   try {
     ui?.setWorkingIndicator?.();
   } catch (error) {
-    console.debug("[working-vibes] native indicator reset failed:", error);
+    debugLog("[working-vibes] native indicator reset failed:", error);
   }
 }

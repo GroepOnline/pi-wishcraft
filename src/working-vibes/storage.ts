@@ -10,6 +10,7 @@ import { getAgentPath } from "../paths/agent-dirs.ts";
 
 export type VibeMode = "generate" | "file";
 import { workingIndicatorStyles, type WorkingIndicatorStyle } from "./frames.ts";
+import { debugLog } from "../extension/core/debug-log.ts";
 export type { WorkingIndicatorStyle };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -103,7 +104,7 @@ function readSettingsForLoad(): Record<string, unknown> {
 
     const parsed = JSON.parse(readFileSync(settingsPath, "utf-8"));
     if (!isRecord(parsed)) {
-      console.debug(
+      debugLog(
         `[working-vibes] Ignoring non-object settings at ${settingsPath}`,
       );
       return {};
@@ -111,7 +112,7 @@ function readSettingsForLoad(): Record<string, unknown> {
 
     return parsed;
   } catch (error) {
-    console.debug(
+    debugLog(
       `[working-vibes] Failed to load settings from ${settingsPath}:`,
       error,
     );
@@ -129,7 +130,7 @@ function readSettingsForWrite(scope: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(readFileSync(settingsPath, "utf-8"));
     if (!isRecord(parsed)) {
-      console.debug(
+      debugLog(
         `[working-vibes] Refusing to write ${scope}: settings at ${settingsPath} is not an object`,
       );
       return null;
@@ -137,7 +138,7 @@ function readSettingsForWrite(scope: string): Record<string, unknown> | null {
 
     return parsed;
   } catch (error) {
-    console.debug(
+    debugLog(
       `[working-vibes] Failed to parse settings while writing ${scope} at ${settingsPath}:`,
       error,
     );
@@ -156,7 +157,7 @@ function persistSettings(
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     return true;
   } catch (error) {
-    console.debug(
+    debugLog(
       `[working-vibes] Failed to persist ${scope} to ${settingsPath}:`,
       error,
     );
@@ -300,7 +301,7 @@ export function loadVibesFromFile(theme: string): string[] {
       .map((line) => line.trim())
       .filter((line) => line.length > 0 && line.endsWith("..."));
   } catch (error) {
-    console.debug(
+    debugLog(
       `[working-vibes] Failed to load vibe file ${filePath}:`,
       error,
     );
