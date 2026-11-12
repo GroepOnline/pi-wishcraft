@@ -130,3 +130,68 @@ export const DEFAULT_MOTION_POLICY: MotionPolicy = {
   screenReader: false,
   reducedMotion: false,
 };
+
+
+/* ---------------------------------------------------------------------------
+ * Powerline paint: color-only keyword/catalog overlays on the composed status
+ * line. Distinct from rail motions — paint recolors already-laid-out text at
+ * render time, so visible width never changes.
+ * ------------------------------------------------------------------------- */
+
+export type MotionStyleId =
+  | "shimmer" | "rainbow" | "ember" | "heat" | "aurora"
+  | "comet" | "prism" | "tide" | "pulse";
+
+export type MotionIntensity = 1 | 2 | 3 | 4 | 5;
+
+export interface MotionSettings {
+  enabled: boolean;
+  keywords: boolean;
+}
+
+export interface KeywordHit {
+  id: string;
+  pattern: string;
+  paintId: string;
+  /** Unicode code-point index into the stripped visible text. */
+  index: number;
+  /** Unicode code-point length of the matched span. */
+  length: number;
+}
+
+export type MotionPaint =
+  | { kind: "none" }
+  | {
+      kind: "keyword";
+      style: MotionStyleId;
+      intensity: MotionIntensity;
+      speed: number;
+      paintId: string;
+      keyword: KeywordHit;
+      burst: boolean;
+    }
+  | {
+      kind: "catalog";
+      style: MotionStyleId;
+      intensity: MotionIntensity;
+      speed: number;
+      paintId: string;
+    };
+
+/**
+ * Lease-based paint runtime. Owns no timer: it subscribes a consumer on the
+ * shared MotionScheduler while paint is needed and releases it at idle.
+ */
+export interface PowerlinePaint {
+  noteText(text: string): void;
+  setSettings(settings: MotionSettings): void;
+  getSettings(): MotionSettings;
+  getPaint(now?: number): MotionPaint;
+  /** Re-evaluate whether the clock lease is needed (streaming flips, policy). */
+  sync(): void;
+  reset(): void;
+}
+
+export const PAINT_TICK_MS = 50;
+export const KEYWORD_BURST_MS = 1600;
+export const KEYWORD_BURST_SPEED = 1.45;

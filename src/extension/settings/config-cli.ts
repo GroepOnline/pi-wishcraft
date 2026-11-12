@@ -46,6 +46,7 @@ import {
   readSettingsFile,
 } from "./settings-io.ts";
 import { reloadPowerlineFromSettings } from "./appearance-write.ts";
+import { parseMotionSettings } from "../../motion/policy.ts";
 
 // ---------------------------------------------------------------------------
 // Grammar (pure)
@@ -605,6 +606,9 @@ function postWrite(rt: RuntimeState, cwd: string, path: string): void {
   invalidateConfigDiagnosticsCache();
   if (path.startsWith("powerline")) {
     reloadPowerlineFromSettings(rt, settings);
+  }
+  if (path.startsWith("wishcraft.motion")) {
+    rt.paint.setSettings(parseMotionSettings(settings.wishcraft));
   }
 }
 

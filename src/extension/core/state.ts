@@ -13,6 +13,7 @@ import { CoreContextUsageCache } from "../../usage/context.ts";
 import { createWelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
 import { createRenderScheduler } from "../../render/timer.ts";
 import { MotionScheduler, policyFromEnvironment } from "../../motion/index.ts";
+import { createPowerlinePaint } from "../../motion/paint.ts";
 import { createSignalRuntime } from "../../signal/controller.ts";
 import {
   resolveShortcutConfig,
@@ -176,6 +177,14 @@ export function createRuntimeState(
       rt.tuiRef?.requestRender();
       rt.rpcWidgetRefresh?.();
     },
+  });
+
+  rt.paint = createPowerlinePaint({
+    scheduler: rt.motionScheduler,
+    getStreaming: () => rt.isStreaming,
+    getThinkingLevel: () =>
+      rt.currentThinkingLevel ?? rt.getThinkingLevelFn?.() ?? null,
+    getPolicy: () => rt.motionPolicy,
   });
 
   return rt;

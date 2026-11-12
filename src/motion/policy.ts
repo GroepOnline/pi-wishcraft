@@ -8,7 +8,10 @@
  */
 
 import { CADENCE_MS, CHANNEL_MATRIX, PREVIEW_INTERVAL_MS } from "./catalog.ts";
-import type { MotionChannel, MotionDef, MotionEvent, MotionLevel, MotionPolicy, MotionToggles } from "./types.ts";
+import type { MotionChannel, MotionDef, MotionEvent, MotionLevel, MotionPolicy, MotionSettings, MotionToggles } from "./types.ts";
+import { DEFAULT_MOTION_POLICY } from "./types.ts";
+import { isRecord } from "../config/primitives.ts";
+import { colorEnabled } from "../theme/colors.ts";
 
 const CHANNEL_TOGGLE: Record<MotionChannel, keyof MotionToggles> = {
   workingGlyph: "state",
@@ -153,4 +156,57 @@ export function describeMotionEvent(event: MotionEvent, tool?: string): string {
     case "error":
       return "error";
   }
+}
+
+
+/* ---------------------------------------------------------------------------
+ * Paint policy: the color-only powerline overlays honor the same motion level
+ * plus the wishcraft.motion.* settings and WISHCRAFT_REDUCED_MOTION.
+ * ------------------------------------------------------------------------- */
+
+export function reducedMotionEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const raw = env.WISHCRAFT_REDUCED_MOTION;
+  if (raw == null || raw === "") return false;
+  const normalized = raw.trim().toLowerCase();
+  return (
+    normalized !== "0" &&
+    normalized !== "false" &&
+    normalized !== "off" &&
+    normalized !== "no"
+  );
+}
+
+/** Default on. `wishcraft.motion.enabled` / `.keywords` opt out. */
+export function parseMotionSettings(
+  wishcraftSettings: unknown,
+): MotionSettings {
+  if (!isRecord(wishcraftSettings)) {
+    return { enabled: true, keywords: true };
+  }
+  const motion = wishcraftSettings.motion;
+  if (!isRecord(motion)) {
+    return { enabled: true, keywords: true };
+  }
+  return {
+    enabled: motion.enabled !== false,
+    keywords: motion.keywords !== false,
+  };
+}
+
+export function motionPaintAllowed(
+  settings: MotionSettings,
+  env: NodeJS.ProcessEnv = process.env,
+  color: boolean = colorEnabled(),
+  policy: MotionPolicy = DEFAULT_MOTION_POLICY,
+): boolean {
+  return (
+    settings.enabled &&
+    !reducedMotionEnabled(env) &&
+    color &&
+    policy.level === "full" &&
+    !policy.reducedMotion &&
+    !policy.screenReader
+  );
 }

@@ -4,6 +4,7 @@ import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 import { policyFromEnvironment } from "../../motion/accessibility.ts";
+import { parseMotionSettings } from "../../motion/policy.ts";
 import { defaultMotionFor } from "../../motion/catalog.ts";
 import { registerCustomSegments } from "../../segments/index.ts";
 import { registerCustomPresets } from "../../config/presets.ts";
@@ -141,6 +142,7 @@ export function registerSessionLifecycle(
     rt.showLastPrompt = settings.showLastPrompt !== false;
     setConfig(parsePowerlineConfig(settings.powerline, PRESET_NAMES));
     rt.motionPolicy = policyFromEnvironment(process.env, config.motionLevel);
+    rt.paint.setSettings(parseMotionSettings(settings.wishcraft));
     rt.queueStore.setSentRetentionMs(
       config.queue.retentionHours * 60 * 60 * 1000,
     );
@@ -210,6 +212,7 @@ export function registerSessionLifecycle(
     rt.welcomeOverlayShouldDismiss = false;
     rt.welcomeDismissScheduler.cancel();
     rt.statusRenderScheduler.cancel();
+    rt.paint.reset();
     rt.motionScheduler.dispose();
     rt.restoreFooterStatusRepaintHook?.();
     rt.restoreFooterStatusRepaintHook = null;
@@ -299,6 +302,7 @@ export function registerSessionLifecycle(
   // Also dismiss welcome when agent starts responding (handles `p "command"` case)
   pi.on("agent_start", async (_event, ctx) => {
     rt.isStreaming = true;
+    rt.paint.sync();
     rt.turnStartedAt = Date.now();
     rt.liveAssistantUsage = null;
     onVibeAgentStart();
@@ -441,6 +445,7 @@ export function registerSessionLifecycle(
 
   pi.on("agent_end", async (_event, ctx) => {
     rt.isStreaming = false;
+    rt.paint.sync();
     rt.turnStartedAt = null;
     rt.liveAssistantUsage = null;
     rt.coreContextUsageCache.reset();
