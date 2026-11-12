@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -43,7 +45,7 @@ interface RpcMessage {
 }
 
 interface ActivationProbe {
-  commands: Array<{ name: string; source: string }>;
+  commands: { name: string; source: string }[];
   widgets: string[];
   statuses: string[];
   /** stdout lines that were not valid JSON — protocol corruption. */
@@ -64,6 +66,10 @@ interface ActivationProbe {
  */
 function probeActivation(timeoutMs = 30_000): Promise<ActivationProbe> {
   return new Promise((resolve, reject) => {
+    // Isolate the probe from the operator's agent dir: a globally installed
+    // copy of the extension would load next to the -e copy and duplicate
+    // every command/status (the host dedupes names with a `:N` suffix).
+    const agentDir = mkdtempSync(join(tmpdir(), "pi-wishcraft-rpc-"));
     const child = spawn(
       process.execPath,
       [
@@ -76,7 +82,11 @@ function probeActivation(timeoutMs = 30_000): Promise<ActivationProbe> {
         "--no-session",
         "--no-tools",
       ],
-      { cwd: repoRoot, stdio: ["pipe", "pipe", "pipe"] },
+      {
+        cwd: repoRoot,
+        stdio: ["pipe", "pipe", "pipe"],
+        env: { ...process.env, PI_CODING_AGENT_DIR: agentDir },
+      },
     );
 
     const widgets = new Set<string>();
@@ -130,8 +140,9 @@ function probeActivation(timeoutMs = 30_000): Promise<ActivationProbe> {
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
-      let newline: number;
-      while ((newline = stdout.indexOf("\n")) >= 0) {
+      for (;;) {
+        const newline = stdout.indexOf("\n");
+        if (newline < 0) break;
         const line = stdout.slice(0, newline).replace(/\r$/, "");
         stdout = stdout.slice(newline + 1);
         if (!line.trim()) continue;
@@ -159,7 +170,7 @@ function probeActivation(timeoutMs = 30_000): Promise<ActivationProbe> {
             return;
           }
           const data = msg.data as {
-            commands: Array<{ name: string; source: string }>;
+            commands: { name: string; source: string }[];
           };
           finish(() =>
             resolve({

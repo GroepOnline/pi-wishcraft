@@ -44,7 +44,7 @@ import {
   finishFailedCompaction,
 } from "../queue/queue-integration.ts";
 import { setupCustomEditor } from "../ui/custom-editor.ts";
-import { installRpcWidgets } from "../ui/rpc-widgets.ts";
+import { disposeRpcWidgets, installRpcWidgets } from "../ui/rpc-widgets.ts";
 import {
   setupWelcomeHeader,
   setupWelcomeOverlay,
@@ -232,6 +232,7 @@ export function registerSessionLifecycle(
     rt.tokenBudgetSnapshot = { day: "", dailyLimit: null, dailyUsed: 0 };
     rt.tuiRef = null;
     rt.rpcWidgetRefresh = null;
+    disposeRpcWidgets();
     rt.currentEditor = null;
     resetLayoutCache(rt);
   });
