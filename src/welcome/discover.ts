@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import { getAgentPath, getHomeDir } from "../paths/agent-dirs.ts";
 import type { LoadedCounts } from "./types.ts";
+import { debugLog } from "../extension/core/debug-log.ts";
 
 const loggedDiscoveryErrors = new Set<string>();
 
@@ -26,7 +27,7 @@ export function logDiscoveryError(scope: string, error: unknown): void {
     loggedDiscoveryErrors.clear();
   }
 
-  console.debug(`[powerline-welcome] ${scope}:`, error);
+  debugLog(`[powerline-welcome] ${scope}:`, error);
 }
 
 function scanContextFiles(homeDir: string, cwd: string): number {

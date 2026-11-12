@@ -16,6 +16,7 @@ import {
   type VibeMode,
 } from "./storage.ts";
 import { generateVibe } from "./provider.ts";
+import { debugLog } from "../extension/core/debug-log.ts";
 
 function trackRecentVibe(vibe: string): void {
   // Don't track fallback messages
@@ -67,9 +68,9 @@ async function generateAndUpdate(
   } catch (error) {
     // AbortError is expected on timeout/cancel - don't log as error
     if (error instanceof Error && error.name === "AbortError") {
-      console.debug("[working-vibes] Generation aborted");
+      debugLog("[working-vibes] Generation aborted");
     } else {
-      console.debug("[working-vibes] Generation failed:", error);
+      debugLog("[working-vibes] Generation failed:", error);
     }
     // Fallback already showing, no action needed
   }

@@ -30,6 +30,7 @@ import type {
   BashModeEditorOptions,
   GhostSuggestion,
 } from "./types.ts";
+import { debugLog } from "../src/extension/core/debug-log.ts";
 
 const BRACKETED_PASTE_START = "\x1b[200~";
 const BRACKETED_PASTE_END = "\x1b[201~";
@@ -463,7 +464,7 @@ export class BashModeEditor extends CustomEditor {
       })
       .catch((error) => {
         if (controller.signal.aborted || (error instanceof Error && error.message === "aborted")) return;
-        console.debug("[wishcraft] Failed to resolve bash ghost suggestion:", error);
+        debugLog("[wishcraft] Failed to resolve bash ghost suggestion:", error);
       });
   }
 }
