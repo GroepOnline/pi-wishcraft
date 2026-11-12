@@ -2,7 +2,6 @@
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 ### Added
 - **Dual continuous-time EMAs on the TPS ring.** Output now carries a fast (~0.8s) and a slow (~4s) tau with `alpha = 1 − exp(−dt/τ)`, so the smoothed rate weights real elapsed time instead of sample count — sparse and dense streams no longer skew differently. Input got the same time-weighted smoothing (`ema` column in `/tps`).
 - **`/tps` overlay sparkline.** Output-rate history bucketed per ~500ms renders as a `spark ▁▂▃▅…` line; the shared `usageSparkline` moved into `src/usage/sparkline.ts` for reuse.

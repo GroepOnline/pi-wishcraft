@@ -138,4 +138,3 @@ export function formatSettingInfo(info: ConfigValueInfo): string {
   else if (info.hint) line += ` · ${info.hint}`;
   return line;
 }
-

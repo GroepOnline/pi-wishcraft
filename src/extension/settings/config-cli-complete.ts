@@ -142,4 +142,3 @@ function subcommandCompletions(prefix: string): AutocompleteItem[] {
   }
   return items;
 }
-

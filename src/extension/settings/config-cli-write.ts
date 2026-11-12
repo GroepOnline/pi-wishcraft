@@ -253,4 +253,3 @@ export function suggestSettingPath(input: string): string | null {
 }
 
 /** Levenshtein distance, bailed out early once it exceeds `max`. */
-
