@@ -269,6 +269,7 @@ export function buildSegmentContext(
     sessionId: ctx.sessionManager?.getSessionId?.(),
     cwd: ctx.cwd,
     usageStats: { input, output, cacheRead, cacheWrite, cost, subagentCost },
+    lastRequestCache: tokenStats.lastRequestCache,
     contextTokens,
     contextPercent,
     contextWindow,

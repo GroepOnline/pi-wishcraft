@@ -1,4 +1,4 @@
-import type { StatusLineSegment } from "../config/types.ts";
+import type { SegmentContext, StatusLineSegment } from "../config/types.ts";
 import { getIcons } from "../theme/icons.ts";
 import { formatUsdCost } from "../usage/rates.ts";
 import { costColorForBudget, tokenBudgetLevel } from "../usage/token-budget.ts";
@@ -216,28 +216,67 @@ export const contextTotalSegment: StatusLineSegment = {
   },
 };
 
+function hitRatePercent(
+  input: number,
+  cacheRead: number,
+  cacheWrite: number,
+): number | undefined {
+  const prompt = input + cacheRead + cacheWrite;
+  if (prompt === 0) return undefined;
+  return (cacheRead / prompt) * 100;
+}
+
+function percentText(rate: number | undefined): string {
+  return rate === undefined ? "--" : `${rate.toFixed(0)}%`;
+}
+
+/** Cache-write tokens are prompt tokens that missed — count them in the base. */
+function colorHitRate(
+  ctx: SegmentContext,
+  rate: number | undefined,
+  content: string,
+): string {
+  if (rate === undefined) return color(ctx, "tokens", content);
+  const key = rate < 30 ? "cacheHitError" : rate < 70 ? "cacheHitWarn" : "cacheHit";
+  return color(ctx, key, content);
+}
+
 export const cacheReadSegment: StatusLineSegment = {
   id: "cache_read",
   render(ctx) {
     const icons = getIcons();
-    const { cacheRead, input } = ctx.usageStats;
-    if (!cacheRead) return { content: "", visible: false };
-
+    const { cacheRead, cacheWrite, input } = ctx.usageStats;
     const format = ctx.options.cache_read?.format ?? "tokens";
-    const hitRate =
-      input + cacheRead > 0
-        ? ((cacheRead / (input + cacheRead)) * 100).toFixed(0)
-        : "0";
+
+    if (format === "request" || format === "session-request") {
+      const req = format === "request" ? ctx.lastRequestCache : undefined;
+      const src = req ?? { input, cacheRead, cacheWrite };
+      if (!src.cacheRead && !src.cacheWrite) {
+        return { content: "", visible: false };
+      }
+      const rate = hitRatePercent(src.input, src.cacheRead, src.cacheWrite);
+      const content = [
+        icons.cache,
+        `${formatTokens(src.cacheRead)} ${percentText(rate)}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return { content: colorHitRate(ctx, rate, content), visible: true };
+    }
+
+    if (!cacheRead) return { content: "", visible: false };
+    const rate = hitRatePercent(input, cacheRead, cacheWrite);
+    const hitRate = percentText(rate);
 
     let content: string;
     if (format === "percent") {
-      content = [icons.cache, `${hitRate}%`].filter(Boolean).join(" ");
-    } else {
-      const tokens = [icons.cache, icons.input, formatTokens(cacheRead)]
-        .filter(Boolean)
-        .join(" ");
-      content = format === "both" ? `${tokens} (${hitRate}%)` : tokens;
+      content = [icons.cache, hitRate].filter(Boolean).join(" ");
+      return { content: colorHitRate(ctx, rate, content), visible: true };
     }
+    const tokens = [icons.cache, icons.input, formatTokens(cacheRead)]
+      .filter(Boolean)
+      .join(" ");
+    content = format === "both" ? `${tokens} (${hitRate})` : tokens;
     return { content: color(ctx, "tokens", content), visible: true };
   },
 };

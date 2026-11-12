@@ -25,6 +25,9 @@ export type SemanticColor =
   | "contextError"
   | "cost"
   | "tokens"
+  | "cacheHit"
+  | "cacheHitWarn"
+  | "cacheHitError"
   | "queue"
   | "separator"
   | "border";
@@ -315,7 +318,9 @@ export interface StatusLineSegmentOptions {
     currency?: CostCurrencyCode;
   };
   context?: SegmentFormatOption & { format?: "full" | "percent" };
-  cache_read?: SegmentFormatOption & { format?: "tokens" | "percent" | "both" };
+  cache_read?: SegmentFormatOption & {
+    format?: "tokens" | "percent" | "both" | "request" | "session-request";
+  };
   openPorts?: SegmentFormatOption & {
     /** Include UDP listeners (mDNS/DHCP/ephemeral) in the count. Default false. */
     includeUdp?: boolean;
@@ -420,6 +425,12 @@ export interface QueueSummary {
   leadingStatus: "queued" | "blocked" | "delivering" | "sent" | "failed" | null;
 }
 
+export interface RequestCacheUsage {
+  input: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
 export interface UsageStats {
   input: number;
   output: number;
@@ -450,6 +461,8 @@ export interface SegmentContext {
 
   // Computed
   usageStats: UsageStats;
+  /** Latest usable assistant request's cache split; undefined after compaction/model_change. */
+  lastRequestCache?: RequestCacheUsage;
   contextTokens: number;
   contextPercent: number;
   contextWindow: number;
