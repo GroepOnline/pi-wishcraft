@@ -181,7 +181,7 @@ export function createRuntimeState(
     getStreaming: () => rt.isStreaming,
     getThinkingLevel: () =>
       rt.currentThinkingLevel ?? rt.getThinkingLevelFn?.() ?? null,
-    getLevel: () => rt.motionPolicy.level,
+    getPolicy: () => rt.motionPolicy,
   });
 
   return rt;

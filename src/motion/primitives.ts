@@ -30,6 +30,7 @@ function paintChars(
   colorAt: (i: number) => [number, number, number] | null,
 ): string {
   let out = "";
+  let painted = false;
   for (const [i, ch] of chars.entries()) {
     if (ch === " ") {
       out += ch;
@@ -37,10 +38,17 @@ function paintChars(
     }
     const rgb = colorAt(i);
     if (rgb === null) {
+      // Drop the trailing fg after a painted span, or the rest of the line
+      // inherits the last keyword color.
+      if (painted) {
+        out += ansi.reset;
+        painted = false;
+      }
       out += ch;
       continue;
     }
     out += `${fg(rgb[0], rgb[1], rgb[2])}${ch}`;
+    painted = true;
   }
   return `${out}${ansi.reset}`;
 }

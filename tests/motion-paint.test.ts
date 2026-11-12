@@ -17,6 +17,8 @@ import { motionPaintAllowed, parseMotionSettings } from "../src/motion/policy.ts
 import { colorForStyle } from "../src/motion/style-paint.ts";
 
 const ON = { enabled: true, keywords: true };
+const FULL_POLICY = { level: "full", reducedMotion: false, screenReader: false } as never;
+const REDUCED_POLICY = { level: "reduced", reducedMotion: false, screenReader: false } as never;
 
 test("paint catalog ships ≥30 named styles and ≥30 keywords", () => {
   assert.ok(MOTION_PAINT_CATALOG_COUNT >= 30);
@@ -86,7 +88,7 @@ test("paint resolution: keyword beats thinking beats streaming shimmer beats idl
     now: 1_000,
     env: {} as NodeJS.ProcessEnv,
     color: true,
-    level: "full" as const,
+    policy: { level: "full", reducedMotion: false, screenReader: false } as never,
   };
   const idle = resolveMotionPaint({
     ...base,
@@ -132,19 +134,19 @@ test("paint resolution: keyword beats thinking beats streaming shimmer beats idl
 });
 
 test("policy gates: settings off, WISHCRAFT_REDUCED_MOTION, NO_COLOR, reduced level", () => {
-  assert.equal(motionPaintAllowed(ON, {}, true, "full"), true);
+  assert.equal(motionPaintAllowed(ON, {}, true, FULL_POLICY), true);
   assert.equal(
-    motionPaintAllowed({ enabled: false, keywords: true }, {}, true, "full"),
+    motionPaintAllowed({ enabled: false, keywords: true }, {}, true, FULL_POLICY),
     false,
   );
   assert.equal(
-    motionPaintAllowed(ON, { WISHCRAFT_REDUCED_MOTION: "1" }, true, "full"),
+    motionPaintAllowed(ON, { WISHCRAFT_REDUCED_MOTION: "1" }, true, FULL_POLICY),
     false,
   );
-  assert.equal(motionPaintAllowed(ON, {}, false, "full"), false);
-  assert.equal(motionPaintAllowed(ON, {}, true, "reduced"), false);
+  assert.equal(motionPaintAllowed(ON, {}, false, FULL_POLICY), false);
+  assert.equal(motionPaintAllowed(ON, {}, true, REDUCED_POLICY), false);
   assert.equal(
-    motionPaintAllowed({ enabled: true, keywords: false }, {}, true, "full"),
+    motionPaintAllowed({ enabled: true, keywords: false }, {}, true, FULL_POLICY),
     true,
   );
 });

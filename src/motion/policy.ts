@@ -9,6 +9,7 @@
 
 import { CADENCE_MS, CHANNEL_MATRIX, PREVIEW_INTERVAL_MS } from "./catalog.ts";
 import type { MotionChannel, MotionDef, MotionEvent, MotionLevel, MotionPolicy, MotionSettings, MotionToggles } from "./types.ts";
+import { DEFAULT_MOTION_POLICY } from "./types.ts";
 import { isRecord } from "../config/primitives.ts";
 import { colorEnabled } from "../theme/colors.ts";
 
@@ -198,9 +199,14 @@ export function motionPaintAllowed(
   settings: MotionSettings,
   env: NodeJS.ProcessEnv = process.env,
   color: boolean = colorEnabled(),
-  level: MotionLevel = "full",
+  policy: MotionPolicy = DEFAULT_MOTION_POLICY,
 ): boolean {
   return (
-    settings.enabled && !reducedMotionEnabled(env) && color && level === "full"
+    settings.enabled &&
+    !reducedMotionEnabled(env) &&
+    color &&
+    policy.level === "full" &&
+    !policy.reducedMotion &&
+    !policy.screenReader
   );
 }

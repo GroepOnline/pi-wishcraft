@@ -43,14 +43,14 @@ export const MOTION_PAINT_CATALOG = [
   { id: "max-effort", name: "Max Effort", style: "rainbow", intensity: 5, speed: 1.78, description: "Codex max / xhigh." },
   { id: "wish-rise", name: "Wish Rise", style: "ember", intensity: 2, speed: 0.78, description: "Soft wish lift." },
   { id: "zenith", name: "Zenith", style: "rainbow", intensity: 4, speed: 1.48, description: "High but not nova." },
-] as const satisfies ReadonlyArray<{
+] as const satisfies readonly {
   id: string;
   name: string;
   style: MotionStyleId;
   intensity: MotionIntensity;
   speed: number;
   description: string;
-}>;
+}[];
 
 export type MotionPaintEntry = (typeof MOTION_PAINT_CATALOG)[number];
 export type MotionPaintId = MotionPaintEntry["id"];

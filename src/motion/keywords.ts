@@ -52,10 +52,18 @@ function escapeRegExp(value: string): string {
 
 const SORTED = [...KEYWORDS].sort((a, b) => b.pattern.length - a.pattern.length);
 
-const COMPILED: ReadonlyArray<KeywordDef & { re: RegExp }> = SORTED.map((def) => ({
-  ...def,
-  re: new RegExp(`\\b${escapeRegExp(def.pattern)}\\b`, "i"),
-}));
+const COMPILED: readonly (KeywordDef & { re: RegExp })[] = SORTED.map(
+  (def) => ({
+    ...def,
+    // Unicode-aware word boundary: \b treats letters like é as non-word, so
+    // "caféthink" would match "think". Letters, marks, digits and _ count as
+    // word characters here.
+    re: new RegExp(
+      `(?<![\\p{L}\\p{M}\\p{N}_])${escapeRegExp(def.pattern)}(?![\\p{L}\\p{M}\\p{N}_])`,
+      "iu",
+    ),
+  }),
+);
 
 export const KEYWORD_COUNT = KEYWORDS.length;
 

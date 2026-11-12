@@ -259,7 +259,7 @@ export function renderLastPromptLines(
     Date.now(),
     undefined,
     undefined,
-    rt.motionPolicy.level,
+    rt.motionPolicy,
   );
   const styledPrompt =
     motionPrompt === promptText

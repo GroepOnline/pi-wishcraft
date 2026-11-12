@@ -19,12 +19,12 @@ import { applyKeywordSpan, applyMotionStyle } from "./primitives.ts";
 import type {
   KeywordHit,
   MotionIntensity,
-  MotionLevel,
+  MotionPolicy,
   MotionPaint,
   MotionSettings,
   PowerlinePaint,
 } from "./types.ts";
-import { KEYWORD_BURST_MS, KEYWORD_BURST_SPEED, PAINT_TICK_MS } from "./types.ts";
+import { DEFAULT_MOTION_POLICY, KEYWORD_BURST_MS, KEYWORD_BURST_SPEED, PAINT_TICK_MS } from "./types.ts";
 import type { MotionScheduler } from "./scheduler.ts";
 
 export const NONE_PAINT = { kind: "none" } as const satisfies MotionPaint;
@@ -38,7 +38,7 @@ export interface ResolveMotionPaintInput {
   now: number;
   env?: NodeJS.ProcessEnv;
   color?: boolean;
-  level?: MotionLevel;
+  policy?: MotionPolicy;
 }
 
 function bumpIntensity(intensity: MotionIntensity): MotionIntensity {
@@ -67,7 +67,7 @@ function catalogPaint(entry: MotionPaintEntry): MotionPaint {
 export function resolveMotionPaint(input: ResolveMotionPaintInput): MotionPaint {
   const env = input.env ?? process.env;
   const color = input.color ?? colorEnabled();
-  if (!motionPaintAllowed(input.settings, env, color, input.level)) {
+  if (!motionPaintAllowed(input.settings, env, color, input.policy)) {
     return NONE_PAINT;
   }
 
@@ -110,13 +110,13 @@ export function decorateKeywordLine(
   now: number,
   env?: NodeJS.ProcessEnv,
   color?: boolean,
-  level?: MotionLevel,
+  policy?: MotionPolicy,
 ): string {
   if (!text) return text;
   const envOf = env ?? process.env;
   const colorOn = color ?? colorEnabled();
   if (
-    !motionPaintAllowed(settings, envOf, colorOn, level) ||
+    !motionPaintAllowed(settings, envOf, colorOn, policy ?? DEFAULT_MOTION_POLICY) ||
     !settings.keywords
   ) {
     return text;
@@ -139,7 +139,7 @@ export interface PowerlinePaintOptions {
   scheduler: MotionScheduler;
   getStreaming: () => boolean;
   getThinkingLevel: () => string | null;
-  getLevel?: () => MotionLevel;
+  getPolicy?: () => MotionPolicy;
   now?: () => number;
   color?: () => boolean;
   env?: () => NodeJS.ProcessEnv;
@@ -158,10 +158,10 @@ export function createPowerlinePaint(
   const clock = opts.now ?? Date.now;
   const colorOn = opts.color ?? colorEnabled;
   const envOf = opts.env ?? ((): NodeJS.ProcessEnv => process.env);
-  const levelOf = opts.getLevel ?? ((): MotionLevel => "full");
+  const policyOf = opts.getPolicy ?? ((): MotionPolicy => DEFAULT_MOTION_POLICY);
 
   function needsPaint(): boolean {
-    if (!motionPaintAllowed(settings, envOf(), colorOn(), levelOf())) {
+    if (!motionPaintAllowed(settings, envOf(), colorOn(), policyOf())) {
       return false;
     }
     if (settings.keywords && keyword !== null) return true;
@@ -175,7 +175,8 @@ export function createPowerlinePaint(
         id: CONSUMER_ID,
         channel: "signal",
         intervalMs: PAINT_TICK_MS,
-        onTick: () => {},
+        // The lease only needs to exist: the scheduler drives the repaint.
+        onTick: () => undefined,
       });
       return;
     }
@@ -219,7 +220,7 @@ export function createPowerlinePaint(
         now,
         env: envOf(),
         color: colorOn(),
-        level: levelOf(),
+        policy: policyOf(),
       });
     },
     sync,
