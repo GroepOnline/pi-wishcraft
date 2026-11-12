@@ -107,24 +107,33 @@ export function readCoreContextUsage(ctx: unknown): CoreContextUsage | null {
 }
 
 interface UnknownContextEstimateSource {
-  sessionManager?: { buildContextEntries?: () => readonly unknown[] };
+  sessionManager?: {
+    buildSessionProjection?: () => { messages?: readonly unknown[] };
+    buildContextEntries?: () => readonly unknown[];
+  };
   getContextUsage?: () => unknown;
   getSystemPrompt?: () => string;
   model?: { contextWindow?: number };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function isUnknownContextEstimateSource(
   ctx: unknown,
 ): ctx is UnknownContextEstimateSource & {
-  sessionManager: { buildContextEntries: () => readonly unknown[] };
+  sessionManager: {
+    buildSessionProjection?: () => { messages?: readonly unknown[] };
+    buildContextEntries?: () => readonly unknown[];
+  };
 } {
-  const mgr = (ctx as any)?.sessionManager;
+  if (!isRecord(ctx)) return false;
+  const mgr = ctx.sessionManager;
   return (
-    typeof ctx === "object" &&
-    ctx !== null &&
-    typeof mgr === "object" &&
-    mgr !== null &&
-    typeof mgr.buildContextEntries === "function"
+    isRecord(mgr) &&
+    (typeof mgr.buildContextEntries === "function" ||
+      typeof mgr.buildSessionProjection === "function")
   );
 }
 
@@ -138,28 +147,29 @@ export function estimateUnknownContextUsage(ctx: unknown): CoreContextUsage | nu
   if (!isUnknownContextEstimateSource(ctx)) return null;
 
   const rawUsage =
-    typeof (ctx as any).getContextUsage === "function"
-      ? (ctx as any).getContextUsage()
-      : null;
+    typeof ctx.getContextUsage === "function" ? ctx.getContextUsage() : null;
   if (
-    rawUsage &&
-    typeof rawUsage === "object" &&
-    typeof (rawUsage as any).tokens === "number" &&
-    Number.isFinite((rawUsage as any).tokens)
+    isRecord(rawUsage) &&
+    typeof rawUsage.tokens === "number" &&
+    Number.isFinite(rawUsage.tokens)
   ) {
     return null; // real tokens already known — no estimate needed
   }
 
   const contextWindow =
-    (rawUsage && typeof (rawUsage as any).contextWindow === "number"
-      ? (rawUsage as any).contextWindow
-      : (ctx as any).model?.contextWindow) ?? 0;
+    (isRecord(rawUsage) && typeof rawUsage.contextWindow === "number"
+      ? rawUsage.contextWindow
+      : ctx.model?.contextWindow) ?? 0;
   if (contextWindow <= 0) return null;
 
   let tokens = 0;
   let sawSystemMessage = false;
   try {
-    const entries = (ctx as any).sessionManager.buildContextEntries() as unknown[];
+    const sm = ctx.sessionManager;
+    const projected = sm.buildSessionProjection?.().messages;
+    const raw =
+      projected ?? sm.buildContextEntries?.() ?? [];
+    const entries: readonly unknown[] = raw;
     for (const entry of entries) {
       for (const message of sessionEntryToContextMessages(entry as never)) {
         tokens += estimateTokens(message);
@@ -195,12 +205,18 @@ export function resolveDisplayContextUsage(args: {
   unknownCoreFallback: CoreContextUsage | null;
   fallbackContextTokens: number;
   fallbackContextWindow: number;
+  /** True when the fallback usage predates the last compaction — stale. */
+  fallbackIsPreCompact: boolean;
 }): CoreContextUsage | null {
   const core = args.coreContextUsage;
   if (core && core.contextTokens !== null) return core;
   if (core && args.unknownCoreFallback) return args.unknownCoreFallback;
   if (!core && args.unknownCoreFallback) return args.unknownCoreFallback;
-  if (args.fallbackContextTokens > 0 && args.fallbackContextWindow > 0) {
+  if (
+    !args.fallbackIsPreCompact &&
+    args.fallbackContextTokens > 0 &&
+    args.fallbackContextWindow > 0
+  ) {
     return {
       contextTokens: args.fallbackContextTokens,
       contextWindow: args.fallbackContextWindow,

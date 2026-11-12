@@ -54,6 +54,10 @@ export interface RuntimeState {
   currentThinkingLevel: string | null;
   approximateContextUsage: import("../../usage/context.ts").CoreContextUsage | null;
   liveAssistantUsage: SessionAssistantUsage | null;
+  /** Wall time of the last assistant usage write — orders it against compaction. */
+  lastAssistantAt: number | null;
+  /** Wall time of the last session_compact — null before any compaction. */
+  lastCompactionAt: number | null;
   isStreaming: boolean;
   tuiRef: any;
   /** Pushes fresh widget string[] over the rpc UI subprotocol; null under tui. */

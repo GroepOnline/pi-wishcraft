@@ -38,7 +38,17 @@ export const thinkingSegment: StatusLineSegment = {
           : level === "xhigh"
             ? "thinkingXhigh"
             : "thinkingMax";
-      return { content: color(ctx, highKey, content), visible: true };
+      // An explicit level-specific color wins; otherwise an explicitly set
+      // `colors.thinking` outranks the rainbow default for the high levels.
+      const levelColor = ctx.colors?.[highKey];
+      const thinkingColor = ctx.colors?.thinking;
+      const key =
+        levelColor !== undefined && levelColor !== "rainbow"
+          ? highKey
+          : thinkingColor !== undefined && thinkingColor !== "thinkingOff"
+            ? "thinking"
+            : highKey;
+      return { content: color(ctx, key, content), visible: true };
     }
 
     if (level === "minimal") {

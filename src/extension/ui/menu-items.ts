@@ -308,10 +308,14 @@ export function buildSegmentDetailLines(
       ];
     }
     case "context_pct":
-    case "context_total":
+    case "context_total": {
+      const approx = segCtx.contextApproximate ? "~" : "";
       return [
         ...common,
-        { label: "tokens", value: String(segCtx.contextTokens ?? "?") },
+        {
+          label: "tokens",
+          value: `${approx}${String(segCtx.contextTokens ?? "?")}`,
+        },
         { label: "window", value: String(segCtx.contextWindow) },
         { label: "percent", value: `${segCtx.contextPercent?.toFixed(1) ?? "?"}%` },
         {
@@ -319,6 +323,7 @@ export function buildSegmentDetailLines(
           value: segCtx.autoCompactEnabled ? "on" : "off",
         },
       ];
+    }
     case "model":
       return [
         ...common,

@@ -260,9 +260,13 @@ export const cacheReadSegment: StatusLineSegment = {
     const format = ctx.options.cache_read?.format ?? "tokens";
 
     if (format === "request" || format === "session-request") {
-      const req = format === "request" ? ctx.lastRequestCache : undefined;
-      const src = req ?? { input, cacheRead, cacheWrite };
-      if (!src.cacheRead && !src.cacheWrite) {
+      // "request" shows only the latest request's cache split — the session
+      // totals belong to "session-request" and are not a valid fallback.
+      const src =
+        format === "request"
+          ? ctx.lastRequestCache
+          : { input, cacheRead, cacheWrite };
+      if (!src || (!src.cacheRead && !src.cacheWrite)) {
         return { content: "", visible: false };
       }
       const rate = hitRatePercent(src.input, src.cacheRead, src.cacheWrite);

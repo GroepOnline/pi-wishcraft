@@ -282,6 +282,7 @@ export function registerSessionLifecycle(
   pi.on("model_select", async (_event, ctx) => {
     rt.currentCtx = ctx;
     rt.coreContextUsageCache.reset();
+    rt.approximateContextUsage = null;
     requestStatusRender(rt);
   });
 
@@ -297,6 +298,7 @@ export function registerSessionLifecycle(
     rt.currentCtx = ctx;
     rt.currentThinkingLevel = null;
     rt.liveAssistantUsage = null;
+    rt.approximateContextUsage = null;
     // The ledger snapshot keys on leaf + entry count; SDKs without a count
     // rely on this reset to notice entries appended off the active leaf.
     rt.tokenStatsCache.reset();
@@ -382,6 +384,7 @@ export function registerSessionLifecycle(
         rt.liveAssistantUsage = null;
       } else if (getUsageTokenTotal(event.message.usage) > 0) {
         rt.liveAssistantUsage = event.message.usage;
+        rt.lastAssistantAt = Date.now();
         rt.approximateContextUsage = null;
       }
     }
@@ -413,6 +416,7 @@ export function registerSessionLifecycle(
 
   pi.on("session_compact", async (event, ctx) => {
     rt.powerlineCompacting = false;
+    rt.lastCompactionAt = Date.now();
     rt.currentCtx = ctx;
     // Compaction rewrites the conversation, so the cached context-usage (tokens/window/percent)
     // is stale. Reset it and force a redraw — otherwise the bar keeps showing the pre-compact fill.
