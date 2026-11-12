@@ -153,6 +153,7 @@ function normalizeCustomStatusItem(
     statusKey,
     position: normalizeCustomItemPosition(raw.position),
     color: normalizeCustomColor(raw.color),
+    selfColorize: raw.selfColorize === true,
     prefix: normalizeCustomPrefix(raw.prefix),
     hideWhenMissing: raw.hideWhenMissing !== false,
     excludeFromExtensionStatuses: raw.excludeFromExtensionStatuses !== false,
@@ -218,6 +219,7 @@ export function deriveAutoCustomItems(
       id: statusKey,
       statusKey,
       position: "right",
+      selfColorize: false,
       hideWhenMissing: true,
       excludeFromExtensionStatuses: true,
     });

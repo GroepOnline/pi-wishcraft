@@ -16,6 +16,7 @@ import {
   onVibeAgentStart,
   onVibeBeforeAgentStart,
   onVibeToolCall,
+  setVibeWorkingMessageColor,
 } from "../../working-vibes/index.ts";
 import {
   getUsageTokenTotal,
@@ -174,6 +175,7 @@ export function registerSessionLifecycle(
 
     // Initialize vibe manager (needs modelRegistry from ctx)
     initVibeManager(ctx);
+    setVibeWorkingMessageColor(config.workingVibes.color);
 
     if (rt.enabled && ctx.hasUI) {
       if (ctx.mode === "rpc") {

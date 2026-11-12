@@ -5,17 +5,19 @@
 ### Added
 - **Dual continuous-time EMAs on the TPS ring.** Output now carries a fast (~0.8s) and a slow (~4s) tau with `alpha = 1 − exp(−dt/τ)`, so the smoothed rate weights real elapsed time instead of sample count — sparse and dense streams no longer skew differently. Input got the same time-weighted smoothing (`ema` column in `/tps`).
 - **`/tps` overlay sparkline.** Output-rate history bucketed per ~500ms renders as a `spark ▁▂▃▅…` line; the shared `usageSparkline` moved into `src/usage/sparkline.ts` for reuse.
+- **`powerline.workingVibes.color` styles the rotating vibe messages.** Upstream parity (nicobailon/pi-powerline-footer #173): set it to a Pi theme color (`accent`, `warning`, …), a `#RRGGBB` hex, or `rainbow` and every "Channeling {theme}..." placeholder, generated vibe, and file-mode fallback is painted through the session theme; omit it to keep Pi's default muted look. Exposed in the settings deck under Welcome & vibes.
+- **`customItems[].selfColorize` trusts ANSI colors embedded in a status value.** Upstream parity (#176): an item with `selfColorize: true` skips the configured `color` wrap and keeps the producer's own escapes — including a trailing reset — so extensions that already paint their status text render exactly as emitted.
 
 ### Changed
 - **Shared text/numeric helpers canonicalized.** `stripAnsi`, `formatTokens`, `editDistanceWithin` now live in `src/tools/text.ts`; `clamp`/`clamp01` in `src/tools/num.ts`. `isRecord` has one canonical home in `config/primitives.ts` — `settings-io`'s copy dropped and seven importers repointed; private copies in hooks and working-vibes deleted (the standalone `queue/` boundary keeps its own).
 - **Motion ticks no longer re-render every segment.** `renderStatusLineV2` is split into `buildStatusLineParts` + `composeStatusLine`; a painted tick now sets `rt.railDirty` and recomposes only the Signal rail with cached segment parts (~13× less per-tick compute, and no idle-time git/ports/command subprocess churn). Side effect: `time`, `time_spent`, git and command segments refresh only on real invalidations while idle — same behavior `off`/`reduced` motion already had.
 - **Structural splits along existing seams.** `presets.ts` → `preset-table.ts` (data) + `presets.ts` (resolver + re-export). `config-cli.ts` (722 lines) → `config-cli-read/write/complete.ts` lanes + a facade runner. `skill-manager.ts` (551 lines) → `skill-manager-utils/-view/-input.ts` lanes around a shared `SkillManagerViewState`, with the manager staying the public face (re-exports preserved for tests).
+- **The queue inbox is no longer re-read and re-parsed on every status paint.** `PowerlineQueueStore.list()` now memoizes the parsed inbox keyed on the file's mtime+size, so the two `summarize` calls each frame (segment context + queue preview row) cost a `stat` instead of a `readFileSync` + JSONL parse; store writes invalidate the entry, and cross-process appends show up on the next paint. Measured hot-path cost of `buildSegmentContext`'s queue read drops ~65%.
 
 ## [1.26.0] - 2026-11-12
 
 ### Removed
 - **15 dead exports** (~230 lines, three files): `signal-layout.ts`, `welcome/widgets/index.ts` and the never-wired `welcome/widgets/graph-widget.ts` are gone entirely; `computeResponsiveLayout` (+`buildContentFromParts`), `showPowerlineMainMenu`, `layoutPresetNames`, `filteredSkillCount`, `clearSegmentCache`, `motionIntervalMs`, `knownSettings`, `DEFAULT_WELCOME`, `getEffectivePreset`, `getAppearancePatches`, `isStoredValueValid`, `doctorRowsBySkill`, `LANTERN_HEIGHT`, `ALL_WELCOME_WIDGETS` were verified unreferenced across src, tests, scripts and docs. None were re-exported from `index.ts`; third-party deep-imports of these names will break — see this note if you consume `src/**` directly.
-
 
 ## [1.25.0] - 2026-11-12
 

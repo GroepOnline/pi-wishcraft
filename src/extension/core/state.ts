@@ -47,6 +47,7 @@ export let config: PowerlineConfig = {
   costAlert: null,
   customItemsAuto: false,
   queue: { captureSigil: "#", retentionHours: 24 },
+  workingVibes: {},
   segments: {},
   presets: {},
   segmentLabels: {},

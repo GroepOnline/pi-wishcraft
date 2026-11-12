@@ -289,6 +289,66 @@ test("on-demand vibe generation includes a system prompt for providers that requ
   }
 });
 
+test("workingVibes.color styles vibe messages through the session theme", async () => {
+  const home = mkdtempSync(join(tmpdir(), "powerline-vibes-home-"));
+  const previousHome = process.env.HOME;
+  process.env.HOME = home;
+
+  try {
+    const {
+      initVibeManager,
+      onVibeBeforeAgentStart,
+      setVibeWorkingMessageColor,
+    } = await import("../src/working-vibes/index.ts");
+    const { vibeState } = await import("../src/working-vibes/storage.ts");
+
+    const priorConfig = vibeState.config;
+    const priorCtx = vibeState.extensionCtx;
+    const priorColor = vibeState.workingMessageColor;
+    try {
+      initVibeManager({
+        ui: {
+          theme: {
+            fg: (color: string, text: string) => `<${color}>${text}</>`,
+          },
+        },
+      });
+      vibeState.config = { ...vibeState.config, theme: "pirate", mode: "file" };
+
+      const updates: Array<string | undefined> = [];
+      const send = (message?: string) => updates.push(message);
+
+      setVibeWorkingMessageColor("warning");
+      onVibeBeforeAgentStart("fix a bug", send);
+      // File mode also styles the fallback it swaps in right after.
+      assert.equal(updates[0], "<warning>Channeling pirate...</>");
+      assert.equal(updates[1], "<warning>Working...</>");
+
+      setVibeWorkingMessageColor("#89d281");
+      onVibeBeforeAgentStart("fix a bug", send);
+      assert.equal(
+        updates[2],
+        `\x1b[38;2;137;210;129mChanneling pirate...\x1b[0m`,
+      );
+
+      setVibeWorkingMessageColor(undefined);
+      onVibeBeforeAgentStart("fix a bug", send);
+      assert.equal(updates[4], "Channeling pirate...");
+    } finally {
+      setVibeWorkingMessageColor(priorColor);
+      vibeState.config = priorConfig;
+      vibeState.extensionCtx = priorCtx;
+    }
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("parseVibeLines cleans numbered/bulleted responses into ellipsized vibes", () => {
   assert.deepEqual(
     parseVibeLines(

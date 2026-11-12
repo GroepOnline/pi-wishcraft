@@ -77,6 +77,9 @@ export const NL: Record<string, string> = {
   "setting.vibes.indicatorStyle.label": "Werk-indicator",
   "setting.vibes.indicatorStyle.hint":
     "framestijl zolang de agent aan het werk is",
+  "setting.vibes.color.label": "Vibe-tekstkleur",
+  "setting.vibes.color.hint":
+    "pi-themakleur, #hex of rainbow · leeg = standaard",
 
   // ── Skills ──────────────────────────────────────────────────────────────
   "setting.skills.inline.label": "Inline /command en $skill uitklappen",

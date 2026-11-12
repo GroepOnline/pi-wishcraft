@@ -4,6 +4,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -200,6 +201,16 @@ export class PowerlineQueueStore {
   private readonly archivePath: string;
   /** How long completed (sent) items stay in the inbox before pruning/archiving. */
   private sentRetentionMs: number = DEFAULT_SENT_RETENTION_MS;
+  /**
+   * Last parsed inbox, keyed on file identity. The status line calls `list()`
+   * (via `summarize`/`activeItems`) multiple times per paint; an unchanged
+   * mtime+size means the parse result cannot differ, so we skip the read.
+   */
+  private listCache: {
+    mtimeMs: number;
+    size: number;
+    items: PowerlineQueueItem[];
+  } | null = null;
 
   constructor(
     inboxPath: string = getQueueStorePaths().inboxPath,
@@ -217,7 +228,18 @@ export class PowerlineQueueStore {
   }
 
   list(): PowerlineQueueItem[] {
-    if (!existsSync(this.inboxPath)) return [];
+    const stat = statSync(this.inboxPath, { throwIfNoEntry: false });
+    if (!stat) {
+      this.listCache = null;
+      return [];
+    }
+    if (
+      this.listCache &&
+      this.listCache.mtimeMs === stat.mtimeMs &&
+      this.listCache.size === stat.size
+    ) {
+      return this.listCache.items;
+    }
     const lines = readFileSync(this.inboxPath, "utf-8").split("\n");
     const items: PowerlineQueueItem[] = [];
     for (const line of lines) {
@@ -230,7 +252,9 @@ export class PowerlineQueueStore {
         // Ignore malformed internal lines rather than breaking the footer during startup.
       }
     }
-    return items.sort((a, b) => a.createdAt - b.createdAt);
+    items.sort((a, b) => a.createdAt - b.createdAt);
+    this.listCache = { mtimeMs: stat.mtimeMs, size: stat.size, items };
+    return items;
   }
 
   add(input: CreateQueueItemInput): PowerlineQueueItem {
@@ -392,6 +416,7 @@ export class PowerlineQueueStore {
       this.inboxPath,
       activeOrRecent ? `${activeOrRecent}\n` : "",
     );
+    this.listCache = null;
   }
 
   /**

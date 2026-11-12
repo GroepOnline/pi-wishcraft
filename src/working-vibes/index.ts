@@ -6,6 +6,7 @@ export {
   initVibeManager,
   getVibeTheme,
   setVibeTheme,
+  setVibeWorkingMessageColor,
   getVibeModel,
   setVibeModel,
   onVibeBeforeAgentStart,
