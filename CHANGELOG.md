@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-11-12
+
 ### Removed
 - **15 dead exports** (~230 lines, three files): `signal-layout.ts`, `welcome/widgets/index.ts` and the never-wired `welcome/widgets/graph-widget.ts` are gone entirely; `computeResponsiveLayout` (+`buildContentFromParts`), `showPowerlineMainMenu`, `layoutPresetNames`, `filteredSkillCount`, `clearSegmentCache`, `motionIntervalMs`, `knownSettings`, `DEFAULT_WELCOME`, `getEffectivePreset`, `getAppearancePatches`, `isStoredValueValid`, `doctorRowsBySkill`, `LANTERN_HEIGHT`, `ALL_WELCOME_WIDGETS` were verified unreferenced across src, tests, scripts and docs. None were re-exported from `index.ts`; third-party deep-imports of these names will break — see this note if you consume `src/**` directly.
 
