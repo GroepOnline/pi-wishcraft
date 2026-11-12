@@ -142,4 +142,3 @@ function cycle<T>(list: readonly T[], current: T, delta: number): T {
   const next = (start + delta + list.length * 8) % list.length;
   return list[next]!;
 }
-
