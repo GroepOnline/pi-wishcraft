@@ -158,7 +158,3 @@ export async function runSegmentPipeline(
 
   return out;
 }
-
-export function clearSegmentCache(): void {
-  cacheStore.clear();
-}

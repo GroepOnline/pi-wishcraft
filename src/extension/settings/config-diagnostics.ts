@@ -18,7 +18,6 @@ import {
   SETTING_GROUPS,
   SETTINGS_REGISTRY,
   effectiveSettingValue,
-  explainSettingValue,
   settingGroupTitle,
   settingLabel,
   validationProblem,
@@ -504,9 +503,3 @@ export function invalidateConfigDiagnosticsCache(): void {
 }
 
 /** Whether a stored value survives validation for this definition. */
-export function isStoredValueValid(
-  definition: SettingDefinition,
-  stored: unknown,
-): boolean {
-  return explainSettingValue(definition, stored).ok;
-}
