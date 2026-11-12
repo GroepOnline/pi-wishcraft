@@ -83,4 +83,3 @@ export function renderLantern(frame: LanternFrame, maxWidth: number): string[] {
 }
 
 export const LANTERN_WIDTH = WIDTH;
-export const LANTERN_HEIGHT = Math.ceil(GRID.length / 2);

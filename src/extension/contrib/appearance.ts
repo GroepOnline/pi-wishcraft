@@ -38,12 +38,6 @@ export function registerAppearanceContribution(
 }
 
 /** Return registered patches for a preset in application order. */
-export function getAppearancePatches(
-  preset: StructuralPresetName,
-): readonly AppearancePresetPatch[] {
-  return patches.get(preset) ?? [];
-}
-
 /** Clear all registered appearance contributions. Primarily used for isolation in tests and reloads. */
 export function clearAppearanceContributions(): void {
   patches.clear();
