@@ -93,6 +93,13 @@ export interface RuntimeState {
     topContent: string;
     secondaryContent: string;
   } | null;
+  /** Cached segment parts for rail-only recomposes; null = full rebuild. */
+  layoutParts: {
+    parts: import("../../render/v2-entry.ts").StatusLineParts;
+    options: import("../../render/v2-entry.ts").StatusLineV2Options;
+  } | null;
+  /** A motion tick changed only the rail — recompose, don't re-render segments. */
+  railDirty: boolean;
   lastLayoutTimestamp: number;
   layoutDirty: boolean;
   forceNextLayoutRecompute: boolean;

@@ -64,13 +64,22 @@ function styledSeparator(separator: string): string {
   return ` ${color}${separator}${reset} `;
 }
 
-export function renderStatusLineV2(
+export interface StatusLineParts {
+  segments: V2Segment[];
+  primary: string[];
+  secondary: string[];
+}
+
+/**
+ * Segment side of the status line — everything except the motion rail.
+ * Cached by the renderer between painted frames so a rail-only tick can
+ * recompose without re-running every segment renderer.
+ */
+export function buildStatusLineParts(
   ctx: SegmentContext,
   preset: PresetDef,
-  runtime: SignalRuntime,
-  width: number,
   options: StatusLineV2Options,
-): { topContent: string; secondaryContent: string } {
+): StatusLineParts {
   const merged = mergeSegmentsWithCustomItems(
     preset,
     ctx.effectiveCustomItems,
@@ -97,8 +106,8 @@ export function renderStatusLineV2(
 
   merged.leftSegments.forEach((id, i) => pushSegment(id, 10_000 - i));
 
-  const rail = renderActivity(runtime, options.signal, options.ascii, width);
-  segments.push({ id: "signal", text: rail, priority: 5_000 });
+  // Slot for the motion rail — composeStatusLine fills it with the live text.
+  segments.push({ id: "signal", text: "", priority: 5_000 });
   primary.push("signal");
 
   merged.rightSegments.forEach((id, i) => pushSegment(id, 1_000 - i));
@@ -108,25 +117,47 @@ export function renderStatusLineV2(
     primary.push(id);
   });
 
+  const secondary: string[] = [];
   merged.secondarySegments.forEach((id, i) => {
     try {
       const rendered = renderSegment(id, ctx);
       if (!rendered.visible || !rendered.content) return;
       segments.push({ id, text: rendered.content, priority: 500 - i });
+      secondary.push(id);
     } catch {
       // Keep secondary segments behind the same fault boundary as primary.
     }
   });
 
+  return { segments, primary, secondary };
+}
+
+/** Pure assembly: cached parts + fresh rail text → painted strings. */
+export function composeStatusLine(
+  parts: StatusLineParts,
+  rail: string,
+  width: number,
+  options: StatusLineV2Options,
+): { topContent: string; secondaryContent: string } {
+  const segments = parts.segments.map((seg) =>
+    seg.id === "signal" ? { ...seg, text: rail } : seg,
+  );
   const separatorGlyph = getSeparator(options.separatorStyle).left;
-  const result = renderPowerlineV2(segments, width, {
-    primary,
-    secondary: [...merged.secondarySegments],
+  return renderPowerlineV2(segments, width, {
+    primary: parts.primary,
+    secondary: parts.secondary,
     separator: styledSeparator(separatorGlyph),
   });
+}
 
-  return {
-    topContent: result.topContent,
-    secondaryContent: result.secondaryContent,
-  };
+export function renderStatusLineV2(
+  ctx: SegmentContext,
+  preset: PresetDef,
+  runtime: SignalRuntime,
+  width: number,
+  options: StatusLineV2Options,
+): { topContent: string; secondaryContent: string } {
+  const parts = buildStatusLineParts(ctx, preset, options);
+  const rail = renderActivity(runtime, options.signal, options.ascii, width);
+  return composeStatusLine(parts, rail, width, options);
 }

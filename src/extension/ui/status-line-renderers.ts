@@ -11,6 +11,11 @@ import {
 import { ansi, colorEnabled, getFgAnsiCode } from "../../theme/colors.ts";
 import { hasNerdFonts } from "../../theme/icons.ts";
 
+import {
+  buildStatusLineParts,
+  composeStatusLine,
+} from "../../render/v2-entry.ts";
+import { renderActivity } from "../../render/motion-rail.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { buildSegmentContext } from "../core/segment-context.ts";
 import {
@@ -25,7 +30,6 @@ import {
   decorateKeywordLine,
   decoratePowerlineLine,
 } from "../../motion/paint.ts";
-import { renderStatusLineV2 } from "../../render/v2-entry.ts";
 
 /**
  * Get cached responsive layout or compute fresh one.
@@ -48,15 +52,41 @@ export function getResponsiveLayout(
     if (
       !rt.forceNextLayoutRecompute &&
       typingRecently &&
-      (rt.layoutDirty || now - rt.lastLayoutTimestamp >= cacheTtl)
+      (rt.layoutDirty || now - rt.lastLayoutTimestamp >= cacheTtl) &&
+      !rt.railDirty
     ) {
       return rt.lastLayoutResult;
     }
 
-    if (!rt.layoutDirty && now - rt.lastLayoutTimestamp < cacheTtl) {
+    if (
+      !rt.layoutDirty &&
+      now - rt.lastLayoutTimestamp < cacheTtl &&
+      !rt.railDirty
+    ) {
       return rt.lastLayoutResult;
     }
   }
+
+  // Fast path: only the motion rail changed — recompose with the cached
+  // segment parts instead of re-running every segment renderer.
+  if (rt.railDirty && rt.layoutParts && rt.lastLayoutWidth === width) {
+    rt.railDirty = false;
+    const rail = renderActivity(
+      rt.signal,
+      rt.layoutParts.options.signal,
+      rt.layoutParts.options.ascii,
+      width,
+    );
+    rt.lastLayoutResult = composeStatusLine(
+      rt.layoutParts.parts,
+      rail,
+      width,
+      rt.layoutParts.options,
+    );
+    rt.lastLayoutTimestamp = now;
+    return rt.lastLayoutResult;
+  }
+  rt.railDirty = false;
 
   const presetDef = getPreset(config.preset);
   let segmentCtx: SegmentContext;
@@ -70,6 +100,7 @@ export function getResponsiveLayout(
     if (!isStale) throw error;
     rt.currentCtx = null;
     rt.lastLayoutWidth = width;
+    rt.layoutParts = null;
     rt.lastLayoutResult = { topContent: "", secondaryContent: "" };
     rt.lastLayoutTimestamp = now;
     rt.layoutDirty = false;
@@ -81,18 +112,20 @@ export function getResponsiveLayout(
   const appearance = resolveAppearanceMix(
     effectiveAppearanceMix(config.appearance, config.preset),
   );
-  rt.lastLayoutResult = renderStatusLineV2(
-    segmentCtx,
-    presetDef,
-    rt.signal,
+  const options = {
+    separatorStyle: config.separator ?? presetDef.separator,
+    signal: appearance.signal,
+    ascii: prefersAsciiGlyphs(rt.motionPolicy, hasNerdFonts()),
+    layout: config.layout,
+    disabledSegments: config.disabledSegments,
+  };
+  const parts = buildStatusLineParts(segmentCtx, presetDef, options);
+  rt.layoutParts = { parts, options };
+  rt.lastLayoutResult = composeStatusLine(
+    parts,
+    renderActivity(rt.signal, options.signal, options.ascii, width),
     width,
-    {
-      separatorStyle: config.separator ?? presetDef.separator,
-      signal: appearance.signal,
-      ascii: prefersAsciiGlyphs(rt.motionPolicy, hasNerdFonts()),
-      layout: config.layout,
-      disabledSegments: config.disabledSegments,
-    },
+    options,
   );
   rt.lastLayoutTimestamp = now;
   rt.layoutDirty = false;

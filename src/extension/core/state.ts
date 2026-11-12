@@ -132,6 +132,8 @@ export function createRuntimeState(
 
     lastLayoutWidth: 0,
     lastLayoutResult: null,
+    layoutParts: null,
+    railDirty: false,
     lastLayoutTimestamp: 0,
     layoutDirty: true,
     forceNextLayoutRecompute: false,
@@ -173,7 +175,7 @@ export function createRuntimeState(
   rt.motionScheduler = new MotionScheduler({
     requestRender: () => {
       // Motion only changes the Signal rail; segment data remains cached.
-      rt.lastLayoutResult = null;
+      rt.railDirty = true;
       rt.tuiRef?.requestRender();
       rt.rpcWidgetRefresh?.();
     },

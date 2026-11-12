@@ -8,6 +8,7 @@
 
 ### Changed
 - **Shared text/numeric helpers canonicalized.** `stripAnsi`, `formatTokens`, `editDistanceWithin` now live in `src/tools/text.ts`; `clamp`/`clamp01` in `src/tools/num.ts`. `isRecord` has one canonical home in `config/primitives.ts` — `settings-io`'s copy dropped and seven importers repointed; private copies in hooks and working-vibes deleted (the standalone `queue/` boundary keeps its own).
+- **Motion ticks no longer re-render every segment.** `renderStatusLineV2` is split into `buildStatusLineParts` + `composeStatusLine`; a painted tick now sets `rt.railDirty` and recomposes only the Signal rail with cached segment parts (~13× less per-tick compute, and no idle-time git/ports/command subprocess churn). Side effect: `time`, `time_spent`, git and command segments refresh only on real invalidations while idle — same behavior `off`/`reduced` motion already had.
 
 ## [1.26.0] - 2026-11-12
 
