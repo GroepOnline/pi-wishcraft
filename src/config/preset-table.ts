@@ -9,7 +9,6 @@
 
 import type { ColorScheme, PresetDef, StatusLinePreset } from "./types.ts";
 import { getDefaultColors } from "../theme/theme.ts";
-import type { CustomPresetConfig } from "./types.ts";
 import { createTokens, deriveColorSchemeFromTokens } from "../theme/tokens/mapping.ts";
 
 // Get base colors from theme.ts (single source of truth)

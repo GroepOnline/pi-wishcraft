@@ -6,7 +6,7 @@
  * ---------------------------------------------------------------------------
  */
 
-import type { ColorScheme, PresetDef, StatusLinePreset } from "./types.ts";
+import type { PresetDef, StatusLinePreset } from "./types.ts";
 import type { CustomPresetConfig } from "./types.ts";
 import { PRESETS } from "./preset-table.ts";
 
