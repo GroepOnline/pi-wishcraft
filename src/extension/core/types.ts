@@ -108,6 +108,7 @@ export interface RuntimeState {
 
   welcomeDismissScheduler: WelcomeDismissScheduler<any>;
   statusRenderScheduler: RenderScheduler;
+  paint: import("../../motion/types.ts").PowerlinePaint;
   /** The single shared clock for every Wishcraft animation surface. */
   motionScheduler: MotionScheduler;
   motionPolicy: MotionPolicy;

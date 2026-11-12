@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+- **Keyword paint on the powerline: the status line reacts to what you type.** Ported and re-architected from the x30 motion proposal on the old fork — where it ran its own 50 ms `setTimeout` next to the MotionScheduler, it now leases a `powerline-paint` consumer on the shared clock and drops the lease at idle, so an untouched session keeps its 0 FPS guarantee. Nine color-only styles (shimmer, rainbow, ember, heat, aurora, comet, prism, tide, pulse) recolor the composed line at render time, so layout width never shifts: a matched keyword (`ultrathink`, `think harder`, `lanternwake`, `wish`, …) paints a short burst then holds its accent while the draft still contains the word, thinking level selects the streaming look (`max`/`xhigh` → rainbow chase), and the last-prompt row highlights the matched span. Priority: keyword hold/burst > thinking level > streaming shimmer > idle none. `wishcraft.motion.enabled` and `wishcraft.motion.keywords` (both default on), `WISHCRAFT_REDUCED_MOTION`, `NO_COLOR`, and a non-`full` motion level all disable it.
+
+
 ## [1.23.0] - 2026-11-08
 
 ### Fixed

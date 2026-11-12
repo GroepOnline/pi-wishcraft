@@ -21,6 +21,10 @@ import {
 import { config } from "../core/state.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { prefersAsciiGlyphs } from "../../motion/index.ts";
+import {
+  decorateKeywordLine,
+  decoratePowerlineLine,
+} from "../../motion/paint.ts";
 import { renderStatusLineV2 } from "../../render/v2-entry.ts";
 
 /**
@@ -110,13 +114,15 @@ export function renderPowerlineStatusLines(
   );
 
   const notifications: string[] = [];
+  const now = Date.now();
+  const paint = rt.paint.getPaint(now);
   for (const value of getNotificationExtensionStatuses(
     statuses,
     hiddenExtensionStatusKeys,
   )) {
     const lineContent = ` ${value}`;
     if (visibleWidth(lineContent) <= width) {
-      notifications.push(lineContent);
+      notifications.push(decoratePowerlineLine(lineContent, paint, now));
     }
   }
 
@@ -132,9 +138,12 @@ export function renderPowerlinePrimaryLines(
 
   const layout = getResponsiveLayout(rt, width, theme);
   if (!layout.topContent) return [];
+  const now = Date.now();
   // Multi-row rail (sigil) arrives as \n-joined text; the editor wants one
   // string per visual line.
-  return layout.topContent.split("\n");
+  return layout.topContent
+    .split("\n")
+    .map((line) => decoratePowerlineLine(line, rt.paint.getPaint(now), now));
 }
 
 export function renderPowerlineSecondaryLines(
@@ -146,7 +155,10 @@ export function renderPowerlineSecondaryLines(
 
   const layout = getResponsiveLayout(rt, width, theme);
   if (!layout.secondaryContent) return [];
-  return layout.secondaryContent.split("\n");
+  const now = Date.now();
+  return layout.secondaryContent
+    .split("\n")
+    .map((line) => decoratePowerlineLine(line, rt.paint.getPaint(now), now));
 }
 
 export function renderPowerlineQueuePreviewLines(
@@ -241,7 +253,18 @@ export function renderLastPromptLines(
 
   promptText = truncateToWidth(promptText, availableWidth, "…");
 
-  const styledPrompt = `${getFgAnsiCode("sep")}${promptText}${reset}`;
+  const motionPrompt = decorateKeywordLine(
+    promptText,
+    rt.paint.getSettings(),
+    Date.now(),
+    undefined,
+    undefined,
+    rt.motionPolicy.level,
+  );
+  const styledPrompt =
+    motionPrompt === promptText
+      ? `${getFgAnsiCode("sep")}${promptText}${reset}`
+      : motionPrompt;
   const line = `${prefix}${styledPrompt}`;
   return [truncateToWidth(line, width, "…")];
 }

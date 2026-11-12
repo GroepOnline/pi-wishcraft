@@ -335,6 +335,9 @@ export function setupCustomEditor(
       attachAutocompleteProvider();
       scheduleDismissWelcome(rt, ctx);
       originalHandleInput(data);
+      if (!rt.bashModeActive) {
+        rt.paint.noteText(editor.getExpandedText());
+      }
     };
 
     const originalRender = editor.render.bind(editor);
