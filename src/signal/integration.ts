@@ -21,13 +21,13 @@ export function dispatchSignalEvent(
     maxTicks: isFiniteEvent(event) ? 6 : undefined,
     settleOnDone: isTerminalEvent(event),
   });
-  rt.lastLayoutResult = null;
+  rt.railDirty = true;
   rt.tuiRef?.requestRender();
 }
 
 export function settleSignal(rt: RuntimeState): void {
   stopSignal(rt.signal, rt.motionScheduler, rt.motionPolicy);
-  rt.lastLayoutResult = null;
+  rt.railDirty = true;
   rt.tuiRef?.requestRender();
 }
 

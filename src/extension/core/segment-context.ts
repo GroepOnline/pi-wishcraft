@@ -37,6 +37,7 @@ import type { RuntimeState } from "./types.ts";
  */
 export function resetLayoutCache(rt: RuntimeState): void {
   rt.lastLayoutResult = null;
+  rt.layoutParts = null;
   rt.layoutDirty = true;
   rt.sessionBranchCache.reset();
   rt.tokenStatsCache.reset();
