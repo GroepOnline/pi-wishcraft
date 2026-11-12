@@ -52,6 +52,7 @@ export interface RuntimeState {
   footerDataRef: ReadonlyFooterDataProvider | null;
   getThinkingLevelFn: (() => string) | null;
   currentThinkingLevel: string | null;
+  approximateContextUsage: import("../../usage/context.ts").CoreContextUsage | null;
   liveAssistantUsage: SessionAssistantUsage | null;
   isStreaming: boolean;
   tuiRef: any;

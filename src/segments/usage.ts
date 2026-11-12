@@ -91,19 +91,26 @@ export const contextPctSegment: StatusLineSegment = {
     if (ctx.customCompactionEnabled) return { content: "", visible: false };
 
     const icons = getIcons();
-    const { contextTokens, contextPercent, contextWindow } = ctx;
-    if (!contextWindow || !Number.isFinite(contextPercent)) {
+    const { contextTokens, contextPercent, contextWindow, contextApproximate } = ctx;
+    if (!contextWindow) {
       return { content: "", visible: false };
     }
 
     const autoIcon =
       ctx.autoCompactEnabled && icons.auto ? ` ${icons.auto}` : "";
     const percentOnly = ctx.options.context?.format === "percent";
+    const hasKnown = contextTokens !== null && contextPercent !== null;
+    const approx = contextApproximate ? "~" : "";
     // "full" (default): tokens/window + one-decimal percentage + auto-compact icon.
     // "percent": bare rounded percentage, threshold-colored, no icons.
+    // Unknown context (null): "?" — an estimate shows "~x%".
     const text = percentOnly
-      ? `${Math.round(contextPercent)}%`
-      : `${formatTokens(contextTokens)}/${formatTokens(contextWindow)} (${contextPercent.toFixed(1)}%)${autoIcon}`;
+      ? hasKnown
+        ? `${approx}${Math.round(contextPercent)}%`
+        : "?"
+      : hasKnown
+        ? `${approx}${formatTokens(contextTokens)}/${formatTokens(contextWindow)} (${contextPercent.toFixed(1)}%)${autoIcon}`
+        : `?/${formatTokens(contextWindow)}`;
 
     // Icon outside color, text inside - use semantic colors for thresholds
     let content: string;
@@ -112,9 +119,9 @@ export const contextPctSegment: StatusLineSegment = {
         ? color(ctx, semantic, text)
         : withIcon(icons.context, color(ctx, semantic, text));
     let semantic: "context" | "contextWarn" | "contextError";
-    if (contextPercent > 90) {
+    if (hasKnown && contextPercent > 90) {
       semantic = "contextError";
-    } else if (contextPercent > 70) {
+    } else if (hasKnown && contextPercent > 70) {
       semantic = "contextWarn";
     } else {
       semantic = "context";
@@ -123,8 +130,12 @@ export const contextPctSegment: StatusLineSegment = {
 
     // Append a compact 8-cell fill bar so usage is scannable at a glance.
     // Filled cells use the semantic color, empty cells use the muted separator.
-    const bar = contextFillBar(contextPercent, (s) => color(ctx, s, ""));
-    content = percentOnly ? baseContent : `${baseContent} ${bar}`;
+    // No bar for unknown ("?") — nothing real to fill.
+    const bar = hasKnown
+      ? contextFillBar(contextPercent, (s) => color(ctx, s, ""))
+      : "";
+    content =
+      percentOnly || !hasKnown ? baseContent : `${baseContent} ${bar}`;
 
     return { content, visible: true };
   },

@@ -463,8 +463,10 @@ export interface SegmentContext {
   usageStats: UsageStats;
   /** Latest usable assistant request's cache split; undefined after compaction/model_change. */
   lastRequestCache?: RequestCacheUsage;
-  contextTokens: number;
-  contextPercent: number;
+  contextTokens: number | null;
+  contextPercent: number | null;
+  /** True when the context numbers come from the post-compaction estimate. */
+  contextApproximate: boolean;
   contextWindow: number;
   autoCompactEnabled: boolean;
   customCompactionEnabled: boolean;

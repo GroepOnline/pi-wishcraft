@@ -15,6 +15,7 @@ import { getDefaultColors } from "../../theme/theme.ts";
 import { getGitStatus } from "../../git/status.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { getUsageTokenTotal } from "../../usage/ledger.ts";
+import { resolveDisplayContextUsage } from "../../usage/context.ts";
 import type { SessionAssistantUsage } from "../../usage/ledger.ts";
 import {
   pushTpsSample,
@@ -148,9 +149,10 @@ export interface SegmentSourceContext {
 }
 
 interface ContextMetrics {
-  contextTokens: number;
-  contextPercent: number;
+  contextTokens: number | null;
+  contextPercent: number | null;
   contextWindow: number;
+  contextApproximate: boolean;
 }
 
 /**
@@ -164,13 +166,20 @@ function resolveContextMetrics(
 ): ContextMetrics {
   const core =
     rt.isStreaming && rt.liveAssistantUsage ? null : rt.coreContextUsageCache.get(ctx);
-  const contextTokens =
-    core?.contextTokens ?? (usage ? getUsageTokenTotal(usage) : 0);
-  const contextWindow = core?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-  const contextPercent =
-    core?.contextPercent ??
-    (contextWindow > 0 ? (contextTokens / contextWindow) * 100 : 0);
-  return { contextTokens, contextPercent, contextWindow };
+  const resolved = resolveDisplayContextUsage({
+    coreContextUsage: core,
+    unknownCoreFallback: rt.approximateContextUsage,
+    fallbackContextTokens: usage ? getUsageTokenTotal(usage) : 0,
+    fallbackContextWindow: ctx.model?.contextWindow ?? 0,
+  });
+  return {
+    contextTokens: resolved?.contextTokens ?? null,
+    contextPercent: resolved?.contextPercent ?? null,
+    contextWindow: resolved?.contextWindow ?? ctx.model?.contextWindow ?? 0,
+    contextApproximate:
+      (core === null || core.contextTokens === null) &&
+      rt.approximateContextUsage !== null,
+  };
 }
 
 interface CustomItemState {
@@ -231,8 +240,12 @@ export function buildSegmentContext(
   const latestUsage = rt.isStreaming
     ? (rt.liveAssistantUsage ?? lastAssistant?.usage)
     : lastAssistant?.usage;
-  const { contextTokens, contextPercent, contextWindow } =
-    resolveContextMetrics(rt, ctx, latestUsage);
+  const {
+    contextTokens,
+    contextPercent,
+    contextWindow,
+    contextApproximate,
+  } = resolveContextMetrics(rt, ctx, latestUsage);
 
   const segmentOptions = mergeSegmentOptions(
     presetDef.segmentOptions,
@@ -272,6 +285,7 @@ export function buildSegmentContext(
     lastRequestCache: tokenStats.lastRequestCache,
     contextTokens,
     contextPercent,
+    contextApproximate,
     contextWindow,
     autoCompactEnabled:
       ctx.settingsManager?.getCompactionSettings?.()?.enabled ?? true,
