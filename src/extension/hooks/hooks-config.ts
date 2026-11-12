@@ -19,6 +19,7 @@
  * ---------------------------------------------------------------------------
  */
 
+import { isRecord } from "../../config/primitives.ts";
 import { SETTING_DEFAULTS } from "../../config/settings-registry.ts";
 
 export type HookEventName = "preToolUse" | "postToolUse" | "sessionStart" | "turnEnd";
@@ -44,9 +45,6 @@ export interface WishcraftHooksSettings {
 export const DEFAULT_HOOK_TIMEOUT_S = 30;
 export const MAX_HOOK_TIMEOUT_S = 600;
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 
 /** Parse + valideer één command-hook uit settings (best-effort, fatal-loos). */
 export function parseHookCommand(v: unknown): HookCommand | null {

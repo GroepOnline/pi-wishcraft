@@ -6,6 +6,7 @@
  * Active work leases the signal channel.
  */
 
+import { clamp01 } from "../tools/num.ts";
 import { defaultMotionFor, getMotion } from "../motion/catalog.ts";
 import {
   brailleWakeGlyph,
@@ -83,10 +84,6 @@ function railCellColor(distance: number, p: RailPalette): string {
   // embers dying out instead of stepped tiers.
   const rampT = glowFalloff(Math.min(distance, p.trailDepth + 1) / (p.trailDepth + 1));
   return motionRampCode(p.ramp, rampT);
-}
-
-function clamp01(value: number): number {
-  return value < 0 ? 0 : value > 1 ? 1 : value;
 }
 
 /** Map a scheduler tick to a repeating phase in the half-open range [0, 1). */

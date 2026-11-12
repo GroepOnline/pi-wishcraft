@@ -17,6 +17,8 @@
  * ---------------------------------------------------------------------------
  */
 
+import { isRecord } from "../../config/primitives.ts";
+
 export interface DenyPolicyRule {
   action: "deny";
   tool: string;
@@ -33,9 +35,6 @@ export interface InjectPolicyRule {
 
 export type PolicyRule = DenyPolicyRule | InjectPolicyRule;
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 
 function validRegex(pattern: string): boolean {
   try {

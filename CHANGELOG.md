@@ -6,6 +6,9 @@
 - **Dual continuous-time EMAs on the TPS ring.** Output now carries a fast (~0.8s) and a slow (~4s) tau with `alpha = 1 − exp(−dt/τ)`, so the smoothed rate weights real elapsed time instead of sample count — sparse and dense streams no longer skew differently. Input got the same time-weighted smoothing (`ema` column in `/tps`).
 - **`/tps` overlay sparkline.** Output-rate history bucketed per ~500ms renders as a `spark ▁▂▃▅…` line; the shared `usageSparkline` moved into `src/usage/sparkline.ts` for reuse.
 
+### Changed
+- **Shared text/numeric helpers canonicalized.** `stripAnsi`, `formatTokens`, `editDistanceWithin` now live in `src/tools/text.ts`; `clamp`/`clamp01` in `src/tools/num.ts`. `isRecord` has one canonical home in `config/primitives.ts` — `settings-io`'s copy dropped and seven importers repointed; private copies in hooks and working-vibes deleted (the standalone `queue/` boundary keeps its own).
+
 ## [1.26.0] - 2026-11-12
 
 ### Removed

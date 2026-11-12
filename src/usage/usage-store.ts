@@ -7,6 +7,7 @@ import { dirname } from "node:path";
 
 import { getAgentPath } from "../paths/agent-dirs.ts";
 import { usageSparkline } from "./sparkline.ts";
+import { formatTokens } from "../tools/text.ts";
 
 export interface UsageTotals {
   input: number;
@@ -259,13 +260,6 @@ function lastNDayTotals(file: UsageFile, now: number, days: number): UsageTotals
   return out;
 }
 
-function formatTokens(n: number): string {
-  if (n < 1000) return n.toString();
-  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
-  if (n < 1000000) return `${Math.round(n / 1000)}k`;
-  if (n < 10000000) return `${(n / 1000000).toFixed(1)}M`;
-  return `${Math.round(n / 1000000)}M`;
-}
 
 export function formatUsageOverlayLines(summary: UsageOverlaySummary): string[] {
   const line = (label: string, totals: UsagePeriodSummary) =>

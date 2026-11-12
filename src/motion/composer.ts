@@ -3,6 +3,7 @@
  * Assignment of the draft to a semantic event is a separate persist step.
  */
 
+import { clamp } from "../tools/num.ts";
 import { previewStrip } from "./gallery.ts";
 import type {
   MotionChannel,
@@ -140,8 +141,4 @@ function cycle<T>(list: readonly T[], current: T, delta: number): T {
   const start = idx >= 0 ? idx : 0;
   const next = (start + delta + list.length * 8) % list.length;
   return list[next]!;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

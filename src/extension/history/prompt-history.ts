@@ -1,8 +1,9 @@
+import { isRecord } from "../../config/primitives.ts";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { getAgentPath } from "../../paths/agent-dirs.ts";
-import { isRecord } from "../settings/settings-io.ts";
+
 import { PROMPT_HISTORY_LIMIT } from "../core/constants.ts";
 
 const PROMPT_HISTORY_TRACKED = Symbol.for("powerlinePromptHistoryTracked");

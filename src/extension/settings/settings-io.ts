@@ -13,10 +13,9 @@ import {
 } from "../../config/powerline-config.ts";
 import { getAgentPath } from "../../paths/agent-dirs.ts";
 import { debugLog } from "../core/debug-log.ts";
+import { isRecord } from "../../config/primitives.ts";
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+
 
 export function getSettingsPath(): string {
   return getAgentPath("settings.json");

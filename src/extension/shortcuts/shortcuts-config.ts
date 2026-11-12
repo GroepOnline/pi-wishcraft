@@ -1,3 +1,4 @@
+import { isRecord } from "../../config/primitives.ts";
 import { TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 
 import type { BashModeSettings } from "../../../bash-mode/types.ts";
@@ -6,7 +7,7 @@ import {
   shortcutConflictKey,
   shortcutUsesSuper,
 } from "../../shortcuts/matching.ts";
-import { isRecord } from "../settings/settings-io.ts";
+
 import {
   DEFAULT_BASH_MODE_SETTINGS,
   DEFAULT_SHORTCUTS,

@@ -3,6 +3,7 @@
 // Holds settings/config persistence, on-disk vibe file storage, and the shared
 // module-level state (matching powerline-footer pattern).
 
+import { isRecord } from "../config/primitives.ts";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -90,9 +91,6 @@ function getSettingsPath(): string {
   return getAgentPath("settings.json");
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function readSettingsForLoad(): Record<string, unknown> {
   const settingsPath = getSettingsPath();

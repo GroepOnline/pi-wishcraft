@@ -1,3 +1,4 @@
+import { stripAnsi } from "../../tools/text.ts";
 import type { SelectItem } from "@earendil-works/pi-tui";
 
 import type { PowerlineConfig } from "../../config/powerline-config.ts";
@@ -16,7 +17,6 @@ import type { OpenPortProcess } from "../../segments/system.ts";
 import { formatUsdCost } from "../../usage/rates.ts";
 import { renderSegmentWithWidth } from "./layout.ts";
 
-const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
 
 export interface SegmentMenuItem {
   id: StatusLineSegmentId;

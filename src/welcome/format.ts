@@ -1,10 +1,3 @@
-export function formatTokens(tokens: number): string {
-  if (tokens < 1000) return tokens.toString();
-  if (tokens < 10000) return `${(tokens / 1000).toFixed(1)}k`;
-  if (tokens < 1000000) return `${Math.round(tokens / 1000)}k`;
-  return `${(tokens / 1000000).toFixed(tokens < 10000000 ? 1 : 0)}M`;
-}
-
 export function formatTimeAgo(ms: number): string {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);

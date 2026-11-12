@@ -1,3 +1,4 @@
+import { stripAnsi } from "../tools/text.ts";
 import type {
   BuiltinStatusLineSegmentId,
   RenderedSegment,
@@ -54,13 +55,11 @@ import {
 // segment honors them uniformly (previously only tps/open_ports did).
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ANSI_ESCAPE_RE = /\x1b\[[0-9;]*m/g;
 
-function stripAnsi(text: string): string {
-  return text.replace(ANSI_ESCAPE_RE, "");
-}
 
 /** Index of the first visible (non-escape) character in a rendered string. */
+const ANSI_ESCAPE_RE = /\x1b\[[0-9;]*m/g;
+
 function firstVisibleCharIndex(content: string): number {
   for (let i = 0; i < content.length; i++) {
     if (content[i] === "\x1b") {
