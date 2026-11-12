@@ -8,6 +8,7 @@ import {
   createSignalRuntime,
   setSignalEvent,
   stopSignal,
+  toolActivity,
 } from "../src/signal/controller.ts";
 import { renderActivity } from "../src/render/motion-rail.ts";
 import { renderStatusLineV2 } from "../src/render/v2-entry.ts";
@@ -504,4 +505,15 @@ test("rail wake trails the head on both ping-pong legs", () => {
   assert.notEqual(backHead, -1, `head frame missing: ${back}`);
   assert.match(back.slice(0, backHead), /^─+$/, `nothing ahead on the return leg: ${back}`);
   assert.ok(braille.test(back.slice(backHead + 1)), `return wake must sit right of the head: ${back}`);
+});
+
+test("toolActivity verbs core tools and keeps unknown tool names", () => {
+  assert.equal(toolActivity("bash"), "running command");
+  assert.equal(toolActivity("read"), "reading file");
+  assert.equal(toolActivity("edit"), "editing file");
+  assert.equal(toolActivity("subagent"), "delegating");
+  // Extension/MCP tool names stay identifiable; control chars never reach
+  // the status line.
+  assert.equal(toolActivity("webfetch"), "tool webfetch");
+  assert.equal(toolActivity("mcp\u001b[31mtool"), "tool mcp[31mtool");
 });
