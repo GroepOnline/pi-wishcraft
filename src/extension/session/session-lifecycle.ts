@@ -17,6 +17,7 @@ import {
   onVibeBeforeAgentStart,
   onVibeToolCall,
   setVibeWorkingMessageColor,
+  shutdownVibeManager,
 } from "../../working-vibes/index.ts";
 import { estimateUnknownContextUsage } from "../../usage/context.ts";
 import {
@@ -233,6 +234,9 @@ export function registerSessionLifecycle(
     rt.stashShortcutInputUnsubscribe = null;
     rt.shellSession?.dispose();
     rt.shellSession = null;
+    rt.studioAbort?.abort();
+    rt.studioAbort = null;
+    shutdownVibeManager();
     if (rt.queueDeliveryTimer) {
       clearTimeout(rt.queueDeliveryTimer);
       rt.queueDeliveryTimer = null;
@@ -299,6 +303,19 @@ export function registerSessionLifecycle(
     // Branch summaries bill their own LLM call — flush whatever landed.
     recordSessionUsageDelta(rt, ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
+  });
+
+  // Renaming a session changes what the session segment shows.
+  pi.on("session_info_changed", async (_event, ctx) => {
+    rt.currentCtx = ctx;
+    requestImmediateStatusRender(rt, { deferDuringTyping: false });
+  });
+
+  // turn_start fires per provider-request turn; agent_start sets the
+  // fallback. Without this, TTFT for turns 2+ divides by turn-1's start.
+  pi.on("turn_start", async (_event, ctx) => {
+    rt.currentCtx = ctx;
+    rt.turnStartedAt = Date.now();
   });
 
   // Generate themed working message before agent starts (has access to user's prompt)

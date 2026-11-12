@@ -45,6 +45,7 @@ import { installPowerlineWidgets } from "./powerline-widgets.ts";
 import {
   getPowerlineShortcutAction,
   isStashShortcutInput,
+  matchesCtrlSStashInput,
   runPowerlineShortcut,
   stashOrRestoreEditorText,
 } from "../shortcuts/shortcuts-router.ts";
@@ -314,7 +315,7 @@ export function setupCustomEditor(
         return;
       }
 
-      if (isStashShortcutInput(data)) {
+      if (isStashShortcutInput(data) || matchesCtrlSStashInput(data)) {
         stashOrRestoreEditorText(rt, ctx);
         scheduleDismissWelcome(rt, ctx);
         return;

@@ -73,6 +73,81 @@ test("advice-pane: onChunk callback fires per delta", async () => {
   assert.deepEqual(seen, ["x", "y"]);
 });
 
+test("advice-pane: a superseded run's late chunks and verdict never reach the pane", async () => {
+  const pane = createAdvicePane();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const slow: AdviseStreamProvider = {
+    stream: async function* () {
+      await gate;
+      yield { delta: "stale" };
+    },
+  };
+  const stale = pane.run({ ...baseOpts, provider: slow, signal: new AbortController().signal });
+  await pane.run({ ...baseOpts, provider: fixedStream("fresh"), signal: new AbortController().signal });
+  release();
+  await stale;
+  assert.equal(pane.text, "fresh");
+  assert.equal(pane.state, "ok");
+  assert.equal(pane.error, null);
+});
+
+test("advice-pane: a superseded run's stream failure is swallowed silently", async () => {
+  const pane = createAdvicePane();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const failing: AdviseStreamProvider = {
+    stream: async function* () {
+      yield { delta: "stale" };
+      await gate;
+      throw new Error("stale boom");
+    },
+  };
+  const stale = pane.run({ ...baseOpts, provider: failing, signal: new AbortController().signal });
+  await pane.run({ ...baseOpts, provider: fixedStream("fresh"), signal: new AbortController().signal });
+  release();
+  await stale; // resolves — a dead run must not surface its error
+  assert.equal(pane.state, "ok");
+  assert.equal(pane.text, "fresh");
+  assert.equal(pane.error, null);
+});
+
+test("advice-pane: a live run's stream failure marks the pane unavailable and still throws", async () => {
+  const pane = createAdvicePane();
+  const failing: AdviseStreamProvider = {
+    stream: async function* () {
+      yield { delta: "partial" };
+      throw new Error("provider boom");
+    },
+  };
+  await assert.rejects(
+    pane.run({ ...baseOpts, provider: failing, signal: new AbortController().signal }),
+    /provider boom/,
+  );
+  assert.equal(pane.state, "unavailable");
+  assert.equal(pane.error, "provider boom");
+  assert.equal(pane.text, "partial");
+});
+
+test("advice-pane: reset while a run is in flight drops its late chunks", async () => {
+  const pane = createAdvicePane();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const slow: AdviseStreamProvider = {
+    stream: async function* () {
+      await gate;
+      yield { delta: "late" };
+    },
+  };
+  const pending = pane.run({ ...baseOpts, provider: slow, signal: new AbortController().signal });
+  pane.reset();
+  release();
+  await pending;
+  assert.equal(pane.state, "idle");
+  assert.equal(pane.text, "");
+  assert.equal(pane.error, null);
+});
+
 test("advice-pane: insert into a fake session appends the buffer text", () => {
   const pane = createAdvicePane();
   pane.text = "draft advice";

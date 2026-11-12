@@ -121,21 +121,30 @@ async function localWikiContext(entry: SkillEntry, notify: (message: string, typ
 }
 
 async function runAdviceFor(
+  rt: RuntimeState,
   ctx: StudioContext,
   entry: SkillEntry,
   mode: "explain" | "integrate" | "examples" | "improve",
   pane: ReturnType<typeof createAdvicePane>,
 ): Promise<void> {
+  // One advice stream at a time: a new run or shutdown cancels the last.
+  rt.studioAbort?.abort();
+  rt.studioAbort = new AbortController();
+  const signal = rt.studioAbort.signal;
   const model = ctx.model;
   const registry = ctx.modelRegistry;
   const provider = model && registry ? registry.getProvider(model.provider) : undefined;
   if (!model || !registry || !provider) {
-    await pane.run({ mode, skillName: entry.name, body: readSkillBody(entry.filePath), references: referencesFor(entry), wiki: [], provider: null, signal: new AbortController().signal });
+    await pane.run({ mode, skillName: entry.name, body: readSkillBody(entry.filePath), references: referencesFor(entry), wiki: [], provider: null, signal });
     return;
   }
   const auth = await registry.getApiKeyAndHeaders(model);
+  // The run was superseded (or the studio/session closed) while auth
+  // resolved: reaching pane.run now would claim a fresh sequence number and
+  // wipe the newer run's pane state.
+  if (signal.aborted) return;
   if (!auth.ok) {
-    await pane.run({ mode, skillName: entry.name, body: readSkillBody(entry.filePath), references: referencesFor(entry), wiki: [], provider: null, signal: new AbortController().signal });
+    await pane.run({ mode, skillName: entry.name, body: readSkillBody(entry.filePath), references: referencesFor(entry), wiki: [], provider: null, signal });
     return;
   }
   const requestModel = auth.baseUrl ? { ...model, baseUrl: auth.baseUrl } : model;
@@ -153,6 +162,8 @@ async function runAdviceFor(
   };
   const references = referencesFor(entry);
   const wiki = await localWikiContext(entry, (message, type) => ctx.ui.notify(message, type));
+  // Same check after the wiki await: a dead run must never claim the pane.
+  if (signal.aborted) return;
   await pane.run({
     mode,
     skillName: entry.name,
@@ -161,7 +172,7 @@ async function runAdviceFor(
     wiki,
     provider: streamProvider,
     model: { id: model.id, contextWindow: model.contextWindow, maxTokens: model.maxTokens },
-    signal: new AbortController().signal,
+    signal,
   });
 }
 
@@ -197,7 +208,13 @@ export async function openSkillStudio(
   let entries = loadSkillStudioCatalog(cwd);
   await ctx.ui.custom(
     (_tui: unknown, theme: any, _keybindings: unknown, done: (value: string | null) => void) =>
-      createStudioComponent(theme, done, undefined, {
+      createStudioComponent(theme, (value) => {
+        // Closing the studio cancels any in-flight advice run — same owner
+        // as the session_shutdown abort in session-lifecycle.ts.
+        rt.studioAbort?.abort();
+        rt.studioAbort = null;
+        done(value);
+      }, undefined, {
         entries,
         usage: getSkillUsage(),
         advicePane: pane,
@@ -219,7 +236,7 @@ export async function openSkillStudio(
           const result = await runStudioAction({ type: "doctor", cwd }, { confirm: async () => false });
           ctx.ui.notify(result.message, result.kind === "error" ? "error" : "info");
         },
-        onAdvice: (entry, mode, targetPane) => runAdviceFor(ctx, entry, mode, targetPane),
+        onAdvice: (entry, mode, targetPane) => runAdviceFor(rt, ctx, entry, mode, targetPane),
         onInsert: (targetPane) => {
           if (!ctx.ui.getEditorText || !ctx.ui.setEditorText) return;
           advicePaneInsert(targetPane, {

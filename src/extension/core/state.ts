@@ -124,6 +124,7 @@ export function createRuntimeState(
     bashTranscript: new BashTranscriptStore(bashModeSettings),
     bashCompletionEngine: new BashCompletionEngine(),
     shellSession: null,
+    studioAbort: null,
     queueStore: new PowerlineQueueStore(),
     powerlineCompacting: false,
     deliverAfterRetrySettles: false,

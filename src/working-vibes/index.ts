@@ -13,6 +13,7 @@ export {
   onVibeAgentStart,
   onVibeToolCall,
   onVibeAgentEnd,
+  shutdownVibeManager,
   getVibeMode,
   setVibeMode,
   hasVibeFile,
