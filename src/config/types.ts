@@ -457,6 +457,7 @@ export interface SegmentContext {
     | undefined;
   thinkingLevel: string;
   sessionId: string | undefined;
+  sessionName?: string | undefined;
   cwd?: string;
 
   // Computed

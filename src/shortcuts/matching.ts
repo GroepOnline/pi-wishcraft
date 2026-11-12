@@ -48,6 +48,15 @@ export function matchesConfiguredShortcut(data: string, shortcut: string | null 
   return matchesKey(data, shortcut as KeyId);
 }
 
+export function matchesCtrlSStashInput(data: string): boolean {
+  if (isKeyRelease(data)) return false;
+
+  return data === "\x13"
+    || /^\x1b\[(?:83|115)(?::\d*)?(?::\d*)?;5(?::\d+)?u$/.test(data)
+    || data === "\x1b[27;5;115~"
+    || data === "\x1b[27;5;83~";
+}
+
 export function matchesStashShortcutInput(data: string, options: { includePrintableSharpS?: boolean } = {}): boolean {
   if (isKeyRelease(data)) return false;
 

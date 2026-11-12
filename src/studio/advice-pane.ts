@@ -18,11 +18,13 @@ export interface AdvicePaneCallbacks {
 }
 
 export function createAdvicePane(): AdvicePane {
+  let runSeq = 0;
   const pane: AdvicePane = {
     state: "idle",
     text: "",
     error: null,
     async run(opts) {
+      const seq = ++runSeq;
       pane.state = "running";
       pane.text = "";
       pane.error = null;
@@ -37,10 +39,14 @@ export function createAdvicePane(): AdvicePane {
         model: opts.model,
         signal: opts.signal,
         onChunk: (delta) => {
+          if (seq !== runSeq) return;
           pane.text += delta;
           opts.callbacks?.onChunk?.(delta);
         },
       });
+      // A newer run started while this one was in flight — its verdict
+      // (or text chunks) must not overwrite the fresh state.
+      if (seq !== runSeq) return;
       if (result.kind === "ok") {
         pane.state = "ok";
         pane.error = null;
@@ -50,6 +56,7 @@ export function createAdvicePane(): AdvicePane {
       }
     },
     reset() {
+      runSeq++;
       pane.state = "idle";
       pane.text = "";
       pane.error = null;

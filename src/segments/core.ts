@@ -268,7 +268,8 @@ export const sessionSegment: StatusLineSegment = {
   render(ctx) {
     const icons = getIcons();
     const sessionId = ctx.sessionId;
-    const display = sessionId?.slice(0, 8) || "new";
+    const display =
+      ctx.sessionName?.trim() || sessionId?.slice(0, 8) || "new";
 
     return { content: withIcon(icons.session, display), visible: true };
   },

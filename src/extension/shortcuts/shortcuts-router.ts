@@ -221,6 +221,8 @@ export function isStashShortcutInput(data: string): boolean {
   });
 }
 
+export { matchesCtrlSStashInput } from "../../shortcuts/matching.ts";
+
 export function isPromptHistoryShortcutInput(
   rt: RuntimeState,
   data: string,

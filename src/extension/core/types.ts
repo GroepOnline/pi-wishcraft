@@ -83,6 +83,7 @@ export interface RuntimeState {
   bashTranscript: BashTranscriptStore;
   bashCompletionEngine: BashCompletionEngine;
   shellSession: ManagedShellSessionLike | null;
+  studioAbort: AbortController | null;
   queueStore: PowerlineQueueStore;
   powerlineCompacting: boolean;
   deliverAfterRetrySettles: boolean;

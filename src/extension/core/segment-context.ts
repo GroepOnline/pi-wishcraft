@@ -132,7 +132,10 @@ export interface BuildSegmentContextOptions {
  * instead of silently rendering defaults at runtime.
  */
 export interface SegmentSourceContext {
-  sessionManager?: { getSessionId?: () => string | undefined };
+  sessionManager?: {
+    getSessionId?: () => string | undefined;
+    getSessionName?: () => string | undefined;
+  };
   model?: SegmentContext["model"];
   modelRegistry?: {
     // Pi types this as `(model: Model<Api>) => boolean`. Method-bivariance
@@ -280,6 +283,7 @@ export function buildSegmentContext(
     model: ctx.model,
     thinkingLevel,
     sessionId: ctx.sessionManager?.getSessionId?.(),
+    sessionName: ctx.sessionManager?.getSessionName?.(),
     cwd: ctx.cwd,
     usageStats: { input, output, cacheRead, cacheWrite, cost, subagentCost },
     lastRequestCache: tokenStats.lastRequestCache,

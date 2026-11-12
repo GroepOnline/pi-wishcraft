@@ -222,6 +222,18 @@ export function onVibeAgentEnd(
   setWorkingMessage(undefined);
 }
 
+/**
+ * Session is going away — drop live handles, cancel in-flight work.
+ * Config, cache and recent-vibe history deliberately survive; only the
+ * generation controller, streaming flag and extension ctx are cleared.
+ */
+export function shutdownVibeManager(): void {
+  vibeState.isStreaming = false;
+  vibeState.currentGeneration?.abort();
+  vibeState.currentGeneration = null;
+  vibeState.extensionCtx = null;
+}
+
 export function getVibeMode(): VibeMode {
   return vibeState.config.mode;
 }
