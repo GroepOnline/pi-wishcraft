@@ -25,6 +25,9 @@ const DEFAULT_COLORS: Required<ColorScheme> = {
   thinkingMinimal: "thinkingMinimal",
   thinkingLow: "thinkingLow",
   thinkingMedium: "thinkingMedium",
+  thinkingHigh: "rainbow",
+  thinkingXhigh: "rainbow",
+  thinkingMax: "rainbow",
   context: "dim",
   contextWarn: "warning",
   contextError: "error",
@@ -189,6 +192,9 @@ export function applyColor(
   color: ColorValue,
   text: string,
 ): string {
+  if (color === "rainbow") {
+    return rainbow(text);
+  }
   if (typeof color === "string" && /^#[0-9a-fA-F]{6}$/.test(color)) {
     return `${hexToRgbAnsi(color)}${text}\x1b[0m`;
   }

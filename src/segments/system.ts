@@ -32,7 +32,13 @@ export const thinkingSegment: StatusLineSegment = {
     const content = `think:${label}`;
 
     if (level === "high" || level === "xhigh" || level === "max") {
-      return { content: color(ctx, "thinking", content), visible: true };
+      const highKey =
+        level === "high"
+          ? "thinkingHigh"
+          : level === "xhigh"
+            ? "thinkingXhigh"
+            : "thinkingMax";
+      return { content: color(ctx, highKey, content), visible: true };
     }
 
     if (level === "minimal") {

@@ -36,6 +36,11 @@ export function isSessionAssistantMessage(value: unknown): value is AssistantMes
 }
 
 export function getUsageTokenTotal(usage: SessionAssistantUsage): number {
+  // Prefer the provider-reported total: it can cover token kinds the four
+  // fields miss (e.g. reasoning on providers that don't itemize).
+  if (typeof usage.totalTokens === "number" && usage.totalTokens > 0) {
+    return usage.totalTokens;
+  }
   return usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
 }
 
