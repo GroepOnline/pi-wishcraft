@@ -73,7 +73,8 @@
     "audit": "bun scripts/audit-gate.mjs",
     "preview": "bun scripts/preview.mjs",
     "verify:pi-package": "bun scripts/verify-pi-package-contract.mjs",
-    "hooks:install": "git config core.hooksPath .githooks"
+    "hooks:install": "git config core.hooksPath .githooks",
+    "test:integration": "node --experimental-strip-types --test tests/pi-host-rpc.test.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

@@ -15,6 +15,7 @@ import { isRecord, readSettings } from "../settings/settings-io.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { pickNextReviewIdea } from "../queue/idea-review.ts";
+import { debugLog } from "../core/debug-log.ts";
 
 /**
  * Three next steps for an operator who has never run Wishcraft before.
@@ -309,7 +310,7 @@ export function setupWelcomeOverlay(rt: RuntimeState, ctx: any) {
         },
       )
       .catch((error: unknown) => {
-        console.debug("[wishcraft] Welcome overlay failed:", error);
+        debugLog("[wishcraft] Welcome overlay failed:", error);
       });
   }, 100);
 }

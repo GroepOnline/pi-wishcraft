@@ -11,6 +11,7 @@ import type {
 import { normalizeContext } from "@earendil-works/pi-ai";
 import { requirePeerSymbol } from "../extension/core/peer-guard.ts";
 import { VIBE_SYSTEM_PROMPT, vibeState } from "./storage.ts";
+import { debugLog } from "../extension/core/debug-log.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -136,7 +137,7 @@ export async function generateVibe(
   // Resolve model from registry
   const model = vibeState.extensionCtx.modelRegistry.find(provider, modelId);
   if (!model) {
-    console.debug(
+    debugLog(
       `[working-vibes] Model not found: ${vibeState.config.modelSpec}`,
     );
     return `${vibeState.config.fallback}...`;
@@ -146,7 +147,7 @@ export async function generateVibe(
   const auth =
     await vibeState.extensionCtx.modelRegistry.getApiKeyAndHeaders(model);
   if (!auth.ok) {
-    console.debug(`[working-vibes] Auth failed for ${provider}: ${auth.error}`);
+    debugLog(`[working-vibes] Auth failed for ${provider}: ${auth.error}`);
     return `${vibeState.config.fallback}...`;
   }
 
@@ -164,7 +165,7 @@ export async function generateVibe(
     response.stopReason === "error" &&
     response.errorMessage
   ) {
-    console.debug(
+    debugLog(
       `[working-vibes] Vibe generation failed for ${vibeState.config.modelSpec}: ${response.errorMessage}`,
     );
   }

@@ -17,6 +17,7 @@ import type {
   PowerlineShortcuts,
   ShortcutBinding,
 } from "../core/types.ts";
+import { debugLog } from "../core/debug-log.ts";
 
 const APP_RESERVED_SHORTCUTS = [
   "escape",
@@ -283,13 +284,13 @@ export function resolveShortcutConfig(
 
     const replacement = findShortcutReplacement(key, used);
     if (!replacement) {
-      console.debug(
+      debugLog(
         `[wishcraft] Shortcut conflict for ${key}: "${configured}" is already in use`,
       );
       continue;
     }
 
-    console.debug(
+    debugLog(
       `[wishcraft] Shortcut conflict for ${key}: "${configured}" replaced with "${replacement}"`,
     );
 
@@ -334,7 +335,7 @@ export function parseBashModeSettings(
         : fallbackToggleShortcut;
 
   if (configuredToggleShortcut && toggleShortcut !== configuredToggleShortcut) {
-    console.debug(
+    debugLog(
       `[wishcraft] Bash mode shortcut conflict: "${configuredToggleShortcut}" replaced with "${toggleShortcut ?? "disabled"}"`,
     );
   }

@@ -55,6 +55,8 @@ export interface RuntimeState {
   liveAssistantUsage: SessionAssistantUsage | null;
   isStreaming: boolean;
   tuiRef: any;
+  /** Pushes fresh widget string[] over the rpc UI subprotocol; null under tui. */
+  rpcWidgetRefresh: (() => void) | null;
   restoreFooterStatusRepaintHook: (() => void) | null;
   stashShortcutInputUnsubscribe: (() => void) | null;
   dismissWelcomeOverlay: (() => void) | null;

@@ -45,6 +45,7 @@ import {
   finishFailedCompaction,
 } from "../queue/queue-integration.ts";
 import { setupCustomEditor } from "../ui/custom-editor.ts";
+import { disposeRpcWidgets, installRpcWidgets } from "../ui/rpc-widgets.ts";
 import {
   setupWelcomeHeader,
   setupWelcomeOverlay,
@@ -175,15 +176,28 @@ export function registerSessionLifecycle(
     initVibeManager(ctx);
 
     if (rt.enabled && ctx.hasUI) {
-      setupCustomEditor(pi, rt, ctx);
-      if (shouldShowStartupWelcome(event.reason, config.welcome)) {
-        if (settings.quietStartup === true) {
-          setupWelcomeHeader(rt, ctx);
-        } else {
-          setupWelcomeOverlay(rt, ctx);
+      if (ctx.mode === "rpc") {
+        // In rpc mode component factories, custom overlays, the editor and
+        // footer/header are all no-ops; widgets only cross the wire as
+        // string[] lines. `ctx.hasUI` is still true, so gate on the mode.
+        installRpcWidgets(rt, ctx);
+        if (shouldShowStartupWelcome(event.reason, config.welcome)) {
+          ctx.ui.notify(
+            `Wishcraft cockpit active (preset: ${config.preset})`,
+            "info",
+          );
         }
       } else {
-        dismissWelcome(rt, ctx);
+        setupCustomEditor(pi, rt, ctx);
+        if (shouldShowStartupWelcome(event.reason, config.welcome)) {
+          if (settings.quietStartup === true) {
+            setupWelcomeHeader(rt, ctx);
+          } else {
+            setupWelcomeOverlay(rt, ctx);
+          }
+        } else {
+          dismissWelcome(rt, ctx);
+        }
       }
       maybeNotifyTokenBudget(rt, ctx, settings);
     }
@@ -220,6 +234,8 @@ export function registerSessionLifecycle(
     rt.liveAssistantUsage = null;
     rt.tokenBudgetSnapshot = { day: "", dailyLimit: null, dailyUsed: 0 };
     rt.tuiRef = null;
+    rt.rpcWidgetRefresh = null;
+    disposeRpcWidgets();
     rt.currentEditor = null;
     resetLayoutCache(rt);
   });

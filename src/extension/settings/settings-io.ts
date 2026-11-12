@@ -12,6 +12,7 @@ import {
   nextPowerlineSettingWithPreset,
 } from "../../config/powerline-config.ts";
 import { getAgentPath } from "../../paths/agent-dirs.ts";
+import { debugLog } from "../core/debug-log.ts";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -60,7 +61,7 @@ export function readSettingsFile(
 
     const parsed = JSON.parse(readFileSync(settingsPath, "utf-8"));
     if (!isRecord(parsed)) {
-      console.debug(
+      debugLog(
         `[wishcraft] Ignoring non-object settings at ${settingsPath}`,
       );
       return {};
@@ -70,7 +71,7 @@ export function readSettingsFile(
   } catch (error) {
     // Settings are user-edited input. Log and keep the extension running with defaults
     // instead of crashing the UI during startup.
-    console.debug(
+    debugLog(
       `[wishcraft] Failed to read settings from ${settingsPath}:`,
       error,
     );
@@ -88,7 +89,7 @@ export function readWritableSettingsFile(
   try {
     const parsed = JSON.parse(readFileSync(settingsPath, "utf-8"));
     if (!isRecord(parsed)) {
-      console.debug(
+      debugLog(
         `[wishcraft] Refusing to write settings to non-object file at ${settingsPath}`,
       );
       return null;
@@ -98,7 +99,7 @@ export function readWritableSettingsFile(
   } catch (error) {
     // Do not overwrite malformed user settings with partial data. Surface the failure
     // through the command handler so the user can fix the file intentionally.
-    console.debug(
+    debugLog(
       `[wishcraft] Failed to parse settings at ${settingsPath}:`,
       error,
     );
@@ -115,7 +116,7 @@ export function readCompactionPolicyEnabled(
     if (!isRecord(parsed) || typeof parsed.enabled !== "boolean") return false;
     return parsed.enabled;
   } catch (error) {
-    console.debug(
+    debugLog(
       `[wishcraft] Failed to read compaction policy from ${configPath}:`,
       error,
     );
@@ -171,7 +172,7 @@ export function writeSettingKey(
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     return true;
   } catch (error) {
-    console.debug(
+    debugLog(
       `[wishcraft] Failed to persist setting '${key}' to ${settingsPath}:`,
       error,
     );

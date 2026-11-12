@@ -7,6 +7,7 @@ import { getAgentPath } from "../../paths/agent-dirs.ts";
 import { isRecord } from "../settings/settings-io.ts";
 import { hasNonWhitespaceText } from "./prompt-history.ts";
 import { STASH_HISTORY_LIMIT } from "../core/constants.ts";
+import { debugLog } from "../core/debug-log.ts";
 
 export function getStashHistoryPath(): string {
   return getAgentPath("powerline-footer", "stash-history.json");
@@ -50,7 +51,7 @@ export function readPersistedStashHistory(): string[] {
 
     const parsed = JSON.parse(readFileSync(stashHistoryPath, "utf-8"));
     if (!isRecord(parsed)) {
-      console.debug(
+      debugLog(
         `[wishcraft] Ignoring invalid stash history at ${stashHistoryPath}`,
       );
       return [];
@@ -58,7 +59,7 @@ export function readPersistedStashHistory(): string[] {
 
     return normalizeStashHistoryEntries(parsed.history);
   } catch (error) {
-    console.debug(
+    debugLog(
       `[wishcraft] Failed to read stash history from ${stashHistoryPath}:`,
       error,
     );
@@ -77,7 +78,7 @@ export function persistStashHistory(history: string[]): void {
     mkdirSync(dirname(stashHistoryPath), { recursive: true });
     writeFileSync(stashHistoryPath, JSON.stringify(payload, null, 2) + "\n");
   } catch (error) {
-    console.debug(
+    debugLog(
       `[wishcraft] Failed to persist stash history to ${stashHistoryPath}:`,
       error,
     );

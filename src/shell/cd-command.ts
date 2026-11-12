@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { SessionManager, type ExtensionAPI, type ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteItem } from "@earendil-works/pi-tui";
+import { debugLog } from "../extension/core/debug-log.ts";
 
 function stripMatchingQuotes(value: string): string {
   const trimmed = value.trim();
@@ -160,7 +161,7 @@ export async function runCdCommand(args: string, ctx: ExtensionCommandContext): 
           nextCtx.ui.notify(`Changed directory to ${nextCtx.cwd}`, "info");
           nextCtx.ui.setTitle(`pi - ${basename(nextCtx.cwd) || nextCtx.cwd}`);
         } catch (error) {
-          console.debug("[wishcraft] Failed to update process cwd after /cd:", error);
+          debugLog("[wishcraft] Failed to update process cwd after /cd:", error);
         }
       },
     });
@@ -174,7 +175,7 @@ export async function runCdCommand(args: string, ctx: ExtensionCommandContext): 
     try {
       ctx.ui.notify(`Failed to change directory: ${message}`, "error");
     } catch {
-      console.debug("[wishcraft] Failed to report /cd error:", error);
+      debugLog("[wishcraft] Failed to report /cd error:", error);
     }
   }
 }

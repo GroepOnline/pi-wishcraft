@@ -106,6 +106,7 @@ export function createRuntimeState(
     liveAssistantUsage: null,
     isStreaming: false,
     tuiRef: null,
+    rpcWidgetRefresh: null,
     restoreFooterStatusRepaintHook: null,
     stashShortcutInputUnsubscribe: null,
     dismissWelcomeOverlay: null,
@@ -166,6 +167,7 @@ export function createRuntimeState(
     }
 
     rt.tuiRef?.requestRender();
+    rt.rpcWidgetRefresh?.();
   }, STATUS_RENDER_DEBOUNCE_MS);
 
   rt.motionScheduler = new MotionScheduler({
@@ -173,6 +175,7 @@ export function createRuntimeState(
       // Motion only changes the Signal rail; segment data remains cached.
       rt.lastLayoutResult = null;
       rt.tuiRef?.requestRender();
+      rt.rpcWidgetRefresh?.();
     },
   });
 
