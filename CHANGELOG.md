@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-11-12
+
 ### Fixed
 - **Git probes no longer race interactive git.** Every read-only `git` spawn (`src/git/status.ts`, `bash-mode/completion.ts`) now runs with `GIT_OPTIONAL_LOCKS=0` and `windowsHide: true`, so status polling can't refresh `.git/index` under a real checkout and orphaned `index.lock` files stop bricking the repo.
 - **Think levels high/xhigh/max got their rainbow back.** The thinking segment collapsed all three into the plain `thinking` color; it now uses dedicated `thinkingHigh`/`thinkingXhigh`/`thinkingMax` semantic colors (default `rainbow`, overridable per preset — the `rainbow` ColorValue itself is new).
