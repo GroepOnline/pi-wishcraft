@@ -89,7 +89,7 @@ export const SETTINGS_REGISTRY = [
   { id: "status.git.aheadBehind", path: "powerline.segmentOptions.git.showAheadBehind", group: "status", label: "Git ahead/behind", kind: "toggle" },
   { id: "status.git.latestCommit", path: "powerline.segmentOptions.git.showCommit", group: "status", label: "Git latest commit", kind: "toggle" },
   { id: "status.context.format", path: "powerline.segmentOptions.context.format", group: "status", label: "Context format", kind: "select", choices: ["full", "percent"] },
-  { id: "status.cacheRead.format", path: "powerline.segmentOptions.cache_read.format", group: "status", label: "Cache-read format", kind: "select", choices: ["tokens", "percent", "both"] },
+  { id: "status.cacheRead.format", path: "powerline.segmentOptions.cache_read.format", group: "status", label: "Cache-read format", kind: "select", choices: ["tokens", "percent", "both", "request", "session-request"] },
   { id: "status.cost.display", path: "powerline.segmentOptions.cost.subscriptionDisplay", group: "status", label: "Cost display", kind: "select", choices: ["subscription", "reported-cost", "both"] },
   { id: "status.cost.currency", path: "powerline.segmentOptions.cost.currency", group: "status", label: "Currency", kind: "text" },
   { id: "status.ports.udp", path: "powerline.segmentOptions.openPorts.includeUdp", group: "status", label: "Ports include UDP", kind: "toggle" },

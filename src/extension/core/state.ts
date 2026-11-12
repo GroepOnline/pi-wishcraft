@@ -101,6 +101,7 @@ export function createRuntimeState(
     footerDataRef: null,
     getThinkingLevelFn: null,
     currentThinkingLevel: null,
+    approximateContextUsage: null,
     liveAssistantUsage: null,
     isStreaming: false,
     tuiRef: null,

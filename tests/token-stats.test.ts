@@ -105,18 +105,18 @@ test("computeSessionTokenStats aggregates usage and tracks thinking level", () =
     userEvent(),
     { type: "thinking_level_change", thinkingLevel: "high" },
     assistantEvent(makeUsage(10, 5)),
-    assistantEvent(makeUsage(20, 7, 3, 2), "error"), // skipped: error
-    assistantEvent(makeUsage(30, 9, 4, 1), "aborted"), // skipped: aborted
+    assistantEvent(makeUsage(20, 7, 3, 2), "error"), // billed: error
+    assistantEvent(makeUsage(30, 9, 4, 1), "aborted"), // billed: aborted
     assistantEvent(makeUsage(40, 11, 6, 2)),
   ];
 
   const stats = computeSessionTokenStats(events);
 
-  assert.equal(stats.input, 50);
-  assert.equal(stats.output, 16);
-  assert.equal(stats.cacheRead, 6);
-  assert.equal(stats.cacheWrite, 2);
-  assert.ok(Math.abs(stats.cost - 0.074) < 1e-12);
+  assert.equal(stats.input, 100);
+  assert.equal(stats.output, 32);
+  assert.equal(stats.cacheRead, 13);
+  assert.equal(stats.cacheWrite, 5);
+  assert.ok(Math.abs(stats.cost - 0.15) < 1e-12);
   assert.equal(stats.lastAssistant, (events[5] as any).message);
   assert.equal(stats.thinkingLevelFromSession, "high");
 });
@@ -212,7 +212,11 @@ test("cache recomputes when the last event turns into an error in place", () => 
 
   const second = cache.get(events);
   assert.notEqual(second, first);
-  assert.equal(second.input, 1);
+  // Error messages are billed now — totals stay put, only the
+  // signature-driven recompute is under test here.
+  assert.equal(second.input, 11);
+  assert.equal(first.lastAssistant, tail.message);
+  assert.equal(second.lastAssistant, events[0].message);
 });
 
 test("cache recomputes when the last event is replaced with a same-sized list", () => {

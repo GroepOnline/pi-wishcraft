@@ -311,9 +311,9 @@ export function buildSegmentDetailLines(
     case "context_total":
       return [
         ...common,
-        { label: "tokens", value: String(segCtx.contextTokens) },
+        { label: "tokens", value: String(segCtx.contextTokens ?? "?") },
         { label: "window", value: String(segCtx.contextWindow) },
-        { label: "percent", value: `${segCtx.contextPercent.toFixed(1)}%` },
+        { label: "percent", value: `${segCtx.contextPercent?.toFixed(1) ?? "?"}%` },
         {
           label: "auto-compact",
           value: segCtx.autoCompactEnabled ? "on" : "off",

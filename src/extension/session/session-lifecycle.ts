@@ -18,6 +18,7 @@ import {
   onVibeToolCall,
   setVibeWorkingMessageColor,
 } from "../../working-vibes/index.ts";
+import { estimateUnknownContextUsage } from "../../usage/context.ts";
 import {
   getUsageTokenTotal,
   isSessionAssistantMessage,
@@ -126,6 +127,10 @@ export function registerSessionLifecycle(
     rt.sessionGeneration++;
     rt.sessionStartTime = Date.now();
     rt.currentCtx = ctx;
+    // Reloaded sessions start without measured context tokens — estimate
+    // from the restored branch so the bar shows ~x% instead of stale data.
+    rt.approximateContextUsage =
+      event.reason === "reload" ? estimateUnknownContextUsage(ctx) : null;
     setCustomCompactionEnabled(detectCustomCompactionEnabled(ctx.cwd));
     rt.lastUserPrompt = "";
     rt.isStreaming = false;
@@ -211,6 +216,7 @@ export function registerSessionLifecycle(
     // the day file before the session state is torn down.
     recordSessionUsageDelta(rt, ctx);
     rt.sessionUsageBaseline = null;
+    rt.approximateContextUsage = null;
     clearSkillsCountPublisher();
     rt.sessionGeneration++;
     rt.dismissWelcomeOverlay?.();
@@ -331,6 +337,9 @@ export function registerSessionLifecycle(
       getUsageTokenTotal(event.message.usage) > 0
     ) {
       rt.liveAssistantUsage = event.message.usage;
+      // Real provider usage arrived — drop the post-compaction estimate so it
+      // cannot keep outranking measured context for the rest of the stream.
+      rt.approximateContextUsage = null;
       rt.currentCtx = ctx;
       rt.layoutDirty = true;
       try {
@@ -356,6 +365,7 @@ export function registerSessionLifecycle(
         rt.liveAssistantUsage = null;
       } else if (getUsageTokenTotal(event.message.usage) > 0) {
         rt.liveAssistantUsage = event.message.usage;
+        rt.approximateContextUsage = null;
       }
     }
     recordSessionUsageDelta(rt, ctx);
@@ -375,6 +385,10 @@ export function registerSessionLifecycle(
 
   pi.on("session_before_compact", async (_event, ctx) => {
     rt.powerlineCompacting = true;
+    rt.approximateContextUsage = null;
+    rt.isStreaming = false;
+    rt.liveAssistantUsage = null;
+    rt.coreContextUsageCache.reset();
     rt.currentCtx = ctx;
     requestQueueRender(rt);
     dispatchSignalEvent(rt, config.appearance, "compact");
@@ -388,6 +402,9 @@ export function registerSessionLifecycle(
     rt.coreContextUsageCache.reset();
     // The compaction entry carries the summary call's usage on the ledger.
     recordSessionUsageDelta(rt, ctx);
+    // Pi reports tokens===null until the next request lands; estimate the
+    // post-compact context so the bar shows ~x% instead of jumping to 0.
+    rt.approximateContextUsage = estimateUnknownContextUsage(ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     if (event.willRetry) {
       rt.deliverAfterRetrySettles = true;
@@ -406,6 +423,7 @@ export function registerSessionLifecycle(
   pi.on("session_compact_failed", async (event, ctx) => {
     rt.powerlineCompacting = false;
     rt.deliverAfterRetrySettles = false;
+    rt.approximateContextUsage = null;
     rt.currentCtx = ctx;
     rt.coreContextUsageCache.reset();
     requestImmediateStatusRender(rt, { deferDuringTyping: false });

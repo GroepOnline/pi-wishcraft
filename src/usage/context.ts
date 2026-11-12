@@ -1,7 +1,13 @@
+import {
+  estimateTokens,
+  sessionEntryToContextMessages,
+} from "@earendil-works/pi-coding-agent";
+
 export interface CoreContextUsage {
-  contextTokens: number;
+  /** null when Pi has not measured real context tokens yet (post-compaction gap). */
+  contextTokens: number | null;
   contextWindow: number;
-  contextPercent: number;
+  contextPercent: number | null;
 }
 
 interface ContextUsageSource {
@@ -78,20 +84,128 @@ export function readCoreContextUsage(ctx: unknown): CoreContextUsage | null {
   }
 
   const u = usage as any;
-  if (!("tokens" in u) || typeof u.tokens !== "number" || !Number.isFinite(u.tokens)) {
+  if (!("tokens" in u) || !(typeof u.tokens === "number" || u.tokens === null)) {
     return null;
   }
   if (!("contextWindow" in u) || typeof u.contextWindow !== "number" || !Number.isFinite(u.contextWindow) || u.contextWindow <= 0) {
     return null;
   }
 
-  const pct = "percent" in u && typeof u.percent === "number" && Number.isFinite(u.percent) 
-    ? u.percent 
-    : (u.tokens / u.contextWindow) * 100;
+  const tokens = typeof u.tokens === "number" && Number.isFinite(u.tokens) ? u.tokens : null;
+  const pct =
+    "percent" in u && typeof u.percent === "number" && Number.isFinite(u.percent)
+      ? u.percent
+      : tokens !== null
+        ? (tokens / u.contextWindow) * 100
+        : null;
 
   return {
-    contextTokens: u.tokens,
+    contextTokens: tokens,
     contextWindow: u.contextWindow,
     contextPercent: pct,
   };
+}
+
+interface UnknownContextEstimateSource {
+  sessionManager?: { buildContextEntries?: () => readonly unknown[] };
+  getContextUsage?: () => unknown;
+  getSystemPrompt?: () => string;
+  model?: { contextWindow?: number };
+}
+
+function isUnknownContextEstimateSource(
+  ctx: unknown,
+): ctx is UnknownContextEstimateSource & {
+  sessionManager: { buildContextEntries: () => readonly unknown[] };
+} {
+  const mgr = (ctx as any)?.sessionManager;
+  return (
+    typeof ctx === "object" &&
+    ctx !== null &&
+    typeof mgr === "object" &&
+    mgr !== null &&
+    typeof mgr.buildContextEntries === "function"
+  );
+}
+
+/**
+ * Estimate context usage while Pi reports tokens===null — the window right
+ * after a compaction, before the next request produces real usage. Builds the
+ * active branch's context entries and estimates token counts; the caller
+ * snapshots the result at the event boundary so it stays stable per render.
+ */
+export function estimateUnknownContextUsage(ctx: unknown): CoreContextUsage | null {
+  if (!isUnknownContextEstimateSource(ctx)) return null;
+
+  const rawUsage =
+    typeof (ctx as any).getContextUsage === "function"
+      ? (ctx as any).getContextUsage()
+      : null;
+  if (
+    rawUsage &&
+    typeof rawUsage === "object" &&
+    typeof (rawUsage as any).tokens === "number" &&
+    Number.isFinite((rawUsage as any).tokens)
+  ) {
+    return null; // real tokens already known — no estimate needed
+  }
+
+  const contextWindow =
+    (rawUsage && typeof (rawUsage as any).contextWindow === "number"
+      ? (rawUsage as any).contextWindow
+      : (ctx as any).model?.contextWindow) ?? 0;
+  if (contextWindow <= 0) return null;
+
+  let tokens = 0;
+  let sawSystemMessage = false;
+  try {
+    const entries = (ctx as any).sessionManager.buildContextEntries() as unknown[];
+    for (const entry of entries) {
+      for (const message of sessionEntryToContextMessages(entry as never)) {
+        tokens += estimateTokens(message);
+        if (message.role === "system") sawSystemMessage = true;
+      }
+    }
+  } catch {
+    return null;
+  }
+  // Compaction entries persist the active system message and
+  // sessionEntryToContextMessages yields it back, so getSystemPrompt() is only
+  // a fallback for sessions whose entries carry no system message at all —
+  // adding it unconditionally would count the same prompt twice.
+  if (!sawSystemMessage) {
+    const initial = estimateInitialContextTokens(ctx);
+    if (initial) tokens += initial;
+  }
+
+  return {
+    contextTokens: tokens,
+    contextWindow,
+    contextPercent: (tokens / contextWindow) * 100,
+  };
+}
+
+/**
+ * Display-order resolution: real core tokens win; a null-token core reading
+ * is covered by the session-scoped estimate; as a last resort the live
+ * assistant usage count fills the bar.
+ */
+export function resolveDisplayContextUsage(args: {
+  coreContextUsage: CoreContextUsage | null;
+  unknownCoreFallback: CoreContextUsage | null;
+  fallbackContextTokens: number;
+  fallbackContextWindow: number;
+}): CoreContextUsage | null {
+  const core = args.coreContextUsage;
+  if (core && core.contextTokens !== null) return core;
+  if (core && args.unknownCoreFallback) return args.unknownCoreFallback;
+  if (!core && args.unknownCoreFallback) return args.unknownCoreFallback;
+  if (args.fallbackContextTokens > 0 && args.fallbackContextWindow > 0) {
+    return {
+      contextTokens: args.fallbackContextTokens,
+      contextWindow: args.fallbackContextWindow,
+      contextPercent: (args.fallbackContextTokens / args.fallbackContextWindow) * 100,
+    };
+  }
+  return core;
 }

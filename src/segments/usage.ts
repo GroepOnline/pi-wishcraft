@@ -1,4 +1,4 @@
-import type { StatusLineSegment } from "../config/types.ts";
+import type { SegmentContext, StatusLineSegment } from "../config/types.ts";
 import { getIcons } from "../theme/icons.ts";
 import { formatUsdCost } from "../usage/rates.ts";
 import { costColorForBudget, tokenBudgetLevel } from "../usage/token-budget.ts";
@@ -91,19 +91,26 @@ export const contextPctSegment: StatusLineSegment = {
     if (ctx.customCompactionEnabled) return { content: "", visible: false };
 
     const icons = getIcons();
-    const { contextTokens, contextPercent, contextWindow } = ctx;
-    if (!contextWindow || !Number.isFinite(contextPercent)) {
+    const { contextTokens, contextPercent, contextWindow, contextApproximate } = ctx;
+    if (!contextWindow) {
       return { content: "", visible: false };
     }
 
     const autoIcon =
       ctx.autoCompactEnabled && icons.auto ? ` ${icons.auto}` : "";
     const percentOnly = ctx.options.context?.format === "percent";
+    const hasKnown = contextTokens !== null && contextPercent !== null;
+    const approx = contextApproximate ? "~" : "";
     // "full" (default): tokens/window + one-decimal percentage + auto-compact icon.
     // "percent": bare rounded percentage, threshold-colored, no icons.
+    // Unknown context (null): "?" — an estimate shows "~x%".
     const text = percentOnly
-      ? `${Math.round(contextPercent)}%`
-      : `${formatTokens(contextTokens)}/${formatTokens(contextWindow)} (${contextPercent.toFixed(1)}%)${autoIcon}`;
+      ? hasKnown
+        ? `${approx}${Math.round(contextPercent)}%`
+        : "?"
+      : hasKnown
+        ? `${approx}${formatTokens(contextTokens)}/${formatTokens(contextWindow)} (${contextPercent.toFixed(1)}%)${autoIcon}`
+        : `?/${formatTokens(contextWindow)}`;
 
     // Icon outside color, text inside - use semantic colors for thresholds
     let content: string;
@@ -112,9 +119,9 @@ export const contextPctSegment: StatusLineSegment = {
         ? color(ctx, semantic, text)
         : withIcon(icons.context, color(ctx, semantic, text));
     let semantic: "context" | "contextWarn" | "contextError";
-    if (contextPercent > 90) {
+    if (hasKnown && contextPercent > 90) {
       semantic = "contextError";
-    } else if (contextPercent > 70) {
+    } else if (hasKnown && contextPercent > 70) {
       semantic = "contextWarn";
     } else {
       semantic = "context";
@@ -123,8 +130,12 @@ export const contextPctSegment: StatusLineSegment = {
 
     // Append a compact 8-cell fill bar so usage is scannable at a glance.
     // Filled cells use the semantic color, empty cells use the muted separator.
-    const bar = contextFillBar(contextPercent, (s) => color(ctx, s, ""));
-    content = percentOnly ? baseContent : `${baseContent} ${bar}`;
+    // No bar for unknown ("?") — nothing real to fill.
+    const bar = hasKnown
+      ? contextFillBar(contextPercent, (s) => color(ctx, s, ""))
+      : "";
+    content =
+      percentOnly || !hasKnown ? baseContent : `${baseContent} ${bar}`;
 
     return { content, visible: true };
   },
@@ -216,28 +227,67 @@ export const contextTotalSegment: StatusLineSegment = {
   },
 };
 
+function hitRatePercent(
+  input: number,
+  cacheRead: number,
+  cacheWrite: number,
+): number | undefined {
+  const prompt = input + cacheRead + cacheWrite;
+  if (prompt === 0) return undefined;
+  return (cacheRead / prompt) * 100;
+}
+
+function percentText(rate: number | undefined): string {
+  return rate === undefined ? "--" : `${rate.toFixed(0)}%`;
+}
+
+/** Cache-write tokens are prompt tokens that missed — count them in the base. */
+function colorHitRate(
+  ctx: SegmentContext,
+  rate: number | undefined,
+  content: string,
+): string {
+  if (rate === undefined) return color(ctx, "tokens", content);
+  const key = rate < 30 ? "cacheHitError" : rate < 70 ? "cacheHitWarn" : "cacheHit";
+  return color(ctx, key, content);
+}
+
 export const cacheReadSegment: StatusLineSegment = {
   id: "cache_read",
   render(ctx) {
     const icons = getIcons();
-    const { cacheRead, input } = ctx.usageStats;
-    if (!cacheRead) return { content: "", visible: false };
-
+    const { cacheRead, cacheWrite, input } = ctx.usageStats;
     const format = ctx.options.cache_read?.format ?? "tokens";
-    const hitRate =
-      input + cacheRead > 0
-        ? ((cacheRead / (input + cacheRead)) * 100).toFixed(0)
-        : "0";
+
+    if (format === "request" || format === "session-request") {
+      const req = format === "request" ? ctx.lastRequestCache : undefined;
+      const src = req ?? { input, cacheRead, cacheWrite };
+      if (!src.cacheRead && !src.cacheWrite) {
+        return { content: "", visible: false };
+      }
+      const rate = hitRatePercent(src.input, src.cacheRead, src.cacheWrite);
+      const content = [
+        icons.cache,
+        `${formatTokens(src.cacheRead)} ${percentText(rate)}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return { content: colorHitRate(ctx, rate, content), visible: true };
+    }
+
+    if (!cacheRead) return { content: "", visible: false };
+    const rate = hitRatePercent(input, cacheRead, cacheWrite);
+    const hitRate = percentText(rate);
 
     let content: string;
     if (format === "percent") {
-      content = [icons.cache, `${hitRate}%`].filter(Boolean).join(" ");
-    } else {
-      const tokens = [icons.cache, icons.input, formatTokens(cacheRead)]
-        .filter(Boolean)
-        .join(" ");
-      content = format === "both" ? `${tokens} (${hitRate}%)` : tokens;
+      content = [icons.cache, hitRate].filter(Boolean).join(" ");
+      return { content: colorHitRate(ctx, rate, content), visible: true };
     }
+    const tokens = [icons.cache, icons.input, formatTokens(cacheRead)]
+      .filter(Boolean)
+      .join(" ");
+    content = format === "both" ? `${tokens} (${hitRate})` : tokens;
     return { content: color(ctx, "tokens", content), visible: true };
   },
 };
