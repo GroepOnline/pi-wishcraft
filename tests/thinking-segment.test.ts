@@ -84,7 +84,7 @@ test("thinking segment uses per-level colors for off through medium", () => {
   assert.equal(medium.content, `${hexAnsi("#444444")}think:med\x1b[0m`);
 });
 
-test("thinking segment uses solid thinking color for high through max (no rainbow)", () => {
+test("thinking segment paints high through max as a rainbow", () => {
   const colors: ColorScheme = { thinking: "#111111" };
 
   for (const level of ["high", "xhigh", "max"]) {
@@ -92,9 +92,10 @@ test("thinking segment uses solid thinking color for high through max (no rainbo
       "thinking",
       createSegmentContext(level, colors),
     );
-    assert.deepEqual(rendered, {
-      content: `${hexAnsi("#111111")}think:${level}\x1b[0m`,
-      visible: true,
-    });
+    assert.equal(rendered.visible, true);
+    const plain = rendered.content.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.equal(plain, `think:${level}`);
+    assert.notEqual(rendered.content, `${hexAnsi("#111111")}think:${level}\x1b[0m`);
+    assert.ok(rendered.content.includes("\x1b[38;2;"), "expected rainbow RGB sequences");
   }
 });

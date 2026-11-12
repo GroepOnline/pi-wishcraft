@@ -59,12 +59,15 @@ test("rpc installs a footer data provider: branch fallback and status mirror", (
   const branch = rt.footerDataRef!.getGitBranch();
   assert.ok(branch === null || typeof branch === "string");
 
-  // setStatus is mirrored into the provider so notification statuses render.
+  // setStatus is mirrored into the provider and wakes the render scheduler,
+  // because the host has no footer to repaint in rpc mode.
+  rt.layoutDirty = false;
   ctx.ui.setStatus("otherext.notice", "hello from another extension");
   assert.equal(
     rt.footerDataRef!.getExtensionStatuses().get("otherext.notice"),
     "hello from another extension",
   );
+  assert.equal(rt.layoutDirty, true);
   ctx.ui.setStatus("otherext.notice", undefined);
   assert.equal(
     rt.footerDataRef!.getExtensionStatuses().has("otherext.notice"),

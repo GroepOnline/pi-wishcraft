@@ -5,6 +5,13 @@
 ### Added
 - **The extension now activates cleanly under `pi --mode rpc`, with a host integration test to keep it that way.** `ctx.hasUI` is `true` in rpc mode, so every TUI-only call used to pass its gate and then die silently — or worse: `ctx.ui.custom()` returns `undefined` in rpc, and the welcome overlay's `.catch` on that `undefined` threw an uncaught TypeError on every rpc `session_start`. The session bootstrap now branches on `ctx.mode`: under `tui` nothing changes; under `rpc` the six powerline widgets are exported as `string[]` widget lines (the only form that crosses the rpc UI subprotocol), refreshed on the same scheduler cadence as a TUI repaint, and the welcome overlay degrades to a single `notify`. `tests/pi-host-rpc.test.ts` boots the real pi host over JSONL — LF-framed, both pipes drained — and asserts every slash command registers, the `powerline-*` widgets and statuses arrive as `extension_ui_request` records, and not a single non-JSON line ever reaches stdout. Diagnostics moved from `console.debug` (stdout — protocol corruption) to a `debugLog` helper on stderr.
 
+## [1.24.0] - 2026-11-12
+
+### Fixed
+- **Git probes no longer race interactive git.** Every read-only `git` spawn (`src/git/status.ts`, `bash-mode/completion.ts`) now runs with `GIT_OPTIONAL_LOCKS=0` and `windowsHide: true`, so status polling can't refresh `.git/index` under a real checkout and orphaned `index.lock` files stop bricking the repo.
+- **Think levels high/xhigh/max got their rainbow back.** The thinking segment collapsed all three into the plain `thinking` color; it now uses dedicated `thinkingHigh`/`thinkingXhigh`/`thinkingMax` semantic colors (default `rainbow`, overridable per preset — the `rainbow` ColorValue itself is new).
+- **Token totals prefer the provider-reported `totalTokens`.** The four-field sum undercounted providers that report reasoning/other tokens only in the total.
+
 ## [1.23.0] - 2026-11-08
 
 ### Fixed
