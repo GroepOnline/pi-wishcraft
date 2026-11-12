@@ -17,6 +17,16 @@
 - **Session names are sanitized before the status bar.** A `session_info_changed` name carrying control characters or ANSI escapes could corrupt the powerline; the session segment strips them before render.
 - **Session shutdown resets the vibe manager**: in-flight generation is aborted, `isStreaming` cleared and the stale extension ctx released instead of leaking into the next session.
 
+### Fixed
+- **TPS ring math follows real elapsed time.** The continuous-time EMAs weighted each observation by its own pairwise `dtMs`, so rate bursts never decayed during silent pauses; silent intervals now feed a `rate: 0` observation into the EMA (with real `atMs` deltas), and the `/tps` sparkline distributes each observation across the 500 ms buckets it actually overlaps — anchored at the current time so trailing idle buckets render as zeros.
+- **Subagent child cost is no longer dropped when the parent tool-result carries native usage.** `getSubagentCost` returned 0 early on `nativeUsage(entry)`, hiding `details.results[].usage.cost`; child spend now always counts.
+- **Post-compact context estimate invalidates on model and branch switches.** `model_select` and `session_tree` now clear `rt.approximateContextUsage`, and the live-usage fallback is only trusted when it was provably written after the last compaction (`lastAssistantAt` vs `lastCompactionAt`) — a stale pre-compact reading can no longer masquerade as current context.
+- **The estimate prefers `buildSessionProjection().messages`** over `buildContextEntries()` when the SDK exposes it, and the resolver guards are typed `unknown` instead of `any`.
+- **Explicit thinking colors win over the high-level rainbow default.** `thinking`/`xhigh`/`max` now resolve: explicit level color → explicit `colors.thinking` → `rainbow` — a configured general thinking color is honored instead of silently overridden.
+- **`cache_read` format `request` only shows the latest request's cache split.** It previously fell back to session totals when no request data existed; use `session-request` for that meaning.
+- **The settings deck marks estimated context with `~`.** Detailed segment info now matches the status bar's `~`/`?` convention instead of showing bare numbers for post-compact estimates.
+- **CHANGELOG release history restored.** The squash merge that shipped the usage accounting wave truncated the file to 49 lines — versions `0.22.x` through `1.23.x` (release notes, upgrade guides) are back, and the file-size grandfather list reflects the splits that already landed.
+
 ### Changed
 - **Shared text/numeric helpers canonicalized.** `stripAnsi`, `formatTokens`, `editDistanceWithin` now live in `src/tools/text.ts`; `clamp`/`clamp01` in `src/tools/num.ts`. `isRecord` has one canonical home in `config/primitives.ts` — `settings-io`'s copy dropped and seven importers repointed; private copies in hooks and working-vibes deleted (the standalone `queue/` boundary keeps its own).
 - **Motion ticks no longer re-render every segment.** `renderStatusLineV2` is split into `buildStatusLineParts` + `composeStatusLine`; a painted tick now sets `rt.railDirty` and recomposes only the Signal rail with cached segment parts (~13× less per-tick compute, and no idle-time git/ports/command subprocess churn). Side effect: `time`, `time_spent`, git and command segments refresh only on real invalidations while idle — same behavior `off`/`reduced` motion already had.
@@ -53,3 +63,1181 @@
 ### Fixed
 - **Releases reach npm again, with the token npm actually accepts.** Five tags — v1.18.0 through v1.22.0 — were cut but never published, so `npm install @groeponline/pi-wishcraft` still handed out 1.17.0 while the repository was at 1.22.0; the publish job of the v1.22.0 tag died with `ENEEDAUTH`. The pipeline assumed npm trusted publishing, and a probe run from this repository shows why that assumption was wrong: `id-token: write` is granted and the id token is present, but npm answers the OIDC token exchange for `@groeponline/pi-wishcraft` with **401**, so npmjs.com has no matching trusted publisher and npm fell back to "no credential at all". The `publish` job now carries the organisation `NPM_TOKEN` into `setup-node`'s `.npmrc` as `NODE_AUTH_TOKEN` (the probe confirms it authenticates as `chefgroeponline`), keeps `id-token: write` for the day the publisher is configured, and `RELEASE.md` records the measured state with the one-time npmjs.com steps to switch over. The version holes stay: npm versions need not be contiguous, so this is the first version on the registry since 1.17.0.
 
+### Changed
+- **CI can start again: every third-party action is pinned to a commit SHA.** The org policy *all actions must be pinned to a full-length commit SHA* rejects `actions/checkout@v7` at job setup, so typecheck, lint, test, circular, package-contract, whitespace and the `verify` aggregator all failed in about three seconds with `steps: 0` — which reads like broken code, not a policy. `checkout`, `setup-node`, `setup-bun` and `cache` are pinned in `test.yml`, `preview.yml`, `deprecate-old-name.yml` and the `bun-setup` composite action, and `tests/workflow-guards.test.ts` gained a third guard that fails on any third-party `uses:` without a 40-hex ref, so the next `@v7` is caught locally. The throwaway `npm-auth-probe.yml` is gone: its question is answered above. (#139)
+
+## [1.22.0] - 2026-11-05
+
+### Changed
+- **The workflow ordering rules are tested, not remembered.** Two release failures had the same shape — a job used a tool that was not set up yet, or that could not know its own context: `publish` called `bun` before `bun-setup` ran (`bun: command not found`), and `verify` called `gh workflow run` with no checkout to infer the repository from (`failed to run git: fatal: not a git repository`). `tests/workflow-guards.test.ts` now checks every workflow: a job that runs `bun` must install it first, and a job that calls `gh` without a checkout must pin `GH_REPO`. Both assertions were verified to fail against the pre-fix files. `RELEASE.md` also records that a stranded tag can only be replayed with the workflow file it was tagged with.
+
+## [1.21.0] - 2026-11-04
+
+### Fixed
+- **The publish job died with `bun: command not found` before it reached npm.** The bun migration (#128) rewrote `node scripts/verify-release-tag.mjs` to `bun scripts/...` in the `publish` job but left the `bun-setup` step below it, so v1.20.0's publish failed in its second step and never touched the registry. `bun-setup` now runs right after `setup-node` — which also satisfies the `prepublishOnly` gate `npm publish` triggers — and a test pins the order.
+
+## [1.20.0] - 2026-11-04
+
+### Fixed
+- **A verified release candidate can be promoted again.** The `verify` aggregator in `test.yml` has no checkout, so `gh workflow run promote-release-candidate.yml` could not resolve the repository and every dispatch died with `failed to run git: fatal: not a git repository` — since the parallel-CI rewrite (#128) no candidate was promoted at all, which is why `main` sat at 1.19.0 with two tags and no release. The step now pins `GH_REPO: ${{ github.repository }}`, and a test holds it there.
+- **Releases publish through npm trusted publishing, so no credential can expire.** v1.18.0 and v1.19.0 were tagged but never reached npm: the org `NPM_TOKEN` was a revoked 40-character classic token, and npm answers a PUT for a scoped package with 404 (not 403) when the caller may not publish, so the failure read like "package not found". `release.yml`'s `publish` job now grants `id-token: write` and lets the npm CLI exchange that GitHub OIDC identity for a short-lived publish token; `NPM_TOKEN` is no longer read, `scripts/npm-token-check.sh` and the `npm whoami` preflight are gone, and the manual `diagnose-npm.yml` workflow is deleted. `npm-publish.sh` drops the marker-tag + `npm dist-tag add latest` dance — it only existed to republish a version *below* `latest`, which OIDC does not cover; plain `npm publish` sets `latest` itself. Provenance attestations now come for free. `RELEASE.md` documents the one-time trusted-publisher configuration and replaces the token-rotation runbook.
+- **`RELEASE.md` describes the chain that actually runs.** The old text still promised `release.mjs auto --push` bumping and publishing in one job, a `package-lock.json` in the candidate and `npm ci` CI steps; it now documents verify → prepare candidate → Verify on the candidate ref → Promote → publish on the tag ref, with the two-file candidate (`package.json`, `CHANGELOG.md`).
+
+### Changed
+- **Bun replaces npm for the development loop.** `bun.lock` (with `packageManager: bun@1.4.2`) replaces `package-lock.json`, `bun install --frozen-lockfile` replaces `npm ci` in every workflow and bootstrap script, and the package scripts run through `bun run` (`scripts/*.mjs` execute directly, no `npx`). The npm CLI stays where the npm *registry* is the interface: `npm pack`, `npm publish`, `npm dist-tag`. The test runner stays `node:test`: measured on 1.4.2 against the 1037-test suite of that moment, `bun test` reported 1035 pass / 2 fail (fake-timer and PTY-timing divergence in two suites) while `node --test` reported 1037 pass / 0 fail, so `bun run test` invokes Node's runner and `docs/testing.md` records the measurement and the condition for revisiting it.
+- **oxlint is the lint gate.** The repository had no ESLint configuration, so this is a gate added rather than a linter swapped: `.oxlintrc.json` (correctness = error), `bun run lint` runs with `--deny-warnings`, CI fails on a single warning, and `bun run lint:fix` applies the automatic fixes. `no-control-regex` is off repo-wide because matching ANSI SGR sequences is the product. Getting to zero warnings removed 23 real findings: 21 unused imports/locals/parameters, one dead `readSkillBody()` call whose result nothing read, and one unsafe optional chain in a test assertion.
+- **CI runs in parallel.** `test.yml` is now seven independent lanes — `whitespace`, `typecheck`, `lint`, `test`, `circular`, `package-contract`, `audit` — each installing from the frozen lockfile via the `.github/actions/bun-setup` composite action, with a `verify` aggregator job that keeps the required check name and the release-candidate promotion dispatch. Pull-request runs cancel superseded pushes; release-driven candidate runs never do.
+- **Pre-commit hook.** `.githooks/pre-commit` (enable with `bun run hooks:install`) runs typecheck, oxlint and the test files the commit touches. The full suite stays CI's job.
+- **The dependency audit gate is bun-native.** `npm audit` needs `package-lock.json`, which no longer exists, so `scripts/audit-gate.mjs` reads `bun audit --json` plus `bun pm ls --all`. The guarantees are restated in bun's terms and pinned by tests: new high/critical advisories fail by GHSA id and package name, a baselined advisory whose vulnerable range moved fails, an installed version the baseline does not list fails (the "second vulnerable copy" case, now version-based instead of path-based), a baselined advisory that stops reporting as high/critical fails, and an audit that cannot run exits 2.
+- **Release candidates carry two files.** `bun.lock` stores no root version, so a bump changes exactly `package.json` and `CHANGELOG.md`; `release.mjs`, `promote-release-candidate.yml` and their tests no longer expect a lockfile rewrite. `bun install --frozen-lockfile` in the publish job proves the lock still matches the manifest.
+- `audit-baseline.json` and `.oxlintrc.json` are excluded from the published tarball; `bun.lock` never ships because `files` does not match it.
+
+## [1.19.0] - 2026-11-04
+
+### Fixed
+- **`/tps` reported near-zero averages and thousand-TPS peaks.** `pairwiseRates()` and `ratesFromRing()` treated `delta >= 0` as a rate, so every idle repaint pushed a `0` and dragged `avg` down; two samples a few ms apart straddling one token burst reported that burst as a spike. Idle deltas are now skipped (`> 0`), buckets under `TPS_MIN_PAIRWISE_DT_MS` (80 ms) are folded into the next one, and duplicate counts inside 40 ms are dropped at the door.
+- **`/tps` was empty unless the `tps` segment was in the active preset.** The ring was only filled while that segment rendered. `message_update` now samples it (`sampleTpsFromSession`, throttled to 30 ms); the segment keeps its passive sample as a fallback.
+- **Pi's own working spinner ignored `wishcraft.workingIndicatorStyle` and the motion policy.** The style was only used by status renderers. `before_agent_start` now hands Pi `ctx.ui.setWorkingIndicator({ frames, intervalMs })` once per run (Pi owns the timer, so there is no second clock), and `agent_end` restores the default. Reduced/off motion holds one frame, functional alternates two, ASCII glyph mode forces the ASCII set.
+- **Welcome overlay**: the boot reveal repainted once a second because only the countdown timer drove it; it now repaints on the same bounded heartbeat as the header, and keeps repainting while the lantern animates instead of freezing on the last frame once the reveal window closes (`revealElapsedForArt()`). The countdown timer is `unref`'d.
+- **`/tps` averaged cached prefill into the input rate and smoothed nothing.** Each turn is now measured from `agent_start` to its first new token (TTFT), the input rate counts only uncached tokens (`input - cacheRead`), and the output rate carries an EMA (α 0.32) next to the raw window rate. The `ttft` and `ema` overlay lines appear only when a turn could actually be measured; a turn whose prompt was fully cached reports `0`, not a division artefact.
+- Idea capture strips spinner noise for **every** indicator frame, not just braille, so the new native styles cannot leak into captured text. The prefix is now derived from the built-in frames *and* every Motion Catalog frame (whitespace-only rows included) at import time, so a new style cannot silently bypass it.
+- `segment-context.ts` lost its last `any`: `buildSegmentContext()` and `sampleTpsFromSession()` take a structural `SegmentSourceContext` instead of `ctx: any`, and the builder is split into `resolveContextMetrics()` / `resolveCustomItemState()` so its complexity drops below the CodeFactor threshold.
+
+### Added
+- Working-indicator styles `lantern` and `braille` (settings registry choices are now derived from `workingIndicatorStyles()` so the two cannot drift).
+- Working-indicator style `motion`: Pi's native spinner is fed from the Motion Catalog (`framesOf()` plus each definition's `generator.intervalMs`) instead of a fixed glyph set, so the working indicator moves like the motion assigned to `thinking`. It falls back to `lantern` for an unknown motion id, and reduced/off motion, functional motion and ASCII glyph mode still win over the catalog.
+- Welcome cockpit: `Tab`/`Shift+Tab` step between `What's new`, `Recent Crafts` and `Quick Launch`, ↑/↓ move inside the focused section and pause the countdown, and `Enter` (only once navigation has paused it) primes the prompt for the focused quick-launch row (`# `, `! `). Sessions stay read-only because Pi exposes no resume handle. Printable keys are still never captured: any letter dismisses, exactly as before.
+
+## [1.18.0] - 2026-11-03
+
+### Security
+- Pi peers bumped to 1.5.0 (`@earendil-works/pi-coding-agent`, `pi-ai`, `pi-tui` move together): undici is now 8.12.3, clearing GHSA-xjj6-f33q-929c, and the peer dropped its `npm-shrinkwrap.json`, so the two inherited brace-expansion advisories (GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p) resolve to the fixed 5.0.12 as well. `audit-baseline.json` is back to zero accepted entries.
+
+### Fixed
+- `before_agent_start` is a union in pi-coding-agent 1.5.0: the working-vibes prompt text now comes from `event.prompt` on user runs and from displayable custom-message content otherwise.
+
+## [1.17.0] - 2026-10-27
+
+### Fixed
+- Bash paste-while-running (issue #72): a bracketed paste performed while a command runs is stripped of its markers and forwarded to the child stdin — including split delivery across input chunks — instead of silently queuing in the editor buffer behind the command.
+- PTY/transcript memory bounds (from jan `fix/runtime-pty-bounds`): a single unterminated output line is capped at a 64 KiB UTF-8 tail with a one-time notice, the partial-escape tail is bounded, and the active transcript command trims head lines/bytes within limits instead of growing unbounded.
+- Segment-options spread hygiene (CodeFactor #86–89): `normalizeSegmentOptions` assigns fields imperatively instead of spreading conditional empty objects.
+
+## [1.16.0] - 2026-10-03
+
+### Known limitations
+- **`peerDependencies: "*"` cannot express a supported-version floor.** Pi's own docs require the host-provided packages to be declared with a `"*"` range and `verify-pi-package-contract.mjs` enforces it, so the constraint is upstream and cannot be tightened here. The consequence is measured rather than assumed: probing every SDK release for the 12 runtime symbols this package imports, all of them resolve from 0.86.0 up, and the binding one is `normalizeContext` (`src/working-vibes/provider.ts`), which arrived in `pi-ai` 0.86.0. A consumer on 0.84.3 therefore installs this package without warning or resolution error. The manifest side of this stays open — the floor cannot be expressed there at all — but the silent failure is closed: the extension now checks the symbol set at activation and reports the gap (see Fixed).
+
+### Fixed
+- **A Pi SDK below 0.86.0 broke `/vibe` with a bare `TypeError`.** `peerDependencies` are `"*"` by upstream contract, so an old host installs this package without complaint and the breakage surfaced as "normalizeContext is not a function" at the first `/vibe` call. The extension now checks the runtime symbol set it actually imports from the three Pi peers at activation (`src/extension/core/peer-guard.ts`): every missing symbol is named with the feature that depends on it and the version floor to upgrade to, the first session surfaces the same as a UI notification, and the `/vibe` call site fails with that actionable message instead of a TypeError. The guard checks symbol presence rather than version strings because symbols are what the code depends on — a semver comparison would lie across backports or version-skewed trees. `tests/peer-guard.test.ts` keeps the guarded catalog in exact sync with the runtime imports of every published source file in both directions: a newly used SDK symbol that is not guarded fails the suite, as does a catalog entry nothing imports anymore. Each guard was verified against an injected regression rather than only against the passing state.
+- **The dependency audit could never fail CI, so it caught nothing.** The step ran `npm audit --audit-level=high` behind `continue-on-error: true`, labelled "informational" — and it exits 1 today, because of the one finding below. A step that cannot fail is a step that also cannot fail on anything *new*: the `ws@7.5.10` advisory, or the next one, would have shipped silently. The same shape as the coverage gate that printed thresholds while collecting no coverage. `npm run audit` (`scripts/audit-gate.mjs`) now audits against `audit-baseline.json`: a new high or critical advisory fails, the justified inherited advisories are tolerated, a baselined advisory that stops reporting as high/critical fails too (so it cannot become a permanent blanket exemption), and every accepted entry must carry a written reason naming the mechanism that makes it unreachable, its GHSA id, and the install path(s) it covers — so neither a new advisory nor a second vulnerable copy of the same package inherits the exemption. An `npm audit` that errors out (registry down, npm config policy) fails the gate rather than reading as "zero findings". Verified by injecting `ws@7.5.10` into the real tree — the gate named it as new and blocked while still passing the baselined finding.
+- `audit-baseline.json` was shipping inside the npm tarball: `files` contains a `*.json` glob, so a new root-level JSON file is published by default. Excluded, and `tests/audit-gate.test.ts` now reads the real `npm pack` output rather than trusting the `files` array.
+- **The remaining `npm audit` finding was half ours.** The 1.15.0 note recorded that `brace-expansion` "has no fix available at any installable version" — that was wrong on both counts, and it buried a fixable bug under a false exemption. There are two copies in the tree and they have different causes. The top-level one (pulled in via `madge` → `minimatch`) was sitting on 5.0.9 through a stale lockfile pin and is ours: it is now 5.0.12. The copy nested under `@earendil-works/pi-coding-agent` really is out of reach, but not because no fix exists — `brace-expansion@5.0.12` satisfies the `^5.0.8` range the peer's own `minimatch` declares, so the peer can fix it with a lockfile bump alone, no API change. It is unreachable from here for a different reason: the peer publishes an `npm-shrinkwrap.json`, which is authoritative for consumers, and npm installs that pinned tree verbatim without re-resolving it. Confirmed empirically that `overrides` cannot reach it — both a top-level `"brace-expansion": "^5.0.12"` and a path-scoped `"@earendil-works/pi-coding-agent": { "brace-expansion": "^5.0.12" }` left the nested copy at 5.0.9 — so no override is shipped rather than one that would advertise a guarantee it cannot keep.
+- `tests/dependency-provenance.test.ts` guards the distinction: it fails if a vulnerable copy appears anywhere outside the peer's subtree (that one is ours, and names `npm audit fix`), if an unreachable override is ever added, and if the peer's shrinkwrap moves to a fixed version (the finding is then gone and the CHANGELOG needs updating). Each guard was verified against an injected regression rather than only against the passing state. The same file now also guards the general shape: we ship no shrinkwrap ourselves, an `overrides` entry never targets a package that ships one (such an override is a silent no-op), and every baselined advisory names a mechanism rather than just asserting "inherited".
+- Audited the rest of the tree for the same pattern and found no second exemption: one high finding total, no deprecated packages, all 346 registry signatures and 90 attestations verified. A synthetic consumer install (`pi-wishcraft@1.15.0` alongside the three Pi packages) reports exactly the same single finding, so the published package surfaces nothing extra. Of the 146 versions the peer shrinkwraps, 25 are absent from a linux-x64 tree and all 25 are platform-specific `@esbuild/*` binaries with no advisory surface — noted as a real blind spot on other platforms rather than a clean bill of health.
+
+## [1.15.0] - 2026-10-01
+
+### Changed
+- **Pi SDK upgraded `0.84.3` -> `0.99.2`** (`@earendil-works/pi-coding-agent`, `pi-ai`, `pi-tui` moved together). These must be bumped as a set: the agent depends on matching `pi-ai`/`pi-tui`, so bumping it alone leaves a version-skewed tree — which is exactly what the queued Dependabot PR #118 does (its lockfile keeps top-level `pi-ai` at `0.84.3` under a `0.99.2` agent). On the coordinated bump npm still nests copies, but at identical versions, so nothing is skewed. One real API change: `Provider.stream()` now takes a branded `TranscriptContext` produced only by `normalizeContext()`, which folds `systemPrompt`/`tools` into a leading system message — `src/working-vibes/provider.ts` now calls it, and the working-vibes tests assert the prompt the way the SDK delivers it (as `messages[0]`) rather than through a `context.systemPrompt` field that no longer exists.
+- Audit findings drop from 3 (1 moderate, 2 high) to 1 high; the `undici` advisories are cleared. The remaining `brace-expansion` finding is inherited from the peer package's own dependency tree. (Corrected after release: the claim that it had no fix at any installable version was wrong — see [Unreleased].)
+
+## [1.14.0] - 2026-10-01
+
+### Added
+- **Configure from the prompt**: `/wishcraft get|set|unset <setting>` — every registered setting is readable and writable from the pi CLI, no editor involved. `get` reports stored value → owning file (project/global/default) → effective value, with a ⚠ explanation when validation discards it. `set` validates against the same registry the settings TUI and wizard use (unique choice prefixes: `set motion.level red` → `reduced`; toggles take `on`/`off`; numbers checked against declared `min`/`max`), applies immediately (status line repaints; shortcuts/bash settings after `/reload`), and writes to the file that already owns the key. `unset` (alias `reset`) returns to the default. Tab completes subcommands, all registered paths, and each setting's values. Structured values (layout, segments, policy) are refused with a pointer to settings.json rather than written in a broken shape; `get` works even with Signal disabled.
+- Settings registry +19 entries and a new **Shell & bash mode** group: the whole `bashMode.*` surface (toggle shortcut, transcript max lines/bytes, init script), the four missing `powerlineShortcuts` bindings (`copyEditor`, `cutEditor`, `editorStart`, `editorEnd`), `powerline.costAlert`, `powerline.stashSharpSShortcut`, `powerline.customItemsAuto`, `powerline.queue.retentionHours`, `wishcraft.policyEnabled`, git segment toggles (branch/staged/unstaged/untracked/polling/commit length), model segment options (thinking level, name style), and the fleet `openPorts.host`. All of them are now editable in `/wishcraft settings`, validated by the doctor, and covered by NL translations.
+- **Deck → Ports route** (`g p`, twelfth route): the same open-ports table `alt+i` shows, probed asynchronously off the render path and read from a shared 5s cache, so the route never spawns a process during a frame.
+- **Open-ports panel rebuild** (`alt+i`): leads with a summary (`21 tcp · 12 exposed · 9 loopback · local`), renders aligned `PROTO PORT ADDRESS OWNER` rows instead of raw `ss` output, filters as you type on port/address/owner, `r` re-probes, Enter copies the selected row, and fails soft with a readable reason instead of an error toast. Used by `alt+i`, the classic menu and the new Deck route.
+- Shared listening-ports parser (`src/segments/ports.ts`): one parse of `ss`/`netstat` output feeds the segment count, the segment detail, the panel and the Deck route, so they can no longer disagree. Dual-stack binds collapse to one row, IPv6 brackets are stripped (an `[::1]` bind previously would have been reported as *exposed*), and `ss`/`netstat`/macOS dotted-address variants are all handled. The pure parsing half (`ports-parse.ts`) and the `/proc/net` fallback (`ports-proc.ts`) are separate modules, so the render path has no synchronous filesystem or process access at all.
+- **Deck idea actions**: `enter` cycles the review status (idea → in-progress → done) and `d` removes the idea, straight from the Ideas route — the same states the `/ideas` overlay offers.
+- `/` now filters the Ideas list in place (it already filtered skills, appearance and motion).
+- Interface language: a new `Language` setting (`wishcraft.locale`, `en` | `nl`) localises the operator UI — Deck routes and chrome, the settings registry's labels/hints/group titles, the configuration overlay, the welcome overlay and its widgets, the setup wizard, and the diagnostics copy. English is compiled in at each call site (`tr(key, "English")`), so a missing or unknown locale can only ever fall back to English, never blank a surface; the default stays `en` and no existing golden output changes.
+- `/wishcraft setup` — first-run wizard: four questions (language, status preset, motion level, welcome overlay), a review screen, then one write to `settings.json`. The step model is pure and separately tested.
+- `/wishcraft doctor` — configuration diagnosis as a one-screen list, also rendered as a section of the Deck's Diagnostics route: which settings file is winning, values shadowed between global and project, near-miss keys with a "did you mean" suggestion, and every stored value that validation throws away — with an explanation of why and which default applies.
+- Live status-line preview inside the configuration overlay: every toggle/cycle/edit repaints the real status line under the list, so a setting's effect is visible instead of inferred.
+- Per-setting inline warning markers and contextual hints in the configuration overlay: an invalid stored value is flagged in place rather than silently replaced by its default.
+- Settings validation now reports *why* a value is rejected (`explainSettingValue`, `validationProblem`) with localised, actionable copy — including the valid choices and the default that is applied — instead of a bare boolean. Numeric settings gained declared `min`/`max` bounds.
+- First-run welcome: an operator who has never run Wishcraft sees three short next steps under a "Getting started" heading instead of a wall of changelog bullets; later sessions keep the changelog delta under its own heading.
+- **Hot-path regression guard** (`tests/hot-path-contract.test.ts`): the suite now walks the import graph from `src/render/v2-entry.ts` and fails if any reachable module makes a synchronous process spawn (`execSync`/`spawnSync`/`execFileSync`), plus a stricter sweep of all of `src/segments/` and `src/extension/ui/`. Synchronous filesystem reads on the paint path are allowed only via a named allowlist carrying a justification, so a new one has to be argued for rather than slipped in. The assertions are structural, so a blocking call hidden three layers behind helper modules still fails.
+- Coverage gate in CI and local `npm test`: the suite fails below 70% line / 60% function coverage (current baseline 84.7% / 82.6%), so coverage can no longer silently regress.
+- Release-path contract tests: `scripts/release.mjs` (semver bump, `[skip release]` guard, org bump policy, tag parsing/collisions, CHANGELOG roll and note extraction, lockfile rewrite, release-candidate metadata validation incl. every rejection path) and `scripts/verify-release-tag.mjs` (version sources, tag equality, argument parsing) — previously the least-covered, most operationally critical files in the repo.
+- Extension-layer tests: prompt-history (trim/dedupe/cap, snapshot/restore, tracker idempotence, session-JSONL parsing via `PI_CODING_AGENT_DIR` fixture), stash-history (normalize/push/preview semantics), shortcuts router (per-binding action resolution incl. kitty CSI-u forms and release filtering), bash-mode actions (shell path/cwd/history-merge), and stash shortcuts.
+- OMP-style boot reveal: the welcome header and startup overlay fade their art up from a faint ember over the first ~1.5s after mount (logarithmic ramp on a 90ms heartbeat, ember-noise flicker while catching), then settle into the steady layout — a bounded one-shot, zero timers afterwards. `WelcomeHeader`/`WelcomeComponent` arm it via `armBootReveal()`; pure frames via `renderWelcomeArtWithReveal`.
+- Settings appearance preview: the Deck's Appearance route now renders a live signal-rail preview of the structural preset under the cursor (the preset's own signal spec and animation, one row, deterministic per tick), so you see each base before Enter applies it.
+
+### Fixed
+- **CI and the release pipeline were silently dead.** A step name edited to `- name: Unit tests (coverage threshold: 70% lines / 60% functions)` contains an unquoted `: ` inside a plain YAML scalar, which YAML reads as a nested mapping — `.github/workflows/test.yml` became unparseable. GitHub's only signal is a run that fails in 0s with zero jobs and no logs, and because `release.yml` calls `test.yml` via `workflow_call`, the whole release pipeline failed the same way. The scalar is now quoted, all five workflows parse, and `tests/workflow-yaml.test.ts` fails locally — with a file:line reference — on any unquoted colon-space in a step scalar.
+- **Icon and colour resolution did synchronous filesystem work ~19x per paint.** `getIcons()` is called once per segment that renders an icon, and every call re-walked up to six parent directories looking for a `package.json` and then `statSync`'d each candidate `theme.json` — on the order of 170 blocking syscalls per frame while streaming. The package root is now resolved once per process and the icon set is memoised on the config object identity, cutting a paint's theme work by ~28% (61µs → 44µs per `getIcons()` call). The mtime identity check is deliberately kept *before* the TTL, so editing `theme.json` still lands on the very next paint rather than after the cache window.
+- **The status line could still spawn `ss` from a paint.** `open_ports` and its detail view each ran their own `execSync` with a 3s timeout, duplicating a ladder `src/segments/ports.ts` already owned — a violation of the package's own hot-path contract. Both now read the shared async probe cache (`readPorts()`), serve the last known value, schedule a background refresh, and repaint through a new `subscribePortsUpdates` listener. A stale-but-known count no longer flickers to `?`, and the status line has no blocking process spawn left on it at all. The `/proc/net` fallback moved into the async ladder too (with kernel hex addresses decoded, so an IPv6 loopback bind no longer reads as externally reachable).
+- **User-defined command segments ran `execSync` on every paint** — a custom `{"type": "command"}` segment without `cacheMs` respawned a shell every ~33ms, and one that hung blocked the event loop for up to 5s per paint. Command output now runs in the background behind a defaulted (1000ms) and clamped (100ms–300000ms) cache window, output is capped at 512 characters, the segment serves its last value while a refresh runs, and a repaint is requested when new output arrives. A failing command still surfaces as `!custom:<id>`, one frame later.
+- **`/open-ports` ran `execSync("ss")` with no timeout** — the last remaining copy of the old ports implementation — so a wedged `ss` could still freeze the whole TUI from the command line while the `alt+i` panel was already async. The command now opens the shared panel (bounded probe, parsed table, filter, `r` refresh).
+- **Toggling the ports UDP flag published a stale count**: the toggle changed the probe key, so the synchronous read had nothing cached and exported `?` until an unrelated render happened to refresh. It now awaits the probe before publishing.
+- **Configuration diagnosed as typos**: `wishcraft.hooks`, `wishcraft.policy` and the four editor shortcuts (`powerlineShortcuts.copyEditor`/`cutEditor`/`editorStart`/`editorEnd`) were reported by `/wishcraft doctor` as "no reader consumes this key" although every one of them has a live reader — the registry is the known-set, and they had no entry. The doctor now reads structured roots (`hooks`, `policy`) as known, and the shortcut entries come from the registry itself.
+- **`bashMode` conflicts were invisible**: the root was not managed, so global-vs-project divergence (e.g. different `transcriptMaxLines`) was never reported and typos under it never flagged. `bashMode` is now a managed root with its four known keys.
+- **Ports panel ignored its own segment config**: `alt+i` and `/open-ports` always probed TCP-local even when `powerline.segmentOptions.openPorts` set `includeUdp`/`host`, so the panel and the status segment could disagree about what they were counting. Options now default from the config with explicit overrides still winning.
+- **Settings edited from `/wishcraft settings` did nothing.** Every `status.*` setting writes to `powerline.segmentOptions.<segment>.<option>`, but `parsePowerlineConfig` only ever read the hand-edited top-level buckets (`powerline.tps.*`, `powerline.path.*`, …). A dozen settings — path mode and max length, time format/seconds, git host icons/ahead-behind/latest commit, context format, cache-read format, cost display/currency, UDP ports, TPS window/mode/label — were persisted and then silently ignored. The parser now merges both shapes per segment (nested wins), so the settings UI, hand-edited configs, and the menu's `openPorts` toggle all agree.
+- The coverage gate was not actually enforcing anything: `--test-coverage-lines`/`--test-coverage-functions` do nothing without `--experimental-test-coverage`, so `npm test` printed thresholds while collecting no coverage. The flag is now part of the script and a deliberately impossible threshold demonstrably fails the run.
+- `tr()` did not interpolate its English fallback, so the default locale printed raw `{route}` placeholders in Deck headings.
+- Dutch catalog drift: two message keys referenced from the configuration overlay had differently-named entries, and several entries had no caller.
+- Shortcuts router: a missing `ctx.ui` crashed `getCurrentEditorText` with a TypeError; the accessor now falls through safely to the editor text or an empty string.
+
+### Changed
+- The configuration overlay's three duplicated persist-and-notify blocks (typed edit, choice cycle, toggle) collapsed into one `persist` path, so locale sync, powerline reload and the save/failure toast can no longer drift apart between edit modes.
+- Motion engine (Mijlpaal B1): sub-tick interpolation — repaints between scheduler heartbeats move the travelling head smoothly instead of stepping one cell per tick. `SignalRuntime` records the heartbeat clock (`lastTickAt`) and `renderActivity` interpolates strictly within one interval, so hand-driven ticks (tests) and stale clocks keep exact integer rendering. Glyph frames stay tick-aligned via a fractional-safe `frameAt`.
+- Shared sweep geometry (`src/motion/sweep-cells.ts`): the status rail, gallery preview strip and composer preview now resolve head/trail/track cells through one `buildSweepCells` builder, so the gallery previews exactly what the rail paints. Rendered output is byte-identical to the previous inline loops (pinned by goldens).
+- Compact rail heads round to whole cells under fractional ticks; lab rails (fat-band) floor fractional ticks before painting.
+- Motion craft (Mijlpaal B2) — same surfaces, richer rendering, no new features or catalog entries:
+  - The travelling wake now rides a perceptual multi-stop ramp (hot → warm → cool → track) mixed in **Oklab** space, instead of a naive two-stop sRGB lerp that rendered muddy midpoints. The cool stop is derived by rotating the warm hue and dipping lightness, so every palette cools credibly without hardcoding a blue; a test pins that wake lightness falls strictly monotonically. Trail brightness decays with an ease-out glow falloff, so the wake cools like embers instead of stepping through tiers.
+  - wave/heat/liquid generator geometries render their wake as a rippling braille sub-cell curve (2×4 dot matrix per cell, still exactly one column) instead of four flat glyph steps; the gallery previews the same curve.
+  - Terminal events (success/warning/error) play a one-shot expanding ripple — two fading rings from the rail center — instead of a plain sweep; finite loop, zero frames once settled.
+  - Every event switch lands with an ignition punch (fast exponential brightness decay from `startedAt`).
+  - Ember/heat heads flicker with layered deterministic value noise (slow breathe + fast crackle, never repeats exactly) instead of two fixed sines.
+- **The Deck frame is bounded**: the center pane and right rail clip at a fixed row budget with an overflow count, and Ideas/Guardrails window around the cursor. A long queue or a large policy list previously grew the box past the bottom of the terminal.
+- **Right rail is now a decision aid**: leads with the latest activity, shows workload (ideas/queue, bash) and only spends space on an **ATTENTION** block when something is actually wrong (skill warnings, guardrails off, context ≥ 90%).
+- Deck home route body reworked into four scannable blocks — session (activity, context bar, look), right now (ideas/queue, bash and policy state, shell), next intent, and quick keys — instead of a thin session stub.
+- Welcome startup: skill/extension/session discovery now happens inside the overlay's delay instead of on the session-start critical path, and the panel heading/bullets resolve through one helper.
+- Deck copy is localised: route descriptions, body headings, list headers, alerts and the per-route footer hints now resolve through `tr()`, keeping their English wording as the fallback.
+- `sanitizeSshHost`/`sshCommand` moved to `src/segments/probe-shell.ts` (re-exported from `segments/system.ts`) so the ports parser and the segments can share them without an import cycle.
+- Dotted setting-path helpers moved to `src/extension/settings/config-paths.ts` so the wizard and diagnostics can share them without importing the overlay (keeps the dependency graph acyclic).
+- Housekeeping: removed the stray `bun.lock` (npm is the package manager of record), added `engines: node >=22.19` to `package.json`, untracked the local harness log `.auto/log.jsonl`, and corrected the Node-version line and `src/` directory list in AGENTS.md.
+
+## [1.13.0] - 2026-09-25
+
+### Added
+- `budget` segment (daily token budget): renders `budget NN%` with a fill bar when `wishcraft.tokenBudget.daily.limit` is set; wired into the `chef`, `full`, and `nerd` presets.
+- Resting animation has a real clock: while idle at full motion, the signal rail leases the scheduler's `ambient` channel and breathes from that tick. `reduced`/`off` motion still renders a stable dim marker with no scheduler consumer.
+
+## [1.12.0] - 2026-09-25
+
+### Added
+- Recovered the unmatched vNext gallery motions (ember-trail, lantern-glow, fat-band, and the rest that were not already in the catalog) and the extreme-motion rail candidates (braille wave, boids, chevrons, shimmer, seismograph, fat-band). Assign motion `fat-band` to paint the topographic streaming rail; the default sweep stays a single status row.
+- Deck skills: `w` opens the multi-step new-skill wizard (name, description, template, triggers) and writes `SKILL.md`. `n` remains the one-field create.
+- Appearance route search (`/`) filters presets, palettes, motions, and motion levels. Enter persists a structural base, a streaming motion, or a motion level.
+
+## [1.11.0] - 2026-09-20
+
+### Fixed
+- Deck navigation (reported by Joep): ↑↓ walking the route column is now sticky. Previously ↓ arriving at a list route (Skills, Appearance, Motion, Ideas) was silently consumed by the center list, so walking down the left column appeared to jump sideways into the right pane mid-walk. Focus only crosses columns on an explicit ←/tab (nav) or → (list).
+
+### Changed
+- Motion sweeps traverse on an eased ping-pong instead of a wrapping step: the head decelerates at the rail edges, turns, and glides back — no teleport from the last cell to the first. Each motion's `ease` curve (`linear` / `pulse` / `breathe`) now actually shapes traversal velocity; fractional head positions drive a truecolor trail ramp (hot head cooling to the dim track) replacing the four discrete color steps, and ember/heat heads flicker with the welcome lantern's breathe-plus-ripple curve. Gallery previews render the same eased traversal.
+
+## [1.10.0] - 2026-09-13
+
+### Fixed
+- Release bump scan: `chooseBump` now scans every commit subject, so a breaking marker later in the list still promotes to major instead of silently shipping a minor.
+
+## [1.9.0] - 2026-09-12
+
+### Added
+- Per-package preview container (`preview/Dockerfile` + `preview/smoke.sh` + `preview.yml` workflow): builds the npm artifact and smoke-tests the exact files pi loads; images push to GHCR on main.
+
+## [1.8.0] - 2026-09-12
+
+### Fixed
+- Deck dashboard focus model: the focused pane is now marked with ◉/○ so ↓ on the skills workbench no longer looks like it "goes right" — ↑↓ moves the focused pane, ←/tab focuses NAVIGATION, → returns to the list, and the footer advertises both. List cursors clamp from the current position, so a stale cursor after filtering/refresh moves one row instead of sticking.
+
+## [1.4.17] - 2026-09-07
+
+### Added
+- Bash forward-mode privacy notice (issue #71): the first keystroke forwarded to a running command raises an info notice that typed input may echo into the transcript; documented in `docs/bash-mode.md`.
+- Managed PTY suite is now script-gated (issue #73): PTY-core tests skip when `script(1)` is missing instead of silently passing in degraded pipe mode, the basic run asserts a real PTY transport, and the explicit pipe-mode tests still cover the fallback.
+
+## [1.4.16] - 2026-09-05
+
+### Fixed
+- Release pipeline no longer cuts empty releases: candidate preparation (and the local `release` script, behind `--force`) now requires actual `[Unreleased]` notes in the CHANGELOG before bumping, so notes-only and docs-only merges to main no longer publish versions with empty release sections.
+
+## [1.4.15] - 2026-09-05
+
+### Added
+- Codebase dependency graph (dot + mermaid + navigation guide) and four wishcraft agent skills (`wishcraft-codebase`, `wishcraft-ui-components`, `wishcraft-hot-path-rules`, `wishcraft-testing`) shipped as operator-facing SKILL.md docs.
+
+## [1.4.14] - 2026-09-05
+
+### Changed
+- Release-notes housekeeping only: this release's main-merge carried the backfilled CHANGELOG sections for 1.4.12 and 1.4.13 (below) and no other code changes; GitHub Release notes for v1.4.12–v1.4.14 updated to match.
+
+## [1.4.13] - 2026-09-05
+
+### Added
+- Skill Studio panes wired end-to-end (`/studio`): the fullscreen workbench now connects the registry-backed list, a detail pane (health, category override, usage count, frontmatter keys, model-invocation flag, and resolved local references with ✓/✗), actions (create from template, edit in-app with cache invalidation, doctor), and AI advice with explain/integrate/examples/improve modes — streamed through the advise engine with DeepWiki wiki context and insert-into-editor. The fail-closed placeholder gate is lifted; the entrypoint keeps its guards (closed without UI, warning + closed in RPC mode).
+- DeepWiki disk cache gains bounded LRU eviction (`maxEntries`, default 64) on top of the existing TTL + stale-fallback behavior.
+- Tests: studio pane render, key routing + refresh, entrypoint guards, and LRU eviction covered; 723 passing.
+
+## [1.4.12] - 2026-09-05
+
+### Added
+- Skill Studio: browse the ChefGroep global skill registry alongside local skills (`loadSkillStudioCatalog`): registry-only skills surface with routing metadata and a "registry source not readable" warning when the file is unavailable on this host.
+- Motion rail: impressive adaptive rail with motion-driven routing (#83).
+
+### Changed
+- AGENTS.md rewritten to the current architecture (#80).
+- Compound Engineering overlay example clarified: explainer archival and sweep state paths now reference `<docs_root>` (#68); devDependency `@earendil-works/pi-coding-agent` bumped to 0.84.3.
+
+### Removed
+- Dead agent-tools (patch, ripgrep) with no runtime consumers (#81).
+
+### Fixed
+- Rail/render fixes shipped with the studio registry work (#79).
+- Tests: `session_compact_failed` regression coverage — clearing compacting state, settling the signal, and blocking post-compact queue items with the error (#68).
+
+## [1.4.11] - 2026-08-30
+
+## [1.4.10] - 2026-08-30
+
+## [1.4.9] - 2026-08-29
+
+## [1.4.8] - 2026-08-29
+
+## [1.4.7] - 2026-08-28
+
+## [1.4.6] - 2026-08-28
+
+## [1.4.5] - 2026-08-28
+
+## [1.4.4] - 2026-08-28
+
+## [1.4.3] - 2026-08-28
+
+### Added (v2 Platform — wishcraft-v2-platform plan)
+- Powerline v2: the status line now renders through a single path (`renderStatusLineV2` -> `computeLaneLayout` -> `paintLayout`) with the motion rail as a first-class layout segment (reading order left -> rail -> right preserved; under width pressure the right lane yields first, the rail later). The legacy v1 three-lane renderer (`src/signal/render.ts`) is deleted; rail semantics live in `src/render/motion-rail.ts`. Deliberate visible delta: the configured separator now joins every primary segment. Golden pinned post-cutover in `tests/signal-golden.test.ts` (pre-cutover baseline preserved in git history at 84b2e2a).
+- Multi-row layout: segments declare a visual row count (`LayoutSegment.height?` + auto-derive from embedded `\n`); `computeLaneLayout` returns `primaryRowCount`/`secondaryRowCount`; `paintLayout`/`paintSecondary` render one string per row with the separator on row 0 only.
+- Motion rail: lantern sigil as 3-row active rail for the streaming state — a portable `#`-block lantern (sway + breath) that replaces the braille version that rendered as shade-block blobs on terminals without braille fonts. ASCII fallback stays a directional comet; `ready` = calm flat `─` track; `compacting` = inward heads.
+- Bash v2: PTY session core (`bash-mode/pty-session.ts`, SGR-safe ANSI filter, sentinel-based command boundary) plus the long-lived `PtyManagedShellSession` cutover: `session-factory.ts` routes `auto`/`v2` through the PTY-backed session and the editor forwards printable input to the running command's stdin while it runs (interactive programs work; Ctrl-C stays an interrupt). When `script(1)` is missing, commands degrade per-run to plain pipes with a one-time warning. The legacy pipe-based `ManagedShellSession` is deleted.
+- Skill Studio modules: shell + state machine + `/studio` command, list/inspect/actions (create from template, overwrite confirm, doctor), DeepWiki client with 7-day disk cache (`src/studio/deepwiki/`), AI advice engine with pi-ai streaming and char-capped context (`src/studio/advise/`), and an advice pane that streams + inserts into the session. Operator exposure remains deferred and fail-closed until the Studio panes are connected.
+- Versioned autoresearch harness (`.auto/measure.sh`, `checks.sh`, `config.json`, `prompt.md`): one-run `METRIC` output for test/typecheck/circular plus signal-render and registry micro-benchmarks.
+- Tests: 706 passing across new and existing suites; full `typecheck`, `madge --circular`, and `npm test` green.
+
+### Fixed
+- `segmentHeight` counted trailing empty lines as extra rows, forcing an empty full-width row below a segment — the "big block under every line" render bug.
+- `paintLayout` row-1+ separator padding used `separator.length` (ANSI bytes) instead of `visibleWidth(separator)` — a dead column between lanes on multi-row content.
+- Multi-row rail color: `renderActivity` now wraps each sigil row with its own ANSI color+reset, so rows 1+ render in the lane accent instead of falling back to the terminal default.
+- `activityForEvent` and `defaultMotionFor` had no `default` case — unknown events leaked the literal text `undefined` into the powerline.
+- `MotionScheduler.subscribe` now calls `onDone` on an existing consumer with the same id before replacing it (a silent leak on re-subscribe).
+- `setSignalEvent` wraps `scheduler.subscribe` in try/catch so a throw leaves the runtime in a clean idle state instead of `active=true` with `release=null`.
+
+### Changed
+- Version numbering: the ladder had raced up to 1.7.x while the shipped feature depth was a handful of patches. This release restores the honest number (1.4.3) and `chooseBump` now defaults to `patch` for normal `feat:` commits — only an explicit breaking marker (`feat!:`, `BREAKING CHANGE`) auto-promotes (to `major`); `minor` is an explicit manual choice.
+
+### Deferred
+- Editor live-tail and v1 session cleanup.
+- PTY echo/privacy.
+- Paste while running.
+- Managed-suite pipe-mode safeguards.
+- Studio operator exposure until its panes are connected.
+- Deck left-rail navigation bug (arrow-down skipping straight to the skills list).
+
+## [1.4.1] - 2026-08-27
+
+## [1.4.0] - 2026-08-27
+
+## [1.3.1] - 2026-08-25
+
+### Fixed
+- Make protected-main releases promote only an exact bot-generated candidate SHA after its own canonical `Verify` check succeeds.
+- Keep `package-lock.json` version metadata synchronized with release commits and resolve the dev-only `nanoid` advisory at 3.3.18.
+
+## [1.3.0] - 2026-08-25
+
+## [1.2.0] - 2026-08-24
+
+### Changed
+- Deck polish: structural display names (Lanternwake, Hexforge, …), injectable gallery tick, route-specific footers, and Signal three-lane copy. Clock frames stay ASCII-safe. Flat `/wishcraft settings` reloads Signal through `reloadPowerlineFromSettings`.
+
+### Added
+- Wishcraft Deck (`alt+p` / `/wishcraft`) is the operator overlay: eleven routes, `g`-prefix jumps, and a live session snapshot. `/wishcraft settings` (or `config`) opens the flat settings list.
+- `/signal` is the primary status command (`/powerline` remains an alias). No-args still toggles. `/signal menu` opens Navigate / Configure / Status.
+- Ten structural appearance bases (`lanternwake`…`crucible`) apply live Signal colors via `powerline.appearance.base`. Deck Appearance + Enter writes the base. `/signal hexforge` syncs appearance when the layout name is structural.
+- Motion Gallery and Composer on the Deck Motion route. Catalog is 50+ definitions. Enter assigns a motion to a semantic event (`powerline.appearance.motion`).
+- Skill Workbench, idea list, and guardrail rules render inside the Deck Craft routes.
+- First-class motion levels (`full|reduced|functional|off`) via `powerline.motionLevel`, `NO_COLOR`, and screen-reader / reduced-motion host flags.
+
+## [1.1.0] - 2026-08-23
+
+### Security
+- Skills manager refuses to delete skill files or directories that resolve (through symlinks) outside the canonical skill roots.
+- Skills editor command validates `EDITOR` before use, falling back to `nvim` for unsafe values.
+- Open-ports overlay reuses the shared `sshCommand` helper and fails explicitly on an invalid host instead of falling back to a local probe.
+
+## [1.0.5] - 2026-08-23
+
+## [1.0.4] - 2026-08-23
+
+## [1.0.3] - 2026-08-22
+
+## [1.0.2] - 2026-08-22
+
+### Changed
+- Release workflow pins `actions/checkout` and `actions/setup-node` to commit SHAs, so the publish lane cannot pick up a moved tag. Publish stays provenance-free by design: the contract test keeps `id-token: write` out of `release.yml`.
+
+## [1.0.1] - 2026-08-20
+
+## [1.0.0] - 2026-08-20
+
+### Added
+- Wishcraft 1.0 cockpit: README lists `/skills doctor`, `/skills new`, `wishcraft.policy`, and idea-review.
+
+## [0.27.2] - 2026-08-20
+
+### Added
+- `examples/settings.example.json` — every setting at its default, including
+  `wishcraft.policy`, `readHints`, and other post-0.22 keys.
+- ROADMAP top-15 maturity track rebaselined on 0.27.x (English); landed
+  0.23–0.27 items moved to "Already shipped".
+
+## [0.27.1] - 2026-08-20
+
+### Changed
+- Operator UI is English: skill manager, `/wishcraft` TUI, overlay empty-match row, and skill-health warnings.
+
+## [0.27.0] - 2026-08-20
+
+### Added
+- `/ideas` review overlay: `reviewStatus` (idea / in-progress / done), tags, and Run with skill X. Welcome queue widget shows the next idea plus `/ideas next`.
+
+## [0.26.0] - 2026-08-20
+
+### Added
+- `/skills new <name> [template]` writes a SKILL.md from standard, browser-workflow, CLI-workflow, or review-checklist. `ctrl+n` opens the template picker.
+
+## [0.25.0] - 2026-08-20
+
+## [0.24.0] - 2026-08-20
+
+### Added
+- Declarative policy engine (`wishcraft.policy`): in-process deny/inject rules in global settings, evaluated before command hooks. No process spawn. `policyEnabled: false` is the kill-switch.
+- `/skills doctor` health table: broken frontmatter, descriptions over 240 chars, global/project duplicates, unused skills.
+
+## [0.23.4] - 2026-08-20
+
+### Fixed
+- Command hooks, session context inject, and `/repairs` run: `setupHooks` is registered on activation.
+- Hook runner ignores EPIPE when a command exits before reading stdin.
+
+## [0.23.3] - 2026-08-20
+
+### Fixed
+- Nested settings writes reject `__proto__` / `constructor` / `prototype` keys in the assignment loop.
+- Test workflow pins `GITHUB_TOKEN` to `contents: read`.
+
+## [0.23.2] - 2026-08-20
+
+### Fixed
+- Release workflow creates a GitHub Release for each tag so the Releases page Latest matches npm.
+
+## [0.23.1] - 2026-08-20
+
+### Fixed
+- Per-segment fault isolation: a throwing custom `command` segment shows `!id` instead of blanking the footer.
+- `open_ports` parses macOS netstat dot-separated local addresses (`*.5900`, `127.0.0.1.631`).
+
+## [0.23.0] - 2026-08-20
+
+### Added
+- `powerline.skills.count` status export, published on session start and after skill-cache invalidation.
+- Read-tool continuation hints on partial core `read` results when the core output omits a range or offset summary.
+
+### Changed
+- Powerline Status menu keeps only ports, TPS, and toggle (removed unimplemented diagnostics entries).
+
+## [0.22.2] - 2026-08-20
+
+### Fixed
+- Queue archive cutoff uses a frozen clock in tests, and the TPS "starts at 0" case resets the shared ring so file order cannot leak a fake rate.
+
+## [0.22.1] - 2026-08-20
+
+### Changed
+- README is a landing page for the 0.22 cockpit. The Kongming banner stays; the inherited upstream screenshot is gone.
+
+### Fixed
+- Segment-navigator detail (`→` in `alt+p` Navigate) snapshots live state when opened. It no longer runs a 1s timer (CHE-41).
+
+## [0.22.0] - 2026-08-20
+
+### Added
+- `/tps` overlay reads the same 1s/5s ring as the segment; `/usage` shows session / today / week from `wishcraft-usage.json`.
+- Rest of the tool-input repairs on custom tools: JSON-string arrays, `{}` placeholders, bare-string wrap, and path aliases.
+- README hook examples (bash-guard, write-audit, SessionStart git-status) plus `wishcraft.hooksEnabled` kill-switch docs.
+- Overlay type-to-filter uses substring on label, value, and description.
+- `wishcraft.tokenBudget.daily` colours the cost segment at 80%/100% and warns on welcome; it never blocks.
+
+## [0.21.0] - 2026-08-20
+
+### Added
+- `/powerline doctor` and `/powerline export`.
+- `/queue archive [hours]` with a single clock snapshot so sent items cannot vanish from both inbox and archive.
+- Focused guides under `docs/` (commands, configuration, segments, bash mode, vibes, shortcuts).
+- What's New welcome widget, cost-alert threshold, ChefGroep status export, and optional fleet SSH open-port probes.
+
+## [0.20.0] - 2026-08-20
+
+### Added
+- `alt+p` menu is three overlay entries (Navigate, Configure, Status) with a Status drill-down for ports, TPS, and toggle.
+
+### Fixed
+- `theme.json` in the working directory overrides icons, and the theme cache busts when that file changes.
+
+### Changed
+- npm pack includes `banner.png` so the published tarball matches `pi.image`.
+
+## [0.19.2] - 2026-08-20
+
+### Added
+- `/powerline` tab-completes built-in presets and `placement above|below|toggle`.
+
+## [0.19.1] - 2026-08-20
+
+### Fixed
+- Release workflow publishes from the bump job. A `GITHUB_TOKEN` tag push does not start a second workflow, so waiting for the tag event left `v0.19.0` unpublished. `npm view` failures other than not-found abort; tests run on `origin/main` before the tag is cut.
+
+## [0.19.0] - 2026-08-20
+
+### Added
+- Every merge to `main` cuts an npm release: CI chooses patch/minor/major from commits since the last `v*` tag, pushes `vX.Y.Z`, and publishes with the GroepOnline org secret `NPM_TOKEN`. `[skip release]` opts out.
+
+### Changed
+- Pi catalog contract: `pi-extension` / `wishcraft` keywords, public `publishConfig`, and a `pi.image` banner so the next npm publish lands on [pi.dev/packages](https://pi.dev/packages?name=groeponline) next to the other GroepOnline packages.
+
+## [0.18.0] - 2026-08-16
+
+Wishcraft v2 (#7).
+
+### Added
+- **Tab token completion** — bash-mode tab completion for stored tokens/shortcuts.
+- **Preset rework** — own-property preset handling plus reworked presets.
+- **Git commit/ahead-behind extras** — commit count and ahead/behind in the git segment; ANSI/control chars in git commit metadata sanitized.
+- **TPS in/out** — separate tokens-in/tokens-out throughput.
+- **Interactive skill-manager TUI** (`/skills`) — browse, inspect, and manage discovered skills.
+- **Full git polling for compact extras** — reliable commit/ahead-behind data.
+
+### Changed
+- **Extension refactor** — `src/extension` split into domain subfolders (core, commands, session, ui, history, queue, settings, shortcuts, welcome).
+
+### Fixed
+- **Ghost suggestions revalidated after partial completion** — and scheduleGhostUpdate stubbed in tab token-step tests.
+
+## [0.17.3] - 2026-08-10
+
+### Added
+- **Inline skill/command invocation** — Trigger skills with `/` and commands with `$` directly from the powerline/wishcraft input, with trigger expansion. Skill discovery scans agent-global and project-local skill/prompt dirs (from `feat/inline-skill-invocation`, #5).
+
+### Fixed
+- **Fullscreen footer height** — Return one blank footer line so the Powerline footer matches Pi fullscreen dock sizing at startup (ported from upstream `nicobailon/pi-powerline-footer` #151).
+- **Post-compaction queue delivery** — Snapshot the queue context and session generation before delayed delivery, and reset undelivered items to queued on a stale extension context instead of marking them failed (ported from upstream `27cc7bf`).
+- **Global shell history fallback** — Cache an unreadable global history file as empty under its fingerprint so bash mode keeps working without logging a stack on every keypress until the file changes (ported from upstream `d3649cf` #149).
+
+## [0.17.2] - 2026-08-05
+
+### Fixed
+- **Context segment stale after compaction.** The `session_compact` handler didn't reset `coreContextUsageCache` or trigger a status render, so the bar kept showing the pre-compact fill (e.g. `196k/200k (98%)`) after compaction completed. Now resets the cache and forces an immediate redraw on compaction completion.
+
+## [0.17.0] - 2026-08-05
+
+### Added
+- **Full powerline menu** (`alt+p`): Navigate segments / Configure… / Open ports (full list) / TPS detail / Toggle. Configure sub-menu changes preset, sets/clears the TPS override, toggles UDP in open-ports, sets segment labels, and shows current config.
+- **`alt+i` info shortcut** — opens the full open-ports list directly.
+- **Configurable keybinds** — `powerlineShortcuts.menu` and `powerlineShortcuts.info` (defaults `alt+p` / `alt+i`), with the same conflict resolution as the other powerline shortcuts. Set to `null` to disable. Applies after `/reload`.
+- **Segment labels** — `powerline.segmentLabels` renames the text for any segment (e.g. `tps: "speed"`), shown between the icon and the value.
+
+## [0.16.0] - 2026-08-05
+
+### Fixed
+- **TPS rewritten with a 1-second sliding window.** The previous rolling EMA spiked (e.g. `tps:1118`) because renders fire every ~33ms during streaming, making per-render `dOut/dt` explode on tiny `dt`. TPS is now `tokens in the last ~1s` over a 5s sample ring — stable, honest, decays to 0 when idle. No more absurd values.
+- **Open-ports now counts unique TCP listening ports** by default (was unique TCP+UDP, which included noisy UDP multicast/ephemeral like mDNS 5353, DHCP, SSDP). New `segmentOptions.openPorts.includeUdp` opts back into UDP. 23 TCP unique on the dev machine (was 33).
+
+## [0.15.0] - 2026-08-05
+
+### Added
+- **Navigable powerline segments** — `alt+p` now opens an overlay mirroring the live status bar segments; `↑`/`↓` move, `enter` activates a per-segment action (TPS set hint, open-ports list, git branch, etc.). Pi core renders the footer as static text, so live click is not possible; this is the closest interactive equivalent.
+- Segment icons: TPS shows a rocket/bolt and lights up in the tokens color while generating; open-ports shows a plug icon.
+
+### Fixed
+- **TPS no longer shows absurd values** (e.g. `tps:12775`). It now uses a rolling token-rate (EMA-smoothed, reset after idle gaps) instead of a session-average, which broke after extension reload because `sessionStartTime` resets while output is cumulative.
+- **Open-ports count is now unique ports** (dedupes IPv4/IPv6 dual-stack listeners) instead of raw `ss` lines (48 raw → 32 unique on the dev machine). Column parsing is column-agnostic (works for both `ss` and `netstat`).
+- **Context segment hidden** instead of showing `NaN`/`??` when no context window is known.
+
+## [0.14.1] - 2026-08-05
+
+### Fixed
+- README documents custom segments, custom presets, and the `chef` preset (TPS + open-ports + interactive commands).
+
+## [0.14.0] - 2026-08-05
+
+### Added
+- **Fully customizable segments** — Define your own status segments in settings without touching TypeScript: `command` (runs a shell command, optional `cacheMs`), `env` (reads an env var, optional `fallback`), and `static` (fixed text). Each supports `prefix` and `color`.
+- **Custom presets** — Define presets in settings with `left`/`right`/`secondary` segment lists, `separator`, `colors`, and `segmentOptions`; they merge over built-ins and are selectable via `powerline.preset`.
+- **Release automation** — `npm run release <patch|minor|major|1.2.3>` bumps version, rolls CHANGELOG, tags `vX.Y.Z`, and pushes; `.github/workflows/release.yml` runs tests and publishes to npm on tag.
+
+### Fixed
+- **TPS segment** now derives a real session-average tokens/sec from live `usageStats` instead of showing `?` when `POWERLINE_TPS` is unset (env override still honored).
+- **Open ports segment** counts listening sockets robustly: `ss -tulnH` → `ss -tuln` → `netstat -tuln` → `/proc/net` parse, instead of silently showing `0`/`?`.
+- **`chef` preset colors** use valid theme colors (`queue: "dim"` instead of the invalid `"muted"` that triggered a fallback warning).
+- Removed the duplicate `thinking` entry in the built-in segment registry.
+
+## [0.13.0] - 2026-08-05
+
+Forked to GroepOnline. Adds ChefGroep-specific status segments and interactivity.
+
+### Added
+- **`chef` preset** — Muted, slash-separated status bar preset (hostname, model, thinking, shell mode, path, git, queue left; tps, open ports, cost, context %, time right).
+- **`tps` segment** — Reads `POWERLINE_TPS` env var and shows tokens/sec in the status bar.
+- **`open_ports` segment** — Counts listening sockets via `ss -tuln` and shows the open-port total.
+- **`/tps` command** — Show or set `POWERLINE_TPS` at runtime.
+- **`/open-ports` command** — Lists listening sockets in a select overlay.
+- **`alt+p` shortcut** — Powerline quick-actions menu (preset, TPS, ports, toggle).
+
+### Changed
+- Removed rainbow gradient from high thinking levels; uses the preset's `thinking` color instead.
+
+## [0.12.1] - 2026-08-04
+
+### Fixed
+- **Queue preview labels** — Saved ideas now show an `idea:` preview label instead of looking like normal queued prompts, while deliverable, sending, and blocked queue items keep distinct labels.
+
+## [0.12.0] - 2026-08-03
+
+### Added
+- **Strict TypeScript gate** — Added a source-only TypeScript check pinned to TypeScript 5.9.3 and Node 24 typings, plus a GitHub Actions workflow that runs typecheck before tests on Ubuntu and Windows.
+- **Saved-idea follow-up commands** — Added `/ideas next` to send the oldest active captured idea to the current session, plus `/idea issue [id]` and `/ideas issue [id]` to hand saved ideas to the current agent for guarded GitHub issue triage.
+
+### Fixed
+- **Compaction lifecycle support** — Switched compaction-aware queue delivery to Pi's supported `session_before_compact` and `session_compact` extension lifecycle instead of internal session events.
+
+## [0.11.0] - 2026-08-03
+
+### Added
+- **Powerline Queue + Inbox** — Added a file-backed queue and idea inbox for capturing thoughts without interrupting the current agent. Messages submitted during compaction are held by Powerline and delivered after successful compaction, while failed or cancelled compactions leave them blocked and visible. `/compact <text>` now compacts and queues `<text>` as the next prompt instead of treating it as compaction-summary instructions. New `/idea`, `/ideas`, and `/queue` commands manage captured ideas, queued prompts, project aliases, retries, clears, and current-session delivery; the `queue` segment and preview row surface active queue, idea, and blocked counts.
+- **Sigil idea capture** — Added leading-`#` idea capture so typing `# <idea>` and pressing Enter saves the idea instead of sending it. The sigil is configurable through `powerline.queue.captureSigil`, the editor prompt glyph switches to `#` while drafting a captured idea, stash history entries can be promoted to ideas, and delivered ideas include provenance for orchestrator handoff.
+- **Combined cache-read format** — Added opt-in `powerline.cache_read.format: "both"` to show raw cache-read tokens alongside the cache hit rate, for example `cache in: 12k (80%)`. Thanks to e (@edabchann) for #136.
+
+## [0.10.0] - 2026-08-02
+
+### Changed
+- **Long-session footer responsiveness** — Footer refreshes now reuse the active session branch and core context result while its leaf is unchanged, pull urgent paints ahead of queued streaming refreshes, and repaint as soon as background git data arrives. This removes repeated full-session walks from the interactive render path without slowing status updates.
+- **Minimum Pi version** — Working vibes now stream through the model registry's provider, which Pi exposes from 0.81.0 onward, so the supported Pi range is `>=0.81.0 <0.84.0`.
+
+### Fixed
+- **Vibe generation with extension-registered providers** — Fixed `No API provider registered for api: <name>` when the vibe model came from a provider registered by another extension. Pi 0.81 moved those providers out of the shared API table that the previous code path resolved against. Vibe requests now also carry resolved provider environment values and credential-derived base URLs, so profile-based and proxied providers reach the right endpoint. Thanks to Thurston Sandberg (@thurstonsand) for #134.
+
+## [0.9.0] - 2026-07-31
+
+### Added
+- **Cost currency display** — Added optional non-USD display for the `cost` segment via `powerline.cost.currency`, with background FX-rate caching. Thanks to @tanuki-cat for #130.
+- **Subagent cost accounting** — Added subagent child-run cost to the `cost` segment total so parallel/worker runs are reflected in session spend. Thanks to Ričardas Čubukinas (@xadips) for #128.
+
+### Changed
+- **Native fixed input cutover** — Removed the extension-owned fixed editor and chat scrolling; Pi now owns native input and feed scrolling.
+
+### Fixed
+- **Vibe generation theme parsing** — Fixed `/vibe generate` so multi-word theme names parse correctly when an optional count is provided. Thanks to Hacxy (@hacxy) for #127.
+
+## [0.8.1] - 2026-07-30
+
+### Changed
+- **Interactive hot-path performance** — Shell history ghost suggestions now cache project and global history behind file-fingerprint validation instead of re-reading and re-parsing history files on every keystroke; fixed-editor cluster rendering only width-normalizes rows that can reach the terminal instead of every candidate line; and streaming token-stat updates reuse the append-only session prefix instead of rescanning the full event list. Measured on stress workloads with byte-identical output: 100k-line zsh history reads ~5,500x faster, large fixed-editor redraws ~390x faster, and 20k-event streaming token updates ~300x faster.
+
+## [0.8.0] - 2026-07-29
+
+### Added
+- **Session directory switching** — Added `/cd <path>` to continue the current conversation from another working directory while keeping Pi tools and the footer path segment in sync. Thanks to chengxiang (@chengxiang1997) for #114.
+- **Separator override** — Added `powerline.separator` so separator style can be chosen independently of the active preset. Thanks to Andy8647 and mj-meyer for #106/#116.
+- **Git host icon** — Added opt-in `powerline.git.hostIcon` to replace the git branch icon with a detected GitHub, GitLab, Bitbucket, or generic git host icon when an origin remote is available. Thanks to Andy8647 for #113.
+- **Segment display formats** — Added opt-in `powerline.context.format` and `powerline.cache_read.format` settings for compact percentage-style context and cache-read segments. Thanks to Andy8647 for #109.
+- **copyOnSelect toggle** — Added `powerline.copyOnSelect` (default `true`) to control whether mouse text selection auto-copies to clipboard on release. Set to `false` to disable auto-copy; the selection then stays highlighted with a `N characters selected, ctrl+c to copy` hint, and copies explicitly via `ctrl+c` or right-click. Thanks to Andy8647 for #105.
+- **Scroll-away card toggle** — Added `powerline.scrollAwayCard` and `/powerline scroll-away-card on|off|toggle` so the fixed editor and chat navigation shortcuts can remain enabled while the scroll-away hint card is hidden. Thanks to Alexander Gerdes (@Avg8888), Whisperfall, and Bruno Orsolon (@brunoorsolon) for #97/#108/#99.
+
+### Changed
+- **TypeScript cleanup** — Tightened local result and helper types around vibe generation, prompt history, context usage, and bash history reset paths.
+- **Inline custom UI repainting** — Avoids rerendering static chat while fixed-editor inline custom UI clusters repaint with unchanged viewport geometry. Thanks to JMHSV for #111.
+- **Status render caching** — Caches session token aggregation between unchanged render inputs and keeps stale git segment values visible during background refreshes, reducing long-session redraw work and git flicker. Thanks to Andy8647 for #107.
+- **Fixed-editor scrolling performance** — Uses terminal row shifts, cached transcript lines, an 8 ms repaint cadence, and transient shortcut-card hiding during active wheel movement to cut scroll latency and terminal output churn.
+
+### Fixed
+- **Fixed-editor output padding** — Applies top-level `outputPad` as the fixed-editor outer inset so fixed-editor mode matches Pi’s regular output spacing. Thanks to Gabriel Dehan for #104.
+- **Fixed-editor keyboard negotiation** — Retries extended keyboard mode setup briefly after entering the alternate screen so late Kitty/modifyOtherKeys negotiation is enabled on the active screen. Thanks to Raymond Ko for #102.
+- **Theme override path** — Loads `theme.json` from the documented agent-dir `extensions/powerline-footer` path before falling back to the loaded package directory, and clarifies setup docs for `showLastPrompt` and layout rows. Thanks to MeisterP for #117.
+- **Print-mode terminal cleanup** — Terminal reset and cursor restoration sequences run only during interactive TUI shutdowns, keeping `pi -p` output visible. Thanks to Sergey Konkin (@sergeykonkin) for #101.
+
+## [0.7.0] - 2026-07-14
+
+### Added
+- **Fixed-editor scroll-away shortcut hint card** — Shows a stacked bottom/user/assistant shortcut card when chat is scrolled away from the bottom; clicking anywhere in the card jumps back to the bottom when fixed-editor mouse handling is enabled.
+- **Welcome toggle** — Added `powerline.welcome` so the startup welcome UI can be disabled without disabling the footer. Thanks to OCPdev25, miloslavnosek, vzeazy, and Florian Kinder (@fank) for #48/#89.
+- **Display options** — Added `powerline.cost.subscriptionDisplay` and `powerline.model.display` for subscription cost and provider-qualified model names. Thanks to Alexandr Burdiyan (@burdiyan), Meidhy (@dymayday), Mathu Mounasamy (@Mathuv), and pserey for #3/#83/#50.
+- **Legacy sharp-S stash opt-in** — Added `powerline.stashSharpSShortcut` for users who intentionally want printable `ß` to trigger stash. Thanks to SebastianRuettiRuettger and Filip (@filipores) for #39/#84.
+- **Contribution guide** — Added lightweight bug report, feature request, PR, testing, docs, and changelog guidance. Thanks to OCPdev25 for #49.
+- **Agent-dir path support** — Respects `PI_CODING_AGENT_DIR` for global powerline settings, stash history, sessions, vibes, skills, commands, and extension discovery. Thanks to Hrand Liu (@IstPlayer) for #86.
+- **Segment disabling** — Added `powerline.disabledSegments` to hide built-in or configured custom segments from any preset. Thanks to Brian Lange (@bjlange) for #88.
+- **Startup token estimate** — The welcome UI now shows an approximate initial system-prompt token count before the first message. Thanks to Ibrahim Mohammed (@IbrahimMohammed47) for #80.
+- **Configurable segment layout** — Added `powerline.layout` for exact `left`, `right`, and `secondary` group overrides on any preset, including explicit `custom:<id>` placement. This replaces the misleading fixed `custom` preset. Thanks to Bruno Orsolon (@brunoorsolon), Thurston Sandberg (@thurstonsand), and Arthur Bodera (@Thinkscape) for #54/#40/#37.
+- **Primary row placement** — Added `powerline.placement` and `/powerline placement above|below|toggle` to move the primary powerline row around the editor while keeping notifications and responsive overflow in their existing groups. Thanks to Rogerio Saulo (@rsaulo) for #77.
+
+### Changed
+- **Herdr and tmux scroll guidance** — Keeps fixed-editor mouse scrolling enabled by default and documents that host multiplexer scrollback needs `/powerline fixed-editor off`.
+- **Bottom jump shortcut** — Uses `ctrl+alt+g` as the default fixed-editor jump-to-bottom shortcut instead of `ctrl+shift+g`.
+- **Stash shortcut safety** — Literal `ß` is no longer consumed as stash by default; unambiguous Alt/Meta-S escape encodings still work.
+- **Docs for UI and demo settings** — Clarified that the README screenshot is illustrative, documented a current footer setup, noted the old chrome limitation, and documented the URL modifier-click mouse-capture limitation plus Shift bypass. Thanks to Yosof Badr (@yosofbadr), kaiwah, Jason (@itguy327), Oliver Mannion (@tekumara), thurstonsand, jmd1011, and Thomas Dietert (@tdietert) for #75/#63/#45/#93/#95.
+- **Pi 0.80 compatibility** — Widened peer ranges and refreshed dev dependencies against `@earendil-works/*` 0.80.3. Thanks to Alexander Gerdes (@Avg8888) and AlexKucera for #87.
+- **Shortcut disabling** — `powerlineShortcuts` and `bashMode.toggleShortcut` now treat `null` or `""` as explicit disabled values and omit disabled chat jumps from fixed-editor hints. Thanks to Koen De Jaeger (@kdejaeger) for #73.
+- **Editor autocomplete composition** — Powerline now passes Pi's autocomplete provider through a previous editor's `setAutocompleteProvider()` before adding bash-mode wrappers, preserving prior autocomplete-provider wrappers where possible. Thanks to Tifan Dwi Avianto (@tifandotme) for #61.
+- **Context usage display** — The context segment now shows used tokens, maximum tokens, and percentage together. Thanks to Fayi Femi-Balogun (@fayimora) for #92.
+- **Maximum thinking style** — Pi's `max` thinking level now uses the same rainbow treatment as `high` and `xhigh`. Thanks to @AiraNadih for #94.
+
+### Fixed
+- **Fixed-editor wheel bursts** — Coalesces rapid mouse-wheel packets into throttled viewport repaints and defers the follow-up TUI render until scrolling settles, reducing flicker and slowdowns in terminal multiplexers.
+- **Welcome discovery noise** — Ignored vanished/dangling skill, extension, and prompt-template entries during welcome overlay discovery instead of printing stack traces.
+- **Reload keyboard protocol** — Preserves extended keyboard modes on `/reload` and only hard-resets them on real quit. Thanks to Francesco Buldo (@frabul), Alexander Gerdes (@Avg8888), and Sylvain Rivierre (@slhad) for #81/#82/#85.
+- **Prompt history recall** — Up-arrow prompt history no longer clobbers multiline drafts from the last logical line. Thanks to Nelson Tam (@nelson) and ceblan for #79.
+- **Stale extension contexts** — Handles both old and new Pi stale-context messages and guards late `agent_end` UI access without swallowing unrelated errors. Thanks to JackIce (@jackice) and Salem Sayed Abdel Gawad (@salemsayed) for #62, and Joshua Brunner (@joshuajbrunner), Arthur Bodera (@Thinkscape), @k0valik, and ET (@EdrisT) for #33.
+- **Context icon glyph** — Switched the Nerd Font context icon to a stable v3-friendly database glyph. Thanks to Michael Leonard (@LeonardMH) for #41.
+- **Recent session names** — Recent-session project names now prefer the session JSONL header `cwd` basename before falling back to encoded directory names. Thanks to Jon Leemon (@nomeelnoj) for #76.
+- **Quit cursor restore** — When fixed-editor mode is off, quitting now moves the terminal cursor below Pi's inline editor area without running on `/reload` or session switches. Thanks to afkdev8 (@mrinfinidy) for #60.
+- **Custom cursor bindings** — Prompt-history recall now intercepts only literal Up/Down arrows, so custom cursor bindings such as `alt+j` and `alt+k` reach normal editor movement. Thanks to Hrand Liu (@IstPlayer) for #96.
+
+## [0.6.1] - 2026-06-08
+
+### Fixed
+- **Prompt history draft preservation** — Returning from prompt-history browsing with Down now restores the unsent editor draft instead of clearing it.
+
+## [0.6.0] - 2026-06-05
+
+### Changed
+- **Prompt history recall** — Pressing Up at the end of non-bash editor text now recalls the previous submitted prompt, while Up inside the text keeps normal cursor movement.
+- **Pi 0.76 compatibility** — Verified compatibility against `@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`, and `@earendil-works/pi-tui` `0.76.0`, then widened peer/dev ranges to `>=0.74.0 <0.77.0`.
+- **Git polling control** — Added `powerline.git.polling` with `full`, `branch`, and `off` modes so users can avoid background dirty-state polling in worktrees or Windows environments.
+
+### Fixed
+- **Session-switch keyboard modes** — Preserved Kitty keyboard protocol and `modifyOtherKeys` across session switches so Shift+Enter keeps inserting newlines after resume/new/fork.
+- **Fixed-editor IME positioning** — Kept the terminal cursor anchored to the logical editor cursor even when the visible hardware cursor is hidden, improving IME candidate placement.
+- **Fixed-editor image scrolling** — Cleared stale Kitty image placements when the app-owned chat viewport moves so images scroll with text.
+- **Stale extension contexts** — Ignored only Pi's stale-context render race during session replacement while preserving other render errors.
+- **Stash text lookup** — Fell back to Pi's editor text when the custom editor temporarily reports an empty string, so stash/copy/history actions can still see current input.
+- **Segment option config** — Parsed and merged documented segment options like `powerline.path.mode` over preset defaults.
+- **Fixed-editor selection hit-testing** — Refreshed root viewport state before mouse selection hit-testing so copied text stays aligned after output changes.
+
+## [0.5.6] - 2026-05-26
+
+### Fixed
+- **Fixed-editor mouse scrolling** — Reasserted terminal mouse reporting after fixed-editor writes so mouse-wheel scrolling keeps working when the fixed editor is enabled.
+- **Fixed-editor chat clipping** — Guarded fixed-editor viewport writes against terminal autowrap drift so full-width user message boxes no longer lose characters at the right edge.
+
+## [0.5.5] - 2026-05-26
+
+### Fixed
+- **Pi 0.75 extension installs** — Widened Pi package peer dependency ranges so `pi-powerline-footer` can install alongside extensions that require Pi 0.75.x packages.
+
+## [0.5.4] - 2026-05-10
+
+### Fixed
+- **Editor undo shortcut** — Command-Z now restores deleted prompt text through the custom editor undo stack.
+
+## [0.5.3] - 2026-05-10
+
+### Fixed
+- **Fixed-editor status scrolling** — Mouse wheel scrolling now repaints the app-owned chat viewport immediately when fixed status rows are present, instead of waiting for a later TUI diff render.
+
+## [0.5.2] - 2026-05-09
+
+### Fixed
+- **Editor file drops** — Finder file, folder, image, and screenshot drops now insert path strings into the custom editor, including terminals that send `file://` URI drops.
+- **Fixed-editor status scrolling** — Mouse wheel and keyboard scrolling now refresh viewport bounds when fixed Pi/status rows appear, so fixed status messages no longer stop chat scrolling.
+
+## [0.5.1] - 2026-05-02
+
+### Fixed
+- **Fixed-editor context-menu copy** — Right-clicking inside an app-owned text selection now restores the full highlighted range after terminal context-menu Copy, instead of leaving only the clicked word on the clipboard.
+
+## [0.5.0] - 2026-05-02
+
+### Changed
+- **Fixed editor hard cutover** — Chat/feed content now scrolls in a TUI-owned viewport above the fixed powerline/editor cluster. Mouse wheel and PageUp/PageDown scroll chat without moving the editor. Dragging chat or fixed-editor text highlights it and copies on release. Use `/powerline fixed-editor on|off|toggle` to switch back to Pi’s regular scrolling layout, or `/powerline mouse-scroll off` for native terminal selection.
+- **Chat shortcuts** — Added configurable previous/next shortcuts for jumping the fixed-editor chat viewport through user messages (`ctrl+shift+u` / `ctrl+shift+i`), LLM messages (`ctrl+alt+,` / `ctrl+alt+.`), plus `ctrl+shift+g` to jump straight to the bottom. Fixed-editor feed scrolling now also has configurable `scrollChatUp` / `scrollChatDown` shortcuts, defaulting to `cmd+up` / `cmd+down`.
+- **Editor navigation shortcuts** — Added configurable `editorStart` / `editorEnd` shortcuts, defaulting to `cmd+shift+up` / `cmd+shift+down`, to move the editor cursor to the start of the first line or end of the last line. Shortcut settings are refreshed per session, and `cmd+shift` aliases canonicalize to the same `super+shift` form as the defaults. Unsupported Command-letter bindings are ignored instead of matching plain text input.
+
+### Fixed
+- **Bash ghost shell safety** — Bash-mode and one-off `!command` ghost suggestions no longer spawn shell-native completion probes, avoiding interactive zsh/fish/bash subprocesses that can interfere with terminal job control and stop the parent Pi process.
+- **Thinking status repainting** — Thinking level changes now invalidate the powerline layout immediately and use live thinking state, so rapid Shift+Tab cycling updates the footer without waiting for the next agent turn, typing throttle, or session-history refresh. Tree navigation clears the live override so branch history can show the selected branch's thinking level.
+- **Context usage repainting** — The context-window usage segment now refreshes from live streaming assistant usage on message updates and forces a final repaint at message/turn completion, so values like `17.1%/272k` update sooner than session-history-only refreshes. `/tree` navigation with a branch summary now uses Pi's current context estimate immediately instead of waiting for the next assistant turn. Live usage is cleared across sessions and agent turns, `totalTokens` is preferred when providers report it, and zero-token, aborted, or error messages fall back to the last valid persisted usage instead of flashing `0%`.
+- **Extension status repainting** — `ctx.ui.setStatus()` updates now invalidate the powerline layout immediately while idle, so custom status items such as `🪃 auto` appear without waiting for the next prompt or agent event.
+- **Fixed-editor working status** — Pi's working/status line, like `⠏ Shaolin Switchblade Sync...`, now stays fixed with the editor instead of scrolling with chat.
+- **Fixed-editor follow-up queue** — The fixed editor now re-enables Pi's extended keyboard mode after entering alternate screen, so `Alt+Enter` still reaches Pi's follow-up queue while the agent is streaming.
+- **Fixed-editor terminal cleanup** — Session shutdown and emergency exit cleanup now leave alternate screen before clearing the full Kitty CSI-u stack and xterm modifyOtherKeys mode, preventing keypresses from leaking as sequences like `97;1:3u` after quitting Pi.
+- **Fixed-editor overlay width** — Overlay compositing now normalizes tabbed overlay lines and strips OSC shell-integration markers from overlay-visible base lines, preventing side-chat overlays from producing rendered lines wider than the terminal.
+- **Fixed-editor selection context menu** — App-owned text selection now briefly releases mouse reporting after copy so a follow-up right-click can open the terminal context menu.
+- **Fixed-editor selection overflow** — Chat selection highlighting now strips OSC shell-integration control sequences before slicing text, preventing exposed `]133` markers from making rendered lines exceed terminal width.
+- **Fixed-editor text selection** — Dragging inside the fixed editor cluster now highlights and copies selected text instead of being swallowed by mouse-scroll handling. Dragging a chat selection to the viewport edge now scrolls while keeping the selection active.
+- **Fixed-editor right-click menu** — Right-click temporarily releases mouse reporting so the terminal context menu remains available while fixed-editor mouse scrolling is enabled.
+- **Fixed-editor double-click selection** — Double-clicking chat or fixed-editor text now selects the whole line while mouse reporting is active.
+- **Fixed-editor keyboard scrolling** — Command+PageUp/PageDown and Ctrl+Shift+Up/Down now scroll the fixed-editor chat viewport, giving compact keyboards a default page-scroll shortcut.
+- **Fixed-editor submit follow** — Submitting editor text now returns the fixed-editor chat viewport to the bottom so the new prompt/output stays in view.
+
+## [0.4.20] - 2026-04-26
+
+### Changed
+- **Welcome overlay logo** — Replaced the old π splash art with a block-rendered version of the current Pi logo.
+- **Status line branding** — Removed the standalone `π` segment from the powerline surface so the editor row starts with model/status information.
+- **Stash shortcut** — Accept macOS `Option+S` even when the terminal emits the literal `ß` character instead of an `alt+s` escape sequence.
+- **Model segment** — Removed the extra ASCII model glyph before the model name.
+
+## [0.4.19] - 2026-04-25
+
+### Fixed
+- **Editor responsiveness during live status updates** — Coalesced status repaints and moved the top powerline row out of the editor render path so shifting status items do less work while typing.
+
+## [0.4.18] - 2026-04-23
+
+### Fixed
+- **Editor responsiveness while streaming** — Reduced powerline layout work during assistant streaming and coalesced welcome-dismiss work so typing in the editor stays more responsive while output is arriving.
+
+## [0.4.17] - 2026-04-23
+
+### Fixed
+- **Session shutdown crash** — Footer/editor render paths no longer read stale session-bound `ctx` objects during Ctrl+C, reload, or session replacement, preventing Pi 0.69.x stale-extension errors.
+- **Bash transcript theme regression** — The bash transcript widget now uses the full Pi theme provided by the widget factory, avoiding `theme.fg is not a function` crashes from editor theme objects.
+- **Welcome overlay shutdown cleanup** — Delayed welcome overlays now ignore replaced sessions and clean up their countdown timer safely during early dismissal.
+
+## [0.4.16] - 2026-04-21
+
+### Fixed
+- **Project-local powerline settings now apply** — The extension now merges global and project settings for `powerline`, so project `.pi/settings.json` custom items and preset overrides render correctly without requiring a matching global config.
+- **Preset changes preserve project-local custom items** — `/powerline <preset>` now writes back to the project settings file when that file owns the `powerline` key, preserving existing `customItems` instead of silently bypassing project configuration.
+- **Promoted status rendering cleanup** — Custom powerline items now normalize status text consistently, keep notification-style statuses renderable when promoted, and avoid duplicate notification display above the editor.
+- **Custom-item review cleanup** — Removed the remaining `any` escape from the custom-items test and deleted redundant narration comments in the touched segment code.
+- **Per-level thinking colors restored** — `minimal`, `low`, and `medium` thinking levels now render with their documented distinct colors again, and the theme surface now exposes only the thinking color keys that actually affect runtime rendering.
+- **Thinking-color cleanup** — Narrowed the segment theme contract to the `fg()` API it actually uses, removed the regression test cast, and cleaned the nearby thinking docs/comments to match the project’s plain-text style.
+
+## [0.4.15] - 2026-04-21
+
+### Added
+- **`theme.json` icon overrides** — `theme.json` can now override footer icons alongside colors, so you can tone down or remove glyphs like the auto-compact marker without editing `icons.ts`.
+
+### Fixed
+- **Older pi autocomplete compatibility** — Bash-mode autocomplete providers now stay sync-compatible when they have no dropdown items, so wrapping the default provider no longer risks handing older hosts a `Promise` from `getSuggestions()`.
+- **Enter no longer forces ghost text** — Bash-mode Enter now submits exactly what is in the editor instead of silently accepting the current ghost suggestion first. `Tab` and Right Arrow remain the explicit ghost-accept actions.
+
+## [0.4.14] - 2026-04-21
+
+### Fixed
+- **Ghost-first bash predictions** — Bash mode no longer opens or relies on a shell autocomplete dropdown. Typing now updates only the inline ghost suggestion, and `Tab` accepts that ghost instead of surfacing a menu.
+- **Irrelevant command-position suggestions** — Command stems now resolve from successful project history first, can use guarded global Git history as a backup, and fall back to a tiny curated default set when history is absent. Today that means `g` → `git status` and `c` → `cd ..`, while generic command noise like `g++` stays out of the shell UI.
+- **Empty-prompt global-history ghosts** — When bash mode starts on an empty prompt without a successful project-history match, it now stays empty instead of promoting an unvalidated global-history command.
+
+## [0.4.13] - 2026-04-20
+
+### Fixed
+- **Stale footer repaint after model changes and agent completion** — The shared footer/editor render path now invalidates its cached layout and repaints immediately on `model_select` and `agent_end`, fixing the stale model/status behavior reported in issue #11 and avoiding the incomplete direct-render approach proposed in PR #19.
+- **Bracketed paste shell UI refresh** — After multiline bracketed paste completes, bash-mode ghost suggestions and shell autocomplete now refresh normally instead of staying stale.
+
+## [0.4.12] - 2026-04-20
+
+### Added
+- **Sticky bash mode** — Added `/bash-mode`, `/bash-reset`, a configurable `ctrl+shift+b` toggle, a persistent per-session shell runtime, and an embedded shell transcript below the editor.
+- **Shell-aware completion pipeline** — Added project/global shell history ranking, git-aware completions, PATH/path completions, active-shell native completion adapters, and ghost suggestions for bash mode.
+- **Shell mode status segment** — Added a dedicated `shell_mode` segment that shows when bash mode is active and whether the managed shell is idle or running.
+- **Test coverage for bash mode primitives** — Added tests for transcript truncation, history parsing, completion ranking, ghost suggestions, and managed shell cwd persistence.
+- **Empty-prompt bash ghost suggestions** — Entering bash mode on an empty prompt now shows a history-based inline ghost suggestion immediately, and clearing the prompt restores it without auto-opening the dropdown.
+
+### Changed
+- **Auto-hide native context under custom compaction** — When `pi-custom-compaction` is installed and enabled, the powerline now hides `context_pct` and `context_total` so the footer does not show stale native context usage after virtual background summaries apply.
+
+### Fixed
+- **Newest-first shell history ranking** — Bash mode now treats project and global shell history consistently so the newest matching command wins instead of older matches surfacing first.
+- **Interrupted shell recovery** — If an interrupted shell command tears down the managed shell process, the session now marks the command as failed, clears stale process state, and starts cleanly on the next command instead of getting stuck.
+- **Escaped fallback path completions** — Deterministic path completions now escape shell-special characters like spaces before insertion while keeping the dropdown labels readable.
+- **Native completion cwd drift** — Shell-native completion probes now run from the managed shell cwd instead of the extension directory, so repo-aware and path-aware suggestions match the actual bash-mode location.
+- **Broken bash argument completions** — Bash native completion no longer suggests unrelated executables like `declare` for argument positions such as `cd d`, and directory candidates keep their trailing slash.
+- **Enter while shell is busy** — Pressing Enter with ghost text visible no longer mutates the editor when a shell command is already running.
+- **Package release contents** — The published package now includes the new `bash-mode/*.ts` runtime files instead of only the root-level extension files.
+- **Transcript eviction** — The bash transcript now keeps the active command visible even when that single command exceeds the retention cap, instead of evicting the running command entirely.
+- **Escaped native zsh directory completions** — Native zsh completions now preserve trailing directory slashes for escaped path suggestions like `My\ Folder/`.
+- **Prompt history navigation regression** — Bash mode no longer reuses pi-tui’s internal `historyIndex` slot for shell history state, so normal Up/Down prompt navigation works reliably again and Down clears the editor when returning to the live draft.
+- **Empty-prompt shell history browsing** — Bash mode history navigation now works from an empty prompt too, returning the newest commands instead of reporting no matches.
+- **One-off `!` / `!!` shell predictions** — Default one-off bash commands now reuse the shell completion pipeline too, so typing `!` or `!!` shows ghost suggestions immediately and Right Arrow accepts them just like sticky bash mode.
+- **Bang-command completion alignment** — One-off shell predictions now only activate for real `!` / `!!` commands at the start of the prompt, matching pi’s actual submission behavior instead of also triggering after leading whitespace.
+- **Hidden ghost acceptance** — Right Arrow no longer accepts a ghost suggestion when the cursor is not at the end of the line, so moving around inside a command behaves normally.
+- **Working vibe generation on `openai-codex/*` and similar providers** — Vibe generation now sends a minimal system prompt to providers that require instructions, batch generation preserves provider error messages instead of collapsing them into `Empty response from model`, and the default vibe model now uses `openai-codex/gpt-5.4-mini` instead of an Anthropic default.
+- **Multiline paste submission regression** — The custom editor no longer misreads bracketed multiline paste chunks as submit keys, so pasted text stays in the editor instead of getting split into separate submitted prompts.
+
+## [0.4.11] - 2026-04-14
+
+### Fixed
+- **Prompt-width crash on pasted unicode text** — Replaced manual truncation in the last-prompt widget and welcome helpers with pi-tui truncation so pasted text containing grapheme clusters no longer overflows terminal width and crashes the UI.
+- **Session usage typing cleanup** — Replaced broad session assistant-message casts with local type narrowing in footer context building.
+
+### Changed
+- **Status copy simplified** — Removed emoji-based stash and fallback status markers from the current UI and docs.
+
+## [0.4.10] - 2026-04-12
+
+### Changed
+- **Model segment simplified** — Footer model segment now shows model info only (plus thinking), without profile labels.
+
+### Removed
+- **Profile switching surface** — Removed `/model-switcher`, profile cycle/select shortcuts, and profile persistence wiring from this extension.
+
+## [0.4.9] - 2026-04-03
+
+### Added
+- **Recent project prompts in prompt history** — `/stash-history` and `ctrl+alt+h` now let you choose between saved stashed prompts and recent user-submitted prompts from pi sessions in the current project folder.
+
+### Fixed
+- **Session transition cleanup in prompt history UI** — Unified stash and welcome cleanup under `session_start` reason handling so replacement starts reset session-local state without relying on removed post-transition extension events.
+
+## [0.4.8] - 2026-03-27
+
+### Fixed
+- **Broken vibe generation after pi update** — Migrated from removed `modelRegistry.getApiKey()` to `getApiKeyAndHeaders()`, passing both `apiKey` and `headers` through to `complete()` so OAuth and custom proxy providers work correctly.
+
+## [0.4.7] - 2026-03-22
+
+### Fixed
+- **Stale footer after profile switch** — Invalidated layout cache after switching profiles so the powerline updates immediately instead of lagging behind the notification.
+
+## [0.4.6] - 2026-03-22
+
+### Added
+- **Model profiles** — Added saved model + thinking combos via `modelProfiles` in settings. When active, profiles with a label show the label in the model segment; profiles without a label append a `(P#)` indicator to the model name.
+- **Profile shortcuts** — Added `alt+shift+tab` profile cycling and `ctrl+alt+m` profile selector overlay, both configurable through `powerlineShortcuts`.
+- **`/model-switcher` command** — Added profile management commands for listing, adding (interactive picker or direct text), removing, and switching by profile number, with immediate persistence to `settings.json`.
+
+## [0.4.5] - 2026-03-19
+
+### Added
+- **Stash history overlay** — Added `ctrl+alt+h` stash history picker showing up to 12 recent stashed prompts (newest first).
+- **Stash history slash command** — Added `/stash-history` to open the same stash history picker from the command prompt.
+- **Persistent stash history storage** — Stash history now saves to `~/.pi/agent/powerline-footer/stash-history.json`.
+- **Insert mode prompt for stash history** — Selecting a stash history entry now supports `Replace`, `Append`, or `Cancel` when the editor already has text.
+- **Editor-wide clipboard shortcuts** — Added `ctrl+alt+c` to copy all editor text and `ctrl+alt+x` to cut all editor text.
+- **Configurable powerline shortcuts** — Added `powerlineShortcuts` settings support for `stashHistory`, `copyEditor`, and `cutEditor` bindings.
+
+### Changed
+- **Stash lifecycle consistency** — Active stash resets on session switch and when `powerline` is disabled, while stash history persists to disk for reuse across restarts.
+- **Stash update behavior** — Pressing `Alt+S` while both editor text and an active stash exist now updates the stash with the current editor text and clears the editor (no swap-back into the editor).
+- **Shortcut override hardening** — Invalid shortcut override values are rejected, and conflicting shortcuts auto-fallback so `Alt+S` stash behavior and all three powerline shortcuts remain usable.
+
+## [0.4.4] - 2026-03-19
+
+### Removed
+- Dropped npm `bin` installer shim and removed `cli.js`; package now targets `pi install npm:pi-powerline-footer` as the only install path.
+
+## [0.4.3] - 2026-03-19
+
+### Fixed
+- **`nerd` preset crash on `primary` theme color** — Replaced invalid `tokens: "primary"` with `tokens: "muted"` so `/powerline nerd` no longer trips `Unknown theme color: primary` on current pi themes.
+- **Stale theme docs** — Updated README and `theme.example.json` to remove `primary` as a supported theme color name and align documented defaults with runtime values.
+- **Thinking level fallback from footer context** — `buildSegmentContext()` now correctly falls back to `ctx.getThinkingLevel()` when no session `thinking_level_change` event exists.
+- **Vibe config persistence signaling** — `/vibe` commands now warn when runtime changes could not be written to `settings.json` instead of silently claiming persistence.
+- **Welcome text width truncation** — Truncation now respects `visibleWidth()` per codepoint, preventing wide-character overflow in welcome rendering.
+- **JS extension discovery parity** — `discoverLoadedCounts()` now recognizes directory `index.js` and standalone `.js` extension entries, not just TypeScript files.
+- **Package count scope parity** — Welcome extension counts now include npm packages from both global (`~/.pi/agent/settings.json`) and project (`.pi/settings.json`) settings.
+- **Dead `git` semantic color path** — Removed unused `git` semantic color wiring that was never read by segment rendering.
+- **Vibe batch count hardening** — `/vibe generate` and `generateVibesBatch()` now clamp invalid/negative/huge counts to safe bounds.
+- **Custom editor async race guard** — Late `setupCustomEditor()` async completion no longer re-attaches editor/footer/widgets after the extension has been disabled.
+- **Vibe file path sanitization** — Theme names are now slugged to safe filenames before file reads/writes, preventing path-like theme strings from producing unsafe paths.
+- **Home directory resolution hardening** — Settings/vibe path resolution now falls back to OS homedir APIs when `HOME`/`USERPROFILE` are unset.
+- **Dead `thinkingHigh` semantic path** — Removed unused `thinkingHigh` semantic color plumbing from runtime theme config/types and example theme JSON.
+- **Dead color table entries** — Removed unused ANSI color constants from `colors.ts` to match only colors actually used by welcome/editor chrome rendering.
+
+## [0.4.2] - 2026-03-15
+
+### Fixed
+- **Ghost entries in extension statuses** — Status values that are purely ANSI escape codes with no visible text (zero `visibleWidth`) are now filtered out instead of rendering as blank ` · ` gaps in the powerline bar.
+- **Double separator artifacts** — Extensions that bake in their own trailing separators (e.g., Glimpse's `G ·`) no longer clash with the segment's own ` · ` joiner. Trailing ANSI codes, whitespace, `·`, and `|` are stripped from each status value before joining.
+
+## [0.4.1] - 2026-03-12
+
+### Fixed
+- **Prompt history now survives custom editor reinstalls** — Up-arrow recall is preserved across `/reload`, preset changes, and the editor's autocomplete self-rebind path by snapshotting prompt history before replacement and restoring it into the new custom editor instance. Explicitly disabling `powerline-footer` via `/powerline` still clears the extension-managed history on purpose.
+
+## [0.4.0] - 2026-03-11
+
+### Added
+- **Editor stash** — Press `Alt+S` to save editor content and clear the editor, type a quick prompt, and have the stashed text auto-restored when the agent finishes. Toggles: stash, pop, swap, or "nothing to stash" depending on editor/stash state. Status indicator (`stash`) shown in the powerline bar on presets that include `extension_statuses`. Auto-restore only happens when the editor is empty (won't overwrite text you started typing).
+
+### Fixed
+- **Stale state on session switch** — `/new` and `/resume` now properly reset session timer, context, last prompt, streaming flag, and dismiss any active welcome overlay/header. Previously these carried over from the old session because `session_start` only fires on initial load and `/reload`, not on session changes.
+
+### Removed
+- Dead `clearThemeCache()` export from `theme.ts`
+- Dead `user_message` event handler (welcome dismissal already handled by `agent_start`, `tool_call`, and editor keypress)
+- Unused parameters across handlers and segments
+- Redundant double settings file read (consolidated into single `readSettings()` helper)
+
+## [0.3.1] - 2026-02-28
+
+### Changed
+- **Last prompt reminder now always visible** — Shows your last message at all times (not just during streaming) so you always have context. Disable via `"showLastPrompt": false` in settings.json.
+
+## [0.3.0] - 2026-02-28
+
+### Added
+- **Last prompt reminder** — Shows your last message below the powerline bar while the agent is streaming, so you don't forget what you asked during long operations. Displays as a subtle gray `↳ your message here...` that disappears when the agent finishes.
+
+## [0.2.24] - 2026-02-15
+
+### Fixed
+- **Secondary row disappearing** — When overflow segments exceeded terminal width, the entire secondary row vanished instead of showing what fits. The secondary row now applies the same width-fitting logic as the top bar, adding segments until full and stopping there.
+
+### Removed
+- Dead `width` field from `SegmentContext` (set but never read by any segment)
+- Dead `rainbow` function and `RAINBOW_COLORS` from `colors.ts` (duplicated in `theme.ts`, which is the version actually used)
+
+## [0.2.23] - 2026-02-06
+
+### Fixed
+- **Slash command autocomplete not appearing** — Custom editor created during `session_start` never received the autocomplete provider because pi v0.52.7 moved `setupAutocomplete()` to run after extensions load. The `handleInput` override now detects the missing provider on first keystroke, re-triggers `setEditorComponent` (which succeeds because the provider exists by then), and forwards the keystroke to the new editor. Users without editor-replacing extensions were unaffected.
+
+## [0.2.22] - 2026-01-31
+
+### Fixed
+- **Detached HEAD flickering** — Git branch segment no longer oscillates between showing "detached" and hiding every 500ms when HEAD is detached
+  - Root cause: two competing branch detection methods (provider reads `.git/HEAD` → `"detached"`, extension runs `git branch --show-current` → empty/null) fought via a `??` fallback that leaked the provider value on every cache expiry
+  - Branch cache now returns stale value while refreshing instead of falling through to provider
+  - Detached HEAD now shows the short commit SHA (e.g., `abc1234 (detached)`) instead of bare "detached"
+
+### Changed
+- **Extracted `runGit` helper** — Consolidated duplicated process-spawning logic from `fetchGitBranch` and `fetchGitStatus` into a shared helper
+- `fetchGitBranch` now distinguishes "not a git repo" (null, early exit) from "detached HEAD" (empty string, SHA lookup) — avoids spawning a wasteful second process for non-git directories
+
+## [0.2.21] - 2026-01-31
+
+### Changed
+- **Status bar moved above editor** — Powerline segments now render above the top border instead of below the bottom border, keeping the input prompt closer to the conversation
+- **Removed blank line below editor** — Eliminated extra spacing after the status bar
+- **Default segment order** — Model and thinking level now appear before path for better at-a-glance info (π → model → think → path → ...)
+
+## [0.2.20] - 2026-01-30
+
+### Changed
+- **Editor layout redesign** — Replaced rounded box (`╭╮│╰╯`) with clean open layout:
+  - Subtle grey `─` top/bottom borders with 1-char margins
+  - `>` input prompt on first content line (light gray), continuation lines indented to match
+  - Status bar moved below the bottom border as a standalone line
+  - Status bar no longer has trailing `─` fill
+- **Softer border colors** — Borders use muted grey (`sep`) instead of bright blue (`border`)
+
+### Fixed
+- **Scroll indicator detection** — Bottom border regex now matches editor scroll indicators (`─── ↓ N more`) in addition to plain borders, preventing broken rendering when editor content is scrollable
+- **Segment overflow** — `topBarAvailable` no longer wastes 4 chars on removed box corners, giving segments the full terminal width for layout calculation
+
+## [0.2.19] - 2026-01-28
+
+### Added
+- **File-based vibe mode** — Pre-generate vibes once, pull from file at runtime (zero cost, instant)
+  - `/vibe generate <theme> [count]` — Generate and save vibes to `~/.pi/agent/vibes/{theme}.txt`
+  - `/vibe mode file` — Switch to file-based mode
+  - `/vibe mode generate` — Switch back to on-demand generation
+  - Uses seed-based deterministic shuffle for no-repeat selection
+  - Works offline, no API key needed at runtime
+
+### Improved
+- **Better vibe variety in generate mode** — Tracks last 5 vibes and excludes them from generation
+- **Updated prompt** — Now emphasizes creativity and avoiding clichéd phrases
+- **Richer tool call context** — Uses agent's response text instead of just "reading file: X" for more contextual vibes
+- **Configurable max message length** — `workingVibeMaxLength` setting (default: 65 chars, up from 50)
+
+## [0.2.18] - 2026-01-28
+
+### Fixed
+- **Race condition in vibe generation** — Fixed bug where stale vibe generations could overwrite newer ones by capturing AbortController in local variable
+
+## [0.2.17] - 2026-01-28
+
+### Added
+- **Working Vibes** — AI-generated themed loading messages that match your preferred style
+  - Set a theme with `/vibe star trek` and loading messages become "Running diagnostics..." instead of "Working..."
+  - Configure via `settings.json`: `"workingVibe": "pirate"` for nautical-themed messages
+  - Supports any theme: star trek, pirate, zen, noir, cowboy, etc.
+  - Shows "Channeling {theme}..." placeholder, then updates when AI responds (within 3s timeout)
+  - **Auto-refresh on tool calls** — Generates new vibes during long tasks (rate-limited, default 30s)
+  - Configurable refresh interval via `workingVibeRefreshInterval` (in seconds)
+  - Custom prompt templates via `workingVibePrompt` with `{theme}` and `{task}` variables
+  - Uses claude-haiku-4-5 by default (~$0.000015/generation), configurable via `/vibe model` or `workingVibeModel` setting
+
+### Fixed
+- **Event handlers now use correct events** — Replaced non-existent `stream_start`/`stream_end` with `agent_start`/`agent_end`
+- **Removed duplicate powerline bar** — Footer no longer renders redundant status during streaming
+
+## [0.2.16] - 2026-01-28
+
+### Fixed
+- **Model and path colors restored** — Fixed color regression from v0.2.13 theme refactor:
+  - Model segment now uses original pink (`#d787af`) instead of white/gray (`text`)
+  - Path segment now uses original cyan (`#00afaf`) instead of muted gray
+
+## [0.2.15] - 2026-01-27
+
+### Added
+- **Status notifications above editor** — Extension status messages that look like notifications (e.g., `[pi-annotate] Received: CANCEL`) now appear on a separate line above the editor input
+- Notification-style statuses (starting with `[`) appear above editor
+- Compact statuses (e.g., `MCP: 6 servers`) remain in the powerline bar
+
+## [0.2.14] - 2026-01-26
+
+### Fixed
+- **Theme type mismatch crash** — Fixed `TypeError: theme.fg is not a function` caused by passing `EditorTheme` (from pi-tui) instead of `Theme` (from pi-coding-agent) to segment rendering
+- **Invalid theme color** — Changed `"primary"` to `"text"` in default colors since `"primary"` is not a valid `ThemeColor`
+
+## [0.2.13] - 2026-01-27
+
+### Added
+- **Theme system** — Colors now integrate with pi's theme system instead of hardcoded values
+- Each preset defines its own color scheme with semantic color names
+- Optional `theme.json` file for user customization (power user feature)
+- Colors can be theme names (`accent`, `primary`, `muted`) or hex values (`#ff5500`)
+- Added `theme.example.json` documenting all available color options
+
+### Changed
+- Segments now use pi's `Theme` object for color rendering
+- Removed hardcoded ANSI color codes in favor of theme-based colors
+- Presets include both layout AND color scheme for cohesive looks
+- Simplified thinking level colors to use semantic `thinking` color (rainbow preserved for high/xhigh)
+
+## [0.2.12] - 2026-01-27
+
+### Added
+- **Responsive segment layout** — Segments dynamically flow between top bar and secondary row based on terminal width
+- When terminal is wide: all segments fit in top bar, secondary row hidden
+- When terminal is narrow: overflow segments move to secondary row automatically
+
+### Changed
+- **Default preset reordered** — New order: π → folder → model → think → git → context% → cache → cost
+- Path now appears before model name for better visual hierarchy
+- Thinking level now appears right after model name
+- Added git, cache_read, and cost to primary row in default preset
+- **Thinking label shortened** — `thinking:level` → `think:level` to save 3 characters
+
+### Fixed
+- **Narrow terminal crash** — Welcome screen now gracefully skips rendering on terminals < 44 columns wide
+- **Editor crash on very narrow terminals** — Falls back to original render when width < 10
+- **Streaming footer crash** — Truncation now properly handles edge cases and won't render content that exceeds terminal width
+- **Secondary widget crash** — Content width is now validated before rendering
+- **Layout cache invalidation** — Cache now properly clears when preset changes or powerline is toggled off
+
+## [0.2.11] - 2026-01-26
+
+### Changed
+- Added `pi` manifest to package.json for pi v0.50.0 package system compliance
+- Added `pi-package` keyword for npm discoverability
+
+## [0.2.10] - 2026-01-17
+
+### Fixed
+- Welcome overlay now properly dismisses for `p "command"` case by:
+  - Adding `tool_call` event listener (fires before stream_start)
+  - Checking `isStreaming` flag when overlay is about to show
+  - Checking session for existing activity (assistant messages, tool calls)
+- Refactored dismissal logic into `dismissWelcome()` helper
+
+## [0.2.9] - 2026-01-17
+
+### Fixed
+- Welcome overlay/header now dismisses when agent starts streaming (fixes `p "command"` case where welcome would briefly flash)
+- Race condition where dismissal request could be lost due to 100ms setup delay in overlay
+
+## [0.2.8] - 2026-01-16
+
+### Changed
+- `quietStartup: true` → shows welcome as header (dismisses on first input)
+- `quietStartup: false` or not set → shows welcome as centered overlay (dismisses on key/timeout)
+- Both modes use same two-column layout: logo, model info, tips, loaded counts, recent sessions
+- Refactored welcome.ts to share rendering logic between header and overlay
+
+### Fixed
+- `/powerline` toggle off now clears all custom UI (editor, footer, header)
+
+## [0.2.6] - 2026-01-16
+
+### Fixed
+- Removed invalid `?` keyboard shortcut tip, replaced with `Shift+Tab` for cycling thinking level
+
+## [0.2.5] - 2026-01-16
+
+### Added
+- **Welcome overlay** — Branded "pi agent" splash screen shown as centered overlay on startup
+- Two-column boxed layout with gradient PI logo (magenta → cyan)
+- Shows current model name and provider
+- Keyboard tips section (?, /, !)
+- Loaded counts: context files (AGENTS.md), extensions, skills, and prompt templates
+- Recent sessions list (up to 3, with time ago)
+- Auto-dismisses after 30 seconds or on any key press
+- Version now reads from package.json instead of being hardcoded
+- Context file discovery now checks `.claude/AGENTS.md` paths (matching pi-mono)
+
+## [0.2.4] - 2026-01-15
+
+### Fixed
+- Compatible with pi-tui 0.47.0 breaking change: CustomEditor constructor now requires `tui` as first argument
+
+## [0.2.3] - 2026-01-15
+
+### Fixed
+- npm bin entry now works correctly with `npx pi-powerline-footer`
+
+## [0.2.2] - 2026-01-15
+
+### Changed
+- **Path segment defaults to basename** — Shows just the directory name (e.g., `powerline-footer`) instead of full path to save space
+- **New path modes** — `basename` (default), `abbreviated` (truncated full path), `full` (complete path)
+- Simplified path options: replaced `abbreviate`, `stripWorkPrefix` with cleaner `mode` option
+- Full/nerd presets use `abbreviated` mode, default/minimal/compact use `basename`
+- Thinking segment now uses dedicated gradient colors (thinkingOff → thinkingMedium)
+
+### Fixed
+- Path basename extraction now uses `path.basename()` for Windows compatibility
+- Git branch cache now stores `null` results, preventing repeated git calls in non-git directories
+- Git status cache now stores empty results for non-git directories (was also spawning repeatedly)
+- Removed dead `footerDispose` variable (cleanup handled by pi internally)
+
+## [0.2.1] - 2026-01-10
+
+### Added
+- **Live git branch updates** — Branch now updates in real-time when switching via `git checkout`, `git switch`, etc.
+- **Own branch fetching** — Extension fetches branch directly via `git branch --show-current` instead of relying solely on FooterDataProvider
+- **Branch cache with 500ms TTL** — Faster refresh cycle for branch changes
+- **Staggered re-renders for escape commands** — Multiple re-renders at 100/300/500ms to catch updates from `!` commands
+
+### Fixed
+- Git branch not updating after `git checkout` to existing branches
+- Race condition where FooterDataProvider's branch cache wasn't updating in time
+
+## [0.2.0] - 2026-01-10
+
+### Added
+- **Extension statuses segment** — Displays status text from other extensions (e.g., rewind checkpoint count)
+- **Thinking level segment** — Live-updating display of current thinking level (`thinking:off`, `thinking:med`, etc.)
+- **Rainbow effect** — High and xhigh thinking levels display with rainbow gradient inspired by Claude Code's ultrathink
+- **Color gradient** — Thinking levels use progressive colors: gray → purple-gray → blue → teal → rainbow
+- **Streaming visibility** — Status bar now renders in footer during streaming so it's always visible
+
+### Changed
+- Extension statuses appear at end of status bar (last item in default/full/nerd presets)
+- Default preset now includes `thinking` segment after model
+- Thinking level reads from session branch entries for live updates
+- Footer invalidate() now triggers re-render for settings changes
+- Responsive truncation — progressively removes segments on narrow windows instead of hiding status
+
+### Fixed
+- ANSI color reset after status content to prevent color bleeding
+- ANSI color reset after rainbow text
+
+### Removed
+- Unused brain icon definitions
+
+## [0.1.0] - 2026-01-10
+
+### Added
+- Initial release
+- Rounded box design rendering in editor top border
+- 18 segment types: pi, model, thinking, path, git, subagents, token_in, token_out, token_total, cost, context_pct, context_total, time_spent, time, session, hostname, cache_read, cache_write
+- 6 presets: default, minimal, compact, full, nerd, ascii
+- 10 separator styles: powerline, powerline-thin, slash, pipe, dot, chevron, star, block, none, ascii
+- Git integration with async status fetching and 1s cache TTL
+- Nerd Font auto-detection for common terminals
+- oh-my-pi dark theme color matching
+- Context percentage warnings at 70%/90%
+- Auto-compact indicator
+- Subscription detection

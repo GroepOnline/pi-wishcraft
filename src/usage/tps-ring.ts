@@ -164,10 +164,12 @@ interface RateObservation {
 function pairwiseRates(samples: readonly TpsSample[]): {
   ins: RateObservation[];
   outs: RateObservation[];
+  outsForEma: RateObservation[];
 } {
   const ins: RateObservation[] = [];
   const outs: RateObservation[] = [];
-  if (samples.length < 2) return { ins, outs };
+  const outsForEma: RateObservation[] = [];
+  if (samples.length < 2) return { ins, outs, outsForEma };
   let anchor = samples[0]!;
   for (let i = 1; i < samples.length; i++) {
     const cur = samples[i]!;
@@ -177,10 +179,17 @@ function pairwiseRates(samples: readonly TpsSample[]): {
     const dOut = cur.output - anchor.output;
     const dIn = uncachedOf(cur) - uncachedOf(anchor);
     if (dOut > 0) outs.push({ rate: dOut / dtSec, atMs: cur.at, dtMs });
+    // Silent intervals still carry real elapsed time — the EMA needs them to
+    // decay during a pause instead of holding the burst rate indefinitely.
+    outsForEma.push({
+      rate: Math.max(0, dOut) / dtSec,
+      atMs: cur.at,
+      dtMs,
+    });
     if (dIn > 0) ins.push({ rate: dIn / dtSec, atMs: cur.at, dtMs });
     anchor = cur;
   }
-  return { ins, outs };
+  return { ins, outs, outsForEma };
 }
 
 /**
@@ -194,8 +203,11 @@ function emaOverTime(
   if (observations.length === 0) return undefined;
   let ema = observations[0]!.rate;
   for (let i = 1; i < observations.length; i++) {
-    const alpha = 1 - Math.exp(-observations[i]!.dtMs / tauMs);
-    ema = alpha * observations[i]!.rate + (1 - alpha) * ema;
+    const prev = observations[i - 1]!;
+    const curr = observations[i]!;
+    const elapsedMs = Math.max(1, curr.atMs - prev.atMs, curr.dtMs);
+    const alpha = 1 - Math.exp(-elapsedMs / tauMs);
+    ema = alpha * curr.rate + (1 - alpha) * ema;
   }
   return ema;
 }
@@ -252,12 +264,12 @@ export function ratesFromRing(
     inRate = processed > 0 ? processed / (ttftMs / 1000) : 0;
   }
 
-  const { ins, outs } = pairwiseRates(samples);
+  const { ins, outsForEma } = pairwiseRates(samples);
   return {
     inRate,
     outRate,
-    emaOutFast: emaOverTime(outs, TPS_EMA_FAST_TAU_MS),
-    emaOutSlow: emaOverTime(outs, TPS_EMA_SLOW_TAU_MS),
+    emaOutFast: emaOverTime(outsForEma, TPS_EMA_FAST_TAU_MS),
+    emaOutSlow: emaOverTime(outsForEma, TPS_EMA_SLOW_TAU_MS),
     emaIn: emaOverTime(ins, TPS_EMA_SLOW_TAU_MS),
     ttftMs,
   };
@@ -292,30 +304,58 @@ export function summarizeTpsRing(
     avgIn: avgObs(ins),
     avgOut: avgObs(outs),
     samples: samples.length,
-    spark: tpsRateSeries(outs),
+    spark: tpsRateSeries(outs, now),
   };
 }
 
 /** Output-rate series bucketed at the sparkline interval, newest last. */
-function tpsRateSeries(outs: readonly RateObservation[]): number[] {
+function tpsRateSeries(
+  outs: readonly RateObservation[],
+  nowMs?: number,
+): number[] {
   if (outs.length === 0) return [];
-  const buckets = new Map<number, { sum: number; n: number }>();
-  for (const o of outs) {
-    const key = Math.floor(o.atMs / TPS_SPARK_BUCKET_MS);
-    const b = buckets.get(key) ?? { sum: 0, n: 0 };
-    b.sum += o.rate;
-    b.n += 1;
-    buckets.set(key, b);
+  const endMs = nowMs ?? outs[outs.length - 1]!.atMs;
+  const firstObsStartMs = Math.min(
+    ...outs.map((o) => o.atMs - Math.max(0, o.dtMs)),
+  );
+  const startMs = Math.max(firstObsStartMs, endMs - TPS_SPARK_BUCKET_MS * 40);
+  if (endMs <= startMs) return [outs[outs.length - 1]!.rate];
+
+  const bucketCount = Math.max(1, Math.ceil((endMs - startMs) / TPS_SPARK_BUCKET_MS));
+  const weightedSum = Array.from({ length: bucketCount }, () => 0);
+  const overlapWeight = Array.from({ length: bucketCount }, () => 0);
+
+  for (const obs of outs) {
+    const obsEnd = obs.atMs;
+    const obsStart = obs.atMs - Math.max(1, obs.dtMs);
+    if (obsEnd <= startMs || obsStart >= endMs) continue;
+
+    const clampedStart = Math.max(startMs, obsStart);
+    const clampedEnd = Math.min(endMs, obsEnd);
+    const firstBucket = Math.max(
+      0,
+      Math.floor((clampedStart - startMs) / TPS_SPARK_BUCKET_MS),
+    );
+    const lastBucket = Math.min(
+      bucketCount - 1,
+      Math.floor((clampedEnd - 1 - startMs) / TPS_SPARK_BUCKET_MS),
+    );
+
+    for (let b = firstBucket; b <= lastBucket; b++) {
+      const bStart = startMs + b * TPS_SPARK_BUCKET_MS;
+      const bEnd = Math.min(endMs, bStart + TPS_SPARK_BUCKET_MS);
+      const overlap =
+        Math.max(0, Math.min(clampedEnd, bEnd) - Math.max(clampedStart, bStart));
+      if (overlap > 0) {
+        weightedSum[b]! += obs.rate * overlap;
+        overlapWeight[b]! += overlap;
+      }
+    }
   }
-  const keys = [...buckets.keys()].sort((a, b) => a - b);
-  const first = keys[0]!;
-  const last = keys[keys.length - 1]!;
-  const series: number[] = [];
-  for (let k = first; k <= last; k++) {
-    const b = buckets.get(k);
-    series.push(b ? b.sum / b.n : 0);
-  }
-  return series;
+
+  return weightedSum.map((sum, b) =>
+    overlapWeight[b]! > 0 ? sum / overlapWeight[b]! : 0,
+  );
 }
 
 export function formatTpsRate(rate: number): string {

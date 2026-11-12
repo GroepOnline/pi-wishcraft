@@ -174,6 +174,9 @@ function resolveContextMetrics(
     unknownCoreFallback: rt.approximateContextUsage,
     fallbackContextTokens: usage ? getUsageTokenTotal(usage) : 0,
     fallbackContextWindow: ctx.model?.contextWindow ?? 0,
+    fallbackIsPreCompact:
+      rt.lastCompactionAt !== null &&
+      (rt.lastAssistantAt ?? 0) <= rt.lastCompactionAt,
   });
   return {
     contextTokens: resolved?.contextTokens ?? null,

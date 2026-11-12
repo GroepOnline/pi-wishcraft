@@ -103,6 +103,8 @@ export function createRuntimeState(
     currentThinkingLevel: null,
     approximateContextUsage: null,
     liveAssistantUsage: null,
+    lastAssistantAt: null,
+    lastCompactionAt: null,
     isStreaming: false,
     tuiRef: null,
     rpcWidgetRefresh: null,

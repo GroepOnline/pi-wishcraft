@@ -79,7 +79,6 @@ export function getSessionTotalCost(
 const SUBAGENT_SLASH_RESULT_TYPE = "subagent-slash-result";
 function getSubagentCost(entry: any): number {
   if (!entry || typeof entry !== "object") return 0;
-  if (nativeUsage(entry)) return 0;
   
   let results: unknown[] | undefined;
   if (entry.type === "custom_message" && entry.customType === SUBAGENT_SLASH_RESULT_TYPE) {
