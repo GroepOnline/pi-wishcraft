@@ -24,6 +24,7 @@ import { parseProcNetListening } from "../src/segments/ports-proc.ts";
 import {
   countListeningPorts,
   listOpenPortProcesses,
+  openPortsSegment,
   parseOpenPortProcesses,
   sanitizeSshHost,
   sshCommand,
@@ -294,6 +295,30 @@ test("readPorts is the render-path reader: never blocks, reports unknown when co
   assert.equal(warm.stale, false);
   assert.ok(warm.total !== null && warm.total >= 0);
   assert.equal(warm.rows.length, warm.total);
+});
+
+test("open_ports pending marker mirrors the resolved tcp/udp split", () => {
+  const theme: any = { fg: (_c: string, t: string) => t };
+  const ctx = (openPorts: unknown): any => ({
+    theme,
+    colors: {},
+    options: { openPorts },
+    segmentLabels: new Map(),
+    customItemsById: new Map(),
+    extensionStatuses: new Map(),
+  });
+  const text = (rendered: { content: string }) =>
+    rendered.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
+
+  // Cold probe cache -> total stays null, so the segment shows `?` per proto,
+  // matching the `N tcp \u00b7 M udp` form the resolved state uses.
+  invalidatePortsCache();
+  assert.match(
+    text(openPortsSegment.render(ctx({ includeUdp: true }))),
+    /\? tcp \u00b7 \? udp$/,
+  );
+  invalidatePortsCache();
+  assert.match(text(openPortsSegment.render(ctx(undefined))), /\? tcp$/);
 });
 
 test("readPorts serves stale rows past the TTL instead of blanking the number", async () => {

@@ -299,7 +299,9 @@ export const openPortsSegment: StatusLineSegment = {
     const udp = summary.rows.filter((r) => r.proto === "udp").length;
     const text =
       summary.total === null
-        ? `? ${includeUdp ? "tcp+udp" : "tcp"}`
+        ? includeUdp
+          ? "? tcp \u00b7 ? udp"
+          : "? tcp"
         : includeUdp
           ? `${tcp} tcp \u00b7 ${udp} udp`
           : `${tcp} tcp`;
