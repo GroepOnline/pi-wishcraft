@@ -77,6 +77,7 @@ import {
   dispatchSignalEvent,
   settleSignal,
 } from "../../signal/integration.ts";
+import { toolActivity } from "../../signal/controller.ts";
 import {
   maybeNotifyCostAlert,
   maybeNotifyTokenBudget,
@@ -476,7 +477,7 @@ export function registerSessionLifecycle(
       rt,
       config.appearance,
       "tool.start",
-      `tool ${event.toolName}`,
+      toolActivity(event.toolName),
     );
     if (ctx.hasUI) {
       // Extract recent agent context from session for richer vibe generation

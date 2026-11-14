@@ -294,9 +294,17 @@ export const openPortsSegment: StatusLineSegment = {
   render(ctx) {
     const includeUdp = ctx.options?.openPorts?.includeUdp === true;
     const host = ctx.options?.openPorts?.host;
-    const { total } = readPorts({ includeUdp, host });
-    const protocol = includeUdp ? "tcp+udp" : "tcp";
-    const text = total === null ? `? ${protocol}` : `${total} ${protocol}`;
+    const summary = readPorts({ includeUdp, host });
+    const tcp = summary.rows.filter((r) => r.proto === "tcp").length;
+    const udp = summary.rows.filter((r) => r.proto === "udp").length;
+    const text =
+      summary.total === null
+        ? includeUdp
+          ? "? tcp \u00b7 ? udp"
+          : "? tcp"
+        : includeUdp
+          ? `${tcp} tcp \u00b7 ${udp} udp`
+          : `${tcp} tcp`;
     return {
       content: withIcon(getIcons().ports, color(ctx, "queue", text)),
       visible: true,

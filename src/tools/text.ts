@@ -7,6 +7,15 @@ export function stripAnsi(text: string): string {
   return text.replace(ANSI_ESCAPE_RE, "");
 }
 
+/**
+ * Remove C0/C1 control characters (including ESC, DEL, newlines) from
+ * untrusted text before it reaches the status line — one embedded escape is
+ * enough to inject ANSI sequences or break the single-row layout.
+ */
+export function stripControlChars(text: string): string {
+  return text.replace(/[\x00-\x1f\x7f-\x9f]/g, "");
+}
+
 export function formatTokens(n: number): string {
   if (n < 1000) return n.toString();
   if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
