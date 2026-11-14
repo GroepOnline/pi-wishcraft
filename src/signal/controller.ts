@@ -208,17 +208,17 @@ export function activityForEvent(event: MotionEvent): string {
  * operator-controlled config, not model output, but still get the standard
  * control-char strip before reaching the status line.
  */
-const TOOL_ACTIVITY: Record<string, string> = {
-  bash: "running command",
-  read: "reading file",
-  write: "writing file",
-  edit: "editing file",
-  grep: "searching",
-  find: "searching files",
-  ls: "listing files",
-  subagent: "delegating",
-};
+const TOOL_ACTIVITY = new Map<string, string>([
+  ["bash", "running command"],
+  ["read", "reading file"],
+  ["write", "writing file"],
+  ["edit", "editing file"],
+  ["grep", "searching"],
+  ["find", "searching files"],
+  ["ls", "listing files"],
+  ["subagent", "delegating"],
+]);
 
 export function toolActivity(toolName: string): string {
-  return TOOL_ACTIVITY[toolName] ?? `tool ${stripControlChars(toolName)}`;
+  return TOOL_ACTIVITY.get(toolName) ?? `tool ${stripControlChars(toolName)}`;
 }

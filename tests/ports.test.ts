@@ -31,6 +31,7 @@ import {
 } from "../src/segments/system.ts";
 import { resolvePortsPanelOptions } from "../src/extension/ui/ports-panel.ts";
 import { config, setConfig } from "../src/extension/core/state.ts";
+import type { SegmentContext } from "../src/config/types.ts";
 
 const SS_OUTPUT = `Netid  State   Recv-Q Send-Q  Local Address:Port   Peer Address:Process
 tcp    LISTEN  0      4096    127.0.0.1:631       0.0.0.0:*    users:(("cupsd",pid=1234,fd=12))
@@ -297,16 +298,43 @@ test("readPorts is the render-path reader: never blocks, reports unknown when co
   assert.equal(warm.rows.length, warm.total);
 });
 
-test("open_ports pending marker mirrors the resolved tcp/udp split", () => {
-  const theme: any = { fg: (_c: string, t: string) => t };
-  const ctx = (openPorts: unknown): any => ({
-    theme,
-    colors: {},
-    options: { openPorts },
-    segmentLabels: new Map(),
-    customItemsById: new Map(),
+function portsSegmentContext(options: SegmentContext["options"]): SegmentContext {
+  return {
+    model: undefined,
+    thinkingLevel: "off",
+    sessionId: undefined,
+    cwd: "/tmp/project",
+    usageStats: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      cost: 0,
+      subagentCost: 0,
+    },
+    contextTokens: 0,
+    contextPercent: 0,
+    contextWindow: 0,
+    autoCompactEnabled: true,
+    customCompactionEnabled: false,
+    usingSubscription: false,
+    sessionStartTime: 0,
+    shellModeActive: false,
+    shellRunning: false,
+    shellName: null,
+    shellCwd: null,
+    git: { branch: null, staged: 0, unstaged: 0, untracked: 0 },
     extensionStatuses: new Map(),
-  });
+    hiddenExtensionStatusKeys: new Set(),
+    customItemsById: new Map(),
+    segmentLabels: new Map(),
+    options,
+    theme: { fg: (_color: string, text: string) => text },
+    colors: {},
+  };
+}
+
+test("open_ports pending marker mirrors the resolved tcp/udp split", async () => {
   const text = (rendered: { content: string }) =>
     rendered.content.replace(/\x1b\[[0-9;]*m/g, "").trim();
 
@@ -314,11 +342,19 @@ test("open_ports pending marker mirrors the resolved tcp/udp split", () => {
   // matching the `N tcp \u00b7 M udp` form the resolved state uses.
   invalidatePortsCache();
   assert.match(
-    text(openPortsSegment.render(ctx({ includeUdp: true }))),
+    text(openPortsSegment.render(portsSegmentContext({ openPorts: { includeUdp: true } }))),
     /\? tcp \u00b7 \? udp$/,
   );
+  // The render only schedules the probe; join it before the cache is cleared,
+  // so a late landing cannot repopulate the cache under the next assertion.
+  await requestPorts({ includeUdp: true });
+
   invalidatePortsCache();
-  assert.match(text(openPortsSegment.render(ctx(undefined))), /\? tcp$/);
+  assert.match(
+    text(openPortsSegment.render(portsSegmentContext({ openPorts: undefined }))),
+    /\? tcp$/,
+  );
+  await requestPorts({ includeUdp: false });
 });
 
 test("readPorts serves stale rows past the TTL instead of blanking the number", async () => {

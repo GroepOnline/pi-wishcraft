@@ -516,4 +516,9 @@ test("toolActivity verbs core tools and keeps unknown tool names", () => {
   // the status line.
   assert.equal(toolActivity("webfetch"), "tool webfetch");
   assert.equal(toolActivity("mcp\u001b[31mtool"), "tool mcp[31mtool");
+  // Object.prototype keys must not resolve through the lookup and hand a
+  // function to the rail.
+  assert.equal(toolActivity("toString"), "tool toString");
+  assert.equal(toolActivity("constructor"), "tool constructor");
+  assert.equal(toolActivity("__proto__"), "tool __proto__");
 });
