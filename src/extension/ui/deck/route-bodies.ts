@@ -376,8 +376,3 @@ export function selectedGalleryMotion(state: DeckNavState) {
   return motions[Math.min(state.selectedMotion, Math.max(0, motions.length - 1))] ?? getMotion("ember-relay");
 }
 
-export function filteredSkillCount(snapshot: DeckSessionSnapshot, state: DeckNavState): number {
-  if (state.route !== "skills") return snapshot.skills.length;
-  return filterSkillRows(snapshot.skills, state.searchQuery).length;
-}
-

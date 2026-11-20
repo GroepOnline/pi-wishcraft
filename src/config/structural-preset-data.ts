@@ -7,7 +7,7 @@
  * ---------------------------------------------------------------------------
  */
 
-import type { ChromeSpec, DeckSpec, MotionRef, WelcomeSpec, WishcraftTokens } from "./types.ts";
+import type { ChromeSpec, DeckSpec, MotionRef, WishcraftTokens } from "./types.ts";
 import type { MotionEvent } from "../motion/types.ts";
 
 export function tokens(partial: Partial<WishcraftTokens>): Partial<WishcraftTokens> {
@@ -61,9 +61,4 @@ export const DEFAULT_DECK: DeckSpec = {
   navigation: "tabs",
   panelStyle: "framed",
   activityStyle: "pulse",
-};
-
-export const DEFAULT_WELCOME: WelcomeSpec = {
-  lantern: true,
-  ambient: true,
 };

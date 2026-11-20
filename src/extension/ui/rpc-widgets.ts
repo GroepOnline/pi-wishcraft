@@ -116,12 +116,16 @@ export function installRpcWidgets(rt: RuntimeState, ctx: RpcCtx): void {
   const statusMirror = new Map<string, string>();
   const originalSetStatus = ctx.ui.setStatus.bind(ctx.ui);
   ctx.ui.setStatus = (key, text) => {
+    const previous = statusMirror.get(key);
     if (text === undefined) {
       statusMirror.delete(key);
     } else {
       statusMirror.set(key, text);
     }
     originalSetStatus(key, text);
+    // The host keeps statuses on a footer it never builds in rpc mode. A change
+    // here must wake the same render scheduler the TUI footer would have.
+    if (previous !== text) requestStatusRender(rt);
   };
   const restoreSetStatus = () => {
     ctx.ui.setStatus = originalSetStatus;

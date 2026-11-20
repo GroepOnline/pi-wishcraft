@@ -15,6 +15,7 @@ import { getDefaultColors } from "../../theme/theme.ts";
 import { getGitStatus } from "../../git/status.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { getUsageTokenTotal } from "../../usage/ledger.ts";
+import { resolveDisplayContextUsage } from "../../usage/context.ts";
 import type { SessionAssistantUsage } from "../../usage/ledger.ts";
 import {
   pushTpsSample,
@@ -37,8 +38,8 @@ import type { RuntimeState } from "./types.ts";
  */
 export function resetLayoutCache(rt: RuntimeState): void {
   rt.lastLayoutResult = null;
+  rt.layoutParts = null;
   rt.layoutDirty = true;
-  rt.sessionBranchCache.reset();
   rt.tokenStatsCache.reset();
   rt.coreContextUsageCache.reset();
 }
@@ -131,7 +132,10 @@ export interface BuildSegmentContextOptions {
  * instead of silently rendering defaults at runtime.
  */
 export interface SegmentSourceContext {
-  sessionManager?: { getSessionId?: () => string | undefined };
+  sessionManager?: {
+    getSessionId?: () => string | undefined;
+    getSessionName?: () => string | undefined;
+  };
   model?: SegmentContext["model"];
   modelRegistry?: {
     // Pi types this as `(model: Model<Api>) => boolean`. Method-bivariance
@@ -148,9 +152,10 @@ export interface SegmentSourceContext {
 }
 
 interface ContextMetrics {
-  contextTokens: number;
-  contextPercent: number;
+  contextTokens: number | null;
+  contextPercent: number | null;
   contextWindow: number;
+  contextApproximate: boolean;
 }
 
 /**
@@ -164,13 +169,23 @@ function resolveContextMetrics(
 ): ContextMetrics {
   const core =
     rt.isStreaming && rt.liveAssistantUsage ? null : rt.coreContextUsageCache.get(ctx);
-  const contextTokens =
-    core?.contextTokens ?? (usage ? getUsageTokenTotal(usage) : 0);
-  const contextWindow = core?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-  const contextPercent =
-    core?.contextPercent ??
-    (contextWindow > 0 ? (contextTokens / contextWindow) * 100 : 0);
-  return { contextTokens, contextPercent, contextWindow };
+  const resolved = resolveDisplayContextUsage({
+    coreContextUsage: core,
+    unknownCoreFallback: rt.approximateContextUsage,
+    fallbackContextTokens: usage ? getUsageTokenTotal(usage) : 0,
+    fallbackContextWindow: ctx.model?.contextWindow ?? 0,
+    fallbackIsPreCompact:
+      rt.lastCompactionAt !== null &&
+      (rt.lastAssistantAt ?? 0) <= rt.lastCompactionAt,
+  });
+  return {
+    contextTokens: resolved?.contextTokens ?? null,
+    contextPercent: resolved?.contextPercent ?? null,
+    contextWindow: resolved?.contextWindow ?? ctx.model?.contextWindow ?? 0,
+    contextApproximate:
+      (core === null || core.contextTokens === null) &&
+      rt.approximateContextUsage !== null,
+  };
 }
 
 interface CustomItemState {
@@ -220,11 +235,10 @@ export function buildSegmentContext(
     getDefaultColors,
   );
 
-  // Usage stats are cached; the full event list is only re-scanned when events
-  // are appended or the trailing event's stats-relevant fields change (e.g.
-  // in-place streaming updates).
-  const sessionEvents = rt.sessionBranchCache.get(ctx.sessionManager);
-  const tokenStats = rt.tokenStatsCache.get(sessionEvents);
+  // Usage stats are cached; the full session ledger is only re-scanned when
+  // entries are appended or the trailing entry's stats-relevant fields change
+  // (e.g. in-place streaming updates). Totals bill the whole session file.
+  const tokenStats = rt.tokenStatsCache.get(ctx.sessionManager);
   const { input, output, cacheRead, cacheWrite, cost, subagentCost } =
     tokenStats;
   const lastAssistant = tokenStats.lastAssistant;
@@ -232,8 +246,12 @@ export function buildSegmentContext(
   const latestUsage = rt.isStreaming
     ? (rt.liveAssistantUsage ?? lastAssistant?.usage)
     : lastAssistant?.usage;
-  const { contextTokens, contextPercent, contextWindow } =
-    resolveContextMetrics(rt, ctx, latestUsage);
+  const {
+    contextTokens,
+    contextPercent,
+    contextWindow,
+    contextApproximate,
+  } = resolveContextMetrics(rt, ctx, latestUsage);
 
   const segmentOptions = mergeSegmentOptions(
     presetDef.segmentOptions,
@@ -268,10 +286,13 @@ export function buildSegmentContext(
     model: ctx.model,
     thinkingLevel,
     sessionId: ctx.sessionManager?.getSessionId?.(),
+    sessionName: ctx.sessionManager?.getSessionName?.(),
     cwd: ctx.cwd,
     usageStats: { input, output, cacheRead, cacheWrite, cost, subagentCost },
+    lastRequestCache: tokenStats.lastRequestCache,
     contextTokens,
     contextPercent,
+    contextApproximate,
     contextWindow,
     autoCompactEnabled:
       ctx.settingsManager?.getCompactionSettings?.()?.enabled ?? true,
@@ -323,8 +344,9 @@ export function sampleTpsFromSession(
 ): void {
   if (now - lastTpsEventAt < TPS_EVENT_MIN_GAP_MS) return;
   lastTpsEventAt = now;
-  const events = rt.sessionBranchCache.get(ctx.sessionManager);
-  const { input, output, cacheRead } = rt.tokenStatsCache.get(events);
+  const { input, output, cacheRead } = rt.tokenStatsCache.get(
+    ctx.sessionManager,
+  );
   const windowMs =
     mergeSegmentOptions(getPreset(config.preset).segmentOptions, config.segmentOptions)
       .tps?.windowMs ?? 1000;

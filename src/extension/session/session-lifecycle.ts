@@ -4,6 +4,7 @@ import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
 import { policyFromEnvironment } from "../../motion/accessibility.ts";
+import { parseMotionSettings } from "../../motion/policy.ts";
 import { defaultMotionFor } from "../../motion/catalog.ts";
 import { registerCustomSegments } from "../../segments/index.ts";
 import { registerCustomPresets } from "../../config/presets.ts";
@@ -15,12 +16,15 @@ import {
   onVibeAgentStart,
   onVibeBeforeAgentStart,
   onVibeToolCall,
+  setVibeWorkingMessageColor,
+  shutdownVibeManager,
 } from "../../working-vibes/index.ts";
+import { estimateUnknownContextUsage } from "../../usage/context.ts";
 import {
   getUsageTokenTotal,
   isSessionAssistantMessage,
 } from "../../usage/ledger.ts";
-import { recordUsageEvent } from "../../usage/usage-store.ts";
+import { recordSessionUsageDelta } from "./usage-recorder.ts";
 import {
   detectCustomCompactionEnabled,
   readSettings,
@@ -73,6 +77,7 @@ import {
   dispatchSignalEvent,
   settleSignal,
 } from "../../signal/integration.ts";
+import { toolActivity } from "../../signal/controller.ts";
 import {
   maybeNotifyCostAlert,
   maybeNotifyTokenBudget,
@@ -124,6 +129,10 @@ export function registerSessionLifecycle(
     rt.sessionGeneration++;
     rt.sessionStartTime = Date.now();
     rt.currentCtx = ctx;
+    // Reloaded sessions start without measured context tokens — estimate
+    // from the restored branch so the bar shows ~x% instead of stale data.
+    rt.approximateContextUsage =
+      event.reason === "reload" ? estimateUnknownContextUsage(ctx) : null;
     setCustomCompactionEnabled(detectCustomCompactionEnabled(ctx.cwd));
     rt.lastUserPrompt = "";
     rt.isStreaming = false;
@@ -131,6 +140,7 @@ export function registerSessionLifecycle(
     rt.costAlertNotified = false;
     rt.tokenBudgetNotifiedLevel = 0;
     rt.tokenBudgetSnapshot = { day: "", dailyLimit: null, dailyUsed: 0 };
+    rt.sessionUsageBaseline = null;
     rt.powerlineCompacting = false;
     rt.deliverAfterRetrySettles = false;
     rt.stashedEditorText = null;
@@ -141,6 +151,7 @@ export function registerSessionLifecycle(
     rt.showLastPrompt = settings.showLastPrompt !== false;
     setConfig(parsePowerlineConfig(settings.powerline, PRESET_NAMES));
     rt.motionPolicy = policyFromEnvironment(process.env, config.motionLevel);
+    rt.paint.setSettings(parseMotionSettings(settings.wishcraft));
     rt.queueStore.setSentRetentionMs(
       config.queue.retentionHours * 60 * 60 * 1000,
     );
@@ -172,6 +183,7 @@ export function registerSessionLifecycle(
 
     // Initialize vibe manager (needs modelRegistry from ctx)
     initVibeManager(ctx);
+    setVibeWorkingMessageColor(config.workingVibes.color);
 
     if (rt.enabled && ctx.hasUI) {
       if (ctx.mode === "rpc") {
@@ -201,7 +213,12 @@ export function registerSessionLifecycle(
     }
   });
 
-  pi.on("session_shutdown", async (_event, _ctx) => {
+  pi.on("session_shutdown", async (_event, ctx) => {
+    // Last flush: anything billed since the previous boundary still lands in
+    // the day file before the session state is torn down.
+    recordSessionUsageDelta(rt, ctx);
+    rt.sessionUsageBaseline = null;
+    rt.approximateContextUsage = null;
     clearSkillsCountPublisher();
     rt.sessionGeneration++;
     rt.dismissWelcomeOverlay?.();
@@ -210,6 +227,7 @@ export function registerSessionLifecycle(
     rt.welcomeOverlayShouldDismiss = false;
     rt.welcomeDismissScheduler.cancel();
     rt.statusRenderScheduler.cancel();
+    rt.paint.reset();
     rt.motionScheduler.dispose();
     rt.restoreFooterStatusRepaintHook?.();
     rt.restoreFooterStatusRepaintHook = null;
@@ -217,6 +235,9 @@ export function registerSessionLifecycle(
     rt.stashShortcutInputUnsubscribe = null;
     rt.shellSession?.dispose();
     rt.shellSession = null;
+    rt.studioAbort?.abort();
+    rt.studioAbort = null;
+    shutdownVibeManager();
     if (rt.queueDeliveryTimer) {
       clearTimeout(rt.queueDeliveryTimer);
       rt.queueDeliveryTimer = null;
@@ -262,6 +283,7 @@ export function registerSessionLifecycle(
   pi.on("model_select", async (_event, ctx) => {
     rt.currentCtx = ctx;
     rt.coreContextUsageCache.reset();
+    rt.approximateContextUsage = null;
     requestStatusRender(rt);
   });
 
@@ -277,7 +299,26 @@ export function registerSessionLifecycle(
     rt.currentCtx = ctx;
     rt.currentThinkingLevel = null;
     rt.liveAssistantUsage = null;
+    rt.approximateContextUsage = null;
+    // The ledger snapshot keys on leaf + entry count; SDKs without a count
+    // rely on this reset to notice entries appended off the active leaf.
+    rt.tokenStatsCache.reset();
+    // Branch summaries bill their own LLM call — flush whatever landed.
+    recordSessionUsageDelta(rt, ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
+  });
+
+  // Renaming a session changes what the session segment shows.
+  pi.on("session_info_changed", async (_event, ctx) => {
+    rt.currentCtx = ctx;
+    requestImmediateStatusRender(rt, { deferDuringTyping: false });
+  });
+
+  // turn_start fires per provider-request turn; agent_start sets the
+  // fallback. Without this, TTFT for turns 2+ divides by turn-1's start.
+  pi.on("turn_start", async (_event, ctx) => {
+    rt.currentCtx = ctx;
+    rt.turnStartedAt = Date.now();
   });
 
   // Generate themed working message before agent starts (has access to user's prompt)
@@ -299,6 +340,7 @@ export function registerSessionLifecycle(
   // Also dismiss welcome when agent starts responding (handles `p "command"` case)
   pi.on("agent_start", async (_event, ctx) => {
     rt.isStreaming = true;
+    rt.paint.sync();
     rt.turnStartedAt = Date.now();
     rt.liveAssistantUsage = null;
     onVibeAgentStart();
@@ -315,6 +357,9 @@ export function registerSessionLifecycle(
       getUsageTokenTotal(event.message.usage) > 0
     ) {
       rt.liveAssistantUsage = event.message.usage;
+      // Real provider usage arrived — drop the post-compaction estimate so it
+      // cannot keep outranking measured context for the rest of the stream.
+      rt.approximateContextUsage = null;
       rt.currentCtx = ctx;
       rt.layoutDirty = true;
       try {
@@ -340,18 +385,11 @@ export function registerSessionLifecycle(
         rt.liveAssistantUsage = null;
       } else if (getUsageTokenTotal(event.message.usage) > 0) {
         rt.liveAssistantUsage = event.message.usage;
-        const usage = event.message.usage;
-        recordUsageEvent({
-          at: Date.now(),
-          model: ctx.model?.id ?? ctx.model?.name,
-          input: usage.input,
-          output: usage.output,
-          cacheRead: usage.cacheRead,
-          cacheWrite: usage.cacheWrite,
-          cost: usage.cost.total,
-        });
+        rt.lastAssistantAt = Date.now();
+        rt.approximateContextUsage = null;
       }
     }
+    recordSessionUsageDelta(rt, ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     maybeNotifyCostAlert(rt, ctx);
     maybeNotifyTokenBudget(rt, ctx);
@@ -360,11 +398,18 @@ export function registerSessionLifecycle(
   pi.on("turn_end", async (_event, ctx) => {
     rt.currentCtx = ctx;
     rt.coreContextUsageCache.reset();
+    // Usage can land without a message_end tail (toolResult charges, usage
+    // entries); the delta flush picks up whatever the ledger billed.
+    recordSessionUsageDelta(rt, ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
   });
 
   pi.on("session_before_compact", async (_event, ctx) => {
     rt.powerlineCompacting = true;
+    rt.approximateContextUsage = null;
+    rt.isStreaming = false;
+    rt.liveAssistantUsage = null;
+    rt.coreContextUsageCache.reset();
     rt.currentCtx = ctx;
     requestQueueRender(rt);
     dispatchSignalEvent(rt, config.appearance, "compact");
@@ -372,10 +417,16 @@ export function registerSessionLifecycle(
 
   pi.on("session_compact", async (event, ctx) => {
     rt.powerlineCompacting = false;
+    rt.lastCompactionAt = Date.now();
     rt.currentCtx = ctx;
     // Compaction rewrites the conversation, so the cached context-usage (tokens/window/percent)
     // is stale. Reset it and force a redraw — otherwise the bar keeps showing the pre-compact fill.
     rt.coreContextUsageCache.reset();
+    // The compaction entry carries the summary call's usage on the ledger.
+    recordSessionUsageDelta(rt, ctx);
+    // Pi reports tokens===null until the next request lands; estimate the
+    // post-compact context so the bar shows ~x% instead of jumping to 0.
+    rt.approximateContextUsage = estimateUnknownContextUsage(ctx);
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
     if (event.willRetry) {
       rt.deliverAfterRetrySettles = true;
@@ -394,6 +445,7 @@ export function registerSessionLifecycle(
   pi.on("session_compact_failed", async (event, ctx) => {
     rt.powerlineCompacting = false;
     rt.deliverAfterRetrySettles = false;
+    rt.approximateContextUsage = null;
     rt.currentCtx = ctx;
     rt.coreContextUsageCache.reset();
     requestImmediateStatusRender(rt, { deferDuringTyping: false });
@@ -425,7 +477,7 @@ export function registerSessionLifecycle(
       rt,
       config.appearance,
       "tool.start",
-      `tool ${event.toolName}`,
+      toolActivity(event.toolName),
     );
     if (ctx.hasUI) {
       // Extract recent agent context from session for richer vibe generation
@@ -441,9 +493,11 @@ export function registerSessionLifecycle(
 
   pi.on("agent_end", async (_event, ctx) => {
     rt.isStreaming = false;
+    rt.paint.sync();
     rt.turnStartedAt = null;
     rt.liveAssistantUsage = null;
     rt.coreContextUsageCache.reset();
+    recordSessionUsageDelta(rt, ctx);
     dispatchSignalEvent(rt, config.appearance, "success");
 
     let hasUI = false;

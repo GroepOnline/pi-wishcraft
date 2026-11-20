@@ -1,3 +1,4 @@
+import { isRecord } from "../../config/primitives.ts";
 import {
   WelcomeComponent,
   WelcomeHeader,
@@ -11,7 +12,7 @@ import {
 import { BOOT_REVEAL_HEARTBEAT_MS, bootRevealActive } from "../../welcome/banner.ts";
 import { estimateInitialContextTokens } from "../../usage/context.ts";
 import { tr } from "../../i18n/index.ts";
-import { isRecord, readSettings } from "../settings/settings-io.ts";
+import { readSettings } from "../settings/settings-io.ts";
 import type { RuntimeState } from "../core/types.ts";
 import { getQueueContext } from "../queue/queue-context.ts";
 import { pickNextReviewIdea } from "../queue/idea-review.ts";

@@ -9,7 +9,7 @@ import { getIcons, SEP_DOT, getThinkingText } from "../theme/icons.ts";
 import type { IconSet } from "../theme/icons.ts";
 import { getGitRemoteHost } from "../git/status.ts";
 import type { GitHost } from "../git/status.ts";
-import { color, withIcon, formatDuration } from "./shared.ts";
+import { color, withIcon, formatDuration, stripControlChars } from "./shared.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Segment Implementations
@@ -268,7 +268,12 @@ export const sessionSegment: StatusLineSegment = {
   render(ctx) {
     const icons = getIcons();
     const sessionId = ctx.sessionId;
-    const display = sessionId?.slice(0, 8) || "new";
+    // Session names are user-controlled: strip control chars so a crafted
+    // name cannot inject ANSI escapes or newlines into the status bar.
+    const display =
+      stripControlChars(ctx.sessionName ?? "").trim() ||
+      sessionId?.slice(0, 8) ||
+      "new";
 
     return { content: withIcon(icons.session, display), visible: true };
   },

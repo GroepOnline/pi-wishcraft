@@ -111,6 +111,28 @@ test("git segment renders upstream ahead/behind and latest commit", () => {
   assert.match(rendered.content, /Fix things properly/);
 });
 
+test("session segment strips control characters and ANSI from the session name", () => {
+  const ctx = createSegmentContext({
+    sessionId: "abcdef1234567890",
+    sessionName: "evil\x1b[31mname\nwith\tcontrols\x07",
+  });
+  const rendered = renderSegment("session", ctx);
+  assert.equal(rendered.visible, true);
+  assert.doesNotMatch(rendered.content, /[\x00-\x1f\x7f-\x9f]/);
+  assert.match(rendered.content, /evil\[31mnamewithcontrols/);
+});
+
+test("session segment falls back to the short id when the name is only control characters", () => {
+  const ctx = createSegmentContext({
+    sessionId: "abcdef1234567890",
+    sessionName: "\x07\n\t\x1b\x00",
+  });
+  const rendered = renderSegment("session", ctx);
+  assert.equal(rendered.visible, true);
+  assert.doesNotMatch(rendered.content, /[\x00-\x1f\x7f-\x9f]/);
+  assert.match(rendered.content, /abcdef12/);
+});
+
 test("git segment hides commit/ahead-behind when disabled", () => {
   const ctx = createSegmentContext({
     options: { git: { showCommit: false, showAheadBehind: false } },

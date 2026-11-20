@@ -1,3 +1,4 @@
+import { stripAnsi } from "../../tools/text.ts";
 import type { SelectItem } from "@earendil-works/pi-tui";
 
 import type { PowerlineConfig } from "../../config/powerline-config.ts";
@@ -16,7 +17,6 @@ import type { OpenPortProcess } from "../../segments/system.ts";
 import { formatUsdCost } from "../../usage/rates.ts";
 import { renderSegmentWithWidth } from "./layout.ts";
 
-const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
 
 export interface SegmentMenuItem {
   id: StatusLineSegmentId;
@@ -308,17 +308,22 @@ export function buildSegmentDetailLines(
       ];
     }
     case "context_pct":
-    case "context_total":
+    case "context_total": {
+      const approx = segCtx.contextApproximate ? "~" : "";
       return [
         ...common,
-        { label: "tokens", value: String(segCtx.contextTokens) },
+        {
+          label: "tokens",
+          value: `${approx}${String(segCtx.contextTokens ?? "?")}`,
+        },
         { label: "window", value: String(segCtx.contextWindow) },
-        { label: "percent", value: `${segCtx.contextPercent.toFixed(1)}%` },
+        { label: "percent", value: `${segCtx.contextPercent?.toFixed(1) ?? "?"}%` },
         {
           label: "auto-compact",
           value: segCtx.autoCompactEnabled ? "on" : "off",
         },
       ];
+    }
     case "model":
       return [
         ...common,

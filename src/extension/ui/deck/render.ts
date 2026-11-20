@@ -1,8 +1,8 @@
+import { stripAnsi } from "../../../tools/text.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { MOTION_CATALOG } from "../../../motion/catalog.ts";
 import { appearanceDisplayName } from "../../../config/structural-presets.ts";
-import { PRESETS } from "../../../config/presets.ts";
 import { config } from "../../core/state.ts";
 import type { PowerlineShortcuts } from "../../core/types.ts";
 import type { ComposerDraft } from "../../../motion/composer.ts";
@@ -465,9 +465,6 @@ function padCol(text: string, width: number): string {
   return text + " ".repeat(width - plain.length);
 }
 
-function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*m/g, "");
-}
 
 function formatK(value: number): string {
   if (value >= 1000) return `${Math.round(value / 1000)}k`;
@@ -487,8 +484,4 @@ export function filterDeckRoutes(query: string): DeckRoute[] {
     const raw = `${english.label} ${english.description}`.toLowerCase();
     return hay.includes(q) || raw.includes(q);
   }).map((route) => route.id);
-}
-
-export function layoutPresetNames(): string[] {
-  return Object.keys(PRESETS);
 }

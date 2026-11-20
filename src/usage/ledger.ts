@@ -1,5 +1,7 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 
+import type { RequestCacheUsage } from "../config/types.ts";
+
 export type SessionAssistantUsage = AssistantMessage["usage"];
 
 export interface SessionTokenStats {
@@ -10,22 +12,24 @@ export interface SessionTokenStats {
   cost: number;
   subagentCost: number;
   lastAssistant: AssistantMessage | undefined;
+  /** Latest usable assistant request's cache split; cleared on compaction/model_change. */
+  lastRequestCache?: RequestCacheUsage;
   thinkingLevelFromSession: string | null;
 }
 
 export type LedgerSnapshot = SessionTokenStats;
 
 export function hasSessionAssistantUsage(value: unknown): value is SessionAssistantUsage {
+  if (typeof value !== "object" || value === null) return false;
+  const u = value as any;
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "input" in value &&
-    "output" in value &&
-    "cacheRead" in value &&
-    "cacheWrite" in value &&
-    "cost" in value &&
-    typeof (value as any).cost === "object" &&
-    "total" in (value as any).cost
+    isFiniteNumber(u.input) &&
+    isFiniteNumber(u.output) &&
+    isFiniteNumber(u.cacheRead) &&
+    isFiniteNumber(u.cacheWrite) &&
+    typeof u.cost === "object" &&
+    u.cost !== null &&
+    isFiniteNumber(u.cost.total)
   );
 }
 
@@ -35,7 +39,34 @@ export function isSessionAssistantMessage(value: unknown): value is AssistantMes
   return msg.role === "assistant" && hasSessionAssistantUsage(msg.usage);
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * Billable usage on any session entry shape: assistant and toolResult
+ * messages, plus standalone usage/compaction/branch_summary entries.
+ * Mirrors upstream nativeUsage — billed errors and aborts count too.
+ */
+export function nativeUsage(event: unknown): SessionAssistantUsage | null {
+  if (typeof event !== "object" || event === null) return null;
+  const e = event as any;
+  const usage =
+    e.type === "message" &&
+    (e.message?.role === "assistant" || e.message?.role === "toolResult")
+      ? e.message.usage
+      : e.type === "usage" || e.type === "compaction" || e.type === "branch_summary"
+        ? e.usage
+        : null;
+  return hasSessionAssistantUsage(usage) ? usage : null;
+}
+
 export function getUsageTokenTotal(usage: SessionAssistantUsage): number {
+  // Prefer the provider-reported total: it can cover token kinds the four
+  // fields miss (e.g. reasoning on providers that don't itemize).
+  if (typeof usage.totalTokens === "number" && usage.totalTokens > 0) {
+    return usage.totalTokens;
+  }
   return usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
 }
 
@@ -90,6 +121,7 @@ export class TokenLedger {
   private _cost = 0;
   private _subagentCost = 0;
   private _lastAssistant: AssistantMessage | undefined = undefined;
+  private _lastRequestCache: RequestCacheUsage | undefined = undefined;
   private _thinkingLevel: string | null = null;
   private _generation = 0;
 
@@ -104,24 +136,38 @@ export class TokenLedger {
       changed = true;
     }
 
+    // A compaction or model switch means the cached prompt is gone — the
+    // per-request cache readout must not outlive it.
+    if (e.type === "compaction" || e.type === "model_change") {
+      this._lastRequestCache = undefined;
+      changed = true;
+    }
+
     const subCost = getSubagentCost(e);
     if (subCost > 0) {
       this._subagentCost += subCost;
       changed = true;
     }
 
+    const usage = nativeUsage(e);
+    if (usage) {
+      this._input += usage.input;
+      this._output += usage.output;
+      this._cacheRead += usage.cacheRead;
+      this._cacheWrite += usage.cacheWrite;
+      this._cost += usage.cost.total;
+      changed = true;
+    }
+
     if (e.type === "message" && isSessionAssistantMessage(e.message)) {
       const m = e.message;
-      if (m.stopReason !== "error" && m.stopReason !== "aborted") {
-        this._input += m.usage.input;
-        this._output += m.usage.output;
-        this._cacheRead += m.usage.cacheRead;
-        this._cacheWrite += m.usage.cacheWrite;
-        this._cost += m.usage.cost.total;
-        if (getUsageTokenTotal(m.usage) > 0) {
-          this._lastAssistant = m;
-        }
-        changed = true;
+      if (m.stopReason !== "error" && m.stopReason !== "aborted" && getUsageTokenTotal(m.usage) > 0) {
+        this._lastAssistant = m;
+        this._lastRequestCache = {
+          input: m.usage.input,
+          cacheRead: m.usage.cacheRead,
+          cacheWrite: m.usage.cacheWrite,
+        };
       }
     }
 
@@ -143,6 +189,7 @@ export class TokenLedger {
     copy._cost = this._cost;
     copy._subagentCost = this._subagentCost;
     copy._lastAssistant = this._lastAssistant;
+    copy._lastRequestCache = this._lastRequestCache;
     copy._thinkingLevel = this._thinkingLevel;
     copy._generation = this._generation;
     return copy;
@@ -157,6 +204,7 @@ export class TokenLedger {
       cost: this._cost,
       subagentCost: this._subagentCost,
       lastAssistant: this._lastAssistant,
+      lastRequestCache: this._lastRequestCache,
       thinkingLevelFromSession: this._thinkingLevel,
     };
   }
@@ -221,6 +269,12 @@ function computeEventSignature(event: unknown): string {
       return `a:${m.stopReason}:${m.usage.input}:${m.usage.output}:${m.usage.cacheRead}:${m.usage.cacheWrite}:${m.usage.cost.total}`;
     }
     return `m:${m.role}:${m.stopReason}`;
+  }
+  const usage = nativeUsage(e);
+  if (usage) {
+    // toolResult/usage/compaction/branch_summary entries: fingerprint the
+    // usage itself so an in-place mutation invalidates the cache.
+    return `u:${e.type}:${usage.input}:${usage.output}:${usage.cacheRead}:${usage.cacheWrite}:${usage.cost.total}`;
   }
   return `e:${e.type}`;
 }
@@ -295,5 +349,82 @@ export class SessionTokenStatsCache {
     this._tailSignature = "";
     this._prefixLedger = new TokenLedger();
     this._lastSnapshot = null;
+  }
+}
+
+/** A session source that can expose the full entry ledger, not just a branch. */
+export interface SessionLedgerProvider extends SessionBranchProvider {
+  getEntries(): readonly unknown[];
+  /** Absent from the SDK's ReadonlySessionManager Pick — feature-detected. */
+  getEntryCount?(): number;
+}
+
+function isSessionLedgerProvider(value: unknown): value is SessionLedgerProvider {
+  return (
+    isSessionBranchProvider(value) &&
+    typeof (value as { getEntries?: unknown }).getEntries === "function"
+  );
+}
+
+/**
+ * Session billing scope: the whole session file, not the active branch.
+ * Tokens burned on a forked or abandoned sibling branch still hit the
+ * provider, so `input`/`output`/`cache*`/`cost`/`subagentCost` sum
+ * `getEntries()`. Branch-shaped fields — `lastAssistant` and
+ * `thinkingLevelFromSession` — describe the live conversation and stay on
+ * `getBranch()`. (When `lastRequestCache` lands it joins the branch set.)
+ *
+ * `getEntries()` copies the entry array but shares entry objects, so a
+ * streaming tail mutating in place still re-signatures through
+ * `ledgerStats`. The snapshot itself refreshes when the provider, leaf or
+ * `getEntryCount()` changes; on SDKs without a count, leaf changes plus the
+ * `session_tree` reset keep it honest.
+ */
+export class SessionUsageCache {
+  private _branch = new SessionBranchCache();
+  private _branchStats = new SessionTokenStatsCache();
+  private _ledgerStats = new SessionTokenStatsCache();
+  private _provider: SessionLedgerProvider | null = null;
+  private _leafId: string | null = null;
+  private _entries: readonly unknown[] = [];
+  private _entryCount: number | undefined;
+
+  get(source: unknown): SessionTokenStats {
+    const branch = this._branch.get(source);
+    const active = this._branchStats.get(branch);
+    if (!isSessionLedgerProvider(source)) return active;
+
+    const leafId = source.getLeafId();
+    const entryCount =
+      typeof source.getEntryCount === "function"
+        ? source.getEntryCount()
+        : undefined;
+    if (
+      this._provider !== source ||
+      this._leafId !== leafId ||
+      this._entryCount !== entryCount
+    ) {
+      if (this._provider !== source) this._ledgerStats.reset();
+      this._provider = source;
+      this._leafId = leafId;
+      this._entries = source.getEntries();
+      this._entryCount = entryCount;
+    }
+    const totals = this._ledgerStats.get(this._entries);
+    return {
+      ...totals,
+      lastAssistant: active.lastAssistant,
+      thinkingLevelFromSession: active.thinkingLevelFromSession,
+    };
+  }
+
+  reset(): void {
+    this._branch.reset();
+    this._branchStats.reset();
+    this._ledgerStats.reset();
+    this._provider = null;
+    this._leafId = null;
+    this._entries = [];
+    this._entryCount = undefined;
   }
 }

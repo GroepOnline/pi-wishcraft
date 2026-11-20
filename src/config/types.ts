@@ -3,7 +3,7 @@ import type { MotionEvent } from "../motion/types.ts";
 import type { CostCurrencyCode } from "../usage/rates.ts";
 
 // Theme color - either a pi theme color name or a custom hex color
-export type ColorValue = ThemeColor | `#${string}`;
+export type ColorValue = ThemeColor | `#${string}` | "rainbow";
 export type ThemeLike = Pick<Theme, "fg">;
 
 // Semantic color names for segments
@@ -17,11 +17,17 @@ export type SemanticColor =
   | "thinkingMinimal"
   | "thinkingLow"
   | "thinkingMedium"
+  | "thinkingHigh"
+  | "thinkingXhigh"
+  | "thinkingMax"
   | "context"
   | "contextWarn"
   | "contextError"
   | "cost"
   | "tokens"
+  | "cacheHit"
+  | "cacheHitWarn"
+  | "cacheHitError"
   | "queue"
   | "separator"
   | "border";
@@ -312,7 +318,9 @@ export interface StatusLineSegmentOptions {
     currency?: CostCurrencyCode;
   };
   context?: SegmentFormatOption & { format?: "full" | "percent" };
-  cache_read?: SegmentFormatOption & { format?: "tokens" | "percent" | "both" };
+  cache_read?: SegmentFormatOption & {
+    format?: "tokens" | "percent" | "both" | "request" | "session-request";
+  };
   openPorts?: SegmentFormatOption & {
     /** Include UDP listeners (mDNS/DHCP/ephemeral) in the count. Default false. */
     includeUdp?: boolean;
@@ -344,6 +352,8 @@ export interface CustomStatusItem {
   statusKey: string;
   position: CustomItemPosition;
   color?: ColorValue;
+  /** Trust ANSI colors embedded in the status value; skips the `color` wrap. */
+  selfColorize: boolean;
   prefix?: string;
   hideWhenMissing: boolean;
   excludeFromExtensionStatuses: boolean;
@@ -415,6 +425,12 @@ export interface QueueSummary {
   leadingStatus: "queued" | "blocked" | "delivering" | "sent" | "failed" | null;
 }
 
+export interface RequestCacheUsage {
+  input: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
 export interface UsageStats {
   input: number;
   output: number;
@@ -441,12 +457,17 @@ export interface SegmentContext {
     | undefined;
   thinkingLevel: string;
   sessionId: string | undefined;
+  sessionName?: string | undefined;
   cwd?: string;
 
   // Computed
   usageStats: UsageStats;
-  contextTokens: number;
-  contextPercent: number;
+  /** Latest usable assistant request's cache split; undefined after compaction/model_change. */
+  lastRequestCache?: RequestCacheUsage;
+  contextTokens: number | null;
+  contextPercent: number | null;
+  /** True when the context numbers come from the post-compaction estimate. */
+  contextApproximate: boolean;
   contextWindow: number;
   autoCompactEnabled: boolean;
   customCompactionEnabled: boolean;

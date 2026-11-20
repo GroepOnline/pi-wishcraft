@@ -31,6 +31,8 @@ bun run lint                    # oxlint --deny-warnings
 bun run test                    # node:test + coverage thresholds
 bun run check                   # typecheck + lint + test
 bun run circular                # madge --circular
+bun run file-size               # module-size gate (450 lines, grandfathered)
+bun run boundaries              # leaf-edge boundary audit (informational)
 bun run verify:package          # package + Pi contract gates
 bun run audit                   # dependency audit gate
 ```
@@ -54,13 +56,13 @@ ANSI SGR sequences is the product, not an accident.
 
 ## CI shape
 
-`.github/workflows/test.yml` runs seven independent lanes in parallel —
-`whitespace`, `typecheck`, `lint`, `test`, `circular`, `package-contract`,
-`audit` — each installing from the frozen lockfile through the
-`.github/actions/bun-setup` composite action. A final `verify` job aggregates
-them and keeps that name as the single required status check; it also carries
-the release-candidate promotion dispatch, so the Verify → Promote chain is
-unchanged.
+`.github/workflows/test.yml` runs nine independent lanes in parallel —
+`whitespace`, `typecheck`, `lint`, `test`, `circular`, `file-size`,
+`boundaries`, `package-contract`, `audit` — each installing from the frozen
+lockfile through the `.github/actions/bun-setup` composite action. A final
+`verify` job aggregates them and keeps that name as the single required status
+check; it also carries the release-candidate promotion dispatch, so the
+Verify → Promote chain is unchanged.
 
 ## Dependency audit
 

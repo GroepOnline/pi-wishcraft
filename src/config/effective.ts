@@ -12,7 +12,6 @@
 import {
   getSettingDefinition,
   SETTING_DEFAULTS,
-  SETTINGS_REGISTRY,
   type SettingDefinition,
   type SettingValue,
 } from "./settings-registry.ts";
@@ -115,8 +114,4 @@ export function resolveEffectiveConfig(input: SettingInput = {}): EffectiveConfi
   }
 
   return { values, errors };
-}
-
-export function knownSettings(): readonly SettingDefinition[] {
-  return SETTINGS_REGISTRY;
 }

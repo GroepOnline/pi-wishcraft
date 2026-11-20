@@ -18,8 +18,7 @@ import { readSettings } from "../settings/settings-io.ts";
 import { showSelectOverlay } from "./overlay-chrome.ts";
 
 function sessionTotals(rt: RuntimeState, ctx: any) {
-  const events = rt.sessionBranchCache.get(ctx.sessionManager);
-  const snap = rt.tokenStatsCache.get(events);
+  const snap = rt.tokenStatsCache.get(ctx.sessionManager);
   return {
     input: snap.input,
     output: snap.output,
@@ -30,8 +29,7 @@ function sessionTotals(rt: RuntimeState, ctx: any) {
 }
 
 export function buildTpsOverlayItems(rt: RuntimeState, ctx: any): SelectItem[] {
-  const events = rt.sessionBranchCache.get(ctx.sessionManager);
-  const snap = rt.tokenStatsCache.get(events);
+  const snap = rt.tokenStatsCache.get(ctx.sessionManager);
   const summary = summarizeTpsRing(
     tpsSamples,
     Date.now(),

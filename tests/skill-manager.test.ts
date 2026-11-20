@@ -78,10 +78,14 @@ test("showSkillManager ctrl+n resolves to new for the overlay flow", async () =>
 });
 
 test("showSkillManager keeps the overlay open when the catalog is empty", () => {
-  const source = readFileSync(
-    join(import.meta.dirname, "../src/extension/skills/skill-manager.ts"),
-    "utf8",
-  );
+  const source = [
+    "../src/extension/skills/skill-manager.ts",
+    "../src/extension/skills/skill-manager-view.ts",
+    "../src/extension/skills/skill-manager-input.ts",
+    "../src/extension/skills/skill-manager-utils.ts",
+  ]
+    .map((f) => readFileSync(join(import.meta.dirname, f), "utf8"))
+    .join("\n");
   assert.doesNotMatch(
     source,
     /if \(entries\.length === 0\)\s*\{\s*ctx\.ui\.notify\("No skills found", "info"\);\s*return null;/,
@@ -90,9 +94,13 @@ test("showSkillManager keeps the overlay open when the catalog is empty", () => 
 });
 
 test("skill-manager.ts routes ctrl+n into runSkillsNew", () => {
-  const source = readFileSync(
-    join(import.meta.dirname, "../src/extension/skills/skill-manager.ts"),
-    "utf8",
-  );
+  const source = [
+    "../src/extension/skills/skill-manager.ts",
+    "../src/extension/skills/skill-manager-view.ts",
+    "../src/extension/skills/skill-manager-input.ts",
+    "../src/extension/skills/skill-manager-utils.ts",
+  ]
+    .map((f) => readFileSync(join(import.meta.dirname, f), "utf8"))
+    .join("\n");
   assert.match(source, /result === "new"\) await runSkillsNew\(ctx, ""\)/);
 });

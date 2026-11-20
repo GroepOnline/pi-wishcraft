@@ -5,14 +5,12 @@ import { PRESETS } from "../../config/presets.ts";
 import { BashTranscriptStore } from "../../../bash-mode/transcript.ts";
 import { BashCompletionEngine } from "../../../bash-mode/completion.ts";
 import { PowerlineQueueStore } from "../../../queue/store.ts";
-import {
-  SessionBranchCache,
-  SessionTokenStatsCache,
-} from "../../usage/ledger.ts";
+import { SessionUsageCache } from "../../usage/ledger.ts";
 import { CoreContextUsageCache } from "../../usage/context.ts";
 import { createWelcomeDismissScheduler } from "../../welcome/auto-dismiss.ts";
 import { createRenderScheduler } from "../../render/timer.ts";
 import { MotionScheduler, policyFromEnvironment } from "../../motion/index.ts";
+import { createPowerlinePaint } from "../../motion/paint.ts";
 import { createSignalRuntime } from "../../signal/controller.ts";
 import {
   resolveShortcutConfig,
@@ -46,6 +44,7 @@ export let config: PowerlineConfig = {
   costAlert: null,
   customItemsAuto: false,
   queue: { captureSigil: "#", retentionHours: 24 },
+  workingVibes: {},
   segments: {},
   presets: {},
   segmentLabels: {},
@@ -102,7 +101,10 @@ export function createRuntimeState(
     footerDataRef: null,
     getThinkingLevelFn: null,
     currentThinkingLevel: null,
+    approximateContextUsage: null,
     liveAssistantUsage: null,
+    lastAssistantAt: null,
+    lastCompactionAt: null,
     isStreaming: false,
     tuiRef: null,
     rpcWidgetRefresh: null,
@@ -124,6 +126,7 @@ export function createRuntimeState(
     bashTranscript: new BashTranscriptStore(bashModeSettings),
     bashCompletionEngine: new BashCompletionEngine(),
     shellSession: null,
+    studioAbort: null,
     queueStore: new PowerlineQueueStore(),
     powerlineCompacting: false,
     deliverAfterRetrySettles: false,
@@ -131,14 +134,16 @@ export function createRuntimeState(
 
     lastLayoutWidth: 0,
     lastLayoutResult: null,
+    layoutParts: null,
+    railDirty: false,
     lastLayoutTimestamp: 0,
     layoutDirty: true,
     forceNextLayoutRecompute: false,
     lastEditorInputAt: 0,
 
-    sessionBranchCache: new SessionBranchCache(),
-    tokenStatsCache: new SessionTokenStatsCache(),
+    tokenStatsCache: new SessionUsageCache(),
     coreContextUsageCache: new CoreContextUsageCache(),
+    sessionUsageBaseline: null,
 
     resolvedShortcuts,
     bashModeSettings,
@@ -172,10 +177,18 @@ export function createRuntimeState(
   rt.motionScheduler = new MotionScheduler({
     requestRender: () => {
       // Motion only changes the Signal rail; segment data remains cached.
-      rt.lastLayoutResult = null;
+      rt.railDirty = true;
       rt.tuiRef?.requestRender();
       rt.rpcWidgetRefresh?.();
     },
+  });
+
+  rt.paint = createPowerlinePaint({
+    scheduler: rt.motionScheduler,
+    getStreaming: () => rt.isStreaming,
+    getThinkingLevel: () =>
+      rt.currentThinkingLevel ?? rt.getThinkingLevelFn?.() ?? null,
+    getPolicy: () => rt.motionPolicy,
   });
 
   return rt;

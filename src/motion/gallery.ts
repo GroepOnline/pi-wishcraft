@@ -89,10 +89,6 @@ export function previewStrip(
   return out;
 }
 
-export function motionIntervalMs(def: MotionDef): number {
-  return def.generator?.intervalMs ?? 100;
-}
-
 export function motionFrameCount(def: MotionDef): number {
   return framesOf(def).length;
 }

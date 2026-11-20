@@ -6,6 +6,8 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { dirname } from "node:path";
 
 import { getAgentPath } from "../paths/agent-dirs.ts";
+import { usageSparkline } from "./sparkline.ts";
+import { formatTokens } from "../tools/text.ts";
 
 export interface UsageTotals {
   input: number;
@@ -208,20 +210,7 @@ export function modelBreakdown(
     .sort((a, b) => b.tokens - a.tokens);
 }
 
-export function usageSparkline(values: readonly number[], width = 14): string {
-  if (values.length === 0) return "·".repeat(width);
-  const blocks = "▁▂▃▄▅▆▇█";
-  const max = Math.max(...values, 1);
-  const step = Math.max(1, Math.ceil(values.length / width));
-  let out = "";
-  for (let i = 0; i < values.length && out.length < width; i += step) {
-    const slice = values.slice(i, i + step);
-    const v = slice.reduce((a, b) => a + b, 0) / slice.length;
-    const idx = Math.min(blocks.length - 1, Math.floor((v / max) * (blocks.length - 1)));
-    out += blocks[idx];
-  }
-  return out.padEnd(width, "·");
-}
+export { usageSparkline } from "./sparkline.ts";
 
 function periodSummary(totals: UsageTotals): UsagePeriodSummary {
   return { ...totals, cacheHitPct: cacheHitPct(totals) };
@@ -271,13 +260,6 @@ function lastNDayTotals(file: UsageFile, now: number, days: number): UsageTotals
   return out;
 }
 
-function formatTokens(n: number): string {
-  if (n < 1000) return n.toString();
-  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
-  if (n < 1000000) return `${Math.round(n / 1000)}k`;
-  if (n < 10000000) return `${(n / 1000000).toFixed(1)}M`;
-  return `${Math.round(n / 1000000)}M`;
-}
 
 export function formatUsageOverlayLines(summary: UsageOverlaySummary): string[] {
   const line = (label: string, totals: UsagePeriodSummary) =>

@@ -17,7 +17,8 @@ import {
   validationProblem,
 } from "../../config/settings-registry.ts";
 import { tr } from "../../i18n/index.ts";
-import { isRecord, writeSettingKey } from "./settings-io.ts";
+import { isRecord } from "../../config/primitives.ts";
+import { writeSettingKey } from "./settings-io.ts";
 import type { ConfigItem, ConfigValue } from "./wishcraft-config-items.ts";
 
 /** Nested read: "wishcraft.hooksEnabled" → settings.wishcraft.hooksEnabled. */

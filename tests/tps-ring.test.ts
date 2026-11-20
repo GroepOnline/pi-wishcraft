@@ -155,9 +155,14 @@ test("the output EMA damps a single spike", () => {
     { at: 3000, output: 300, input: 0 },
   ];
   const rates = ratesFromRing(samples, 3000, { output: 300, input: 0 }, 1000);
-  assert.ok(rates.emaOutRate !== undefined);
-  assert.ok(rates.emaOutRate! < 200, `ema ${rates.emaOutRate} tracks the spike`);
-  assert.ok(rates.emaOutRate! > 100, `ema ${rates.emaOutRate} ignored the trend`);
+  assert.ok(rates.emaOutFast !== undefined);
+  assert.ok(rates.emaOutFast! < 200, `ema ${rates.emaOutFast} tracks the spike`);
+  assert.ok(rates.emaOutFast! > 100, `ema ${rates.emaOutFast} ignored the trend`);
+  assert.ok(
+    rates.emaOutSlow !== undefined &&
+      rates.emaOutSlow <= rates.emaOutFast,
+    "slow EMA damps the spike harder than fast",
+  );
 });
 
 test("the overlay shows ttft and ema only when they are measured", () => {

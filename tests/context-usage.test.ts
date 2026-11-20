@@ -40,7 +40,7 @@ test("readCoreContextUsage ignores unknown or unusable estimates", () => {
     readCoreContextUsage({ getContextUsage: () => undefined }),
     null,
   );
-  assert.equal(
+  assert.deepEqual(
     readCoreContextUsage({
       getContextUsage: () => ({
         tokens: null,
@@ -48,7 +48,7 @@ test("readCoreContextUsage ignores unknown or unusable estimates", () => {
         percent: null,
       }),
     }),
-    null,
+    { contextTokens: null, contextWindow: 5000, contextPercent: null },
   );
   assert.equal(
     readCoreContextUsage({

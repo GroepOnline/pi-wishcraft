@@ -5,11 +5,9 @@
  * ---------------------------------------------------------------------------
  */
 
+import { isRecord } from "../../config/primitives.ts";
 import type { PolicyRule } from "./policy-config.ts";
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 
 /** Text to match deny rules against (bash command or serialized input). */
 export function toolInputText(toolName: string, input: unknown): string {

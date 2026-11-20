@@ -5,6 +5,7 @@
  * ---------------------------------------------------------------------------
  */
 
+import { isRecord } from "../../config/primitives.ts";
 import type { StructuralPresetName } from "../../config/types.ts";
 import type { MotionEvent } from "../../motion/types.ts";
 import { isStructuralPresetName } from "../../config/structural-presets.ts";
@@ -18,7 +19,7 @@ import {
   type MotionLevel,
 } from "../../motion/accessibility.ts";
 import { parsePowerlineConfig } from "../../config/powerline-config.ts";
-import { isRecord, writePowerlineSetting } from "./settings-io.ts";
+import { writePowerlineSetting } from "./settings-io.ts";
 import { config, PRESET_NAMES, setConfig } from "../core/state.ts";
 import {
   requestImmediateStatusRender,

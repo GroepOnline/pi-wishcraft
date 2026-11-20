@@ -94,6 +94,10 @@ function runGit(args: string[], timeoutMs = 200): Promise<string | null> {
   return new Promise((resolve) => {
     const proc = spawn("git", args, {
       stdio: ["ignore", "pipe", "pipe"],
+      // Read-only probes must not refresh .git/index — a stray index.lock
+      // there races interactive git and bricks the repo (upstream #156/#180).
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+      windowsHide: true,
     });
 
     let stdout = "";

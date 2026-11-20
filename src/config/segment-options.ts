@@ -143,7 +143,9 @@ export function normalizeSegmentOptions(
     if (
       raw.cache_read.format === "tokens" ||
       raw.cache_read.format === "percent" ||
-      raw.cache_read.format === "both"
+      raw.cache_read.format === "both" ||
+      raw.cache_read.format === "request" ||
+      raw.cache_read.format === "session-request"
     ) {
       cacheRead.format = raw.cache_read.format;
     }

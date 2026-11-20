@@ -124,6 +124,21 @@ test("↓ walking nav never hands focus to a route list", () => {
   assert.match(body, /○ NAVIGATION/);
 });
 
+test("↓ walks past Ideas even with an empty idea list", () => {
+  const h = makeHarness("ideas");
+  // Empty queue (0 ideas): ↓ used to be swallowed here, stranding the
+  // cursor on Ideas — neither list movement nor nav walk worked.
+  h.component.handleInput(DOWN);
+  assert.match(h.frame(), /ACTIVE ROUTE: GUARDRAILS/);
+  // Nav mode with arrows keeps walking past Ideas too.
+  const h2 = makeHarness("ideas");
+  h2.component.handleInput(LEFT); // focus nav
+  h2.component.handleInput(DOWN);
+  assert.match(h2.frame(), /ACTIVE ROUTE: GUARDRAILS/);
+  h2.component.handleInput(UP);
+  assert.match(h2.frame(), /ACTIVE ROUTE: IDEAS/);
+});
+
 test("↑↓ moves the appearance cursor and clamps at the ends", () => {
   const h = makeHarness("appearance");
   const last = STRUCTURAL_PRESET_NAMES.length - 1;

@@ -15,6 +15,7 @@ import {
 } from "../src/config/powerline-config.ts";
 import { getSeparator } from "../src/theme/separators.ts";
 import { PRESETS } from "../src/config/presets.ts";
+import { renderCustomSegment } from "../src/segments/custom.ts";
 
 test("fixed custom preset is removed in favor of powerline.layout", () => {
   assert.equal("custom" in PRESETS, false);
@@ -299,6 +300,7 @@ test("mergeSegmentsWithCustomItems appends custom segment ids by position", () =
         id: "ci",
         statusKey: "ci",
         position: "left",
+        selfColorize: false,
         hideWhenMissing: true,
         excludeFromExtensionStatuses: true,
       },
@@ -306,6 +308,7 @@ test("mergeSegmentsWithCustomItems appends custom segment ids by position", () =
         id: "timer",
         statusKey: "timer",
         position: "right",
+        selfColorize: false,
         hideWhenMissing: true,
         excludeFromExtensionStatuses: true,
       },
@@ -313,6 +316,7 @@ test("mergeSegmentsWithCustomItems appends custom segment ids by position", () =
         id: "review",
         statusKey: "review",
         position: "secondary",
+        selfColorize: false,
         hideWhenMissing: true,
         excludeFromExtensionStatuses: true,
       },
@@ -340,6 +344,7 @@ test("mergeSegmentsWithCustomItems filters disabled segment ids", () => {
         id: "ci",
         statusKey: "ci",
         position: "left",
+        selfColorize: false,
         hideWhenMissing: true,
         excludeFromExtensionStatuses: true,
       },
@@ -347,6 +352,7 @@ test("mergeSegmentsWithCustomItems filters disabled segment ids", () => {
         id: "timer",
         statusKey: "timer",
         position: "right",
+        selfColorize: false,
         hideWhenMissing: true,
         excludeFromExtensionStatuses: true,
       },
@@ -354,6 +360,7 @@ test("mergeSegmentsWithCustomItems filters disabled segment ids", () => {
         id: "review",
         statusKey: "review",
         position: "secondary",
+        selfColorize: false,
         hideWhenMissing: true,
         excludeFromExtensionStatuses: true,
       },
@@ -379,6 +386,7 @@ test("mergeSegmentsWithCustomItems applies partial layout rows before disabled f
         id: "ci",
         statusKey: "ci",
         position: "right",
+        selfColorize: false,
         hideWhenMissing: true,
         excludeFromExtensionStatuses: true,
       },
@@ -386,6 +394,7 @@ test("mergeSegmentsWithCustomItems applies partial layout rows before disabled f
         id: "review",
         statusKey: "review",
         position: "secondary",
+        selfColorize: false,
         hideWhenMissing: true,
         excludeFromExtensionStatuses: true,
       },
@@ -493,7 +502,7 @@ test("deriveAutoCustomItems promotes unclaimed status keys as right segments", (
     ["stash", "stash ✓"],
   ]);
   const derived = deriveAutoCustomItems(
-    [{ id: "ci", statusKey: "ci", position: "right", hideWhenMissing: true, excludeFromExtensionStatuses: true }],
+    [{ id: "ci", statusKey: "ci", position: "right", selfColorize: false, hideWhenMissing: true, excludeFromExtensionStatuses: true }],
     statuses,
     true,
     new Set(["stash"]),
@@ -508,6 +517,7 @@ test("deriveAutoCustomItems promotes unclaimed status keys as right segments", (
     id: "chefbar",
     statusKey: "chefbar",
     position: "right",
+    selfColorize: false,
     hideWhenMissing: true,
     excludeFromExtensionStatuses: true,
   });
@@ -515,7 +525,7 @@ test("deriveAutoCustomItems promotes unclaimed status keys as right segments", (
 
 test("deriveAutoCustomItems is a no-op when auto is disabled", () => {
   const statuses = new Map<string, string>([["chefbar", "sync ok"]]);
-  const customItems = [{ id: "ci", statusKey: "ci", position: "right", hideWhenMissing: true, excludeFromExtensionStatuses: true }];
+  const customItems = [{ id: "ci", statusKey: "ci", position: "right", selfColorize: false, hideWhenMissing: true, excludeFromExtensionStatuses: true }];
 
   assert.deepEqual(
     deriveAutoCustomItems(customItems, statuses, false, new Set()),
@@ -529,6 +539,7 @@ test("collectHiddenExtensionStatusKeys includes default custom status keys", () 
       id: "ci",
       statusKey: "ci-status",
       position: "right",
+      selfColorize: false,
       hideWhenMissing: true,
       excludeFromExtensionStatuses: true,
     },
@@ -536,6 +547,7 @@ test("collectHiddenExtensionStatusKeys includes default custom status keys", () 
       id: "review",
       statusKey: "review",
       position: "secondary",
+      selfColorize: false,
       hideWhenMissing: true,
       excludeFromExtensionStatuses: false,
     },
@@ -556,6 +568,78 @@ test("normalizeExtensionStatusValue keeps notification-style statuses renderable
     normalizeExtensionStatusValue("[review] queued · "),
     "[review] queued",
   );
+});
+
+test("normalizeExtensionStatusValue preserves embedded ANSI when asked", () => {
+  const colored = "\x1b[32mok\x1b[0m";
+  assert.equal(normalizeExtensionStatusValue(colored), "\x1b[32mok");
+  assert.equal(normalizeExtensionStatusValue(colored, true), colored);
+  assert.equal(
+    normalizeExtensionStatusValue("\x1b[32mok\x1b[0m · ", true),
+    "\x1b[32mok\x1b[0m",
+  );
+});
+
+test("parsePowerlineConfig reads customItems selfColorize, defaulting off", () => {
+  const config = parsePowerlineConfig(
+    {
+      preset: "default",
+      customItems: [
+        { id: "ci", statusKey: "ci-status", selfColorize: true },
+        { id: "review" },
+      ],
+    },
+    ["default", "compact"],
+  );
+
+  assert.equal(config.customItems[0]?.selfColorize, true);
+  assert.equal(config.customItems[1]?.selfColorize, false);
+});
+
+test("selfColorize trusts embedded ANSI and skips the configured color wrap", () => {
+  const ctx = {
+    extensionStatuses: new Map([["ci-status", "\x1b[32mok\x1b[0m"]]),
+    customItemsById: new Map([
+      [
+        "ci",
+        {
+          id: "ci",
+          statusKey: "ci-status",
+          position: "right" as const,
+          color: "warning" as const,
+          selfColorize: true,
+          hideWhenMissing: true,
+          excludeFromExtensionStatuses: true,
+        },
+      ],
+    ]),
+    theme: { fg: (_color: string, text: string) => `<wrapped>${text}` },
+  };
+
+  const rendered = renderCustomSegment("custom:ci", ctx as never);
+  assert.equal(rendered.content, "\x1b[32mok\x1b[0m");
+
+  const wrapped = ctx.customItemsById.get("ci");
+  assert.ok(wrapped);
+  ctx.customItemsById.set("ci", { ...wrapped, selfColorize: false });
+  const repainted = renderCustomSegment("custom:ci", ctx as never);
+  assert.equal(repainted.content, "<wrapped>\x1b[32mok");
+});
+
+test("parsePowerlineConfig reads workingVibes.color", () => {
+  const config = parsePowerlineConfig(
+    { preset: "default", workingVibes: { color: "rainbow" } },
+    ["default", "compact"],
+  );
+  const unset = parsePowerlineConfig({ preset: "default" }, ["default"]);
+  const blank = parsePowerlineConfig(
+    { preset: "default", workingVibes: { color: "  " } },
+    ["default"],
+  );
+
+  assert.equal(config.workingVibes.color, "rainbow");
+  assert.deepEqual(unset.workingVibes, {});
+  assert.deepEqual(blank.workingVibes, {});
 });
 
 test("getNotificationExtensionStatuses skips promoted hidden status keys", () => {

@@ -57,6 +57,16 @@ export const PEER_SYMBOL_REQUIREMENTS: readonly PeerSymbolRequirement[] = [
   },
   {
     pkg: "@earendil-works/pi-coding-agent",
+    symbol: "estimateTokens",
+    usedBy: "post-compaction context estimate",
+  },
+  {
+    pkg: "@earendil-works/pi-coding-agent",
+    symbol: "sessionEntryToContextMessages",
+    usedBy: "post-compaction context estimate",
+  },
+  {
+    pkg: "@earendil-works/pi-coding-agent",
     symbol: "copyToClipboard",
     usedBy: "copy shortcuts and /vibe test",
   },

@@ -32,7 +32,23 @@ export const thinkingSegment: StatusLineSegment = {
     const content = `think:${label}`;
 
     if (level === "high" || level === "xhigh" || level === "max") {
-      return { content: color(ctx, "thinking", content), visible: true };
+      const highKey =
+        level === "high"
+          ? "thinkingHigh"
+          : level === "xhigh"
+            ? "thinkingXhigh"
+            : "thinkingMax";
+      // An explicit level-specific color wins; otherwise an explicitly set
+      // `colors.thinking` outranks the rainbow default for the high levels.
+      const levelColor = ctx.colors?.[highKey];
+      const thinkingColor = ctx.colors?.thinking;
+      const key =
+        levelColor !== undefined && levelColor !== "rainbow"
+          ? highKey
+          : thinkingColor !== undefined && thinkingColor !== "thinkingOff"
+            ? "thinking"
+            : highKey;
+      return { content: color(ctx, key, content), visible: true };
     }
 
     if (level === "minimal") {
@@ -278,9 +294,17 @@ export const openPortsSegment: StatusLineSegment = {
   render(ctx) {
     const includeUdp = ctx.options?.openPorts?.includeUdp === true;
     const host = ctx.options?.openPorts?.host;
-    const { total } = readPorts({ includeUdp, host });
-    const protocol = includeUdp ? "tcp+udp" : "tcp";
-    const text = total === null ? `? ${protocol}` : `${total} ${protocol}`;
+    const summary = readPorts({ includeUdp, host });
+    const tcp = summary.rows.filter((r) => r.proto === "tcp").length;
+    const udp = summary.rows.filter((r) => r.proto === "udp").length;
+    const text =
+      summary.total === null
+        ? includeUdp
+          ? "? tcp \u00b7 ? udp"
+          : "? tcp"
+        : includeUdp
+          ? `${tcp} tcp \u00b7 ${udp} udp`
+          : `${tcp} tcp`;
     return {
       content: withIcon(getIcons().ports, color(ctx, "queue", text)),
       visible: true,

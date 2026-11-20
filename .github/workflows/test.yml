@@ -84,6 +84,29 @@ jobs:
       - name: Circular dependency check
         run: bun run circular
 
+  file-size:
+    name: file-size
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/bun-setup
+      - name: Module size gate (450 lines, grandfathered splits pending)
+        run: bun run file-size
+
+  # Informational for now: the wave-2 arch-debt inventory found 66+ leaf-edge
+  # boundary violations, so this lane reports classes without gating. The
+  # script still runs in verify so a broken audit tool cannot fail silently.
+  boundaries:
+    name: boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/bun-setup
+      - name: Leaf-edge boundary report (informational)
+        run: bun run boundaries
+
   package-contract:
     name: package-contract
     runs-on: ubuntu-latest
@@ -114,6 +137,8 @@ jobs:
       - lint
       - test
       - circular
+      - file-size
+      - boundaries
       - package-contract
       - audit
     if: always()

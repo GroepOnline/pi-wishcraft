@@ -24,6 +24,7 @@ import {
 import { syncLocaleFromSettings, tr } from "../../i18n/index.ts";
 import { renderPowerlinePrimaryLines } from "../ui/status-line-renderers.ts";
 import { reloadPowerlineFromSettings } from "./appearance-write.ts";
+import { parseMotionSettings } from "../../motion/policy.ts";
 import {
   coerceConfigValue,
   displayValue,
@@ -136,6 +137,9 @@ export async function showWishcraftConfig(rt: RuntimeState, ctx: any): Promise<v
         groups = buildConfigGroups(settings);
         if (item.path.startsWith("powerline")) {
           reloadPowerlineFromSettings(rt, settings);
+        }
+        if (item.path.startsWith("wishcraft.motion")) {
+          rt.paint.setSettings(parseMotionSettings(settings.wishcraft));
         }
         ctx.ui.notify(
           ok

@@ -12,6 +12,8 @@
  * lives on the ring: nothing here keeps state beyond the samples themselves.
  */
 
+import { usageSparkline } from "./sparkline.ts";
+
 export interface TpsSample {
   at: number;
   output: number;
@@ -29,8 +31,12 @@ export interface TpsRates {
   /** Uncached prompt tokens per second; TTFT-based while a turn is active. */
   inRate: number;
   outRate: number;
-  /** EMA over the pairwise output rates — the steady-state estimate. */
-  emaOutRate?: number;
+  /** Continuous-time EMA over output rates — fast burst tracking (~0.8s tau). */
+  emaOutFast?: number;
+  /** Continuous-time EMA over output rates — steady baseline (~4s tau). */
+  emaOutSlow?: number;
+  /** Continuous-time EMA over input rates (~4s tau). */
+  emaIn?: number;
   /** Time to first token of the current turn; null when no turn is measured. */
   ttftMs?: number | null;
 }
@@ -42,6 +48,8 @@ export interface TpsSummary extends TpsRates {
   peakOut: number;
   avgIn: number;
   avgOut: number;
+  /** Output-rate series bucketed per ~500ms, newest last. */
+  spark: number[];
   samples: number;
 }
 
@@ -55,8 +63,15 @@ export const TPS_MAX_SAMPLES = 480;
 export const TPS_MIN_PAIRWISE_DT_MS = 80;
 /** Samples with identical counts closer together than this carry no signal. */
 const TPS_DEDUPE_MS = 40;
-/** Smoothing factor for the output EMA (0..1; higher = more reactive). */
-export const TPS_EMA_ALPHA = 0.32;
+/**
+ * Continuous-time EMA taus: alpha per observation is 1 − exp(−dtMs/tauMs),
+ * so a burst of rapid samples can't over- or under-weight versus sparse ones.
+ * Fast tracks the current burst; slow is the smoothed baseline.
+ */
+export const TPS_EMA_FAST_TAU_MS = 800;
+export const TPS_EMA_SLOW_TAU_MS = 4000;
+/** Sparkline bucket width for the TPS overlay rate series. */
+const TPS_SPARK_BUCKET_MS = 500;
 
 /** Live ring filled by stream events and the tps segment renderer. */
 export const tpsSamples: TpsSample[] = [];
@@ -139,14 +154,22 @@ function measureTurn(samples: readonly TpsSample[]): {
   return null;
 }
 
-/** Pairwise buckets for peak/average reporting. */
+interface RateObservation {
+  rate: number;
+  atMs: number;
+  dtMs: number;
+}
+
+/** Pairwise buckets for peak/average reporting and time-weighted EMAs. */
 function pairwiseRates(samples: readonly TpsSample[]): {
-  ins: number[];
-  outs: number[];
+  ins: RateObservation[];
+  outs: RateObservation[];
+  outsForEma: RateObservation[];
 } {
-  const ins: number[] = [];
-  const outs: number[] = [];
-  if (samples.length < 2) return { ins, outs };
+  const ins: RateObservation[] = [];
+  const outs: RateObservation[] = [];
+  const outsForEma: RateObservation[] = [];
+  if (samples.length < 2) return { ins, outs, outsForEma };
   let anchor = samples[0]!;
   for (let i = 1; i < samples.length; i++) {
     const cur = samples[i]!;
@@ -155,19 +178,36 @@ function pairwiseRates(samples: readonly TpsSample[]): {
     const dtSec = dtMs / 1000;
     const dOut = cur.output - anchor.output;
     const dIn = uncachedOf(cur) - uncachedOf(anchor);
-    if (dOut > 0) outs.push(dOut / dtSec);
-    if (dIn > 0) ins.push(dIn / dtSec);
+    if (dOut > 0) outs.push({ rate: dOut / dtSec, atMs: cur.at, dtMs });
+    // Silent intervals still carry real elapsed time — the EMA needs them to
+    // decay during a pause instead of holding the burst rate indefinitely.
+    outsForEma.push({
+      rate: Math.max(0, dOut) / dtSec,
+      atMs: cur.at,
+      dtMs,
+    });
+    if (dIn > 0) ins.push({ rate: dIn / dtSec, atMs: cur.at, dtMs });
     anchor = cur;
   }
-  return { ins, outs };
+  return { ins, outs, outsForEma };
 }
 
-/** EMA over the pairwise output rates; undefined when nothing was generated. */
-function emaOf(values: readonly number[]): number | undefined {
-  if (values.length === 0) return undefined;
-  let ema = values[0]!;
-  for (let i = 1; i < values.length; i++) {
-    ema = TPS_EMA_ALPHA * values[i]! + (1 - TPS_EMA_ALPHA) * ema;
+/**
+ * Continuous-time EMA over observations with real dt between them:
+ * alpha = 1 − exp(−dtMs/tauMs). Undefined when there is nothing to smooth.
+ */
+function emaOverTime(
+  observations: readonly RateObservation[],
+  tauMs: number,
+): number | undefined {
+  if (observations.length === 0) return undefined;
+  let ema = observations[0]!.rate;
+  for (let i = 1; i < observations.length; i++) {
+    const prev = observations[i - 1]!;
+    const curr = observations[i]!;
+    const elapsedMs = Math.max(1, curr.atMs - prev.atMs, curr.dtMs);
+    const alpha = 1 - Math.exp(-elapsedMs / tauMs);
+    ema = alpha * curr.rate + (1 - alpha) * ema;
   }
   return ema;
 }
@@ -224,18 +264,20 @@ export function ratesFromRing(
     inRate = processed > 0 ? processed / (ttftMs / 1000) : 0;
   }
 
-  const { outs } = pairwiseRates(samples);
+  const { ins, outsForEma } = pairwiseRates(samples);
   return {
     inRate,
     outRate,
-    emaOutRate: emaOf(outs),
+    emaOutFast: emaOverTime(outsForEma, TPS_EMA_FAST_TAU_MS),
+    emaOutSlow: emaOverTime(outsForEma, TPS_EMA_SLOW_TAU_MS),
+    emaIn: emaOverTime(ins, TPS_EMA_SLOW_TAU_MS),
     ttftMs,
   };
 }
 
-function avg(values: readonly number[]): number {
+function avgObs(values: readonly RateObservation[]): number {
   if (values.length === 0) return 0;
-  return values.reduce((a, b) => a + b, 0) / values.length;
+  return values.reduce((a, b) => a + b.rate, 0) / values.length;
 }
 
 export function summarizeTpsRing(
@@ -253,14 +295,67 @@ export function summarizeTpsRing(
     windowMs,
     inRate: rates.inRate,
     outRate: rates.outRate,
-    emaOutRate: rates.emaOutRate,
+    emaOutFast: rates.emaOutFast,
+    emaOutSlow: rates.emaOutSlow,
+    emaIn: rates.emaIn,
     ttftMs: rates.ttftMs,
-    peakIn: ins.length ? Math.max(...ins) : 0,
-    peakOut: outs.length ? Math.max(...outs) : 0,
-    avgIn: avg(ins),
-    avgOut: avg(outs),
+    peakIn: ins.length ? Math.max(...ins.map((o) => o.rate)) : 0,
+    peakOut: outs.length ? Math.max(...outs.map((o) => o.rate)) : 0,
+    avgIn: avgObs(ins),
+    avgOut: avgObs(outs),
     samples: samples.length,
+    spark: tpsRateSeries(outs, now),
   };
+}
+
+/** Output-rate series bucketed at the sparkline interval, newest last. */
+function tpsRateSeries(
+  outs: readonly RateObservation[],
+  nowMs?: number,
+): number[] {
+  if (outs.length === 0) return [];
+  const endMs = nowMs ?? outs[outs.length - 1]!.atMs;
+  const firstObsStartMs = Math.min(
+    ...outs.map((o) => o.atMs - Math.max(0, o.dtMs)),
+  );
+  const startMs = Math.max(firstObsStartMs, endMs - TPS_SPARK_BUCKET_MS * 40);
+  if (endMs <= startMs) return [outs[outs.length - 1]!.rate];
+
+  const bucketCount = Math.max(1, Math.ceil((endMs - startMs) / TPS_SPARK_BUCKET_MS));
+  const weightedSum = Array.from({ length: bucketCount }, () => 0);
+  const overlapWeight = Array.from({ length: bucketCount }, () => 0);
+
+  for (const obs of outs) {
+    const obsEnd = obs.atMs;
+    const obsStart = obs.atMs - Math.max(1, obs.dtMs);
+    if (obsEnd <= startMs || obsStart >= endMs) continue;
+
+    const clampedStart = Math.max(startMs, obsStart);
+    const clampedEnd = Math.min(endMs, obsEnd);
+    const firstBucket = Math.max(
+      0,
+      Math.floor((clampedStart - startMs) / TPS_SPARK_BUCKET_MS),
+    );
+    const lastBucket = Math.min(
+      bucketCount - 1,
+      Math.floor((clampedEnd - 1 - startMs) / TPS_SPARK_BUCKET_MS),
+    );
+
+    for (let b = firstBucket; b <= lastBucket; b++) {
+      const bStart = startMs + b * TPS_SPARK_BUCKET_MS;
+      const bEnd = Math.min(endMs, bStart + TPS_SPARK_BUCKET_MS);
+      const overlap =
+        Math.max(0, Math.min(clampedEnd, bEnd) - Math.max(clampedStart, bStart));
+      if (overlap > 0) {
+        weightedSum[b]! += obs.rate * overlap;
+        overlapWeight[b]! += overlap;
+      }
+    }
+  }
+
+  return weightedSum.map((sum, b) =>
+    overlapWeight[b]! > 0 ? sum / overlapWeight[b]! : 0,
+  );
 }
 
 export function formatTpsRate(rate: number): string {
@@ -277,11 +372,16 @@ export function tpsOverlayLines(summary: TpsSummary): string[] {
   const lines = [
     `window ${summary.windowMs}ms over ${TPS_MIN_RING_MS}ms ring`,
     `out  ${formatTpsRate(summary.outRate)}   peak ${formatTpsRate(summary.peakOut)}   avg ${formatTpsRate(summary.avgOut)}${
-      summary.emaOutRate === undefined
+      summary.emaOutFast === undefined
         ? ""
-        : `   ema ${formatTpsRate(summary.emaOutRate)}`
+        : `   ema ${formatTpsRate(summary.emaOutFast)}/${formatTpsRate(summary.emaOutSlow ?? 0)}`
     }`,
-    `in   ${formatTpsRate(summary.inRate)}   peak ${formatTpsRate(summary.peakIn)}   avg ${formatTpsRate(summary.avgIn)}`,
+    `in   ${formatTpsRate(summary.inRate)}   peak ${formatTpsRate(summary.peakIn)}   avg ${formatTpsRate(summary.avgIn)}${
+      summary.emaIn === undefined
+        ? ""
+        : `   ema ${formatTpsRate(summary.emaIn)}`
+    }`,
+    `spark ${usageSparkline(summary.spark)}`,
   ];
   if (summary.ttftMs !== null && summary.ttftMs !== undefined) {
     lines.push(`ttft ${Math.round(summary.ttftMs)}ms`);

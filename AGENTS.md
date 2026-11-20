@@ -48,6 +48,8 @@ bun run circular
 # → madge --circular src index.ts bash-mode queue
 ```
 
+Cycles are only half the rule — the other half is that `src/extension/` leaves never import sibling leaves directly (`leaf → core` is the designed direction). `bun run boundaries` audits those edges against the wave-2 violation classes; it is informational, not a gate.
+
 ## Key Directories
 
 | Directory | Purpose |
@@ -95,6 +97,12 @@ bun run check
 # Check for circular imports
 bun run circular
 
+# Module-size gate: fail on new files >450 lines, grandfathered files may not grow >10%
+bun run file-size
+
+# Leaf-edge boundary audit (informational; wave-2 violation classes)
+bun run boundaries
+
 # Full package contract verification (for publish preparation)
 bun run verify:package
 
@@ -128,7 +136,7 @@ scripts/github-release.sh
 ```
 
 CI workflows (`.github/workflows/`):
-- `test.yml` — parallel lanes (whitespace, typecheck, lint, test, circular, package-contract, audit) with a `verify` aggregator that keeps the required check name
+- `test.yml` — parallel lanes (whitespace, typecheck, lint, test, circular, file-size, boundaries, package-contract, audit) with a `verify` aggregator that keeps the required check name
 - `release.yml` — reuses test.yml, prepares release-candidate branch, publishes on tag, attaches `npm pack` + `SHA256SUMS`
 - `promote-release-candidate.yml` — promotes verified SHA to main, tags, dispatches publish
 
@@ -145,7 +153,7 @@ Release behavior:
 ### Module Structure
 
 - **No root-level monofiles**: implementation lives under `src/` by domain; `index.ts` is a barrel only
-- **Module size**: split files exceeding ~450 lines along domain boundaries
+- **Module size**: split files exceeding ~450 lines along domain boundaries — gated by `bun run file-size` (new violations fail; the 15 grandfathered files are pending splits and may not grow >10%)
 - **TypeScript**: `.ts` extensions on all imports (`allowImportingTsExtensions`), `node:`-prefixed builtins, strict mode, no build step
 - **Entry point**: `index.ts` re-exports `powerlineFooter` and shortcut helpers — keep it a barrel, no implementation
 

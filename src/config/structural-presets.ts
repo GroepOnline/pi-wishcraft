@@ -27,10 +27,6 @@ export function getStructuralPreset(name: StructuralPresetName): StructuralPrese
   return resolveAppearance(STRUCTURAL_PRESETS[name]);
 }
 
-export function getEffectivePreset(name: StructuralPresetName): StructuralPresetDef {
-  return getStructuralPreset(name);
-}
-
 /** Display name for a stored base, or the raw value when it is not structural. */
 export function appearanceDisplayName(name: string): string {
   return isStructuralPresetName(name) ? getStructuralPreset(name).displayName : name;

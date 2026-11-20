@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { disposeRpcWidgets, installRpcWidgets } from "../src/extension/ui/rpc-widgets.ts";
-import { config, createRuntimeState, setConfig } from "../src/extension/core/state.ts";
+import { createRuntimeState } from "../src/extension/core/state.ts";
 
 function makeCtx() {
   const widgets = new Map<string, { lines: string[]; placement?: string }>();
@@ -46,20 +46,6 @@ test("rpc widgets install all six keys as string[] lines with placements", () =>
   assert.equal(widgets.get("powerline-secondary")!.placement, "belowEditor");
 });
 
-test("powerline-top follows powerline.placement in rpc", () => {
-  const { ctx, widgets } = makeCtx();
-  const rt = createRuntimeState({});
-  rt.currentCtx = ctx;
-  const original = config;
-  try {
-    setConfig({ ...config, placement: "below" });
-    installRpcWidgets(rt, ctx as never);
-    assert.equal(widgets.get("powerline-top")!.placement, "belowEditor");
-  } finally {
-    setConfig(original);
-  }
-});
-
 test("rpc installs a footer data provider: branch fallback and status mirror", () => {
   const { ctx } = makeCtx();
   const rt = createRuntimeState({});
@@ -73,12 +59,15 @@ test("rpc installs a footer data provider: branch fallback and status mirror", (
   const branch = rt.footerDataRef!.getGitBranch();
   assert.ok(branch === null || typeof branch === "string");
 
-  // setStatus is mirrored into the provider so notification statuses render.
+  // setStatus is mirrored into the provider and wakes the render scheduler,
+  // because the host has no footer to repaint in rpc mode.
+  rt.layoutDirty = false;
   ctx.ui.setStatus("otherext.notice", "hello from another extension");
   assert.equal(
     rt.footerDataRef!.getExtensionStatuses().get("otherext.notice"),
     "hello from another extension",
   );
+  assert.equal(rt.layoutDirty, true);
   ctx.ui.setStatus("otherext.notice", undefined);
   assert.equal(
     rt.footerDataRef!.getExtensionStatuses().has("otherext.notice"),

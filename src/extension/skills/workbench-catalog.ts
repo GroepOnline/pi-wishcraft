@@ -54,7 +54,3 @@ export function loadWorkbenchSkills(cwd: string = process.cwd()): WorkbenchSkill
     workbenchSkillFromEntry(entry, inputs.usage, doctorByName, inputs.contents.get(entry.filePath)),
   );
 }
-
-export function doctorRowsBySkill(rows: readonly SkillDoctorRow[]): Map<string, SkillDoctorRow> {
-  return new Map(rows.map((row) => [row.skill, row]));
-}

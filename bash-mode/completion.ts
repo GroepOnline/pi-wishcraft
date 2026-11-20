@@ -246,6 +246,8 @@ function runGit(args: string[], cwd: string): string[] {
       cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+      windowsHide: true,
     });
     if (result.status !== 0 || !result.stdout) return [];
     return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);

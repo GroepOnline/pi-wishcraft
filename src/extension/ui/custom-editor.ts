@@ -45,6 +45,7 @@ import { installPowerlineWidgets } from "./powerline-widgets.ts";
 import {
   getPowerlineShortcutAction,
   isStashShortcutInput,
+  matchesCtrlSStashInput,
   runPowerlineShortcut,
   stashOrRestoreEditorText,
 } from "../shortcuts/shortcuts-router.ts";
@@ -253,6 +254,7 @@ export function setupCustomEditor(
             if (item) {
               editor.addToHistory?.(editor.getExpandedText().trim());
               editor.setText("");
+              rt.paint.noteText("");
             }
           } catch (error) {
             ctx.ui.notify(
@@ -276,6 +278,7 @@ export function setupCustomEditor(
         if (editorText === "/compact" || compactQueuedPrompt) {
           editor.addToHistory?.(editorText);
           editor.setText("");
+          rt.paint.noteText("");
           if (compactQueuedPrompt) {
             capturePostCompactPrompt(rt, ctx, compactQueuedPrompt);
           }
@@ -306,12 +309,13 @@ export function setupCustomEditor(
         }
         editor.addToHistory?.(text);
         editor.setText("");
+        rt.paint.noteText("");
         capturePostCompactPrompt(rt, ctx, text);
         scheduleDismissWelcome(rt, ctx);
         return;
       }
 
-      if (isStashShortcutInput(data)) {
+      if (isStashShortcutInput(data) || matchesCtrlSStashInput(data)) {
         stashOrRestoreEditorText(rt, ctx);
         scheduleDismissWelcome(rt, ctx);
         return;
@@ -335,6 +339,9 @@ export function setupCustomEditor(
       attachAutocompleteProvider();
       scheduleDismissWelcome(rt, ctx);
       originalHandleInput(data);
+      if (!rt.bashModeActive) {
+        rt.paint.noteText(editor.getExpandedText());
+      }
     };
 
     const originalRender = editor.render.bind(editor);

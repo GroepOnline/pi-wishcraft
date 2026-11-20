@@ -1,4 +1,4 @@
-import { runAdvice, type RunAdviceOptions, type AdviseStreamProvider } from "./advise/engine.ts";
+import { runAdvice, type RunAdviceOptions, type RunAdviceResult, type AdviseStreamProvider } from "./advise/engine.ts";
 
 export type AdvicePaneState = "idle" | "running" | "ok" | "unavailable";
 
@@ -18,29 +18,47 @@ export interface AdvicePaneCallbacks {
 }
 
 export function createAdvicePane(): AdvicePane {
+  let runSeq = 0;
   const pane: AdvicePane = {
     state: "idle",
     text: "",
     error: null,
     async run(opts) {
+      const seq = ++runSeq;
       pane.state = "running";
       pane.text = "";
       pane.error = null;
-      const result = await runAdvice({
-        mode: opts.mode,
-        skillName: opts.skillName,
-        body: opts.body,
-        references: opts.references,
-        wiki: opts.wiki,
-        maxChars: opts.maxChars,
-        provider: opts.provider,
-        model: opts.model,
-        signal: opts.signal,
-        onChunk: (delta) => {
-          pane.text += delta;
-          opts.callbacks?.onChunk?.(delta);
-        },
-      });
+      let result: RunAdviceResult;
+      try {
+        result = await runAdvice({
+          mode: opts.mode,
+          skillName: opts.skillName,
+          body: opts.body,
+          references: opts.references,
+          wiki: opts.wiki,
+          maxChars: opts.maxChars,
+          provider: opts.provider,
+          model: opts.model,
+          signal: opts.signal,
+          onChunk: (delta) => {
+            if (seq !== runSeq) return;
+            pane.text += delta;
+            opts.callbacks?.onChunk?.(delta);
+          },
+        });
+      } catch (err) {
+        // Same guard on the error path: a superseded run's failure must
+        // not surface over (or rewrite) the newer run's state. The live
+        // run still reports the failure and rethrows so callers keep
+        // their existing error surface.
+        if (seq !== runSeq) return;
+        pane.state = "unavailable";
+        pane.error = err instanceof Error ? err.message : String(err);
+        throw err;
+      }
+      // A newer run started while this one was in flight — its verdict
+      // (or text chunks) must not overwrite the fresh state.
+      if (seq !== runSeq) return;
       if (result.kind === "ok") {
         pane.state = "ok";
         pane.error = null;
@@ -50,6 +68,7 @@ export function createAdvicePane(): AdvicePane {
       }
     },
     reset() {
+      runSeq++;
       pane.state = "idle";
       pane.text = "";
       pane.error = null;

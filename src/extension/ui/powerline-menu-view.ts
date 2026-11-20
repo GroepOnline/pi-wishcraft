@@ -56,17 +56,6 @@ async function activatePowerlineMenuAction(
   }
 }
 
-import { openWishcraftDeck } from "./deck/index.ts";
-
-/** Main powerline / Wishcraft Deck menu: opens the Deck on Alt+P */
-export async function showPowerlineMainMenu(
-  rt: RuntimeState,
-  ctx: any,
-): Promise<void> {
-  rt.currentCtx = ctx;
-  await openWishcraftDeck(rt, ctx, "home");
-}
-
 /** Classic Navigate / Configure / Status overlays (`/signal menu`). */
 export async function showPowerlineClassicMenu(
   rt: RuntimeState,

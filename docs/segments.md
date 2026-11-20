@@ -5,7 +5,7 @@
 `preset: "chef"` is the GroepOnline fork's default look: muted colors (no rainbow), slash separators, and two extra right-side segments:
 
 - `tps`: live tokens/sec over a rolling 1-second window (EMA-free, no spikes), reporting **output and input** rates separately (`⇡out ⇣in`) so you can see generation speed and incoming prompt tokens at a glance. It shows `--` until two live samples exist, rather than pretending an idle session runs at zero. Set `segmentOptions.tps.mode` to `both`, `out`, or `in`; override with `POWERLINE_TPS` when needed.
-- `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6) rendered as `21 tcp`. Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral), rendered as `tcp+udp`. The count is probed **in the background** and cached for 5s, so painting the bar never waits on `ss`; it shows `?` until the first probe lands.
+- `open_ports`: count of unique **TCP** listening ports (`ss` → `netstat` → `/proc/net` fallback, dedupes IPv4/IPv6) rendered as `21 tcp`. Set `segmentOptions.openPorts.includeUdp: true` to include noisy UDP (mDNS/DHCP/ephemeral), rendered as `21 tcp · 4 udp` so the two protocols stay separate. The count is probed **in the background** and cached for 5s, so painting the bar never waits on `ss`; it shows `?` until the first probe lands.
 - `budget`: daily token-budget usage (`budget 62% ▓▓▓▓░░░░`) when `wishcraft.tokenBudget.daily.limit` is configured. Warns through the same threshold colors as the cost segment.
 
 ### Open ports: one probe, one parser, three surfaces
@@ -14,7 +14,7 @@ Every surface reads the **same async probe and the same parse** (`src/segments/p
 
 | Surface | How | Shows |
 |---|---|---|
-| `open_ports` segment | reads the shared cache, schedules a background refresh | `21 tcp` / `21 tcp+udp`, `?` until the first probe lands or when unreachable |
+| `open_ports` segment | reads the shared cache, schedules a background refresh | `21 tcp` / `21 tcp · 4 udp`, `?` until the first probe lands or when unreachable |
 | Segment detail (`/signal menu` → Navigate → `open_ports` → `→`) | reads the shared cache, rebuilds when a probe completes | `tcp:3000 → node (12345)` |
 | `alt+i` and Deck → **Ports** (`g p`) | awaits the shared probe (5s cache) | aligned `PROTO PORT ADDRESS OWNER` table + summary |
 

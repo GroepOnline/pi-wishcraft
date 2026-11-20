@@ -1,3 +1,5 @@
+import { clamp01 } from "../tools/num.ts";
+
 export interface AnsiColors {
   getBgAnsi(r: number, g: number, b: number): string;
   getFgAnsi(r: number, g: number, b: number): string;
@@ -105,7 +107,7 @@ export function fgGradientCode(
   t: number,
 ): string {
   if (!colorEnabled()) return "";
-  const clamped = t < 0 ? 0 : t > 1 ? 1 : t;
+  const clamped = clamp01(t);
   const a = paletteRgb(from);
   const b = paletteRgb(to);
   return ansi.getFgAnsi(
@@ -233,7 +235,7 @@ export function motionRampPalette(hotToken: ColorName, trackToken: ColorName): M
  */
 export function motionRampCode(ramp: MotionRampPalette, t: number): string {
   if (!colorEnabled()) return "";
-  const clamped = t < 0 ? 0 : t > 1 ? 1 : t;
+  const clamped = clamp01(t);
   const stops: Array<[number, Rgb]> = [
     [0, ramp.hot],
     [0.45, ramp.warm],
@@ -261,7 +263,7 @@ export function motionRampCode(ramp: MotionRampPalette, t: number): string {
  * gently — the wake reads as cooling embers rather than a sawtooth ramp.
  */
 export function glowFalloff(t: number): number {
-  const clamped = t < 0 ? 0 : t > 1 ? 1 : t;
+  const clamped = clamp01(t);
   return 1 - (1 - clamped) ** 2.2;
 }
 

@@ -8,6 +8,7 @@ import {
   isRecord,
   normalizeCaptureSigil,
   normalizeCostAlert,
+  normalizeCustomColor,
   normalizePlacement,
   normalizePreset,
   normalizeRetentionHours,
@@ -18,6 +19,7 @@ import { normalizeDisabledSegments, normalizeLayout } from "./segment-ids.ts";
 import { normalizeSegmentOptions, mergeSegmentOptionSources } from "./segment-options.ts";
 import type {
   AppearanceMixConfig,
+  ColorValue,
   CustomSegmentConfig,
   CustomStatusItem,
   PowerlinePlacement,
@@ -49,6 +51,8 @@ export interface PowerlineConfig {
   /** Auto-promote live extension status keys into `custom:<key>` segments. */
   customItemsAuto: boolean;
   queue: { captureSigil: string | false; retentionHours: number };
+  /** Color for generated working-vibe messages (theme color, hex, or "rainbow"). */
+  workingVibes: { color?: ColorValue };
   /** User-defined computed segments (command/env/static), keyed by id */
   segments: Record<string, CustomSegmentConfig>;
   /** User-defined presets, keyed by name */
@@ -81,6 +85,7 @@ export function parsePowerlineConfig(
     costAlert: null,
     customItemsAuto: false,
     queue: { captureSigil: "#", retentionHours: 24 },
+    workingVibes: {},
     segments: {},
     presets: {},
     segmentLabels: {},
@@ -114,6 +119,9 @@ export function parsePowerlineConfig(
         retentionHours: normalizeRetentionHours(value.queue.retentionHours),
       }
     : defaultConfig.queue;
+  const workingVibeColor = isRecord(value.workingVibes)
+    ? normalizeCustomColor(value.workingVibes.color)
+    : undefined;
   const customItemIds = new Set(customItems.map((item) => item.id));
   const customPresetDefs = normalizeCustomPresets(
     value.presets,
@@ -149,6 +157,7 @@ export function parsePowerlineConfig(
       normalizeCustomItemsAuto(value.customItems) ||
       value.customItemsAuto === true,
     queue,
+    workingVibes: workingVibeColor ? { color: workingVibeColor } : {},
     segments: customSegments,
     presets: customPresetDefs,
     segmentLabels: normalizeSegmentLabels(value.segmentLabels),

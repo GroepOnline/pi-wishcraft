@@ -1,5 +1,5 @@
 import { tr } from "../../i18n/index.ts";
-import { formatTokens } from "../format.ts";
+import { formatTokens } from "../../tools/text.ts";
 import type { WelcomeWidget, WidgetRenderContext } from "../types.ts";
 
 export const SystemWidget: WelcomeWidget = {

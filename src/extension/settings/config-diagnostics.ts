@@ -12,13 +12,13 @@
  * ---------------------------------------------------------------------------
  */
 
+import { editDistanceWithin } from "../../tools/text.ts";
 import { existsSync, readFileSync, statSync } from "node:fs";
 
 import {
   SETTING_GROUPS,
   SETTINGS_REGISTRY,
   effectiveSettingValue,
-  explainSettingValue,
   settingGroupTitle,
   settingLabel,
   validationProblem,
@@ -29,8 +29,8 @@ import { tr } from "../../i18n/index.ts";
 import {
   getProjectSettingsPath,
   getSettingsPath,
-  isRecord,
 } from "./settings-io.ts";
+import { isRecord } from "../../config/primitives.ts";
 
 export type DiagnosticSeverity = "ok" | "warn" | "fail";
 
@@ -216,21 +216,6 @@ function flattenManagedLeaves(
 }
 
 /** Levenshtein distance capped at 2 — only used for "did you mean" hints. */
-function editDistanceAtMost2(a: string, b: string): boolean {
-  if (a === b) return true;
-  if (Math.abs(a.length - b.length) > 2) return false;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const curr = [i];
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost);
-    }
-    if (Math.min(...curr) > 2) return false;
-    prev = curr;
-  }
-  return prev[b.length]! <= 2;
-}
 
 function knownKeysFor(root: string): string[] {
   const known = new Set<string>();
@@ -262,7 +247,7 @@ function detectUnknownKeys(
     const known = knownKeysFor(root);
     for (const key of Object.keys(subtree)) {
       if (known.includes(key)) continue;
-      const near = known.find((candidate) => editDistanceAtMost2(candidate, key));
+      const near = known.find((candidate) => editDistanceWithin(candidate, key, 2));
       found.push({
         scope,
         path: `${root}.${key}`,
@@ -504,9 +489,3 @@ export function invalidateConfigDiagnosticsCache(): void {
 }
 
 /** Whether a stored value survives validation for this definition. */
-export function isStoredValueValid(
-  definition: SettingDefinition,
-  stored: unknown,
-): boolean {
-  return explainSettingValue(definition, stored).ok;
-}
