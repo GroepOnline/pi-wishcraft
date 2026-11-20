@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { disposeRpcWidgets, installRpcWidgets } from "../src/extension/ui/rpc-widgets.ts";
-import { createRuntimeState } from "../src/extension/core/state.ts";
+import { config, createRuntimeState, setConfig } from "../src/extension/core/state.ts";
 
 function makeCtx() {
   const widgets = new Map<string, { lines: string[]; placement?: string }>();
@@ -44,6 +44,20 @@ test("rpc widgets install all six keys as string[] lines with placements", () =>
   }
   assert.equal(widgets.get("powerline-status")!.placement, "aboveEditor");
   assert.equal(widgets.get("powerline-secondary")!.placement, "belowEditor");
+});
+
+test("powerline-top follows powerline.placement in rpc", () => {
+  const { ctx, widgets } = makeCtx();
+  const rt = createRuntimeState({});
+  rt.currentCtx = ctx;
+  const original = config;
+  try {
+    setConfig({ ...config, placement: "below" });
+    installRpcWidgets(rt, ctx as never);
+    assert.equal(widgets.get("powerline-top")!.placement, "belowEditor");
+  } finally {
+    setConfig(original);
+  }
 });
 
 test("rpc installs a footer data provider: branch fallback and status mirror", () => {

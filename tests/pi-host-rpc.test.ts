@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -95,41 +95,75 @@ function probeActivation(timeoutMs = 30_000): Promise<ActivationProbe> {
     let stdout = "";
     let stderr = "";
     let settled = false;
+    let drainTimer: NodeJS.Timeout | null = null;
+    let response: { commands: { name: string; source: string }[] } | null =
+      null;
 
-    const finish = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
+    const cleanupAgentDir = () => {
+      try {
+        rmSync(agentDir, { recursive: true, force: true });
+      } catch {
+        // Best-effort cleanup; the temp dir is not part of the assertion.
+      }
+    };
+
+    const stopChild = () => {
       try {
         child.stdin.end();
       } catch {
         // stdin may already be closed if the host exited first.
       }
       child.kill();
-      fn();
+    };
+
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (drainTimer) clearTimeout(drainTimer);
+      stopChild();
+      cleanupAgentDir();
+      reject(error);
+    };
+
+    const succeed = () => {
+      if (settled || response === null) return;
+      settled = true;
+      clearTimeout(timer);
+      if (drainTimer) clearTimeout(drainTimer);
+      stopChild();
+      cleanupAgentDir();
+      resolve({
+        commands: response.commands,
+        widgets: [...widgets],
+        statuses: [...statuses],
+        corruptLines,
+      });
     };
 
     const timer = setTimeout(() => {
-      finish(() =>
-        reject(
-          new Error(
-            `pi host RPC probe timed out after ${timeoutMs}ms.\nstderr:\n${stderr}`,
-          ),
+      fail(
+        new Error(
+          `pi host RPC probe timed out after ${timeoutMs}ms.\nstderr:\n${stderr}`,
         ),
       );
     }, timeoutMs);
 
-    child.on("error", (err) => finish(() => reject(err)));
+    child.on("error", (err) => fail(err));
 
     // A write after the host has exited is reported by the close handler.
     child.stdin.on("error", () => {});
 
     child.on("close", (code) => {
-      finish(() =>
-        reject(
-          new Error(
-            `pi host exited with code ${code} before answering get_commands.\nstderr:\n${stderr}`,
-          ),
+      if (response !== null) {
+        // Stdin was already ended after get_commands; this is the clean
+        // shutdown that flushes any remaining stdout records.
+        succeed();
+        return;
+      }
+      fail(
+        new Error(
+          `pi host exited with code ${code} before answering get_commands.\nstderr:\n${stderr}`,
         ),
       );
     });
@@ -164,23 +198,22 @@ function probeActivation(timeoutMs = 30_000): Promise<ActivationProbe> {
         }
         if (msg.type === "response" && msg.command === "get_commands") {
           if (msg.success !== true) {
-            finish(() =>
-              reject(new Error(`get_commands failed: ${String(msg.error)}`)),
-            );
+            fail(new Error(`get_commands failed: ${String(msg.error)}`));
             return;
           }
-          const data = msg.data as {
+          response = msg.data as {
             commands: { name: string; source: string }[];
           };
-          finish(() =>
-            resolve({
-              commands: data.commands,
-              widgets: [...widgets],
-              statuses: [...statuses],
-              corruptLines,
-            }),
-          );
-          return;
+          // End stdin and let the host close so records emitted after the
+          // response are still parsed; the corrupt-line assertion must not
+          // stop at the first answer. A short grace period bounds a host
+          // that does not exit on stdin EOF.
+          try {
+            child.stdin.end();
+          } catch {
+            // Host already gone; the close handler settles the probe.
+          }
+          if (drainTimer === null) drainTimer = setTimeout(succeed, 2_000);
         }
       }
     });
