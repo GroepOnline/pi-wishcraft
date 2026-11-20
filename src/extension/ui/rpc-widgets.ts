@@ -14,8 +14,10 @@
  * git-update bus like the footer does.
  */
 
-import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
+import type {
+  ReadonlyFooterDataProvider,
+  Theme,
+} from "@earendil-works/pi-coding-agent";
 
 import { getCurrentBranch, subscribeGitUpdates } from "../../git/status.ts";
 import { subscribePortsUpdates } from "../../segments/ports.ts";
@@ -147,7 +149,7 @@ export function installRpcWidgets(rt: RuntimeState, ctx: RpcCtx): void {
 
   const theme = ctx.ui.theme;
   const push = () => {
-    if (rt.currentCtx == null) return;
+    if (!rt.enabled || rt.currentCtx == null) return;
     const width = widgetWidth();
     for (const widget of rpcWidgets()) {
       try {
