@@ -169,7 +169,7 @@ export function registerSessionLifecycle(
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("stash", undefined);
-      bindSkillsCountPublisher(ctx);
+      if (!rt.enabled || ctx.mode !== "rpc") bindSkillsCountPublisher(ctx);
       const pendingIdeas = rt.queueStore
         .activeItems(getQueueContext(ctx))
         .filter((item) => item.intent === "idea").length;
@@ -187,10 +187,9 @@ export function registerSessionLifecycle(
 
     if (rt.enabled && ctx.hasUI) {
       if (ctx.mode === "rpc") {
-        // In rpc mode component factories, custom overlays, the editor and
-        // footer/header are all no-ops; widgets only cross the wire as
-        // string[] lines. `ctx.hasUI` is still true, so gate on the mode.
+        // RPC hosts ignore component factories, so use string[] widgets.
         installRpcWidgets(rt, ctx);
+        bindSkillsCountPublisher(ctx);
         if (shouldShowStartupWelcome(event.reason, config.welcome)) {
           ctx.ui.notify(
             `Wishcraft cockpit active (preset: ${config.preset})`,

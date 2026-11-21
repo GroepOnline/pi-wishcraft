@@ -55,9 +55,21 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
         // Toggle
         rt.enabled = !rt.enabled;
         if (rt.enabled) {
-          setupCustomEditor(pi, rt, ctx);
+          if (ctx.mode === "rpc") {
+            const { installRpcWidgets } = await import("../ui/rpc-widgets.ts");
+            const { bindSkillsCountPublisher } =
+              await import("../skills/skill-status.ts");
+            installRpcWidgets(rt, ctx);
+            bindSkillsCountPublisher(ctx);
+          } else {
+            setupCustomEditor(pi, rt, ctx);
+          }
           ctx.ui.notify("Signal enabled", "info");
         } else {
+          if (ctx.mode === "rpc") {
+            const { disposeRpcWidgets } = await import("../ui/rpc-widgets.ts");
+            disposeRpcWidgets();
+          }
           settleSignal(rt);
           rt.shellSession?.dispose();
           rt.shellSession = null;
@@ -128,7 +140,10 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
               ? "below"
               : "above";
         config.invalidPlacement = null;
-        if (rt.enabled && ctx.hasUI) setupCustomEditor(pi, rt, ctx);
+        if (rt.enabled && ctx.hasUI) {
+          if (ctx.mode === "rpc") rt.rpcWidgetRefresh?.();
+          else setupCustomEditor(pi, rt, ctx);
+        }
 
         if (
           writePowerlineOptionSetting(
@@ -156,7 +171,8 @@ export function registerCommands(pi: ExtensionAPI, rt: RuntimeState): void {
         publishPowerlineStatuses(ctx, { preset });
         resetLayoutCache(rt);
         if (rt.enabled) {
-          setupCustomEditor(pi, rt, ctx);
+          if (ctx.mode === "rpc") rt.rpcWidgetRefresh?.();
+          else setupCustomEditor(pi, rt, ctx);
         }
 
         const persisted = writePowerlinePresetSetting(preset, ctx.cwd);

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 
 import { disposeRpcWidgets, installRpcWidgets } from "../src/extension/ui/rpc-widgets.ts";
 import { createRuntimeState } from "../src/extension/core/state.ts";
@@ -7,10 +8,14 @@ import { createRuntimeState } from "../src/extension/core/state.ts";
 function makeCtx() {
   const widgets = new Map<string, { lines: string[]; placement?: string }>();
   const statuses = new Map<string, string>();
+  let widgetCalls = 0;
   const ctx = {
     ui: {
-      theme: {},
+      theme: {
+        fg: (_color: string, text: string) => text,
+      },
       setWidget(key: string, lines: string[], opts?: { placement?: string }) {
+        widgetCalls++;
         widgets.set(key, { lines, placement: opts?.placement });
       },
       setStatus(key: string, text: string | undefined) {
@@ -19,7 +24,7 @@ function makeCtx() {
       },
     },
   };
-  return { ctx, widgets, statuses };
+  return { ctx, widgets, statuses, widgetCallCount: () => widgetCalls };
 }
 
 test.afterEach(() => disposeRpcWidgets());
@@ -46,7 +51,7 @@ test("rpc widgets install all six keys as string[] lines with placements", () =>
   assert.equal(widgets.get("powerline-secondary")!.placement, "belowEditor");
 });
 
-test("rpc installs a footer data provider: branch fallback and status mirror", () => {
+test("rpc installs a footer data provider: branch fallback and status mirror", async () => {
   const { ctx } = makeCtx();
   const rt = createRuntimeState({});
   rt.currentCtx = ctx;
@@ -56,8 +61,22 @@ test("rpc installs a footer data provider: branch fallback and status mirror", (
   assert.ok(rt.footerDataRef!.getExtensionStatuses() instanceof Map);
   assert.equal(rt.footerDataRef!.getAvailableProviderCount(), 0);
   // Branch read goes through our own git-status cache, not a TUI footer.
-  const branch = rt.footerDataRef!.getGitBranch();
-  assert.ok(branch === null || typeof branch === "string");
+  const branchName = execFileSync("git", ["branch", "--show-current"], {
+    encoding: "utf8",
+  }).trim();
+  const expectedBranch =
+    branchName ||
+    `${execFileSync("git", ["rev-parse", "--short", "HEAD"], {
+      encoding: "utf8",
+    }).trim()} (detached)`;
+  const deadline = Date.now() + 1_000;
+  while (
+    rt.footerDataRef!.getGitBranch() !== expectedBranch &&
+    Date.now() < deadline
+  ) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(rt.footerDataRef!.getGitBranch(), expectedBranch);
 
   // setStatus is mirrored into the provider and wakes the render scheduler,
   // because the host has no footer to repaint in rpc mode.
@@ -99,6 +118,19 @@ test("rpc widget refresh is a no-op after the session ctx is gone", () => {
   rt.currentCtx = null;
   rt.rpcWidgetRefresh!();
   assert.strictEqual(widgets.get("powerline-top")!.lines, snapshot);
+});
+
+test("rpc widget refresh does not publish after Signal is disabled", () => {
+  const { ctx, widgetCallCount } = makeCtx();
+  const rt = createRuntimeState({});
+  rt.currentCtx = ctx;
+  installRpcWidgets(rt, ctx as never);
+  const installedCalls = widgetCallCount();
+
+  rt.enabled = false;
+  rt.rpcWidgetRefresh!();
+
+  assert.equal(widgetCallCount(), installedCalls);
 });
 
 test("dispose tears down the provider, refresh hook and status mirror", () => {
