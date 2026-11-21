@@ -76,7 +76,8 @@
     "preview": "bun scripts/preview.mjs",
     "verify:pi-package": "bun scripts/verify-pi-package-contract.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
-    "test:integration": "node --experimental-strip-types --test tests/pi-host-rpc.test.ts"
+    "test:integration": "node --experimental-strip-types --test tests/pi-host-rpc.test.ts",
+    "prepare": "husky"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
@@ -88,8 +89,11 @@
     "@earendil-works/pi-coding-agent": "^1.5.0",
     "@earendil-works/pi-tui": "^1.5.0",
     "@types/node": "24.13.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.1",
     "madge": "^8.0.0",
     "oxlint": "^1.91.0",
+    "prettier": "^3.10.1",
     "typescript": "5.9.3"
   },
   "pi": {
