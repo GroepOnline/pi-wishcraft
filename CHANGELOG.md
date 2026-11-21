@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-11-21
+
 ### Fixed
 - RPC mode now mirrors the initial skills count, refreshes widget lines after placement and preset changes, and disposes refresh subscriptions when Signal is disabled. The host probe waits for child close and flags unterminated stdout as protocol corruption.
 
